@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.master.sgItemClass.SRM_030_Mapper">
+
+    <select id="listClassItemStatus" parameterType="hashmap" resultType="hashMap">
+        SELECT DISTINCT CASE WHEN #{ITEM_CLS_NUM} = '1' THEN ITEM_CLS1 
+                    WHEN #{ITEM_CLS_NUM} = '2' THEN ITEM_CLS2
+                    WHEN #{ITEM_CLS_NUM} = '3' THEN ITEM_CLS3
+                    ELSE ITEM_CLS4 END AS "value"
+             , ITEM_CLS_NM AS "text"
+        FROM STOCMTCA   
+        WHERE  GATE_CD = #{ses.gateCd}
+            AND DEL_FLAG = '0'
+        <if test="ITEM_CLS_NUM == 1">
+             AND  ITEM_CLS_TYPE = 'C1'
+        </if>
+        <if test="ITEM_CLS_NUM == 2">
+             AND ITEM_CLS_TYPE = 'C2'
+        </if>
+        <if test="ITEM_CLS_NUM == 3">
+             AND  ITEM_CLS_TYPE = 'C3'
+        </if> 
+        <if test="ITEM_CLS_NUM == 4">
+             AND ITEM_CLS_TYPE = 'C4'
+        </if>
+        ORDER BY ITEM_CLS_NM    
+     </select>
+     
+     
+     
+     
+    <select id="doSearchSgItemClassMapping" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+            T.*
+            ,T.SG_CLS_NM1 || (CASE WHEN T.SG_CLS_NM1 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.SG_CLS_NM2 || (CASE WHEN T.SG_CLS_NM2 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.SG_CLS_NM3 || (CASE WHEN T.SG_CLS_NM3 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.SG_CLS_NM4 AS SG_CLS_PATH
+            , T.ITEM_CLS_NM1 || (CASE WHEN T.ITEM_CLS_NM1 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.ITEM_CLS_NM2 || (CASE WHEN T.ITEM_CLS_NM2 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.ITEM_CLS_NM3 || (CASE WHEN T.ITEM_CLS_NM3 IS NOT NULL THEN ' > ' ELSE NULL END) ||
+            T.ITEM_CLS_NM4 AS ITEM_CLS_PATH
+            ,'Y' AS INSERT_FLAG
+            ,T.ITEM_CLS1 AS P_ITEM_CLS1
+            ,T.ITEM_CLS2 AS P_ITEM_CLS2
+            ,T.ITEM_CLS3 AS P_ITEM_CLS3
+            ,T.ITEM_CLS4 AS P_ITEM_CLS4
+            ,T.ITEM_CLS4 AS P_ITEM_CLS4
+            ,T.SG_NUM AS P_SG_NUM
+        FROM(
+            SELECT SGMC.GATE_CD
+                , SGMC.SG_NUM
+                , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'1', SGMC.SG_NUM) AS SG_CLS_NM1
+                , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'2', SGMC.SG_NUM) AS SG_CLS_NM2
+                , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'3', SGMC.SG_NUM) AS SG_CLS_NM3
+                , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'4', SGMC.SG_NUM) AS SG_CLS_NM4
+                , SGMC.ITEM_CLS1
+                , MTCA1.ITEM_CLS_NM AS ITEM_CLS_NM1
+                , SGMC.ITEM_CLS2
+                , MTCA2.ITEM_CLS_NM AS ITEM_CLS_NM2
+                , SGMC.ITEM_CLS3
+                , MTCA3.ITEM_CLS_NM AS ITEM_CLS_NM3
+                , SGMC.ITEM_CLS4
+                , MTCA4.ITEM_CLS_NM AS ITEM_CLS_NM4
+
+            FROM STOCSGMC SGMC
+            <!-- LEFT --> JOIN STOCMTCA MTCA1 ON SGMC.ITEM_CLS1 = MTCA1.ITEM_CLS1
+                AND MTCA1.ITEM_CLS_TYPE = 'C1'
+                AND MTCA1.GATE_CD = SGMC.GATE_CD
+                AND MTCA1.DEL_FLAG = '0'
+            <!-- LEFT --> JOIN STOCMTCA MTCA2 ON SGMC.ITEM_CLS2 = MTCA2.ITEM_CLS2
+                AND MTCA2.ITEM_CLS_TYPE = 'C2'
+                AND MTCA2.GATE_CD = SGMC.GATE_CD
+                AND MTCA2.DEL_FLAG = '0'
+            <!-- LEFT --> JOIN STOCMTCA MTCA3 ON SGMC.ITEM_CLS3 = MTCA3.ITEM_CLS3
+                AND MTCA3.ITEM_CLS_TYPE = 'C3'
+                AND MTCA3.GATE_CD = SGMC.GATE_CD
+                AND MTCA3.DEL_FLAG = '0'
+            <!-- LEFT --> JOIN STOCMTCA MTCA4 ON SGMC.ITEM_CLS4 = MTCA4.ITEM_CLS4
+                AND MTCA4.ITEM_CLS_TYPE = 'C4'
+                AND MTCA4.GATE_CD = SGMC.GATE_CD
+                AND MTCA4.DEL_FLAG = '0'
+
+            WHERE SGMC.GATE_CD = #{ses.gateCd}
+            AND SGMC.DEL_FLAG = '0'
+
+            <if test="ITEM_CLS1 !='' and ITEM_CLS1 !=null">
+                AND  SGMC.ITEM_CLS1 = #{ITEM_CLS1}
+            </if>
+            <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+                AND  SGMC.ITEM_CLS2 = #{ITEM_CLS2}
+            </if>
+            <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+                AND  SGMC.ITEM_CLS3 = #{ITEM_CLS3}
+            </if>
+            <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+                AND  SGMC.ITEM_CLS4 = #{ITEM_CLS4}
+            </if>
+            <if test="SG_NUM !='' and SG_NUM !=null">
+                <choose>
+                    <when test="PARENT_SG_NUM != '' and PARENT_SG_NUM != null">
+                        <if test="sgList != null">AND SGMC.SG_NUM in
+                            <foreach item="node" collection="sgList" open="(" separator="," close=")">
+                                #{node.SG_NUM}
+                            </foreach>
+                        </if>
+                    </when>
+                    <otherwise>
+                        AND SGMC.SG_NUM =#{SG_NUM}
+                    </otherwise>
+                </choose>
+            </if>
+
+        )T
+
+         <if test="ORDER_BY == 'SG_NUM'">
+            ORDER BY <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'1', T.SG_NUM)
+                	,<include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'2', T.SG_NUM)
+                	,<include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'3', T.SG_NUM)
+                	,<include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'4', T.SG_NUM)
+         </if>
+         <if test="ORDER_BY == 'ITEM_CLS'">
+            ORDER BY T.ITEM_CLS1
+                	,T.ITEM_CLS2
+                	,T.ITEM_CLS3
+                	,T.ITEM_CLS4
+         </if>
+        
+    </select>
+    <select id="getSgParentList" parameterType="hashmap" resultType="hashmap">
+
+        SELECT SG_NUM FROM STOCSGMT
+        WHERE GATE_CD = '100'
+        AND DEL_FLAG = '0'
+        AND PARENT_SG_NUM = '${PARENT_SG_NUM}'
+
+    </select>
+
+    <update id="doDeleteSgItemClassMapping" parameterType="hashmap">   
+        DELETE STOCSGMC
+        WHERE  GATE_CD = #{GATE_CD}
+          AND SG_NUM = #{SG_NUM}
+          AND ITEM_CLS1 = #{ITEM_CLS1}
+          AND ITEM_CLS2 = #{ITEM_CLS2}
+          AND ITEM_CLS3 = #{ITEM_CLS3}
+          AND ITEM_CLS4 = #{ITEM_CLS4}
+          
+    </update>
+</mapper>

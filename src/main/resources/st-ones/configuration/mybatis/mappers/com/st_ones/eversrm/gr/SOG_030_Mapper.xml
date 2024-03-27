@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.SOG_030_Mapper">
+
+    <select id="selectBaseFormData" parameterType="hashmap" resultType="hashmap">
+        SELECT POHD.PO_TYPE AS PURCHASE_TYPE
+              ,POHD.VENDOR_CD AS VENDOR_CD
+              ,<include refid="com.sql.dbo"/>getVendorName(POHD.GATE_CD, POHD.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+              ,#{ses.userNm} AS PIC_USER_NM
+              ,#{ses.telNum} AS PIC_TEL_NUM
+              ,#{ses.cellNum} AS PIC_CELL_NUM
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.sysdate"/>, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SEND_DATE
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PO_CREATE_DATE
+              ,POHD.SUBJECT
+              ,POHD.CTRL_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+              ,POHD.INSPECT_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.INSPECT_USER_ID, #{ses.langCd}) AS INSPECT_USER_NM
+              ,POPY.PAY_METHOD_TYPE
+              ,POHD.PO_AMT
+              ,POPY.PAY_CNT_TYPE
+              ,POHD.CUR
+              ,POPY.PAY_AMT
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVDT.ITEM_AMT), 0)
+                  FROM STOCIVDT IVDT
+                  JOIN STOCIVGH IVGH
+                   ON (IVDT.GATE_CD = IVGH.GATE_CD
+                   AND IVDT.INV_NUM = IVGH.INV_NUM
+                   AND IVGH.REJECT_DATE IS NULL
+                   AND IVGH.DEL_FLAG = '0')
+                 WHERE IVDT.GATE_CD = POPY.GATE_CD
+                   AND IVDT.PO_NUM = POPY.PO_NUM
+                   AND IVDT.PAY_SQ = POPY.PAY_SQ
+                   AND POPY.DEL_FLAG = '0'
+              ) AS ACC_INV_AMT
+              , POHD.BUYER_CD
+          FROM STOCPOPY POPY
+          JOIN STOCPOHD POHD
+          ON (POPY.GATE_CD = POHD.GATE_CD
+          AND POPY.PO_NUM = POHD.PO_NUM
+          AND POHD.DEL_FLAG = '0')
+         WHERE POPY.GATE_CD = #{ses.gateCd}
+           AND POPY.PO_NUM = #{PO_NUM}
+           AND POPY.PAY_SQ = #{PAY_SQ}
+           AND POPY.DEL_FLAG = '0'
+    </select>
+
+    <select id="selectFormData" parameterType="hashmap" resultType="hashmap">
+        SELECT IVGH.INV_NUM
+              ,IVGH.REQ_CNT
+              ,IVGH.PURCHASE_TYPE
+              ,IVHD.VENDOR_CD
+              ,<include refid="com.sql.dbo"/>getVendorName(IVHD.GATE_CD, IVHD.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+              ,IVHD.PIC_USER_NM
+              ,IVHD.PIC_TEL_NUM
+              ,IVHD.PIC_CELL_NUM
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVGH.SEND_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SEND_DATE
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVHD.INV_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS INV_DATE
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PO_CREATE_DATE
+              ,IVGH.SUBJECT
+              ,POHD.CTRL_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+              ,POHD.INSPECT_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.INSPECT_USER_ID, #{ses.langCd}) AS INSPECT_USER_NM
+              ,POHD.PAY_TERMS AS PAY_METHOD_TYPE
+              ,POHD.PO_AMT
+              ,IVHD.INV_AMT
+              ,POPY.PAY_CNT_TYPE
+              ,IVHD.RMK_TEXT_NUM
+              ,IVGH.ATT_FILE_NUM
+              ,IVHD.CUR
+              ,POPY.PAY_AMT
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVDT.ITEM_AMT), 0)
+                  FROM STOCIVDT IVDT
+                  JOIN STOCIVGH IVGH
+                  ON (IVDT.GATE_CD = IVGH.GATE_CD
+                  AND IVDT.INV_NUM = IVGH.INV_NUM
+                  AND IVDT.PAY_SQ = IVGH.PAY_SQ
+                  AND IVGH.PROGRESS_CD IN ('50', '100', '700')
+                  AND IVGH.REJECT_DATE IS NULL
+                  AND IVGH.DEL_FLAG = '0')
+                 WHERE IVDT.GATE_CD = POPY.GATE_CD
+                   AND IVDT.PO_NUM = POPY.PO_NUM
+                   AND IVDT.PAY_SQ = POPY.PAY_SQ
+                   AND IVDT.DEL_FLAG = '0'
+              ) AS ACC_INV_AMT
+          FROM STOCIVGH IVGH
+          JOIN STOCIVHD IVHD
+          ON (IVGH.GATE_CD = IVHD.GATE_CD
+          AND IVGH.INV_NUM = IVHD.INV_NUM
+          AND IVHD.DEL_FLAG = '0')
+          JOIN STOCPOPY POPY
+          ON (IVGH.GATE_CD = POPY.GATE_CD
+          AND IVGH.PO_NUM = POPY.PO_NUM
+          AND IVGH.PAY_SQ = POPY.PAY_SQ
+          AND POPY.DEL_FLAG = '0')
+          JOIN STOCPOHD POHD
+          ON (IVGH.GATE_CD = POHD.GATE_CD
+          AND IVGH.PO_NUM = POHD.PO_NUM
+          AND POHD.DEL_FLAG = '0')
+         WHERE IVGH.GATE_CD = #{ses.gateCd}
+           AND IVGH.INV_NUM = #{INV_NUM}
+           AND IVGH.DEL_FLAG = '0'
+    </select>
+
+    <select id="selectBaseItemData" parameterType="hashmap" resultType="hashmap">
+        SELECT PODT.GATE_CD
+              ,PODT.ITEM_CD
+              ,PODT.ITEM_DESC
+              ,PODT.ITEM_SPEC
+              ,PODT.PO_QT
+              ,PODT.ORDER_UNIT_CD
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS DUE_DATE
+              ,PODT.UNIT_PRC
+              ,PODT.ITEM_AMT AS PO_ITEM_AMT
+              ,PODT.PURCHASE_TYPE
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVDT.INV_QT), 0)
+                  FROM STOCIVDT IVDT
+                  JOIN STOCIVGH IVGH
+                  ON (IVDT.GATE_CD = IVGH.GATE_CD
+                  AND IVDT.INV_NUM = IVGH.INV_NUM
+                  AND IVGH.REJECT_DATE IS NULL
+                  AND IVDT.DEL_FLAG = '0')
+                 WHERE IVDT.GATE_CD = #{ses.gateCd}
+                   AND IVDT.PO_NUM = PODT.PO_NUM
+                   AND IVDT.PO_SQ = PODT.PO_SQ
+                   AND IVGH.PROGRESS_CD IN ('50', '100', '700')
+                   AND IVDT.DEL_FLAG = '0') AS SUM_INV_QT
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVDT.ITEM_AMT), 0)
+                  FROM STOCIVDT IVDT
+                  JOIN STOCIVGH IVGH
+                  ON (IVDT.GATE_CD = IVGH.GATE_CD
+                  AND IVDT.INV_NUM = IVGH.INV_NUM
+                  AND IVGH.REJECT_DATE IS NULL
+                  AND IVDT.DEL_FLAG = '0')
+                 WHERE IVDT.GATE_CD = #{ses.gateCd}
+                   AND IVDT.PO_NUM = PODT.PO_NUM
+                   AND IVDT.PO_SQ = PODT.PO_SQ
+                   AND IVGH.PROGRESS_CD IN ('50', '100', '700')
+                   AND IVDT.DEL_FLAG = '0') AS SUM_INV_AMT
+              ,PODT.PO_NUM
+              ,PODT.PO_SQ
+         FROM STOCPOPY POPY
+         JOIN STOCPODT PODT
+         ON (POPY.GATE_CD = PODT.GATE_CD
+         AND POPY.PO_NUM = PODT.PO_NUM
+         AND PODT.DEL_FLAG = '0')
+        WHERE POPY.GATE_CD = #{ses.gateCd}
+          AND POPY.PO_NUM = #{PO_NUM}
+          AND POPY.PAY_SQ = #{PAY_SQ}
+          AND POPY.DEL_FLAG = '0'
+    </select>
+
+    <select id="selectItemData" parameterType="hashmap" resultType="hashmap">
+        SELECT IVDT.INV_NUM
+              ,IVDT.INV_SQ
+              ,IVDT.ITEM_CD
+              ,IVDT.ITEM_DESC
+              ,IVDT.ITEM_SPEC
+              ,PODT.PO_QT
+              ,PODT.PURCHASE_TYPE
+              ,IVDT.PO_NUM
+              ,IVDT.PO_SQ
+              ,IVDT.PAY_SQ
+              ,IVDT.UNIT_CD AS ORDER_UNIT_CD
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS DUE_DATE
+              ,IVDT.UNIT_PRC
+              ,PODT.ITEM_AMT AS PO_ITEM_AMT
+              ,<include refid="com.sql.nvl"/>(IVDT.INV_QT, 0) AS INV_QT
+              ,<include refid="com.sql.nvl"/>(IVDT.INV_QT, 0) AS BASE_INV_QT
+              ,IVDT.ITEM_AMT
+              ,IVDT.ITEM_AMT AS BASE_ITEM_AMT
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVD.INV_QT), 0)
+                  FROM STOCIVDT IVD
+                  JOIN STOCIVGH IVG
+                  ON (IVD.GATE_CD = IVG.GATE_CD
+                  AND IVD.INV_NUM = IVG.INV_NUM
+                  AND IVG.DEL_FLAG = '0')
+                  JOIN STOCIVHD IVH
+                  ON (IVG.GATE_CD = IVH.GATE_CD
+                  AND IVG.INV_NUM = IVH.INV_NUM
+                  AND IVG.REJECT_DATE IS NULL
+                  AND IVH.DEL_FLAG = '0')
+                 WHERE IVD.GATE_CD = #{ses.gateCd}
+                   AND IVD.PO_NUM = IVGH.PO_NUM
+                   AND IVD.PO_SQ = PODT.PO_SQ
+                   AND IVG.PROGRESS_CD IN ('50', '100', '500')
+                   AND IVD.DEL_FLAG = '0') AS SUM_INV_QT
+              ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVD.ITEM_AMT), 0)
+                  FROM STOCIVDT IVD
+                  JOIN STOCIVGH IVG
+                  ON (IVD.GATE_CD = IVG.GATE_CD
+                  AND IVD.INV_NUM = IVG.INV_NUM
+                  AND IVG.DEL_FLAG = '0')
+                  JOIN STOCIVHD IVH
+                  ON (IVG.GATE_CD = IVH.GATE_CD
+                  AND IVG.INV_NUM = IVH.INV_NUM
+                  AND IVG.REJECT_DATE IS NULL
+                  AND IVH.DEL_FLAG = '0')
+                 WHERE IVD.GATE_CD = #{ses.gateCd}
+                   AND IVD.PO_NUM = IVGH.PO_NUM
+                   AND IVD.PO_SQ = PODT.PO_SQ
+                   AND IVG.PROGRESS_CD IN ('50', '100', '500')
+                   AND IVD.DEL_FLAG = '0') AS SUM_INV_AMT
+          FROM STOCIVDT IVDT
+          JOIN STOCIVGH IVGH
+          ON (IVDT.GATE_CD = IVGH.GATE_CD
+          AND IVDT.INV_NUM = IVGH.INV_NUM
+          AND IVDT.PAY_SQ = IVGH.PAY_SQ
+          AND IVGH.DEL_FLAG = '0')
+          JOIN STOCIVHD IVHD
+          ON (IVGH.GATE_CD = IVHD.GATE_CD
+          AND IVGH.INV_NUM = IVHD.INV_NUM
+          AND IVHD.DEL_FLAG = '0')
+          JOIN STOCPODT PODT
+          ON (IVDT.GATE_CD = PODT.GATE_CD
+          AND IVDT.PO_NUM = PODT.PO_NUM
+          AND IVDT.PO_SQ = PODT.PO_SQ
+          AND PODT.DEL_FLAG = '0')
+         WHERE IVDT.GATE_CD = #{ses.gateCd}
+           AND IVDT.INV_NUM = #{INV_NUM}
+           AND IVDT.DEL_FLAG = '0'
+    </select>
+
+    <insert id="insertInspectionRequestIVHD" parameterType="hashmap">
+        INSERT INTO STOCIVHD (
+             GATE_CD
+            ,INV_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,VENDOR_CD
+            ,INV_DATE
+            ,PIC_USER_NM
+            ,PIC_TEL_NUM
+            ,PIC_CELL_NUM
+            ,BUYER_CD
+            ,CUR
+            ,INV_AMT
+            ,RMK_TEXT_NUM
+            ,PURCHASE_TYPE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{INV_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{VENDOR_CD}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{SEND_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,#{PIC_USER_NM}
+            ,#{PIC_TEL_NUM}
+            ,#{PIC_CELL_NUM}
+            ,#{BUYER_CD}
+            ,#{CUR}
+            ,#{INV_AMT}
+            ,#{RMK_TEXT_NUM}
+            ,#{PURCHASE_TYPE}
+        )
+    </insert>
+
+    <insert id="insertInspectionRequestIVGH" parameterType="hashmap">
+        INSERT INTO STOCIVGH (
+             GATE_CD
+            ,INV_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,REQ_CNT
+            ,SUBJECT
+            ,ATT_FILE_NUM
+            ,SEND_DATE
+            ,PROGRESS_CD
+            ,SIGN_STATUS
+            ,SIGN_DATE
+            ,INSPECT_DATE
+            ,INSPECT_DATE_2
+            ,SIGN_STATUS_2
+            ,SIGN_DATE_2
+            ,APP_DOC_NUM
+            ,APP_DOC_NUM_2
+            ,APP_DOC_CNT
+            ,APP_DOC_CNT_2
+            ,PO_NUM
+            ,PAY_SQ
+            ,PURCHASE_TYPE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{INV_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,'0'
+            ,#{SUBJECT}
+            ,#{ATT_FILE_NUM}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{SEND_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,#{PROGRESS_CD}
+            ,#{SIGN_STATUS}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{SIGN_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{INSPECT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{INSPECT_DATE_2}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,#{SIGN_STATUS_2}
+            ,#{SIGN_DATE_2}
+            ,#{APP_DOC_NUM}
+            ,#{APP_DOC_NUM_2}
+            ,#{APP_DOC_CNT}
+            ,#{APP_DOC_CNT_2}
+            ,#{PO_NUM}
+            ,#{PAY_SQ}
+            ,#{PURCHASE_TYPE}
+        )
+    </insert>
+
+    <insert id="insertInspectionRequestIVDT" parameterType="hashmap">
+        INSERT INTO STOCIVDT (
+             GATE_CD
+            ,INV_NUM
+            ,INV_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,PO_NUM
+            ,PO_SQ
+            ,DO_NUM
+            ,DO_SQ
+            ,ITEM_CD
+            ,ITEM_DESC
+            ,ITEM_SPEC
+            ,UNIT_CD
+            ,INV_QT
+            ,UNIT_PRC
+            ,ITEM_AMT
+            ,PAY_SQ
+            ,ITEM_RMK
+            ,PURCHASE_TYPE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{INV_NUM}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(INV_SQ), 0)+1
+                FROM STOCIVDT
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND INV_NUM = #{INV_NUM})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{PO_NUM}
+            ,#{PO_SQ}
+            ,#{DO_NUM}
+            ,#{DO_SQ}
+            ,#{ITEM_CD}
+            ,#{ITEM_DESC}
+            ,#{ITEM_SPEC}
+            ,#{ORDER_UNIT_CD}
+            ,#{INV_QT}
+            ,#{UNIT_PRC}
+            ,#{ITEM_AMT}
+            ,#{PAY_SQ}
+            ,#{ITEM_RMK}
+            ,#{PURCHASE_TYPE}
+        )
+    </insert>
+
+    <update id="updateInspectionRequestIVHD" parameterType="hashmap">
+        UPDATE STOCIVHD
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,INV_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{INV_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+              ,PIC_USER_NM = #{PIC_USER_NM}
+              ,PIC_TEL_NUM = #{PIC_TEL_NUM}
+              ,PIC_CELL_NUM = #{PIC_CELL_NUM}
+              ,INV_AMT = #{INV_AMT}
+              ,RMK_TEXT_NUM = #{RMK_TEXT_NUM}
+              ,BUYER_CD = #{BUYER_CD}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="updateInspectionRequestIVGH" parameterType="hashmap">
+        UPDATE STOCIVGH
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,REQ_CNT = (CASE WHEN PROGRESS_CD = '500' THEN <include refid="com.sql.nvl"/>(REQ_CNT, 0)+1 ELSE REQ_CNT END)
+              ,SUBJECT = #{SUBJECT}
+              ,SEND_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{SEND_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+              ,PROGRESS_CD = (CASE WHEN PROGRESS_CD = '500' THEN '50' ELSE PROGRESS_CD END)
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="selectRequestProgressCd" parameterType="hashmap" resultType="string">
+        SELECT PROGRESS_CD
+          FROM STOCIVGH
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <update id="updateRequestSentIVGH" parameterType="hashmap">
+        UPDATE STOCIVGH
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,PROGRESS_CD = '100' -- M101
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="deleteInspectionRequestIVHD" parameterType="hashmap">
+        UPDATE STOCIVHD
+           SET DEL_FLAG = '1'
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="deleteInspectionRequestIVGH" parameterType="hashmap">
+        UPDATE STOCIVGH
+           SET DEL_FLAG = '1'
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="deleteInspectionRequestIVDT" parameterType="hashmap">
+        <choose>
+            <when test='DEL_FLAG == "1"'>
+                UPDATE STOCIVDT
+                   SET DEL_FLAG = '1'
+                      ,MOD_DATE = <include refid="com.sql.sysdate"/>
+                      ,MOD_USER_ID = #{ses.userId}
+                 WHERE GATE_CD = #{ses.gateCd}
+                   AND INV_NUM = #{INV_NUM}
+                   AND IV_SQ = #{IV_SQ}
+                   AND DEL_FLAG = '0'
+            </when>
+            <otherwise>
+                DELETE FROM STOCIVDT
+                 WHERE GATE_CD = #{ses.gateCd}
+                   AND INV_NUM = #{INV_NUM}
+                   AND DEL_FLAG = '0'
+            </otherwise>
+        </choose>
+    </update>
+
+    <select id="selectDetailData" parameterType="hashmap" resultType="hashmap">
+        SELECT ROW_NUMBER() OVER (ORDER BY IVHD.REG_DATE ASC) AS REQ_NUM
+              ,IVHD.INV_NUM
+              ,IVGH.PROGRESS_CD
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVGH.SEND_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SEND_DATE
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVGH.INSPECT_DATE_2, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS INSPECT_DATE_2
+              ,IVHD.CUR
+              ,IVHD.INV_AMT
+          FROM STOCIVHD IVHD
+          JOIN STOCIVGH IVGH
+           ON (IVHD.GATE_CD = IVGH.GATE_CD
+           AND IVHD.INV_NUM = IVGH.INV_NUM
+           AND IVGH.DEL_FLAG = '0')
+         WHERE IVHD.GATE_CD = #{ses.gateCd}
+           AND IVGH.PO_NUM IN (
+               SELECT PO_NUM
+                 FROM STOCIVGH
+                WHERE GATE_CD = IVHD.GATE_CD
+                  AND INV_NUM = #{INV_NUM}
+                  AND DEL_FLAG = '0')
+           AND IVGH.PAY_SQ IN (
+               SELECT PAY_SQ
+                 FROM STOCIVGH
+                WHERE GATE_CD = IVHD.GATE_CD
+                  AND INV_NUM = #{INV_NUM}
+                  AND DEL_FLAG = '0')
+           <!--  AND IVHD.INV_NUM != #{INV_NUM}  -->
+           AND IVHD.DEL_FLAG = '0'
+         ORDER BY REQ_NUM, IVHD.REG_DATE
+    </select>
+
+</mapper>

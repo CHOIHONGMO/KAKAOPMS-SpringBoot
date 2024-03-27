@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1670_Mapper">
+	<select id="DH1670_doSearch_1" parameterType="hashmap" resultType="hashmap">
+    <!--첫번째 Tab 조회-->
+
+		SELECT
+		X.PLANT_CD
+		,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', X.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+		<!-- ,(SELECT CASE WHEN #{ses.langCd}='KO' THEN PLANT_NM ELSE PLANT_NM_ENG END FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND DEL_FLAG='0' AND BUYER_CD != 'A000' AND PLANT_CD=X.PLANT_CD) AS 'PLANT_NM' -->
+		,<include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, #{ses.langCd}) AS PURCHASE_TYPE
+		<!-- ,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, 0, #{ses.langCd}) AS PURCHASE_TYPE -->
+		, X.REQ_CNT
+		, X.FINISH_CNT
+		, X.PROGRESS_CNT
+		, X.PROGRESS_RATE
+		, CASE
+			WHEN X.PROGRESS_RATE <![CDATA[<]]>  80 THEN 'D'
+			WHEN X.PROGRESS_RATE <![CDATA[<]]>  85 THEN 'C'
+			WHEN X.PROGRESS_RATE <![CDATA[<]]>  90 THEN 'B'
+			WHEN X.PROGRESS_RATE <![CDATA[<]]>  95 THEN 'A'
+		ELSE 'S'
+		END AS GRADE
+		FROM (
+			SELECT
+				A.*
+				, CAST((CAST(A.FINISH_CNT as NUMERIC(22,5)) / CAST(A.REQ_CNT AS NUMERIC(22,5))) * 100  AS NUMERIC(22,1)) AS PROGRESS_RATE
+				FROM
+				(
+					SELECT
+					PR.PLANT_CD
+					, PR.PURCHASE_TYPE
+					, SUM(PR.REQ_CNT) AS REQ_CNT
+					, SUM(PR.FINISH_CNT) AS FINISH_CNT
+					, SUM(PR.REQ_CNT) - SUM(PR.FINISH_CNT) AS PROGRESS_CNT
+					FROM (
+					SELECT
+					PRDT.PLANT_CD --플랜트
+					, <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) AS PURCHASE_TYPE --유형
+					, 1 AS REQ_CNT --요청건수
+					, (SELECT COUNT(*)
+						 FROM STOCPODT PODT JOIN STOCPOHD POHD
+			              ON (POHD.GATE_CD = PODT.GATE_CD
+			              AND POHD.PO_NUM = PODT.PO_NUM
+			              AND POHD.PROGRESS_CD = '300'
+			              AND POHD.DEL_FLAG = '0')
+						WHERE PODT.GATE_CD = PRDT.GATE_CD
+						AND PODT.PR_NUM = PRDT.PR_NUM
+						AND PODT.PR_SQ = PRDT.PR_SQ
+						AND PODT.DEL_FLAG = '0') +
+   					  (SELECT COUNT(*) FROM STOCPRDT
+            			WHERE GATE_CD = PRDT.GATE_CD
+              			  AND PR_NUM = PRDT.PR_NUM
+              			  AND PR_SQ = PRDT.PR_SQ
+              			  AND PROGRESS_CD = '1200') AS FINISH_CNT --진행완료
+					FROM STOCPRDT PRDT JOIN STOCPRHD PRHD
+						ON  PRDT.GATE_CD = PRHD.GATE_CD
+						AND PRDT.PR_NUM = PRHD.PR_NUM
+						AND PRDT.DEL_FLAG = '0'
+						AND PRHD.DEL_FLAG = '0'
+					WHERE 1 = 1
+					AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) IN ('AS', 'NEW')
+					AND PRHD.SIGN_STATUS = 'E'
+					<if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null">
+						AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+					</if>
+					<if test="PLANT_CD !='' and PLANT_CD !=null">
+						AND PRDT.PLANT_CD  IN (${PLANT_CD})
+					</if>
+					<if test="CONT_USER_NM !='' and CONT_USER_NM !=null">
+						AND <include refid="com.sql.dbo"/> GETUSERNAME(PRDT.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{CONT_USER_NM} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+						AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) <include refid="com.sql.likeL"/> #{PURCHASE_TYPE} <include refid="com.sql.likeR"/>
+					</if>
+				) PR
+				WHERE 1 = 1
+				GROUP BY PR.PLANT_CD, PR.PURCHASE_TYPE
+			) A
+			WHERE 1 = 1
+		) X
+		WHERE 1 = 1
+
+		UNION ALL ---------------------------------------------------
+
+		SELECT
+		S.PLANT_CD
+		, S.PLANT_NM
+		, '소계' AS PURCHASE_TYPE
+		, <include refid="com.sql.nvl"/>(SUM(S.REQ_CNT),0) AS REQ_CNT
+		, <include refid="com.sql.nvl"/>(SUM(S.FINISH_CNT),0) AS FINISH_CNT
+		, <include refid="com.sql.nvl"/>(SUM(S.PROGRESS_CNT),0) AS PROGRESS_CNT
+		, <include refid="com.sql.nvl"/>(ROUND(AVG(S.PROGRESS_RATE),2),0) AS PROGRESS_RATE
+		, '' AS GRADE
+		FROM (
+			SELECT
+				X.PLANT_CD
+				,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', X.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				,<include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, #{ses.langCd}) AS PURCHASE_TYPE
+				<!-- ,(SELECT CASE WHEN 'KO'='KO' THEN PLANT_NM ELSE PLANT_NM_ENG END FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND DEL_FLAG='0' AND BUYER_CD != 'A000' AND PLANT_CD=X.PLANT_CD) AS 'PLANT_NM'
+				,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, 0, #{ses.langCd}) AS PURCHASE_TYPE -->
+				, X.REQ_CNT
+				, X.FINISH_CNT
+				, X.PROGRESS_CNT
+				, X.PROGRESS_RATE
+				, CASE
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  80 THEN 'D'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  85 THEN 'C'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  90 THEN 'B'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  95 THEN 'A'
+				ELSE 'S'
+				END AS GRADE
+				FROM (
+					SELECT
+					A.*
+					, CAST((CAST(A.FINISH_CNT as NUMERIC(22,5)) / CAST(A.REQ_CNT AS NUMERIC(22,5))) * 100  AS NUMERIC(22,1)) AS PROGRESS_RATE
+					FROM
+					(
+						SELECT
+						PR.PLANT_CD
+						, PR.PURCHASE_TYPE
+						, SUM(PR.REQ_CNT) AS REQ_CNT
+						, SUM(PR.FINISH_CNT) AS FINISH_CNT
+						, SUM(PR.REQ_CNT) - SUM(PR.FINISH_CNT) AS PROGRESS_CNT
+						FROM (
+						SELECT
+						PRDT.PLANT_CD --플랜트
+						, <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) AS PURCHASE_TYPE --유형
+						, 1 AS REQ_CNT --요청건수
+						, (SELECT COUNT(*)
+							 FROM STOCPODT PODT JOIN STOCPOHD POHD
+				              ON (POHD.GATE_CD = PODT.GATE_CD
+				              AND POHD.PO_NUM = PODT.PO_NUM
+				              AND POHD.PROGRESS_CD = '300'
+				              AND POHD.DEL_FLAG = '0')
+							WHERE PODT.GATE_CD = PRDT.GATE_CD
+							AND PODT.PR_NUM = PRDT.PR_NUM
+							AND PODT.PR_SQ = PRDT.PR_SQ
+							AND PODT.DEL_FLAG = '0') +
+          				  (SELECT COUNT(*) FROM STOCPRDT
+            				WHERE GATE_CD = PRDT.GATE_CD
+              				  AND PR_NUM = PRDT.PR_NUM
+              				  AND PR_SQ = PRDT.PR_SQ
+              				  AND PROGRESS_CD = '1200') AS FINISH_CNT --진행완료
+						FROM STOCPRDT PRDT JOIN STOCPRHD PRHD
+							ON  PRDT.GATE_CD = PRHD.GATE_CD
+							AND PRDT.PR_NUM = PRHD.PR_NUM
+							AND PRDT.DEL_FLAG = '0'
+							AND PRHD.DEL_FLAG = '0'
+						WHERE 1 = 1
+						AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) IN ('AS', 'NEW')
+						AND PRHD.SIGN_STATUS = 'E'
+						<if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null">
+							AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+						</if>
+						<if test="PLANT_CD !='' and PLANT_CD !=null">
+							AND PRDT.PLANT_CD  IN (${PLANT_CD})
+						</if>
+						<if test="CONT_USER_NM !='' and CONT_USER_NM !=null">
+							AND <include refid="com.sql.dbo"/> GETUSERNAME(PRDT.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{CONT_USER_NM} <include refid="com.sql.likeR"/>
+						</if>
+						<if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+							AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) <include refid="com.sql.likeL"/> #{PURCHASE_TYPE} <include refid="com.sql.likeR"/>
+						</if>
+					) PR
+					WHERE 1 = 1
+					GROUP BY PR.PLANT_CD, PR.PURCHASE_TYPE
+				) A
+				WHERE 1 = 1
+			) X
+			WHERE 1 = 1
+		)S
+		GROUP BY S.PLANT_CD, S.PLANT_NM
+
+		UNION ALL ---------------------------------------------------
+
+		SELECT
+		'9999' AS PLANT_CD
+		, ' ' AS PLANT_NM
+		, '합계' AS PURCHASE_TYPE
+		, <include refid="com.sql.nvl"/>(SUM(S.REQ_CNT),0) AS REQ_CNT
+		, <include refid="com.sql.nvl"/>(SUM(S.FINISH_CNT),0) AS FINISH_CNT
+		, <include refid="com.sql.nvl"/>(SUM(S.PROGRESS_CNT),0) AS PROGRESS_CNT
+		, <include refid="com.sql.nvl"/>(ROUND(AVG(S.PROGRESS_RATE),2),0) AS PROGRESS_RATE
+		, '' AS GRADE
+		FROM (
+			SELECT
+				X.PLANT_CD
+				,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', X.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				,<include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, #{ses.langCd}) AS PURCHASE_TYPE
+<!-- 				,(SELECT CASE WHEN 'KO'='KO' THEN PLANT_NM ELSE PLANT_NM_ENG END FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND DEL_FLAG='0' AND BUYER_CD != 'A000' AND PLANT_CD=X.PLANT_CD) AS 'PLANT_NM'
+				,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M136', X.PURCHASE_TYPE, 0, #{ses.langCd}) AS PURCHASE_TYPE -->
+				, X.REQ_CNT
+				, X.FINISH_CNT
+				, X.PROGRESS_CNT
+				, X.PROGRESS_RATE
+				, CASE
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  80 THEN 'D'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  85 THEN 'C'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  90 THEN 'B'
+					WHEN X.PROGRESS_RATE <![CDATA[<]]>  95 THEN 'A'
+				ELSE 'S'
+				END AS GRADE
+				FROM (
+					SELECT
+						A.*
+						, CAST((CAST(A.FINISH_CNT as NUMERIC(22,5)) / CAST(A.REQ_CNT AS NUMERIC(22,5))) * 100  AS NUMERIC(22,1)) AS PROGRESS_RATE
+						FROM
+						(
+							SELECT
+							PR.PLANT_CD
+							, PR.PURCHASE_TYPE
+							, SUM(PR.REQ_CNT) AS REQ_CNT
+							, SUM(PR.FINISH_CNT) AS FINISH_CNT
+							, SUM(PR.REQ_CNT) - SUM(PR.FINISH_CNT) AS PROGRESS_CNT
+							FROM (
+							SELECT
+							PRDT.PLANT_CD --플랜트
+							, <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) AS PURCHASE_TYPE --유형
+							, 1 AS REQ_CNT --요청건수
+							, (SELECT COUNT(*)
+								 FROM STOCPODT PODT JOIN STOCPOHD POHD
+					              ON (POHD.GATE_CD = PODT.GATE_CD
+					              AND POHD.PO_NUM = PODT.PO_NUM
+					              AND POHD.PROGRESS_CD = '300'
+					              AND POHD.DEL_FLAG = '0')
+								WHERE PODT.GATE_CD = PRDT.GATE_CD
+								AND PODT.PR_NUM = PRDT.PR_NUM
+								AND PODT.PR_SQ = PRDT.PR_SQ
+								AND PODT.DEL_FLAG = '0') +
+          					 (SELECT COUNT(*) FROM STOCPRDT
+            				   WHERE GATE_CD = PRDT.GATE_CD
+              					 AND PR_NUM = PRDT.PR_NUM
+              					 AND PR_SQ = PRDT.PR_SQ
+              					 AND PROGRESS_CD = '1200') AS FINISH_CNT --진행완료
+							FROM STOCPRDT PRDT JOIN STOCPRHD PRHD
+								ON  PRDT.GATE_CD = PRHD.GATE_CD
+								AND PRDT.PR_NUM = PRHD.PR_NUM
+								AND PRDT.DEL_FLAG = '0'
+								AND PRHD.DEL_FLAG = '0'
+							WHERE 1 = 1
+							AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) IN ('AS', 'NEW')
+							AND PRHD.SIGN_STATUS = 'E'
+							<if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null">
+								AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+							</if>
+							<if test="PLANT_CD !='' and PLANT_CD !=null">
+								AND PRDT.PLANT_CD  IN (${PLANT_CD})
+							</if>
+							<if test="CONT_USER_NM !='' and CONT_USER_NM !=null">
+								AND <include refid="com.sql.dbo"/> GETUSERNAME(PRDT.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{CONT_USER_NM} <include refid="com.sql.likeR"/>
+							</if>
+							<if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+								AND <include refid="com.sql.nvl"/>(PRDT.PURCHASE_TYPE, PRHD.PR_TYPE) <include refid="com.sql.likeL"/> #{PURCHASE_TYPE} <include refid="com.sql.likeR"/>
+							</if>
+						) PR
+						WHERE 1 = 1
+						GROUP BY PR.PLANT_CD, PR.PURCHASE_TYPE
+					) A
+				WHERE 1 = 1
+				) X
+			WHERE 1 = 1
+		)S
+
+		ORDER BY  PLANT_CD, PLANT_NM, PURCHASE_TYPE DESC
+
+	</select>
+
+
+
+	<select id="DH1670_doSearch_2" parameterType="hashmap" resultType="hashmap">
+	<!--두번째 Tab 조회-->
+		SELECT
+		RS.PLANT_CD
+		,RS.PLANT_NM
+		,MAX(<include refid="com.sql.nvl"/>(RS.M1,0)) AS M1
+		,MAX(<include refid="com.sql.nvl"/>(RS.M2,0)) AS M2
+		,MAX(<include refid="com.sql.nvl"/>(RS.M3,0)) AS M3
+		,MAX(<include refid="com.sql.nvl"/>(RS.M4,0)) AS M4
+		,MAX(<include refid="com.sql.nvl"/>(RS.M5,0)) AS M5
+		,MAX(<include refid="com.sql.nvl"/>(RS.M6,0)) AS M6
+		,MAX(<include refid="com.sql.nvl"/>(RS.M7,0)) AS M7
+		,MAX(<include refid="com.sql.nvl"/>(RS.M8,0)) AS M8
+		,MAX(<include refid="com.sql.nvl"/>(RS.M9,0)) AS M9
+		,MAX(<include refid="com.sql.nvl"/>(RS.M10,0)) AS M10
+		,MAX(<include refid="com.sql.nvl"/>(RS.M11,0)) AS M11
+		,MAX(<include refid="com.sql.nvl"/>(RS.M12,0)) AS M12
+		,ROUND(AVG(<include refid="com.sql.nvl"/>(RS.TARGET_RATE,0)),2) AS PLANT_AGV
+		,MAX(<include refid="com.sql.nvl"/>(RS.RESULT_RATE,0)) AS RESULT_RATE
+		FROM
+		(
+			SELECT
+			R.PLANT_CD
+			,R.PLANT_NM
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='01' THEN R.TARGET_RATE END M1
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='02' THEN R.TARGET_RATE END M2
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='03' THEN R.TARGET_RATE END M3
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='04' THEN R.TARGET_RATE END M4
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='05' THEN R.TARGET_RATE END M5
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='06' THEN R.TARGET_RATE END M6
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='07' THEN R.TARGET_RATE END M7
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='08' THEN R.TARGET_RATE END M8
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='09' THEN R.TARGET_RATE END M9
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='10' THEN R.TARGET_RATE END M10
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='11' THEN R.TARGET_RATE END M11
+			,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='12' THEN R.TARGET_RATE END M12
+			,R.TARGET_RATE
+			,R.RESULT_RATE
+
+			FROM
+				(SELECT
+				OGPL.GATE_CD
+				,OGPL.PLANT_CD
+				,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', OGPL.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				,ST.YEAR_MONTH
+				,ST.TARGET_RATE
+				,ST.RESULT_RATE
+				FROM STOCOGPL OGPL
+				LEFT OUTER JOIN STOCST01 ST
+				ON (OGPL.GATE_CD = ST.GATE_CD
+				AND OGPL.PLANT_CD = ST.PLANT_CD
+				AND OGPL.DEL_FLAG='0'
+				AND <include refid="com.sql.subStr"/>(ST.YEAR_MONTH, 1, 4) = ${YEAR} OR <include refid="com.sql.nvl"/>(YEAR_MONTH, '') = ''
+				)
+				WHERE OGPL.BUYER_CD != 'A000'
+				<if test="PLANT_CD2 !='' and PLANT_CD2 !=null">
+					AND OGPL.PLANT_CD IN (${PLANT_CD2})
+				</if>
+				
+				UNION ALL
+				
+				SELECT
+					 OGPL.GATE_CD
+					,OGPL.PLANT_CD
+					,OGPL.PLANT_NM
+					,ST.YEAR_MONTH
+					,ST.TARGET_RATE
+					,ST.RESULT_RATE
+				FROM ( 
+					SELECT
+					   #{ses.gateCd} AS GATE_CD
+					 , '0' AS PLANT_CD
+					 , '목표' AS PLANT_NM
+				) OGPL
+				LEFT OUTER JOIN STOCST01 ST
+				ON (OGPL.GATE_CD = ST.GATE_CD
+				AND OGPL.PLANT_CD = ST.PLANT_CD
+				AND <include refid="com.sql.subStr"/>(ST.YEAR_MONTH, 1, 4) = ${YEAR} OR <include refid="com.sql.nvl"/>(YEAR_MONTH, '') = ''
+				)
+			)R
+		)RS
+		GROUP BY RS.PLANT_CD, RS.PLANT_NM
+
+		UNION ALL--------------------------------------------
+
+		SELECT
+		'ZZZZZZ' <include refid="com.sql.stringMerge"/> RS.GATE_CD AS PLANT_CD
+		,'평균' AS PLANT_NM
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M1,0)),0) AS M1
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M2,0)),0) AS M2
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M3,0)),0) AS M3
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M4,0)),0) AS M4
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M5,0)),0) AS M5
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M6,0)),0) AS M6
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M7,0)),0) AS M7
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M8,0)),0) AS M8
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M9,0)),0) AS M9
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M10,0)),0) AS M10
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M11,0)),0) AS M11
+		,ROUND(MAX(<include refid="com.sql.nvl"/>(RS.M12,0)),0) AS M12
+		,ROUND(AVG(RS.TARGET_RATE),2) AS PLANT_AGV
+		,ROUND(MAX(RS.RESULT_RATE),0) AS RESULT_RATE
+		FROM
+			(
+				SELECT
+				R.GATE_CD
+				,R.YEAR_MONTH
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='01' THEN AVG(R.TARGET_RATE) END M1
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='02' THEN AVG(R.TARGET_RATE) END M2
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='03' THEN AVG(R.TARGET_RATE) END M3
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='04' THEN AVG(R.TARGET_RATE) END M4
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='05' THEN AVG(R.TARGET_RATE) END M5
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='06' THEN AVG(R.TARGET_RATE) END M6
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='07' THEN AVG(R.TARGET_RATE) END M7
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='08' THEN AVG(R.TARGET_RATE) END M8
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='09' THEN AVG(R.TARGET_RATE) END M9
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='10' THEN AVG(R.TARGET_RATE) END M10
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='11' THEN AVG(R.TARGET_RATE) END M11
+				,CASE WHEN <include refid="com.sql.subStr"/>(R.YEAR_MONTH,5,2)='12' THEN AVG(R.TARGET_RATE) END M12
+				,AVG(R.TARGET_RATE) AS TARGET_RATE
+				,AVG(R.RESULT_RATE) AS RESULT_RATE
+				FROM
+				(SELECT
+					OGPL.GATE_CD
+					,OGPL.PLANT_CD
+					,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', OGPL.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+					,ST.YEAR_MONTH
+					,ST.TARGET_RATE
+					,ST.RESULT_RATE
+
+					FROM STOCOGPL OGPL
+					LEFT OUTER JOIN STOCST01 ST
+					ON (OGPL.GATE_CD = ST.GATE_CD
+						AND OGPL.PLANT_CD = ST.PLANT_CD
+						AND OGPL.DEL_FLAG='0'
+						AND <include refid="com.sql.subStr"/>(ST.YEAR_MONTH, 1, 4) = ${YEAR} OR <include refid="com.sql.nvl"/>(YEAR_MONTH, '') = ''
+						)
+					WHERE OGPL.BUYER_CD != 'A000'
+					<if test="PLANT_CD2 !='' and PLANT_CD2 !=null">
+						AND OGPL.PLANT_CD IN (${PLANT_CD2})
+					</if>
+				)R
+			GROUP BY R.GATE_CD,R.YEAR_MONTH
+			)RS
+		GROUP BY RS.GATE_CD
+		ORDER BY RS.PLANT_CD
+
+	</select>
+
+	<select id="DH1670_doSearch_3" parameterType="hashmap" resultType="hashmap">
+	<!--세번째 Tab 조회-->
+
+		SELECT
+			R.*
+			,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, '', R.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			<!-- ,(SELECT CASE WHEN #{ses.langCd}='KO' THEN PLANT_NM ELSE PLANT_NM_ENG END FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND DEL_FLAG='0' AND BUYER_CD != 'A000' AND PLANT_CD=R.PLANT_CD) AS 'PLANT_NM' -->
+		FROM
+		(
+			SELECT
+			CASE WHEN SEARCHM.PLANT_CD IS NULL THEN <include refid="com.sql.nvl"/>(PRE.PLANT_CD,NOWM.PLANT_CD) ELSE SEARCHM.PLANT_CD END PLANT_CD
+			,<include refid="com.sql.nvl"/>(PRE.PRE_QTY,0) AS PRE_QTY
+			,<include refid="com.sql.nvl"/>(PRE.PRE_AMT,0) AS PRE_AMT
+			,<include refid="com.sql.nvl"/>(NOWM.NOW_QTY,0) AS NOW_QTY
+			,<include refid="com.sql.nvl"/>(NOWM.NOW_AMT,0) AS NOW_AMT
+			,<include refid="com.sql.nvl"/>(SEARCHM.SUM_QTY,0) AS SUM_QTY
+			,<include refid="com.sql.nvl"/>(SEARCHM.SUM_AMT,0) AS SUM_AMT
+			FROM
+			(
+				SELECT
+				DLHD.GATE_CD
+				,DLHD.PLANT_CD
+				,COUNT(*) AS SUM_QTY
+				,<include refid="com.sql.nvl"/>(SUM(DLDT.GR_AMT),0) AS SUM_AMT
+				FROM STOCDLDT DLDT
+				JOIN STOCDLHD DLHD
+				ON  DLDT.GATE_CD = DLHD.GATE_CD
+				AND DLDT.DEAL_NUM = DLHD.DEAL_NUM
+				AND DLHD.SL_NUM IS NOT NULL
+				AND DLHD.DEL_FLAG='0'
+				<choose>
+					<when test="PURCHASE_TYPE3 !='' and PURCHASE_TYPE3 !=null">
+						AND ${PURCHASE_TYPE3_L} DLHD.PURCHASE_TYPE ${PURCHASE_TYPE3_R}
+					</when>
+					<otherwise>
+						AND DLHD.PURCHASE_TYPE IN ('AS', 'NEW')
+					</otherwise>
+				</choose>
+				<if test="FROM_DATE3 != '' and FROM_DATE3 != null and TO_DATE3 != '' and TO_DATE3 != null">
+					AND DLHD.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE3}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE3}, 'YYYYMMDD HH24:MI:SS')
+				</if>
+				AND DLDT.DEL_FLAG='0'
+				GROUP BY DLHD.GATE_CD, DLHD.PLANT_CD
+			)SEARCHM --누계
+			FULL OUTER JOIN
+			(
+				SELECT
+				DLHD.GATE_CD
+				,DLHD.PLANT_CD
+				,COUNT(*) AS PRE_QTY
+				,<include refid="com.sql.nvl"/>(SUM(DLDT.GR_AMT),0) AS PRE_AMT
+				FROM STOCDLDT DLDT
+				JOIN STOCDLHD DLHD
+				ON  DLDT.GATE_CD = DLHD.GATE_CD
+				AND DLDT.DEAL_NUM = DLHD.DEAL_NUM
+				AND DLHD.SL_NUM IS NOT NULL
+				AND DLHD.DEL_FLAG='0'
+				<choose>
+					<when test="PURCHASE_TYPE3 !='' and PURCHASE_TYPE3 !=null">
+						AND ${PURCHASE_TYPE3_L} DLHD.PURCHASE_TYPE ${PURCHASE_TYPE3_R}
+					</when>
+					<otherwise>
+						AND DLHD.PURCHASE_TYPE IN ('AS', 'NEW')
+					</otherwise>
+				</choose>
+
+				<if test="FROM_DATE3 != '' and FROM_DATE3 != null and TO_DATE3 != '' and TO_DATE3 != null">
+					AND DLHD.DEAL_DATE BETWEEN (select DATEADD(mm, DATEDIFF(mm,0,<include refid="com.sql.toDate"/>#{FROM_DATE3}, 'YYYYMMDD HH24:MI:SS')) - 1, 0)) AND (select dateadd(ms,-3,DATEADD(mm, DATEDIFF(mm,0,<include refid="com.sql.toDate"/>#{TO_DATE3}, 'YYYYMMDD HH24:MI:SS')), 0))) -- 기간 조회조건의 지난달
+
+				</if>
+				AND DLDT.DEL_FLAG='0'
+				GROUP BY DLHD.GATE_CD, DLHD.PLANT_CD
+			)PRE --전월
+			ON SEARCHM.GATE_CD = PRE.GATE_CD
+			AND SEARCHM.PLANT_CD = PRE.PLANT_CD
+			FULL OUTER JOIN
+			(
+				SELECT
+				DLHD.GATE_CD
+				,DLHD.PLANT_CD
+				,COUNT(*) AS NOW_QTY
+				,<include refid="com.sql.nvl"/>(SUM(DLDT.GR_AMT),0) AS NOW_AMT
+				FROM STOCDLDT DLDT
+				JOIN STOCDLHD DLHD
+				ON  DLDT.GATE_CD = DLHD.GATE_CD
+				AND DLDT.DEAL_NUM = DLHD.DEAL_NUM
+				AND DLHD.SL_NUM IS NOT NULL
+				AND DLHD.DEL_FLAG='0'
+				<choose>
+					<when test="PURCHASE_TYPE3 !='' and PURCHASE_TYPE3 !=null">
+						AND ${PURCHASE_TYPE3_L} DLHD.PURCHASE_TYPE ${PURCHASE_TYPE3_R}
+					</when>
+					<otherwise>
+						AND DLHD.PURCHASE_TYPE IN ('AS', 'NEW')
+					</otherwise>
+				</choose>
+				<if test="FROM_DATE3 != '' and FROM_DATE3 != null and TO_DATE3 != '' and TO_DATE3 != null">
+					AND DLHD.DEAL_DATE BETWEEN (select DATEADD(mm, DATEDIFF(mm,0,<include refid="com.sql.toDate"/>#{FROM_DATE3}, 'YYYYMMDD HH24:MI:SS')), 0)) AND (select DATEADD(ms,-3,DATEADD(mm, DATEDIFF(mm,0,<include refid="com.sql.toDate"/>#{TO_DATE3}, 'YYYYMMDD HH24:MI:SS')) + 1, 0)))
+				</if>
+				AND DLDT.DEL_FLAG='0'
+				GROUP BY DLHD.GATE_CD, DLHD.PLANT_CD
+			)NOWM --당월
+			ON SEARCHM.GATE_CD = NOWM.GATE_CD
+			AND SEARCHM.PLANT_CD = NOWM.PLANT_CD
+		)R
+		<if test="PLANT_CD3 !='' and PLANT_CD3 !=null">
+			WHERE R.PLANT_CD  IN (${PLANT_CD3})
+		</if>
+		ORDER BY R.PLANT_CD
+	</select>
+
+	<insert id="DH1670_doSave" parameterType="hashmap">
+	<!--두번째 Tab의 저장로직-->
+		MERGE STOCST01  AS A
+		USING (SELECT 	#{ses.gateCd}  		AS GATE_CD
+						,#{YEAR_MONTH}  	AS YEAR_MONTH
+						,#{PLANT_CD}   		AS PLANT_CD
+						,<include refid="com.sql.sysdate"/>			AS REG_DATE
+						,'MASTER'			AS REG_USER_ID
+						,<include refid="com.sql.sysdate"/>			AS MOD_DATE
+						,'MASTER'			AS MOD_USER_ID
+						,'0'				AS DEL_FLAG
+						,#{TARGET_RATE} 	AS TARGET_RATE
+						,#{RESULT_RATE} 	AS RESULT_RATE
+		) B
+		ON (	A.GATE_CD 	= B.GATE_CD
+			AND A.YEAR_MONTH = B.YEAR_MONTH
+			AND A.PLANT_CD = B.PLANT_CD)
+		WHEN MATCHED THEN
+			UPDATE  SET
+			YEAR_MONTH		= B.YEAR_MONTH
+			,PLANT_CD	 	= B.PLANT_CD
+			,TARGET_RATE 	= B.TARGET_RATE
+			,RESULT_RATE 	= B.RESULT_RATE
+			,DEL_FLAG		= B.DEL_FLAG
+			,MOD_DATE		= B.MOD_DATE
+			,MOD_USER_ID	= B.MOD_USER_ID
+		WHEN NOT MATCHED THEN
+			INSERT (GATE_CD,YEAR_MONTH,PLANT_CD,TARGET_RATE,RESULT_RATE,REG_DATE,REG_USER_ID,DEL_FLAG)
+			VALUES (B.GATE_CD,B.YEAR_MONTH,B.PLANT_CD,B.TARGET_RATE,B.RESULT_RATE,B.REG_DATE,B.REG_USER_ID,B.DEL_FLAG	<include refid="com.sql.mergeEnd"/>
+	</insert>
+
+</mapper>

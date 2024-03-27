@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0521_Mapper">
+	<select id="DH0521_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT BOMM.MAT_CD
+    		 , BOMM.ITEM_CD
+    		 , BOMM.ITEM_DESC
+    		 , MAX (BOMM.BOM_REV) AS BOM_REV
+    		 , BOMM.EO_NO
+    		 , <include refid="com.sql.dbo"/>GETGMTDATE(BOMM.EO_DATE,#{ses.userGmt},#{ses.userGmt}, <include refid="com.sql.dateFormat"/>) AS EO_DATE
+		  FROM STOCBOMM BOMM JOIN STOCMTGL MTGL
+		 	   ON (BOMM.GATE_CD = MTGL.GATE_CD
+			   AND BOMM.ITEM_CD = MTGL.ITEM_CD
+			   AND MTGL.DEL_FLAG = '0'
+			   /* 구매BOM현황에서는 PDM에서 I/F 받은 모든 데이터를 조회함
+			   AND PROGRESS_CD = 'E'
+			   AND <include refid="com.sql.nvl"/>(MTGL.ORDER_HALT_FLAG, '0') = '0'*/
+			   )
+		 WHERE BOMM.GATE_CD = #{ses.gateCd}
+		   AND BOMM.DEL_FLAG = '0'
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		   AND BOMM.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		   AND BOMM.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="MAT_CD != '' and MAT_CD != null">
+		   AND BOMM.MAT_CD = #{MAT_CD}
+		</if>
+		<if test="ITEM_CLS1 !='' and ITEM_CLS1 !=null">
+		   AND MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+		   AND MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+		   AND MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		<if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+		   AND MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+		</if>
+		 GROUP BY BOMM.MAT_CD, BOMM.ITEM_CD, BOMM.ITEM_DESC, BOMM.EO_NO, BOMM.EO_DATE
+	</select>
+
+	<select id="listClassItemStatus" parameterType="hashmap" resultType="java.util.Map">
+		SELECT DISTINCT CASE WHEN #{ITEM_CLS_NO} = '1' THEN ITEM_CLS1
+							 WHEN #{ITEM_CLS_NO} = '2' THEN ITEM_CLS2
+							 WHEN #{ITEM_CLS_NO} = '3' THEN ITEM_CLS3
+							 ELSE ITEM_CLS4 END AS "value"
+			 , ITEM_CLS_NM AS "text"
+		  FROM STOCMTCA
+		 WHERE  GATE_CD = #{ses.gateCd}
+		   AND DEL_FLAG = '0'
+		<if test="ITEM_CLS_NO == 1">
+		   AND ITEM_CLS_TYPE = 'C1'
+		</if>
+		<if test="ITEM_CLS_NO == 2">
+		   AND ITEM_CLS_TYPE = 'C2'
+		</if>
+		<if test="ITEM_CLS_NO == 3">
+		   AND ITEM_CLS_TYPE = 'C3'
+		</if>
+		<if test="ITEM_CLS_NO == 4">
+		   AND ITEM_CLS_TYPE = 'C4'
+		</if>
+		 ORDER BY ITEM_CLS_NM
+	</select>
+
+	<select id="listClassItemStatusByType" parameterType="hashmap" resultType="hashMap">
+		SELECT DISTINCT CASE WHEN #{ITEM_CLS_NO} = '1' THEN ITEM_CLS1
+							 WHEN #{ITEM_CLS_NO} = '2' THEN ITEM_CLS2
+							 WHEN #{ITEM_CLS_NO} = '3' THEN ITEM_CLS3
+							 ELSE ITEM_CLS4 END AS "value"
+			 , ITEM_CLS_NM AS "text"
+		  FROM STOCMTCA
+		 WHERE  GATE_CD = #{ses.gateCd}
+		   AND DEL_FLAG = '0'
+		<if test="ITEM_CLS_NO == 1">
+		   AND ITEM_CLS_TYPE = 'C1'
+		</if>
+		<if test="ITEM_CLS_NO == 2">
+		   AND ITEM_CLS_TYPE = 'C2'
+		</if>
+		<if test="ITEM_CLS_NO == 3">
+		   AND ITEM_CLS_TYPE = 'C3'
+		</if>
+		<if test="ITEM_CLS_NO == 4">
+		   AND ITEM_CLS_TYPE = 'C4'
+		</if>
+		   AND CASE WHEN #{ITEM_CLS_NO} = '2' THEN ITEM_CLS1
+					WHEN #{ITEM_CLS_NO} = '3' THEN ITEM_CLS2
+					WHEN #{ITEM_CLS_NO} = '4' THEN ITEM_CLS3
+					ELSE ITEM_CLS4 END = #{ITEM_CLS}
+		ORDER BY ITEM_CLS_NM
+	</select>
+</mapper>

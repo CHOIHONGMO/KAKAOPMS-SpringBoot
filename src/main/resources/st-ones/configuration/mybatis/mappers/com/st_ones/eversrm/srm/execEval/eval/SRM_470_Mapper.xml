@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.execEval.eval.SRM_470_Mapper">
+
+	<select id="SRM_470_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT EVTH.TH_NUM
+			 , EVTH.VENDOR_CD
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME(EVTH.GATE_CD, EVTH.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+
+		<if test='_databaseId=="oracle"'>
+			 , (SELECT <include refid="com.sql.subStr"/>(XMLAGG(XMLELEMENT(A, ',' || TO_CHAR(<include refid="com.sql.dbo"/>GETCODENAME(EVSQ.GATE_CD, 'M230', EVSQ.DEAL_TYPE_CD, #{ses.langCd}))) ORDER BY EVSQ.DEAL_TYPE_CD).EXTRACT('//text()'), 2)
+				  FROM STOCEVSQ EVSQ
+				 WHERE EVSQ.GATE_CD = EVTH.GATE_CD
+				   AND EVSQ.VENDOR_CD = EVTH.VENDOR_CD
+				   AND EVSQ.DEL_FLAG  = '0'
+				 GROUP BY EVSQ.GATE_CD
+			   )) AS DEAL_TYPE_NM
+		</if>
+		
+		<if test='_databaseId=="mssql"'>
+			, STUFF(
+			 		 (SELECT ', ' + CAST(<include refid="com.sql.dbo"/>GETCODENAME(EVSQ.GATE_CD, 'M230', EVSQ.DEAL_TYPE_CD, #{ses.langCd}) AS NVARCHAR(500))
+					    FROM STOCEVSQ EVSQ
+					   WHERE EVSQ.GATE_CD   = EVTH.GATE_CD
+						 AND EVSQ.VENDOR_CD = EVTH.VENDOR_CD
+						 AND EVSQ.DEL_FLAG  = '0'
+						 FOR XML PATH('')
+					 ), 1,1,''
+					) AS DEAL_TYPE_NM
+		</if>
+
+			 , EVTH.SUBJECT
+			 , EVTH.EV_USER_ID
+			 , <include refid="com.sql.dbo"/>GETUSERNAME(EVTH.GATE_CD, EVTH.EV_USER_ID, #{ses.langCd}) AS EV_USER_NM
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(EVTH.EV_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EV_DATE
+			 , EVTH.EV_SCORE
+			 , EVTH.REMARK
+		  FROM STOCEVTH EVTH
+		  LEFT JOIN STOCEVSQ EVSQ
+				 ON(EVTH.GATE_CD   = EVSQ.GATE_CD
+				AND EVTH.VENDOR_CD = EVSQ.VENDOR_CD
+				AND EVSQ.DEL_FLAG  = '0')
+		 WHERE EVTH.GATE_CD = #{ses.gateCd}
+		<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+		   AND EVTH.EV_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+		   AND <include refid="com.sql.dbo"/>GETVENDORNAME(EVTH.GATE_CD, EVTH.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="SUBJECT!= '' and SUBJECT != null">
+		   AND EVTH.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM != '' and EV_USER_NM != null">
+		   AND <include refid="com.sql.dbo"/>GETUSERNAME(EVTH.GATE_CD, EVTH.EV_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DEAL_TYPE_CD != '' and DEAL_TYPE_CD != null">
+		   AND EVSQ.DEAL_TYPE_CD = #{DEAL_TYPE_CD}
+		</if>
+		   AND EVTH.DEL_FLAG = '0'
+		 GROUP BY EVTH.GATE_CD
+				, EVTH.TH_NUM
+				, EVTH.VENDOR_CD
+				, EVTH.SUBJECT
+				, EVTH.EV_USER_ID
+				, EVTH.EV_DATE
+				, EVTH.EV_SCORE
+				, EVTH.REMARK
+	</select>
+
+</mapper>

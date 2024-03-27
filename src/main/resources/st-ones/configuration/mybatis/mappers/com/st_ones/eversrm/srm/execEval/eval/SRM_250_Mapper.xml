@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.execEval.eval.SRM_250_Mapper">
+
+
+	<select id="getRegCombo" parameterType="hashmap" resultType="hashmap">
+		SELECT  'Y'   AS value
+		       ,'Yes' AS text
+   <include refid="com.sql.dual"/>
+		 UNION
+		SELECT  'N'   AS value
+		       ,'No'  AS text
+   <include refid="com.sql.dual"/>
+	</select>
+	<select id="getEvUserCombo" parameterType="hashmap" resultType="hashmap">
+		SELECT	 EV_USER_ID AS value
+			    ,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EV_USER_ID, #{ses.langCd}) AS text
+		  FROM	 STOCEVEU
+		 WHERE	 GATE_CD  = #{ses.gateCd}
+		   AND	 DEL_FLAG = '0'
+		   AND	 EV_NUM   = #{EV_NUM_L}
+	  GROUP BY   EV_USER_ID
+	</select>
+	
+	<select id="doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT	 (CASE WHEN (SELECT COUNT(*) FROM STOCEVEE WHERE EV_NUM = STOCEVEU.EV_NUM AND VENDOR_CD = STOCEVEU.VENDOR_CD AND EV_USER_ID = STOCEVEU.EV_USER_ID) ='0' THEN 'NO' ELSE 'YES' END) AS REG_STATUS
+				,(SELECT EXEC_EV_TPL_NUM FROM STOCEVEM WHERE EV_NUM = #{EV_NUM_L}) AS EV_TPL_NUM
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EV_USER_ID, #{ses.langCd}) AS EV_USER
+				,EV_USER_ID
+				,EV_SCORE	
+				,VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+		  FROM	 STOCEVEU
+		 WHERE 	 GATE_CD    = #{ses.gateCd}
+		   AND	 DEL_FLAG   = '0'
+		   AND	 EV_NUM     = #{EV_NUM_L}
+		<if test="REG_STATUS_L != '' and REG_STATUS_L != null">
+		   AND  (CASE WHEN <include refid="com.sql.nvl"/>(EV_SCORE, '0') ='0' THEN 'N' ELSE 'Y' END) = #{REG_STATUS_L}
+		</if>
+		<if test="VENDOR_NM_L != '' and VENDOR_NM_L != null">
+		   AND  <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM_L} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM_L != '' and EV_USER_NM_L != null">
+			AND EV_USER_ID = #{EV_USER_NM_L}
+		</if>
+	</select>
+	
+	<select id="doSearchType" parameterType="hashmap" resultType="hashmap">
+		    SELECT	IM.EV_ITEM_TYPE_CD
+		           ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},CASE IM.EV_ITEM_KIND_CD WHEN 'E' THEN 'M114' ELSE 'M113' END,IM.EV_ITEM_TYPE_CD,#{ses.langCd}) AS EV_ITEM_TYPE_NM
+		      FROM	STOCEVTM TM
+		INNER JOIN 	STOCEVTD TD
+		        ON	TM.EV_TPL_NUM 	= TD.EV_TPL_NUM
+			   AND	TM.GATE_CD 		= TD.GATE_CD
+		INNER JOIN	STOCEVIM IM	
+		        ON	TD.EV_ITEM_NUM 	= IM.EV_ITEM_NUM
+			   AND	TD.GATE_CD		= IM.GATE_CD
+		INNER JOIN	STOCEVEM EM
+		        ON	EM.EXEC_EV_TPL_NUM = TM.EV_TPL_NUM
+		       AND	EM.GATE_CD 		= TM.GATE_CD
+		     WHERE	EM.GATE_CD 		= #{ses.gateCd}
+		       AND	EM.EV_NUM 		= #{EV_NUM_L}
+		       AND	TM.GATE_CD 		= #{ses.gateCd}
+		       AND	TM.DEL_FLAG 	= '0'
+		       AND	EM.DEL_FLAG 	= '0'
+		       AND	TD.DEL_FLAG 	= '0'
+		       AND	IM.DEL_FLAG 	= '0'
+		       AND IM.EV_ITEM_METHOD_CD = 'QUA'
+		  GROUP BY 	IM.EV_ITEM_TYPE_CD, EV_ITEM_KIND_CD
+		  ORDER BY 	IM.EV_ITEM_TYPE_CD
+	</select>
+	
+	<select id="doSearchSubject" parameterType="hashmap" resultType="hashmap">
+		SELECT	IM.EV_ITEM_TYPE_CD
+			   ,IM.EV_ITEM_SUBJECT
+			   ,IM.EV_ITEM_CONTENTS
+			   ,TD.WEIGHT
+		  FROM	STOCEVTM TM
+	INNER JOIN	STOCEVTD TD
+		    ON	TM.EV_TPL_NUM 	= TD.EV_TPL_NUM
+		   AND	TM.GATE_CD 		= TD.GATE_CD
+	INNER JOIN	STOCEVIM IM
+		    ON	TD.EV_ITEM_NUM	= IM.EV_ITEM_NUM
+		   AND	TD.GATE_CD 		= IM.GATE_CD
+	INNER JOIN	STOCEVEM EM
+		    ON	EM.EXEC_EV_TPL_NUM = TM.EV_TPL_NUM
+		   AND	EM.GATE_CD 		= TM.GATE_CD
+		 WHERE	EM.GATE_CD 		= #{ses.gateCd}
+		   AND	EM.EV_NUM		= #{EV_NUM_L}
+		   AND	TM.GATE_CD		= #{ses.gateCd}
+		   AND	TM.DEL_FLAG		= '0'
+		   AND	EM.DEL_FLAG		= '0'
+		   AND	TD.DEL_FLAG		= '0'
+		   AND	IM.DEL_FLAG		= '0'
+		   AND IM.EV_ITEM_METHOD_CD = 'QUA'
+	  ORDER BY	IM.EV_ITEM_TYPE_CD, TD.SORT_SQ
+	</select>
+	
+	
+	<select id="doSearchDetail" parameterType="hashmap" resultType="hashmap">
+		SELECT	TM.GATE_CD
+		       ,TM.EV_TPL_NUM
+		       ,TM.EV_TPL_TYPE_CD
+		       ,TM.EV_TPL_SUBJECT
+		       ,IM.EV_ITEM_NUM
+		       ,IM.EV_ITEM_TYPE_CD
+		       ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},CASE IM.EV_ITEM_KIND_CD WHEN 'E' THEN 'M114' ELSE 'M113' END,IM.EV_ITEM_TYPE_CD,#{ses.langCd}) AS EV_ITEM_TYPE_NM
+		       ,IM.EV_ITEM_SUBJECT
+		       ,IM.EV_ITEM_CONTENTS
+		       ,IM.EV_ITEM_KIND_CD
+		       ,IM.EV_ITEM_METHOD_CD
+		       ,IM.SCALE_TYPE_CD
+		       ,IM.QTY_ITEM_CD
+		       ,TD.WEIGHT
+		       ,ID.EV_ID_SQ
+		       ,ID.EV_ID_ORDER
+		       ,ID.EV_ID_CONTENTS
+		       ,ID.EV_ID_SCORE
+		       ,ID.PASS_FAIL_CD
+		       ,ID.EV_ID_METHOD
+		       ,ID.FROM_VALUE
+		       ,ID.FROM_CONDITION_CD
+		       ,ID.TO_VALUE
+		       ,ID.TO_CONDITION_CD
+		       ,EE.EV_ID_SQ AS EV_ID_SQ2
+		       ,<include refid="com.sql.nvl"/>(EE.EV_ID_SCORE,0) AS EV_ID_SCORE2
+		       ,<include refid="com.sql.nvl"/>(EE.EV_REMARK,'') AS EV_REMARK
+		  FROM	STOCEVTM TM
+	INNER JOIN	STOCEVTD TD
+			ON	TM.EV_TPL_NUM	= TD.EV_TPL_NUM
+		   AND	TM.GATE_CD		= TD.GATE_CD
+	INNER JOIN	STOCEVIM IM
+			ON	TD.EV_ITEM_NUM 	= IM.EV_ITEM_NUM
+		   AND	TD.GATE_CD 		= TM.GATE_CD
+	INNER JOIN	STOCEVID ID
+			ON	IM.EV_ITEM_NUM 	= ID.EV_ITEM_NUM
+		   AND	IM.GATE_CD 		= TD.GATE_CD
+	INNER JOIN	STOCEVEM EM
+			ON	EM.EXEC_EV_TPL_NUM = TM.EV_TPL_NUM
+		   AND	EM.GATE_CD 		= TM.GATE_CD
+LEFT OUTER JOIN	STOCEVEE EE
+			ON	ID.EV_ITEM_NUM 	= EE.EV_ITEM_NUM
+		   AND	ID.EV_ID_SQ 	= EE.EV_ID_SQ
+		   AND	TM.EV_TPL_NUM 	= EE.EV_TPL_NUM
+		   AND	ID.GATE_CD 		= EE.GATE_CD
+		   AND	EM.EV_NUM 		= EE.EV_NUM
+		   AND	EE.EV_USER_ID 	= #{EV_USER_ID}
+		   AND	EE.VENDOR_CD	= #{VENDOR_CD}
+		 WHERE	EM.GATE_CD 		= #{ses.gateCd}
+		   AND	EM.EV_NUM 		= #{EV_NUM_L}
+		   AND	EM.DEL_FLAG 	= '0'
+		   AND	TD.DEL_FLAG 	= '0'
+		   AND	ID.DEL_FLAG 	= '0'
+		   AND	IM.DEL_FLAG 	= '0'
+		   AND IM.EV_ITEM_METHOD_CD = 'QUA'
+		   
+	  ORDER BY TM.EV_TPL_NUM, IM.EV_ITEM_TYPE_CD, TD.EV_ITEM_NUM, ID.EV_ID_SQ, ID.EV_ID_ORDER
+	</select>
+	
+	
+	<select id="doSearchEveu" parameterType="hashmap" resultType="hashmap">
+		SELECT	EVEU.EV_NUM			AS EV_NUM_L
+			   ,#{EV_TPL_NUM}	AS EV_TPL_NUM
+			   ,#{VENDOR_CD}	AS VENDOR_CD
+			   ,#{VENDOR_NM_R}	AS VENDOR_NM_R
+			   ,EV_USER_ID
+			   ,<include refid="com.sql.dbo"/>GETUSERNAME(EVEU.GATE_CD, EV_USER_ID, #{ses.langCd}) AS EV_USER_NM_R
+			   ,<include refid="com.sql.nvl"/>(EV_SCORE,'-1') AS EV_SCORE_R
+			   ,EVEU.PROGRESS_CD
+			   ,EVEU.ATT_FILE_NUM
+			   ,RMK
+		  FROM	STOCEVEU EVEU
+		 WHERE	EVEU.GATE_CD 	= #{ses.gateCd}
+		   AND	EVEU.DEL_FLAG 	= '0'
+		   AND	EVEU.EV_NUM 		= #{EV_NUM_L}
+		   AND	EV_USER_ID 	= #{EV_USER_ID}
+		   AND	VENDOR_CD 	= #{VENDOR_CD}
+	</select>
+	
+	<select id="doCheck" parameterType="hashmap" resultType="hashmap">
+		SELECT MASTER.COMPLETE_DATE
+			        ,MASTER.EV_CTRL_USER_ID
+			        ,MASTER.RESULT_ENTER_CD
+			        ,MASTER.EV_TYPE
+			        ,MASTER.PURCHASE_TYPE
+			        ,EVEU.EMPTY_SCORE_CNT
+			        ,EVEU.REP_FLAG
+			        ,EVEU.EV_USER_ID
+			        ,MASTER.OVER_100_FLAG
+		  FROM STOCEVEM MASTER
+	INNER JOIN (SELECT GATE_CD, EV_NUM, SG_NUM, EV_USER_ID, SUM(CASE WHEN EV_SCORE IS NULL OR EV_SCORE = 0 THEN 1 ELSE 0 END) AS EMPTY_SCORE_CNT, REP_FLAG 
+                  FROM STOCEVEU 
+                 WHERE DEL_FLAG='0' 
+				   AND EV_USER_ID 	= #{EV_USER_ID}
+              GROUP BY GATE_CD, EV_NUM, SG_NUM, EV_USER_ID, REP_FLAG ) EVEU 
+		ON MASTER.GATE_CD 		= EVEU.GATE_CD
+		AND MASTER.EV_NUM 		= EVEU.EV_NUM
+		AND MASTER.DEL_FLAG   = '0'
+		AND MASTER.EV_NUM 		= #{EV_NUM}
+		AND MASTER.GATE_CD 	= #{ses.gateCd}   
+	</select>
+	
+	<select id="checkProgress" parameterType="hashmap" resultType="java.lang.String">
+     	SELECT	CASE WHEN COUNT(*) > 0 
+     			THEN 'Y' 
+                ELSE 'N'
+       			END AS CHK
+ 		 FROM 	STOCEVEU 
+ 		WHERE 	EV_NUM 		= #{EV_NUM} 
+ 		  AND 	EV_USER_ID 	= #{EV_USER_ID} 
+		  AND 	<include refid="com.sql.nvl"/>(PROGRESS_CD, '100') != '200' 
+		  AND 	DEL_FLAG	= '0'
+		  AND 	GATE_CD 	= #{ses.gateCd}
+     </select>
+	
+	<select id="doRepUserCheck"  parameterType="hashmap" resultType="java.lang.Integer">
+     SELECT COUNT(*) AS CNT
+		FROM STOCEVEU
+	  WHERE EV_NUM     	=  #{EV_NUM}
+		   AND REP_FLAG   	= '1'
+		   AND DEL_FLAG   	= '0'
+		   AND GATE_CD    	=  #{ses.gateCd}
+		   AND EV_USER_ID 	=  #{CHK_USER}
+     </select>
+	
+	<update id="doUpdateEveu" parameterType="hashmap">
+		UPDATE 	 STOCEVEU
+		   SET	 EV_SCORE 		= CASE WHEN (SELECT OVER_100_FLAG FROM STOCEVEM WHERE GATE_CD = #{ses.gateCd} AND EV_NUM = #{EV_NUM} AND DEL_FLAG = '0') = '1' THEN
+										(SELECT SUM(EV_ID_SCORE) * 100 /(SELECT SUM(A.EV_ID_MAX_SCORE)
+																		  FROM (
+																				SELECT EVIM.EV_ITEM_NUM, MAX(EVID.EV_ID_SCORE) EV_ID_MAX_SCORE
+																				  FROM STOCEVIM EVIM
+																				  JOIN STOCEVID EVID
+																				  ON (EVIM.GATE_CD = EVID.GATE_CD
+																				  AND EVIM.EV_ITEM_NUM = EVID.EV_ITEM_NUM
+																				  AND EVID.DEL_FLAG = '0')
+																				 WHERE EVIM.GATE_CD = #{ses.gateCd}
+																				   AND EVIM.EV_ITEM_TYPE_CD IN ('N1', 'N2', 'N3', 'N4')
+																				   AND EVIM.DEL_FLAG = '0'
+																				 GROUP BY EVIM.EV_ITEM_NUM
+																		) A)
+										  FROM STOCEVEE EVEE
+										 WHERE EVEE.EV_NUM = #{EV_NUM}
+										   AND EVEE.VENDOR_CD = #{VENDOR_CD}
+										   AND EVEE.EV_USER_ID = #{EV_USER_ID}
+										   AND EVEE.DEL_FLAG = '0')
+		                          ELSE #{EV_SCORE} END
+		   		,ATT_FILE_NUM 	= #{ATT_FILE_NUM}
+		   		,MOD_DATE 		= <include refid="com.sql.sysdate"/>
+		   		,MOD_USER_ID 	= #{ses.userId}
+		   		,RMK			= #{RMK}
+		 WHERE	 GATE_CD 		= #{ses.gateCd}
+		   AND	 EV_NUM 		= #{EV_NUM}
+		   AND	 VENDOR_CD		= #{VENDOR_CD}
+		   AND	 EV_USER_ID		= #{EV_USER_ID}
+	</update>
+	
+	<update id="doUpdateEvee" parameterType="hashmap">
+		MERGE INTO 	STOCEVEE TARGET
+		USING (
+		        SELECT 	#{ses.gateCd} 		AS GATE_CD
+		               ,#{EV_NUM} 			AS EV_NUM
+		               ,' ' 				AS SG_NUM
+		               ,#{VENDOR_CD}		AS VENDOR_CD
+		               ,#{EV_USER_ID} 		AS EV_USER_ID
+		               ,#{EV_TPL_NUM} 		AS EV_TPL_NUM
+		               ,#{EV_ITEM_NUM} 		AS EV_ITEM_NUM
+		               ,#{EV_ID_SQ} 		AS EV_ID_SQ
+		               ,#{EV_ID_SCORE} 		AS EV_ID_SCORE
+		               ,#{EV_REMARK} 		AS EV_REMARK
+		               ,'0' 				AS DEL_FLAG
+		               ,<include refid="com.sql.sysdate"/> 	AS REG_DATE
+		               ,#{ses.userId} AS REG_USER_ID
+		       <include refid="com.sql.dual"/>
+		      ) SOURCE
+		ON    (     TARGET.GATE_CD      		= SOURCE.GATE_CD
+		        AND TARGET.EV_NUM       		= SOURCE.EV_NUM
+		        AND TARGET.SG_NUM       		= SOURCE.SG_NUM
+		        AND	TARGET.VENDOR_CD		= SOURCE.VENDOR_CD
+		        AND TARGET.EV_USER_ID   		= SOURCE.EV_USER_ID
+		        AND TARGET.EV_TPL_NUM   	= SOURCE.EV_TPL_NUM
+		        AND TARGET.EV_ITEM_NUM  	= SOURCE.EV_ITEM_NUM )
+		WHEN MATCHED THEN
+		UPDATE SET
+		       EV_ID_SQ     					= SOURCE.EV_ID_SQ
+		      ,EV_ID_SCORE  				= SOURCE.EV_ID_SCORE
+		      ,EV_REMARK  				= SOURCE.EV_REMARK
+		      ,MOD_USER_ID  			= SOURCE.REG_USER_ID
+		      ,MOD_DATE     				= SOURCE.REG_DATE
+		WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, EV_NUM, SG_NUM, VENDOR_CD, EV_USER_ID, EV_TPL_NUM, EV_ITEM_NUM, EV_ID_SQ
+		      , EV_ID_SCORE, EV_REMARK, DEL_FLAG, REG_DATE, REG_USER_ID, MOD_DATE, MOD_USER_ID)
+		VALUES (SOURCE.GATE_CD, SOURCE.EV_NUM, SOURCE.SG_NUM, SOURCE.VENDOR_CD, SOURCE.EV_USER_ID, SOURCE.EV_TPL_NUM
+		      , SOURCE.EV_ITEM_NUM, SOURCE.EV_ID_SQ, SOURCE.EV_ID_SCORE, SOURCE.EV_REMARK, SOURCE.DEL_FLAG
+		      , SOURCE.REG_DATE, SOURCE.REG_USER_ID, SOURCE.REG_DATE, SOURCE.REG_USER_ID<include refid="com.sql.mergeEnd"/>
+	</update>
+	
+	
+
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

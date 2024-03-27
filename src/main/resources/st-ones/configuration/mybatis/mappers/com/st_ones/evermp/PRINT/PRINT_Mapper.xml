@@ -1,0 +1,2653 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.PRINT.PRINT_Mapper">
+	<!-- 화면 속성정보 가져오기 -->
+	<select id="selectLANG" parameterType="hashmap" resultType="hashmap">
+		SELECT MULTI_CD
+				, MULTI_CONTENTS
+		FROM STOCLANG
+		WHERE GATE_CD    = #{ses.gateCd}
+		  AND SCREEN_ID  = #{SCREEN_ID}
+		  AND LANG_CD    = #{ses.langCd}
+		  AND MULTI_TYPE = 'M' -- message
+		  AND DEL_FLAG   = '0'
+		ORDER BY SORT_SQ
+	</select>
+
+	<!-- 납품서 헤더 가져오기 -->
+	<select id="selectIVHD" parameterType="hashMap" resultType="hashMap">
+		SELECT <include refid="com.sql.nvl"/>(IVHD.INV_NO, '') AS INV_NO
+				, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS V_ISSUE_DATE -- YYYY-MM-DD
+				, <include refid="com.sql.nvl"/>(AGENT.AGENT_CD, '') AS AGENT_CODE
+				, <include refid="com.sql.nvl"/>(IVHD.BUYER_CD, '') AS BUYER_CODE
+				, <include refid="com.sql.nvl"/>(IVHD.V_CPO_NO, '') AS V_CPO_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_DELY_APP_DATE, '') AS V_AC_DELY_APP_DATE
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_HOPE_DUE_DATE, '') AS V_AC_HOPE_DUE_DATE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'ADDR'), <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, ''))
+		               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_AC_RECIPIENT_ADDRESS
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_ADDRESS, '') AS V_AC_BOTTOM_RECIPIENT_ADDRESS
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_TEL_NO, '') AS V_AC_RECIPIENT_TEL_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_CELL_NO, '') AS V_AC_RECIPIENT_CELL_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_NM, '')      AS V_AC_RECIPIENT_NAME
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_DEPT_NM, '') AS V_AC_RECIPIENT_DEPT_NAME
+				<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_CNT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_CNT
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_AMT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_AMT
+				</if>
+				<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_CNT), '.00', ''), '0') AS V_GROUP_CNT
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_AMT), '.00', ''), '0') AS V_GROUP_AMT
+				</if>
+				, <include refid="com.sql.nvl"/>(AGENT.ADDR, '') AS V_HEADER_ADDRESS
+				, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') AS V_HEADER_TEL
+				, <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') AS V_HEADER_FAX
+				, ' ' AS V_HEADER_WEBSITE
+				<!-- 공급받는자 -->
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), '')
+		               ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(CUST.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,6,10), '') END AS V_BUYER_IRS_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') END AS V_BUYER_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '') END AS V_BUYER_CEO_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.ADDR, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_BUYER_ADDRESS
+		        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, '') AS V_BUYER_TEL_NO
+		        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_CELL_NO, '') AS V_BUYER_CELL_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN  <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.BUSINESS_TYPE, '') END AS V_BUYER_BUSINESS_TYPE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.INDUSTRY_TYPE, '') END AS V_BUYER_INDUSTRY_TYPE
+				<!-- 공급자 -->
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(VNGL.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(VNGL.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(VNGL.IRS_NO,6,10), '')
+		       		   ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), '') END AS V_VENDOR_IRS_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM,'')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, '') END AS V_VENDOR_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.CEO_USER_NM,'')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '') END AS V_VENDOR_CEO_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.HQ_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> VNGL.HQ_ADDR_2, '')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.ADDR, '') END AS V_VENDOR_ADDRESS
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') END AS V_VENDOR_TEL_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN ''
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') END AS V_VENDOR_FAX_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.BUSINESS_TYPE, <include refid="com.sql.nvl"/>(VNGL.BUSINESS_TYPE, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '') END AS V_VENDOR_BUSINESS_TYPE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.INDUSTRY_TYPE, <include refid="com.sql.nvl"/>(VNGL.INDUSTRY_TYPE, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '') END AS V_VENDOR_INDUSTRY_TYPE
+				<!-- 주문요청사항 -->
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETUSERNAME(UPOH.GATE_CD, UPOH.CPO_USER_ID, #{ses.langCd}), '') AS V_CPO_USER_NM
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getCpoDeptInfo(UPOH.GATE_CD, UPOH.CPO_NO, #{ses.langCd}), '') AS V_CPO_USER_DEPT_NM
+				, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_TEL_NUM , '') AS V_CPO_USER_TEL_NUM
+				, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_CELL_NUM, '') AS V_CPO_USER_CELL_NUM
+				, <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM, '') AS O_VENDOR_NAME -- 원납품공급사
+				<!-- , IVHD.V_REQ_TEXT -->
+		        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		               THEN '/images/kakao/common/bonabank.jpg'
+		               ELSE '/images/kakao/common/biznts_logo.png' END AS IMAGE_PATH
+				, IVHD.DELY_DELAY_NM
+				, IVHD.DELY_DELAY_REASON
+				, <include refid="com.sql.nvl"/>(V_VO_NO , '') AS V_VO_NO
+	   FROM	(
+	   		 SELECT IHD.GATE_CD
+	   		 	  , #{IF_INVC_CD} AS V_VO_NO
+				  , IHD.IV_NO    AS INV_NO
+				  , (SELECT MAX(CPO_NO)
+				  	   FROM STOYIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+					  	AND DEL_FLAG='0'
+						AND IV_NO   = IHD.IV_NO) AS V_CPO_NO
+				  , IHD.CPO_USER_TEL_NUM  AS CPO_USER_TEL_NO
+				  , IHD.CPO_USER_CELL_NUM AS CPO_USER_CELL_NO
+				  , (SELECT MAX(DEAL_CD)
+					   FROM STOYIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+						AND DEL_FLAG='0'
+						AND IV_NO   = IHD.IV_NO) AS DEAL_CD
+				  , IHD.CUST_CD   AS BUYER_CD
+			      , IHD.VENDOR_CD AS VENDOR_CD
+				  , <include refid="com.sql.dbo"/>GETGMTDATE(IHD.DELY_APP_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_DELY_APP_DATE
+				  , <include refid="com.sql.dbo"/>GETGMTDATE((SELECT MAX(PODT.HOPE_DUE_DATE)
+														        FROM STOYIVDT IVDT
+														        JOIN STOYPODT PODT
+																   ON (IVDT.GATE_CD = PODT.GATE_CD
+																   AND IVDT.PO_NO   = PODT.PO_NO
+																   AND IVDT.PO_SEQ  = PODT.PO_SEQ
+																   AND PODT.DEL_FLAG= '0')
+													 		   WHERE IVDT.GATE_CD = IHD.GATE_CD
+																 AND IVDT.IV_NO   = IHD.IV_NO
+																 AND IVDT.DEL_FLAG= '0'), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_HOPE_DUE_DATE
+				 , IHD.DELY_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> IHD.DELY_ADDR_2 AS V_AC_RECIPIENT_ADDRESS
+				 , IHD.RECIPIENT_TEL_NUM  AS V_AC_RECIPIENT_TEL_NO
+				 , IHD.RECIPIENT_CELL_NUM AS V_AC_RECIPIENT_CELL_NO
+				 , IHD.RECIPIENT_NM       AS V_AC_RECIPIENT_NM
+				 , IHD.RECIPIENT_DEPT_NM  AS V_AC_RECIPIENT_DEPT_NM
+				 , (SELECT COUNT(*)
+		  			  FROM STOYIVDT
+		  			 WHERE IF_INVC_CD =#{IF_INVC_CD}) AS V_GROUP_CNT
+				 , (SELECT SUM(INV_ITEM_AMT)
+				      FROM STOUIVDT
+					 WHERE GATE_CD = IHD.GATE_CD
+					   AND DEL_FLAG='0'
+					   AND IF_INVC_CD =#{IF_INVC_CD}) AS V_GROUP_AMT
+		<!-- 지연사유 추가 -->
+					<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(STUFF(( SELECT ',' + <include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd})
+							FROM STOUIVDT
+					       WHERE GATE_CD = IHD.GATE_CD
+							 AND DEL_FLAG='0'
+							 AND IV_NO = IHD.IV_NO
+							 FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_NM
+
+				, <include refid="com.sql.nvl"/>(STUFF (( SELECT ',' + DELY_DELAY_REASON
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND IV_NO = IHD.IV_NO
+							  FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_REASON
+					</if>
+					<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(( SELECT LISTAGG(<include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd}), ',')
+							FROM STOUIVDT
+					       WHERE GATE_CD = IHD.GATE_CD
+							 AND DEL_FLAG='0'
+							 AND IV_NO = IHD.IV_NO
+							 ), '') AS DELY_DELAY_NM
+
+				, <include refid="com.sql.nvl"/>(( SELECT LISTAGG(DELY_DELAY_REASON, ',')
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND IV_NO = IHD.IV_NO
+							  ), '') AS DELY_DELAY_REASON
+					</if>
+				, (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> MAX(CPO_NO)
+					 FROM STOYIVDT IVDT
+					WHERE IVDT.GATE_CD  = IHD.GATE_CD
+					  AND IVDT.IV_NO    = IHD.IV_NO
+					  AND IVDT.DEL_FLAG = '0') AS CPO_NO
+		FROM STOYIVHD IHD
+		WHERE IHD.GATE_CD  = #{ses.gateCd}
+		  AND IHD.IV_NO =
+
+							(SELECT IV_NO
+		  					  FROM STOYIVDT
+		  					 WHERE IF_INVC_CD =#{IF_INVC_CD}
+							AND ROWNUM =1 )
+
+		  AND IHD.DEL_FLAG = '0'
+		  AND ROWNUM = 1
+			) IVHD
+		 JOIN STOUPOHD UPOH -- 고객사주문 헤더
+		    ON (IVHD.GATE_CD  = UPOH.GATE_CD
+			AND IVHD.CPO_NO   = UPOH.CPO_NO
+			AND UPOH.DEL_FLAG = '0')
+	LEFT JOIN STOCCUST CUST -- 고객사 인수자 정보
+		    ON (IVHD.GATE_CD  = CUST.GATE_CD
+		    AND IVHD.BUYER_CD = CUST.CUST_CD
+		    AND CUST.DEL_FLAG = '0')
+         JOIN STOCVNGL VNGL -- 공급사 정보
+		    ON (VNGL.GATE_CD  = IVHD.GATE_CD
+			AND VNGL.VENDOR_CD= IVHD.VENDOR_CD
+			AND VNGL.DEL_FLAG = '0')
+		 JOIN (
+	    	SELECT
+				  GATE_CD
+				, BUYER_CD AS AGENT_CD
+				, IRS_NUM  AS IRS_NO
+				, BUYER_NM AS BUYER_NM
+				, BUYER_NM AS VENDOR_NM
+				, CEO_USER_NM AS CEO_USER_NM
+				, TEL_NUM  AS TEL_NO
+				, FAX_NUM  AS FAX_NO
+				, BUSINESS_TYPE
+				, INDUSTRY_TYPE
+				, ZIP_CD
+				, ADDR
+			FROM STOCOGCM
+			WHERE GATE_CD  = #{ses.gateCd}
+			  AND BUYER_CD = #{DEFAULT_AGENT_CODE}
+			  AND DEL_FLAG = '0'
+		   ) AGENT -- 에이전트(운영사) 납품장소
+		   ON (AGENT.GATE_CD = IVHD.GATE_CD)
+	</select>
+
+	<!-- 납품명세서 디테일 -->
+	<select id="selectIVDT" parameterType="hashMap" resultType="hashMap">
+		SELECT ROW_NUMBER() OVER (ORDER BY IVDT.IV_SEQ) AS V_GRID_ITEM_NO
+				, <include refid="com.sql.nvl"/>(CASE WHEN PODT.CUST_ITEM_CD IS NOT NULL THEN PODT.CUST_ITEM_CD
+					   ELSE IVDT.ITEM_CD
+					   END, '') AS V_GRID_ITEM_CODE
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_DESC, '') AS V_GRID_ITEM_DESC
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_SPEC, '') AS V_GRID_ITEM_SPEC
+
+
+			    , <include refid="com.sql.nvl"/>(GETMKBRNAME(IVDT.GATE_CD, 'MK', IVDT.MAKER_CD),' ')  AS V_GRID_MAKER_NAME -- 제조사/모델
+
+
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M037', IVDT.UNIT_CD, '0', #{ses.langCd}), '') AS V_GRID_UNIT_MEASURE
+			<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), IVDT.INV_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)) AS MONEY), 1),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_UNIT_PRICE) AS MONEY), 1),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)) AS MONEY), 1),'.00',''), '0') AS V_GRID_AMT
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_QTY),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVDT.INV_QTY),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_UNIT_PRICE),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)),'.00',''), '0') AS V_GRID_AMT
+			</if>
+				, '' AS V_GRID_REMARK
+
+				, <include refid="com.sql.nvl"/>(YINFO.VENDOR_ITEM_CD, '') AS V_GRID_VENDOR_ITEM_CD
+		FROM STOYIVDT IVDT
+		JOIN STOYPODT PODT
+		ON  IVDT.GATE_CD = PODT.GATE_CD
+		AND IVDT.PO_NO = PODT.PO_NO
+		AND IVDT.PO_SEQ = PODT.PO_SEQ
+		AND PODT.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUPODT UPODT
+		ON  UPODT.GATE_CD = PODT.GATE_Cd
+		AND UPODT.CPO_NO = PODT.CPO_NO
+		AND UPODT.CPO_SEQ = PODT.CPO_SEQ
+		LEFT OUTER JOIN STOYINFO YINFO
+		ON  YINFO.GATE_CD = UPODT.GATE_CD
+		AND YINFO.APPLY_COM = UPODT.APPLY_COM
+		AND YINFO.CONT_NO = UPODT.CONT_NO
+		AND YINFO.CONT_SEQ = UPODT.CONT_SEQ
+
+		WHERE IVDT.GATE_CD = #{ses.gateCd}
+		  AND IVDT.IF_INVC_CD   =  #{IF_INVC_CD}
+		  AND IVDT.DEL_FLAG= '0'
+	</select>
+
+	<select id="selectCPOHD" resultType="java.util.Map">
+		SELECT UPOHD.CPO_NO -- 주문번호
+		      , UPOHD.CUST_CD -- 고객사코드
+			  , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE -- 발행일
+				--발신자
+			  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, 'DEPT_NM'), <include refid="com.sql.nvl"/>(CUST.CUST_NM, ''))
+		         	 ELSE <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') END AS CUST_NM -- 상호
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, 'DEPT_CEO_NM'), <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, ''))
+		         	 ELSE <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '') END AS C_CEO_USER_NM -- 대표이사
+		      , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, 'ADDR'), <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> CUST.ADDR2, ''))
+		         	 ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS C_ADDR -- 주소
+		  	  , <include refid="com.sql.nvl"/>(CVUR.USER_NM <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CVUR.POSITION_NM, '') AS C_USER_NM -- 담당자
+		  	  , <include refid="com.sql.nvl"/>(CVUR.DEPT_NM, '') AS C_DEPT_NM -- 부서명
+		  	  , <include refid="com.sql.nvl"/>(CVUR.TEL_NUM, '') AS C_TEL_NUM -- 연락처
+		  	  , <include refid="com.sql.nvl"/>(CVUR.FAX_NUM, '') AS C_FAX_NUM -- Fax
+		  	  , <include refid="com.sql.nvl"/>(CVUR.EMAIL, '') AS C_EMAIL -- 이메일
+
+				-- 수신자
+			  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, '')
+		         	 ELSE <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, '') END AS BUYER_NM -- 상호
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '')
+		         	 ELSE <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, '') END AS R_CEO_USER_NM -- 대표이사
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> CUST.ADDR2, '')
+		         	 ELSE <include refid="com.sql.nvl"/>(OGCM.ADDR, '') END AS R_ADDR -- 주소
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN ''
+		         	 ELSE <include refid="com.sql.nvl"/>(USR.USER_NM <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> USR.POSITION_NM, '') END AS R_USER_NM -- 담당자
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN ''
+		         	 ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETDEPTNAME(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}), '') END AS R_DEPT_NM -- 부서명
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN ''
+		         	 ELSE <include refid="com.sql.nvl"/>(USR.TEL_NUM, '') END AS R_TEL_NUM -- 연락처
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN ''
+		         	 ELSE <include refid="com.sql.nvl"/>(USR.FAX_NUM, '') END AS R_FAX_NUM -- Fax
+		  	  , CASE WHEN (UPOHD.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		         	 THEN ''
+		         	 ELSE <include refid="com.sql.nvl"/>(USR.EMAIL, '') END AS R_EMAIL-- 이메일
+
+				-- 합계
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT COUNT(*) FROM STOUPODT WHERE GATE_CD = UPOHD.GATE_CD  AND CUST_CD = UPOHD.CUST_CD AND CPO_NO = UPOHD.CPO_NO AND DEL_FLAG='0')),1), '.00', ''), '0')  AS GROUP_CNT -- 총 품목 수
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT SUM(CPO_ITEM_AMT) FROM STOUPODT WHERE GATE_CD = UPOHD.GATE_CD  AND CUST_CD = UPOHD.CUST_CD AND CPO_NO = UPOHD.CPO_NO AND DEL_FLAG='0')),1), '.00', ''), '0') AS GROUP_AMT -- 합계
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT COUNT(*) FROM STOUPODT WHERE GATE_CD = UPOHD.GATE_CD  AND CUST_CD = UPOHD.CUST_CD AND CPO_NO = UPOHD.CPO_NO AND DEL_FLAG='0'), '.00', ''), '0')  AS GROUP_CNT -- 총 품목 수
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT SUM(CPO_ITEM_AMT) FROM STOUPODT WHERE GATE_CD = UPOHD.GATE_CD  AND CUST_CD = UPOHD.CUST_CD AND CPO_NO = UPOHD.CPO_NO AND DEL_FLAG='0'), '.00', ''), '0') AS GROUP_AMT -- 합계
+			</if>
+				-- 납품처 및 기타조건(공백)
+		  FROM STOUPOHD UPOHD
+		  JOIN STOCCUST CUST -- 고객사 인수자 정보
+			ON(UPOHD.GATE_CD  = CUST.GATE_CD
+		   AND UPOHD.CUST_CD = CUST.CUST_CD
+		   AND CUST.DEL_FLAG = '0')
+		  JOIN STOCUSER USR -- 고객사 담당자
+			ON(USR.GATE_CD = CUST.GATE_CD
+		   AND USR.USER_ID = CUST.MANAGE_ID)
+		  JOIN STOCOGCM OGCM -- 공급사
+			ON(OGCM.GATE_CD = UPOHD.GATE_CD
+		   AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		   AND OGCM.DEL_FLAG = '0')
+		  JOIN STOCCVUR CVUR -- 공급사 담당자
+			ON(CVUR.GATE_CD = UPOHD.GATE_CD
+		   AND CVUR.COMPANY_CD = UPOHD.CUST_CD
+		   AND CVUR.USER_ID = UPOHD.CPO_USER_ID)
+		 WHERE UPOHD.GATE_CD = #{ses.gateCd}
+		   AND UPOHD.CPO_NO IN
+		<foreach item="CPO_NO" index="index" collection="CPO_LIST" open="(" separator="," close=")">
+			#{CPO_NO}
+		</foreach>
+		   AND UPOHD.DEL_FLAG = '0'
+		 ORDER BY UPOHD.CPO_NO ASC
+	</select>
+
+	<select id="selectCPODT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY PODT.CPO_NO) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_CD, '') AS DT_ITEM_CD-- 품목코드
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_DESC, '') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_SPEC, '') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(PODT.UNIT_CD, '') AS DT_UNIT_CD -- 단위
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.CPO_QTY),1), '.00', ''), '0') AS DT_CPO_QTY -- 수량
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.CPO_UNIT_PRICE),1), '.00', ''), '0') AS DT_CPO_UNIT_PRICE -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.CPO_ITEM_AMT),1), '.00', ''), '0') AS DT_CPO_ITEM_AMT -- 금액
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(MONEY, PODT.CPO_QTY), '.00', ''), '0') AS DT_CPO_QTY -- 수량
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(MONEY, PODT.CPO_UNIT_PRICE), '.00', ''), '0') AS DT_CPO_UNIT_PRICE -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(MONEY, PODT.CPO_ITEM_AMT), '.00', ''), '0') AS DT_CPO_ITEM_AMT -- 금액
+			</if>
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD'), '') AS DT_HOPE_DUE_DATE -- 희망납기일
+		  FROM STOUPODT PODT
+		 WHERE PODT.GATE_CD = #{ses.gateCd}
+		   AND PODT.CPO_NO = #{CPO_NO}
+		   AND PODT.PROGRESS_CD != '35'
+		   AND PODT.DEL_FLAG = '0'
+	</select>
+
+	<select id="selectPOHD" resultType="java.util.Map">
+		SELECT YPOHD.PO_NO -- 주문번호
+			  , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE -- 발행일
+			  --발신자
+			  , <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, ' ') AS BUYER_NM -- 상호
+			  , <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, ' ') AS C_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(USR.POSITION_NM, ' ') AS C_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETDEPTNAME(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}), ' ') AS C_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(USR.USER_NM, ' ') AS C_USER_NM-- 성명
+			  , <include refid="com.sql.nvl"/>(USR.TEL_NUM, ' ') AS C_TEL_NUM-- 전화번호
+			  , <include refid="com.sql.nvl"/>(USR.FAX_NUM, ' ') AS C_FAX_NUM-- FAX번호
+			  , <include refid="com.sql.nvl"/>(USR.EMAIL, ' ') AS C_EMAIL-- EMAIL
+
+
+			  -- 수신자
+			  , <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM, ' ') AS VENDOR_NM -- 상호
+			  , <include refid="com.sql.nvl"/>(VNGL.CEO_USER_NM, ' ') AS R_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(CVUR.POSITION_NM, ' ') AS R_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(CVUR.DEPT_NM, ' ') AS R_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(CVUR.USER_NM, ' ') AS R_USER_NM -- 성명
+			  , <include refid="com.sql.nvl"/>(CVUR.TEL_NUM, ' ') AS R_TEL_NUM -- 전화번호
+			  , <include refid="com.sql.nvl"/>(CVUR.FAX_NUM, ' ') AS R_FAX_NUM -- FAX번호
+			  , <include refid="com.sql.nvl"/>(CVUR.EMAIL, ' ') AS R_EMAIL -- EMAIL
+
+
+
+
+			  -- 합계
+			  , <include refid="com.sql.nvl"/>((SELECT COUNT(*) FROM STOYPODT WHERE GATE_CD  = YPOHD.GATE_CD AND PO_NO	= YPOHD.PO_NO AND DEL_FLAG = '0' ), '0') AS GROUP_CNT
+			  , <include refid="com.sql.nvl"/>((SELECT TO_CHAR(SUM(PO_ITEM_AMT),'999,999,999,999') FROM STOYPODT WHERE GATE_CD  = YPOHD.GATE_CD AND PO_NO	= YPOHD.PO_NO AND DEL_FLAG = '0'), '0') AS GROUP_AMT
+
+			  , <include refid="com.sql.nvl"/>((SELECT CUST.CUST_NM <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> RECIPIENT_NM <include refid="com.sql.stringMerge"/> '(' <include refid="com.sql.stringMerge"/> RECIPIENT_DEPT_NM <include refid="com.sql.stringMerge"/> ')' FROM STOYPODT WHERE GATE_CD  = YPOHD.GATE_CD AND PO_NO	= YPOHD.PO_NO AND DEL_FLAG = '0' AND ROWNUM = 1), ' ') AS RECIPIENT_NM
+			  , <include refid="com.sql.nvl"/>((SELECT DELY_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> DELY_ADDR_2 FROM STOYPODT WHERE GATE_CD  = YPOHD.GATE_CD AND PO_NO	= YPOHD.PO_NO AND DEL_FLAG = '0' AND ROWNUM = 1), ' ') AS DELY_ADDR
+			  , <include refid="com.sql.nvl"/>((SELECT REQ_TEXT FROM STOYPODT WHERE GATE_CD  = YPOHD.GATE_CD AND PO_NO	= YPOHD.PO_NO AND DEL_FLAG = '0' AND ROWNUM = 1), ' ') AS REQ_TEXT
+
+
+			  -- 납품처 및 기타조건
+		  FROM STOYPOHD YPOHD
+		  LEFT JOIN STOCCUST CUST -- 고객사 마스터
+			ON(YPOHD.GATE_CD  = CUST.GATE_CD
+		   AND YPOHD.CUST_CD = CUST.CUST_CD
+		   AND CUST.DEL_FLAG = '0')
+
+		  JOIN (
+			SELECT GATE_CD,PO_NO,MAX(AM_USER_ID) AM_USER_ID,MAX(VENDOR_CD) VENDOR_CD
+			FROM STOYPODT WHERE GATE_CD = #{ses.gateCd}
+			AND PO_NO IN
+				<foreach item="PO_NO" index="index" collection="PO_LIST" open="(" separator="," close=")">
+					#{PO_NO}
+				</foreach>
+			AND DEL_FLAG = '0'
+			GROUP BY GATE_CD,PO_NO
+		  ) YPODT ON YPOHD.GATE_CD = YPODT.GATE_CD
+		          AND YPOHD.PO_NO  = YPODT.PO_NO
+
+
+		  LEFT OUTER JOIN STOCUSER USR -- 발주사(공급사) 담당자
+			ON(USR.GATE_CD = YPODT.GATE_CD
+		   AND USR.USER_ID = YPODT.AM_USER_ID)
+
+
+
+		  JOIN STOCOGCM OGCM -- 발주사
+			ON(OGCM.GATE_CD = YPOHD.GATE_CD
+		   AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		   AND OGCM.DEL_FLAG = '0')
+
+
+
+		  JOIN STOCVNGL VNGL -- 공급사
+			ON(YPODT.GATE_CD = VNGL.GATE_CD
+		   AND YPODT.VENDOR_CD = VNGL.VENDOR_CD
+		   AND VNGL.DEL_FLAG = '0')
+
+
+		  JOIN (
+			SELECT A.GATE_CD,A.PO_NO,MAX(B.USER_ID) VENDOR_USER_ID
+			FROM STOYPODT A JOIN STOCCVUR B ON A.GATE_CD = B.GATE_CD
+			                                AND A.VENDOR_CD = B.COMPANY_CD
+			                                AND B.DEL_FLAG = '0'
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.PO_NO IN
+				<foreach item="PO_NO" index="index" collection="PO_LIST" open="(" separator="," close=")">
+					#{PO_NO}
+				</foreach>
+			AND A.DEL_FLAG = '0'
+			GROUP BY A.GATE_CD,A.PO_NO
+		  ) YPODT_V ON YPOHD.GATE_CD = YPODT_V.GATE_CD
+		          AND YPOHD.PO_NO  = YPODT_V.PO_NO
+
+		  LEFT OUTER JOIN STOCCVUR CVUR -- 공급사 담당자
+		  ON (CVUR.GATE_CD  = YPOHD.GATE_CD
+		   AND CVUR.COMPANY_CD  = YPOHD.VENDOR_CD
+		   AND CVUR.USER_ID = YPODT_V.VENDOR_USER_ID
+		   )
+
+
+
+
+
+		 WHERE YPOHD.PO_NO IN
+		<foreach item="PO_NO" index="index" collection="PO_LIST" open="(" separator="," close=")">
+			#{PO_NO}
+		</foreach>
+		   AND YPOHD.DEL_FLAG = '0'
+		 ORDER BY YPOHD.PO_NO ASC
+	</select>
+
+	<select id="selectPODT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY PODT.PO_NO) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_CD, '') AS DT_ITEM_CD-- 품목코드
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_DESC, '') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(PODT.ITEM_SPEC, '') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(PODT.UNIT_CD, '') AS DT_UNIT_CD -- 단위
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.CPO_QTY),1), '.00', ''), '0') AS DT_CPO_QTY -- 수량
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.PO_UNIT_PRICE),1), '.00', ''), '0') AS DT_CPO_UNIT_PRICE -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, PODT.PO_ITEM_AMT),1), '.00', ''), '0') AS DT_CPO_ITEM_AMT -- 금액
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_QTY,'0'),'999,999,999,999') AS DT_CPO_QTY -- 수량
+			  , TO_CHAR(<include refid="com.sql.nvl"/>(PODT.PO_UNIT_PRICE, '0'),'999,999,999,999') AS DT_CPO_UNIT_PRICE -- 단가
+			  , TO_CHAR(<include refid="com.sql.nvl"/>(PODT.PO_ITEM_AMT, '0'),'999,999,999,999') AS DT_CPO_ITEM_AMT -- 금액
+			</if>
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD'), '') AS DT_HOPE_DUE_DATE -- 희망납기일
+		  FROM STOYPODT PODT
+		 WHERE PODT.GATE_CD = #{ses.gateCd}
+		   AND PODT.PO_NO = #{PO_NO}
+		   AND PODT.DEL_FLAG = '0'
+	</select>
+
+    <select id="selectVRQHD" resultType="java.util.Map">
+		SELECT HD.RFQ_NUM
+			  , HD.RFQ_CNT
+			  , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE -- 견적일
+			  -- 수신자
+			  , <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, '') AS BUYER_NM
+			  , <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, '') AS O_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(USR.POSITION_NM, '') AS O_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETDEPTNAME(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}), '') AS O_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(USR.USER_NM, '') AS O_USER_NM -- 성명
+			  , <include refid="com.sql.nvl"/>(USR.TEL_NUM, '') AS O_TEL_NUM -- 전화번호
+			  , <include refid="com.sql.nvl"/>(USR.FAX_NUM, '') AS O_FAX_NUM -- FAX번호
+			  , <include refid="com.sql.nvl"/>(USR.EMAIL, '') AS O_EMAIL -- EMAIL
+			  --발신자
+			  , <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM, '') AS V_VENDOR_NM
+			  , <include refid="com.sql.nvl"/>(VNGL.CEO_USER_NM, '') AS V_CEO_USER_NM
+			  , <include refid="com.sql.nvl"/>(VNGL.HQ_ADDR_1 + VNGL.HQ_ADDR_2, '') AS V_HQ_ADDR
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.TEL_NUM), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.TEL_NUM), MAX(CVUR_USR.TEL_NUM))) AS V_TEL_NUM
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.FAX_NUM), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.FAX_NUM), MAX(CVUR_USR.FAX_NUM))) AS V_FAX_NUM
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.POSITION_NM), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.POSITION_NM), MAX(CVUR_USR.POSITION_NM))) AS V_POSITION_NM
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.DEPT_NM), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.DEPT_NM), MAX(CVUR_USR.DEPT_NM))) AS V_DEPT_NM
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.USER_NM), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.USER_NM), MAX(CVUR_USR.USER_NM))) AS V_USER_NM
+			  , <include refid="com.sql.nvl"/>(MAX(QTHD_CVUR.EMAIL), <include refid="com.sql.nvl"/>(MAX(CVUR_MNG.EMAIL), MAX(CVUR_USR.EMAIL))) AS V_EMAIL
+			  -- 합계
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT COUNT(*) FROM STOCRQDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' )),1), '.00', ''), '0') AS GROUP_CNT
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT SUM(QTA_UNIT_PRC) FROM STOCQTDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND VENDOR_CD = VN.VENDOR_CD AND DEL_FLAG = '0' )),1), '.00', ''), '0') AS GROUP_AMT
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT COUNT(*) FROM STOCRQDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' ), '.00', ''), '0') AS GROUP_CNT
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT SUM(QTA_UNIT_PRC) FROM STOCQTDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND VENDOR_CD = VN.VENDOR_CD AND DEL_FLAG = '0' ), '.00', ''), '0') AS GROUP_AMT
+			</if>
+			  -- 비고
+		FROM STOCRQHD HD
+		LEFT JOIN STOCRQDT DT
+		  ON (HD.GATE_CD = DT.GATE_CD
+		 AND HD.RFQ_NUM = DT.RFQ_NUM
+		 AND HD.RFQ_CNT = DT.RFQ_CNT
+		 AND DT.DEL_FLAG = '0')
+		LEFT JOIN STOCRQVN VN
+		  ON (DT.GATE_CD = VN.GATE_CD
+		 AND DT.RFQ_NUM = VN.RFQ_NUM
+		 AND DT.RFQ_CNT = VN.RFQ_CNT
+		 AND DT.RFQ_SQ = VN.RFQ_SQ
+		 AND VN.DEL_FLAG = '0')
+		LEFT JOIN STOCQTDT QTDT
+		  ON (DT.GATE_CD = QTDT.GATE_CD
+		 AND DT.RFQ_NUM = QTDT.RFQ_NUM
+		 AND DT.RFQ_CNT = QTDT.RFQ_CNT
+		 AND DT.RFQ_SQ = QTDT.RFQ_SQ
+		 AND VN.VENDOR_CD = QTDT.VENDOR_CD
+		 AND QTDT.DEL_FLAG = '0')
+		LEFT JOIN STOCQTHD QTHD
+		  ON (DT.GATE_CD = QTHD.GATE_CD
+		 AND DT.RFQ_NUM = QTHD.RFQ_NUM
+		 AND DT.RFQ_CNT = QTHD.RFQ_CNT
+		 AND QTHD.DEL_FLAG = '0')
+		LEFT JOIN STOCOGCM OGCM -- 수신처
+		  ON (HD.GATE_CD = OGCM.GATE_CD
+		 AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		 AND OGCM.DEL_FLAG = '0')
+		JOIN STOCUSER USR -- 수신처 담당자
+		  ON (HD.GATE_CD = USR.GATE_CD
+		 AND HD.CTRL_USER_ID = USR.USER_ID)
+		LEFT JOIN STOCVNGL VNGL
+		  ON (VN.GATE_CD = VNGL.GATE_CD
+		 AND VN.VENDOR_CD = VNGL.VENDOR_CD
+		 AND VNGL.DEL_FLAG = '0')
+		LEFT JOIN (SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+							 Q.GATE_CD
+						   , Q.COMPANY_CD
+						   , Q.USER_ID
+						   , Q.USER_NM
+						   , Q.TEL_NUM
+						   , Q.FAX_NUM
+						   , Q.POSITION_NM
+						   , Q.DEPT_NM
+						   , Q.EMAIL
+				   	   FROM STOCCVUR Q
+					   JOIN STOCVNGL VNGL
+						 ON (VNGL.VENDOR_CD = Q.COMPANY_CD
+						AND VNGL.VENDOR_CD = #{VENDOR_CD})
+					   JOIN STOCQTHD QTHD
+						 ON (QTHD.GATE_CD = Q.GATE_CD
+						AND QTHD.VENDOR_CD = Q.COMPANY_CD
+						AND QTHD.RFQ_NUM = #{RFQ_NUM}
+						AND QTHD.RFQ_CNT = #{RFQ_CNT}
+						AND QTHD.VENDOR_CD = #{VENDOR_CD})
+				      WHERE Q.USER_ID = QTHD.REG_USER_ID
+				      <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>
+				  ) QTHD_CVUR
+		  ON (VNGL.GATE_CD = QTHD_CVUR.GATE_CD
+		 AND VNGL.VENDOR_CD = QTHD_CVUR.COMPANY_CD)
+		LEFT JOIN (SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+							 T.GATE_CD
+						   , T.COMPANY_CD
+						   , T.USER_ID
+						   , T.USER_NM
+						   , T.TEL_NUM
+						   , T.FAX_NUM
+						   , T.POSITION_NM
+						   , T.DEPT_NM
+						   , T.EMAIL
+				   	   FROM STOCCVUR T
+					   JOIN STOCVNGL VNGL
+						 ON(VNGL.VENDOR_CD = T.COMPANY_CD
+						AND VNGL.VENDOR_CD = #{VENDOR_CD})
+				      WHERE T.MNG_YN = '1'
+				      <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>
+				  	) CVUR_MNG
+		  ON (VNGL.GATE_CD = CVUR_MNG.GATE_CD
+		 AND VNGL.VENDOR_CD = CVUR_MNG.COMPANY_CD)
+		LEFT JOIN (SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+							 U.GATE_CD
+						   , U.COMPANY_CD
+						   , U.USER_ID
+						   , U.USER_NM
+						   , U.TEL_NUM
+						   , U.FAX_NUM
+						   , U.POSITION_NM
+						   , U.DEPT_NM
+						   , U.EMAIL
+				   	   FROM STOCCVUR U
+					   JOIN STOCVNGL VNGL
+						 ON(VNGL.VENDOR_CD = U.COMPANY_CD
+						AND VNGL.VENDOR_CD = #{VENDOR_CD})
+						<if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>
+				  	) CVUR_USR
+		  ON (VNGL.GATE_CD = CVUR_USR.GATE_CD
+		 AND VNGL.VENDOR_CD = CVUR_USR.COMPANY_CD)
+	   WHERE HD.GATE_CD = #{ses.gateCd}
+		 AND HD.RFQ_NUM = #{RFQ_NUM}
+		 AND HD.RFQ_CNT = #{RFQ_CNT}
+		 AND VN.VENDOR_CD = #{VENDOR_CD}
+		 AND HD.DEL_FLAG = '0'
+	   GROUP BY HD.RFQ_NUM
+			   , HD.RFQ_CNT
+			   , DT.RFQ_NUM
+			   , DT.RFQ_CNT
+			   , DT.GATE_CD
+			   , VN.VENDOR_CD
+			   , OGCM.BUYER_NM
+			   , OGCM.CEO_USER_NM
+			   , USR.POSITION_NM
+			   , USR.GATE_CD
+			   , USR.COMPANY_CD
+			   , USR.DEPT_CD
+			   , USR.USER_NM
+			   , USR.TEL_NUM
+			   , USR.FAX_NUM
+			   , USR.EMAIL
+			   , VNGL.VENDOR_NM
+			   , VNGL.CEO_USER_NM
+			   , VNGL.HQ_ADDR_1
+			   , VNGL.HQ_ADDR_2
+    </select>
+
+    <select id="selectVRQDT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY DT.RFQ_NUM) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_CD, '') AS DT_ITEM_CD -- 품목코드
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_DESC, '') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_SPEC, '') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(RQ.UNIT_CD, '') AS DT_UNIT_CD
+			  , '1' AS DT_QTY -- 수량
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, QT.QTA_UNIT_PRC),1), '.00', ''), '0') AS DT_QTA_UNIT_PRC -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, QT.QTA_UNIT_PRC),1), '.00', ''), '0') AS DT_QTA_UNIT_AMT -- 금액
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(QT.QTA_UNIT_PRC), '.00', ''), '0') AS DT_QTA_UNIT_PRC -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(QT.QTA_UNIT_PRC), '.00', ''), '0') AS DT_QTA_UNIT_AMT -- 금액
+			</if>
+			  , <include refid="com.sql.nvl"/>((CASE WHEN MK.MKBR_NM IS NULL THEN
+					  (CASE WHEN RQ.CMS_MAKER_NM IS NULL THEN RQ.MAKER_NM
+					  		 ELSE RQ.CMS_MAKER_NM END)
+					   ELSE MK.MKBR_NM END)
+				+
+				(CASE WHEN <include refid="com.sql.nvl"/>(MTGL.MAKER_PART_NO, RQ.MODEL_NM) = '' THEN ''
+					   ELSE ' / ' + <include refid="com.sql.nvl"/>(MTGL.MAKER_PART_NO, RQ.MODEL_NM) END), '') AS DT_MAKER_MODEL -- 제조사/모델
+		  FROM STOCRQHD HD
+		  JOIN STOCRQDT DT
+			ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.RFQ_NUM = DT.RFQ_NUM
+		   AND HD.RFQ_CNT = DT.RFQ_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOCRQVN VN
+			ON (DT.GATE_CD = VN.GATE_CD
+		   AND DT.RFQ_NUM = VN.RFQ_NUM
+		   AND DT.RFQ_CNT = VN.RFQ_CNT
+		   AND DT.RFQ_SQ = VN.RFQ_SQ
+		   AND VN.DEL_FLAG = '0')
+		  LEFT JOIN STOCQTDT QT
+		 	ON (DT.GATE_CD = QT.GATE_CD
+		   AND DT.RFQ_NUM = QT.RFQ_NUM
+		   AND DT.RFQ_CNT = QT.RFQ_CNT
+		   AND DT.RFQ_SQ = QT.RFQ_SQ
+		   AND VN.VENDOR_CD = QT.VENDOR_CD
+		   AND QT.DEL_FLAG = '0')
+		  LEFT JOIN STOUNWRQ RQ
+			ON (DT.GATE_CD = RQ.GATE_CD
+		   AND DT.ITEM_CD = RQ.ITEM_CD
+		   AND DT.CUST_CD = RQ.CUST_CD
+		   AND DT.ITEM_REQ_NO = RQ.ITEM_REQ_NO
+		   AND DT.ITEM_REQ_SEQ = RQ.ITEM_REQ_SEQ)
+		  LEFT JOIN STOCMTGL MTGL
+		    ON (DT.GATE_CD = MTGL.GATE_CD
+		   AND DT.ITEM_CD = MTGL.ITEM_CD
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCMKBR MK
+			ON (MTGL.GATE_CD = MK.GATE_CD
+		   AND MTGL.MAKER_CD = MK.MKBR_CD
+		   AND MK.MKBR_TYPE = 'MK'
+		   AND MTGL.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.RFQ_NUM = #{RFQ_NUM}
+		   AND HD.RFQ_CNT = #{RFQ_CNT}
+		   AND VN.VENDOR_CD = #{VENDOR_CD}
+		   AND HD.DEL_FLAG = '0'
+    </select>
+
+	<select id="selectORQHD" resultType="java.util.Map">
+		SELECT HD.RFQ_NUM
+			  , HD.RFQ_CNT
+			  , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE -- 견적일
+			  --수신자
+			  , <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') AS CUST_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.POSITION_NM, '') AS O_POSITION_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.USER_NM, '') AS O_USER_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.DEPT_NM, '') AS O_DEPT_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.TEL_NUM, '') AS O_TEL_NUM
+			  , <include refid="com.sql.nvl"/>(CVUR.FAX_NUM, '') AS O_FAX_NUM
+			  , <include refid="com.sql.nvl"/>(CVUR.EMAIL, '') AS O_EMAIL
+			  -- 발신자
+			  , <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, '') AS BUYER_NM
+			  , <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, '') AS V_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(OGCM.ADDR, '') AS V_ADDR -- 주소
+			  , <include refid="com.sql.nvl"/>(USR.POSITION_NM, '') AS V_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETDEPTNAME(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}), '') AS V_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(USR.USER_NM, '') AS V_USER_NM -- 성명
+			  , <include refid="com.sql.nvl"/>(USR.TEL_NUM, '') AS V_TEL_NUM -- 전화번호
+			  , <include refid="com.sql.nvl"/>(USR.FAX_NUM, '') AS V_FAX_NUM -- FAX번호
+			  , <include refid="com.sql.nvl"/>(USR.EMAIL, '') AS V_EMAIL -- EMAIL
+			  -- 합계
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT COUNT(*) FROM STOCRQDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' )),1), '.00', ''), '0') AS GROUP_CNT
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, (SELECT SUM(<include refid="com.sql.nvl"/>(STD_UNIT_PRC, QTA_UNIT_PRC)) FROM STOCCNDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM = DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' )),1), '.00', ''), '0') AS GROUP_AMT
+			</if>
+			<if test="_databaseId == 'oraclex'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT COUNT(*) FROM STOCRQDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM	= DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' ), '.00', ''), '0') AS GROUP_CNT
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(SELECT SUM(<include refid="com.sql.nvl"/>(STD_UNIT_PRC, QTA_UNIT_PRC)) FROM STOCCNDT WHERE GATE_CD  = DT.GATE_CD AND RFQ_NUM = DT.RFQ_NUM AND RFQ_CNT = DT.RFQ_CNT AND DEL_FLAG = '0' ), '.00', ''), '0') AS GROUP_AMT
+			</if>
+			  -- 비고
+			  , ROW_NUMBER() OVER (PARTITION BY HD.RFQ_NUM ORDER BY HD.RFQ_NUM) AS RN
+		  FROM STOCRQHD HD
+		  LEFT JOIN STOCRQDT DT
+		 	ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.RFQ_NUM = DT.RFQ_NUM
+		   AND HD.RFQ_CNT = DT.RFQ_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOCOGCM OGCM -- 수신처
+			ON (HD.GATE_CD = OGCM.GATE_CD
+		   AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		   AND OGCM.DEL_FLAG = '0')
+		  JOIN STOCUSER USR -- 수신처 담당자
+			ON (HD.GATE_CD = USR.GATE_CD
+		   AND HD.CTRL_USER_ID = USR.USER_ID)
+		  LEFT JOIN STOUNWRQ RQ
+		    ON (DT.GATE_CD = RQ.GATE_CD
+		   AND DT.ITEM_CD = RQ.ITEM_CD
+		   AND DT.CUST_CD = RQ.CUST_CD
+		   AND DT.ITEM_REQ_NO = RQ.ITEM_REQ_NO
+		   AND DT.ITEM_REQ_SEQ = RQ.ITEM_REQ_SEQ)
+		  LEFT JOIN STOCCUST CUST
+			ON (DT.GATE_CD = CUST.GATE_CD
+		   AND DT.CUST_CD = CUST.CUST_CD
+		   AND CUST.DEL_FLAG = '0')
+		  LEFT JOIN STOCCVUR CVUR
+			ON (RQ.GATE_CD = CVUR.GATE_CD
+		   AND RQ.REG_USER_ID = CVUR.USER_ID)
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.RFQ_NUM = #{RFQ_NUM}
+		   AND HD.RFQ_CNT = #{RFQ_CNT}
+		   AND HD.DEL_FLAG = '0'
+		 GROUP BY HD.RFQ_NUM
+				 , HD.RFQ_CNT
+				 , CUST.CUST_NM
+				 , CVUR.POSITION_NM
+				 , CVUR.USER_NM
+				 , CVUR.DEPT_NM
+				 , CVUR.TEL_NUM
+				 , CVUR.FAX_NUM
+				 , CVUR.EMAIL
+				 , OGCM.BUYER_NM
+				 , OGCM.CEO_USER_NM
+				 , OGCM.ADDR
+				 , USR.POSITION_NM
+				 , USR.GATE_CD
+				 , USR.COMPANY_CD
+				 , USR.DEPT_CD
+				 , USR.USER_NM
+				 , USR.TEL_NUM
+				 , USR.FAX_NUM
+				 , USR.EMAIL
+				 , DT.RFQ_CNT
+				 , DT.GATE_CD
+				 , DT.RFQ_NUM
+	</select>
+
+	<select id="selectORQDT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY DT.RFQ_NUM) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_CD, '') AS DT_ITEM_CD -- 품목코드
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_DESC, '') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_SPEC, '') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(RQ.UNIT_CD, '') AS DT_UNIT_CD
+			  , '1' AS DT_QTY -- 수량
+			<if test="_databaseId == 'mssql'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, <include refid="com.sql.nvl"/>(CNDT.STD_UNIT_PRC, CNDT.QTA_UNIT_PRC)),1), '.00', ''), '0') AS DT_QTA_UNIT_PRC -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR,CONVERT(MONEY, <include refid="com.sql.nvl"/>(CNDT.STD_UNIT_PRC, CNDT.QTA_UNIT_PRC)),1), '.00', ''), '0') AS DT_QTA_UNIT_AMT -- 금액
+			</if>
+			<if test="_databaseId == 'oraclexxx'">
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(CNDT.STD_UNIT_PRC, CNDT.QTA_UNIT_PRC), '.00', ''), '0') AS DT_QTA_UNIT_PRC -- 단가
+			  , <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(CNDT.STD_UNIT_PRC, CNDT.QTA_UNIT_PRC), '.00', ''), '0') AS DT_QTA_UNIT_AMT -- 금액
+			  , <include refid="com.sql.nvl"/>((CASE WHEN MK.MKBR_NM IS NULL THEN
+					  (CASE WHEN RQ.CMS_MAKER_NM IS NULL THEN RQ.MAKER_NM
+					  		 ELSE RQ.CMS_MAKER_NM END)
+					   ELSE MK.MKBR_NM END)
+				+
+				(CASE WHEN <include refid="com.sql.nvl"/>(MTGL.MAKER_PART_NO, RQ.MODEL_NM) = '' THEN ''
+					   ELSE ' / ' + <include refid="com.sql.nvl"/>(MTGL.MAKER_PART_NO, RQ.MODEL_NM) END), '') AS DT_MAKER_MODEL -- 제조사/모델
+			</if>
+		  FROM STOCRQHD HD
+		  JOIN STOCRQDT DT
+		  	ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.RFQ_NUM = DT.RFQ_NUM
+		   AND HD.RFQ_CNT = DT.RFQ_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOUNWRQ RQ
+			ON (DT.GATE_CD = RQ.GATE_CD
+		   AND DT.ITEM_CD = RQ.ITEM_CD
+		   AND DT.CUST_CD = RQ.CUST_CD
+		   AND DT.ITEM_REQ_NO = RQ.ITEM_REQ_NO
+		   AND DT.ITEM_REQ_SEQ = RQ.ITEM_REQ_SEQ)
+		  LEFT JOIN STOCMTGL MTGL
+			ON (DT.GATE_CD = MTGL.GATE_CD
+		   AND DT.ITEM_CD = MTGL.ITEM_CD
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCMKBR MK
+		    ON (MTGL.GATE_CD = MK.GATE_CD
+		   AND MTGL.MAKER_CD = MK.MKBR_CD
+		   AND MK.MKBR_TYPE = 'MK'
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT JOIN STOCCNDT CNDT
+			ON (DT.GATE_CD = CNDT.GATE_CD
+		   AND DT.RFQ_NUM = CNDT.RFQ_NUM
+		   AND DT.RFQ_CNT = CNDT.RFQ_CNT
+		   AND DT.RFQ_SQ = CNDT.RFQ_SQ
+		   AND CNDT.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.RFQ_NUM = #{RFQ_NUM}
+		   AND HD.RFQ_CNT = #{RFQ_CNT}
+		   AND HD.DEL_FLAG = '0'
+	</select>
+
+	<select id="selectNWRQHD" resultType="java.util.Map">
+		SELECT <include refid="com.sql.nvl"/>(HD.RFQ_NUM, '') AS RFQ_NUM -- 견적요청번호
+			  , <include refid="com.sql.nvl"/>(HD.RFQ_CNT, '') AS RFQ_CNT
+			  , <include refid="com.sql.toDateChar"/>(HD.REG_DATE, 'YYYY-MM-DD') AS REG_DATE -- 견적요청일
+			  , <include refid="com.sql.toDateChar"/>(HD.RFQ_CLOSE_DATE, 'YYYY-MM-DD') AS RFQ_CLOSE_DATE -- 견적제출 마감일
+              --발신자(고객사)
+              , <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') AS CUST_NM
+              , <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '') AS C_CEO_USER_NM
+              , <include refid="com.sql.nvl"/>(<include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') AS C_ADDR
+              , <include refid="com.sql.nvl"/>(CVUR.POSITION_NM, '') AS C_POSITION_NM
+              , <include refid="com.sql.nvl"/>(CVUR.USER_NM, '') AS C_USER_NM
+              , <include refid="com.sql.nvl"/>(CVUR.DEPT_NM, '') AS C_DEPT_NM
+              , <include refid="com.sql.nvl"/>(CVUR.TEL_NUM, '') AS C_TEL_NUM
+              , <include refid="com.sql.nvl"/>(CVUR.FAX_NUM, '') AS C_FAX_NUM
+              , <include refid="com.sql.nvl"/>(CVUR.EMAIL, '') AS C_EMAIL
+              --수신자(운영사)
+			  , <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, '') AS BUYER_NM
+			  , <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, '') AS O_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(OGCM.ADDR, '') AS O_ADDR -- 주소
+			  , <include refid="com.sql.nvl"/>(USR.POSITION_NM, '') AS O_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETDEPTNAME(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}), '') AS O_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(USR.USER_NM, '') AS O_USER_NM -- 성명
+			  , <include refid="com.sql.nvl"/>(USR.TEL_NUM, '') AS O_TEL_NUM -- 전화번호
+			  , <include refid="com.sql.nvl"/>(USR.FAX_NUM, '') AS O_FAX_NUM -- FAX번호
+			  , <include refid="com.sql.nvl"/>(USR.EMAIL, '') AS O_EMAIL -- EMAIL
+		  FROM STOCRQHD HD
+		  LEFT JOIN STOCRQDT DT
+			ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.RFQ_NUM = DT.RFQ_NUM
+		   AND HD.RFQ_CNT = DT.RFQ_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOCOGCM OGCM -- 발신처
+			ON (HD.GATE_CD = OGCM.GATE_CD
+		   AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		   AND OGCM.DEL_FLAG = '0')
+		  JOIN STOCUSER USR -- 발신처 담당자
+			ON (HD.GATE_CD = USR.GATE_CD
+		   AND HD.CTRL_USER_ID = USR.USER_ID)
+		  LEFT JOIN STOUNWRQ RQ
+			ON (DT.GATE_CD = RQ.GATE_CD
+		   AND DT.ITEM_CD = RQ.ITEM_CD
+		   AND DT.CUST_CD = RQ.CUST_CD
+		   AND DT.ITEM_REQ_NO = RQ.ITEM_REQ_NO
+		   AND DT.ITEM_REQ_SEQ = RQ.ITEM_REQ_SEQ)
+		  LEFT JOIN STOCCUST CUST
+			ON (DT.GATE_CD = CUST.GATE_CD
+		   AND DT.CUST_CD = CUST.CUST_CD
+		   AND CUST.DEL_FLAG = '0')
+		  LEFT JOIN STOCCVUR CVUR
+			ON (RQ.GATE_CD = CVUR.GATE_CD
+		   AND RQ.REG_USER_ID = CVUR.USER_ID)
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.RFQ_NUM = #{RFQ_NUM}
+		   AND HD.RFQ_CNT = #{RFQ_CNT}
+		   AND HD.DEL_FLAG = '0'
+		 GROUP BY HD.RFQ_NUM
+				 , HD.RFQ_CNT
+				 , CUST.CUST_NM
+				 , CUST.CEO_USER_NM
+				 , CUST.ADDR1
+				 , CUST.ADDR2
+				 , CVUR.POSITION_NM
+				 , CVUR.USER_NM
+				 , CVUR.DEPT_NM
+				 , CVUR.TEL_NUM
+				 , CVUR.FAX_NUM
+				 , CVUR.EMAIL
+				 , OGCM.BUYER_NM
+				 , OGCM.CEO_USER_NM
+				 , OGCM.ADDR
+				 , USR.POSITION_NM
+				 , USR.GATE_CD
+				 , USR.COMPANY_CD
+				 , USR.DEPT_CD
+				 , USR.USER_NM
+				 , USR.TEL_NUM
+				 , USR.FAX_NUM
+				 , USR.EMAIL
+				 , DT.RFQ_CNT
+				 , DT.GATE_CD
+				 , DT.RFQ_NUM
+				 , HD.REG_DATE
+				 , HD.RFQ_CLOSE_DATE
+	</select>
+
+	<select id="selectNWRQDT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY DT.RFQ_NUM) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_CD, '') AS DT_ITEM_CD -- 품목코드
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_DESC, '') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_SPEC, '') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(RQ.UNIT_CD, '') AS DT_UNIT_CD -- 단위
+			  , '1' AS DT_QTY -- 수량
+			  , <include refid="com.sql.nvl"/>((CASE WHEN MK.MKBR_NM IS NULL THEN
+			  		  (CASE WHEN RQ.CMS_MAKER_NM IS NULL THEN RQ.MAKER_NM
+					  		 ELSE RQ.CMS_MAKER_NM END)
+					   ELSE MK.MKBR_NM END), '') AS DT_MAKER -- 제조사
+			  , <include refid="com.sql.nvl"/>(RQ.ORIGIN_NM, '') AS DT_ORIGIN_NM
+		  FROM STOCRQHD HD
+		  JOIN STOCRQDT DT
+			ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.RFQ_NUM = DT.RFQ_NUM
+		   AND HD.RFQ_CNT = DT.RFQ_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOUNWRQ RQ
+			ON (DT.GATE_CD = RQ.GATE_CD
+		   AND DT.ITEM_CD = RQ.ITEM_CD
+		   AND DT.CUST_CD = RQ.CUST_CD
+		   AND DT.ITEM_REQ_NO = RQ.ITEM_REQ_NO
+		   AND DT.ITEM_REQ_SEQ = RQ.ITEM_REQ_SEQ)
+		  LEFT JOIN STOCMTGL MTGL
+			ON (DT.GATE_CD = MTGL.GATE_CD
+		   AND DT.ITEM_CD = MTGL.ITEM_CD
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT JOIN STOCMKBR MK
+			ON (MTGL.GATE_CD = MK.GATE_CD
+		   AND MTGL.MAKER_CD = MK.MKBR_CD
+		   AND MK.MKBR_TYPE = 'MK'
+		   AND MTGL.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.RFQ_NUM = #{RFQ_NUM}
+		   AND HD.RFQ_CNT = #{RFQ_CNT}
+		   AND HD.DEL_FLAG = '0'
+	</select>
+
+	<select id="selectHD" parameterType="hashMap" resultType="hashMap">
+
+		SELECT GATE_CD
+
+			, <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NUM,6,10), '') AS V_VENDOR_IRS_NO
+			, <include refid="com.sql.nvl"/>(AGENT.BUYER_NM, '') AS BUYER_NM
+			, <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '') AS V_CEO_NM
+			, <include refid="com.sql.nvl"/>(AGENT.ADDR, '') AS V_ADDR
+			, <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '') AS V_VENDOR_BUSINESS_TYPE
+			, <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '') AS V_VENDOR_INDUSTRY_TYPE
+            , <include refid="com.sql.nvl"/>(#{ses.telNum},'') AS V_TEL_NUM
+            , <include refid="com.sql.nvl"/>(#{ses.faxNum},'') AS V_FAX_NUM
+            , <include refid="com.sql.nvl"/>(#{ses.deptNm},'') AS V_DEPT_NM
+            , <include refid="com.sql.nvl"/>(#{ses.positionNm},'') AS V_POSITION_NM
+            , <include refid="com.sql.nvl"/>(#{ses.userNm},'') AS V_USER_NM
+            , <include refid="com.sql.nvl"/>(#{ses.email},'') AS V_EMAIL
+		    , <include refid="com.sql.nvl"/>(#{CUST_NM},'') AS CUST_NM
+			, <include refid="com.sql.nvl"/>(#{REC_USER_NM},'') AS O_USER_NM
+			, <include refid="com.sql.nvl"/>(#{TEL_NUM},'') AS O_TEL_NUM
+			, <include refid="com.sql.nvl"/>(#{FAX_NUM},'') AS O_FAX_NUM
+			, <include refid="com.sql.nvl"/>(#{EMAIL},'') AS O_EMAIL
+			, <include refid="com.sql.nvl"/>(#{REMARK},'') AS H_REMARK
+			, <include refid="com.sql.nvl"/>(#{DEPT_NM},'') AS O_DEPT_NM
+			, <include refid="com.sql.nvl"/>(#{POSITION_NM},'') AS O_POSITION_NM
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE
+
+		FROM STOCOGCM AGENT
+		WHERE GATE_CD  = #{ses.gateCd}
+			  AND BUYER_CD = #{DEFAULT_AGENT_CODE}
+			  AND DEL_FLAG = '0'
+
+
+
+	</select>
+
+	<select id="selectUPOHD" resultType="java.util.Map">
+		<!-- 당월 -->
+		SELECT <include refid="com.sql.subStr"/>(#{START_DATE}, 1, 4) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(#{START_DATE}, 5, 2) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(#{START_DATE}, 7, 2)
+				<include refid="com.sql.stringMerge"/> ' ~ '  <include refid="com.sql.stringMerge"/>
+				<include refid="com.sql.subStr"/>(#{END_DATE}, 1, 4) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(#{END_DATE}, 5, 2) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(#{END_DATE}, 7, 2) AS FROM_TO_DATE
+		  	  , <include refid="com.sql.dbo"/>GETCUSTNAME(UPOHD.GATE_CD, UPOHD.CUST_CD)  AS H_CUST_NM
+			  , UPOHD.CUST_CD AS CUST_CD
+		  FROM STOUPOHD UPOHD
+		 WHERE <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND ${END_DATE}
+		   AND UPOHD.CUST_CD IN
+		<foreach item="CUST_CD" index="index" collection="CUST_LIST" open="(" separator="," close=")">
+			#{CUST_CD}
+		</foreach>
+		   AND UPOHD.DEL_FLAG = '0'
+		 GROUP BY UPOHD.GATE_CD
+	   			 , UPOHD.CUST_CD
+	</select>
+
+	<select id="selectUPODT" resultType="java.util.Map">
+		SELECT CUST_CD
+			  , CUST_NM
+			  -- 주요 거래현황
+			  , <include refid="com.sql.nvl"/>(CPO_CNT, 0) AS CPO_CNT
+			  , <include refid="com.sql.nvl"/>(ITEM_CNT, 0) AS ITEM_CNT
+			  , <include refid="com.sql.nvl"/>(VENDOR_CNT, 0) AS VENDOR_CNT
+			  -- 관리현황
+			  , <include refid="com.sql.nvl"/>(A_AVG_LT_DAY, 0) AS A_AVG_LT_DAY
+			  , <include refid="com.sql.nvl"/>(D_AVG_LT_DAY, 0) AS D_AVG_LT_DAY
+			  , <include refid="com.sql.nvl"/>(C_AVG_LT_DAY, 0) AS C_AVG_LT_DAY
+			  , <include refid="com.sql.nvl"/>(STD_DELY_RATE, 0) AS STD_DELY_RATE
+			  -- 실적현황
+			  , <include refid="com.sql.nvl"/>(CPO_ITEM_AMT, 0) AS D_CPO_ITEM_AMT
+			  , <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) AS D_GR_ITEM_AMT
+			  , <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) AS D_PO_GR_ITEM_AMT
+			  , <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) AS D_PROFIT_AMT
+			  , CASE WHEN <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) = 0 THEN 0 ELSE ROUND((<include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0)) / <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) * 100, 2) END AS D_PROFIT_RATE
+
+		  FROM (
+			 	SELECT UPOHD.GATE_CD
+					  , UPOHD.CUST_CD
+					  , <include refid="com.sql.dbo"/>GETCUSTNAME(UPOHD.GATE_CD, UPOHD.CUST_CD) AS CUST_NM
+					  , SUM(UPODT.CPO_ITEM_AMT) AS CPO_ITEM_AMT
+					  , SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+					  , SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+					  , SUM(APAR.GR_ITEM_AMT) - SUM(APAR.PO_GR_ITEM_AMT) AS PROFIT_AMT
+					  , COUNT(UPODT.CPO_NO) AS CPO_CNT
+					  , SUM(GR_NOCLOSE_AMT) AS GR_NOCLOSE_AMT
+					  , COUNT(DISTINCT UPODT.ITEM_CD) AS ITEM_CNT
+					  , COUNT(DISTINCT UPODT.VENDOR_CD) AS VENDOR_CNT
+					  , MAX(A.AVG_LT_DAY) AS A_AVG_LT_DAY
+					  , MAX(B.AVG_LT_DAY) AS B_AVG_LT_DAY
+					  , MAX(C.AVG_LT_DAY) AS C_AVG_LT_DAY
+					  , MAX(D.AVG_LT_DAY) AS D_AVG_LT_DAY
+					  , MAX(E.STD_DELY_RATE) AS STD_DELY_RATE
+					  , MAX(F.VOC_CNT) AS VOC_CNT
+					  , MAX(UPODT.AM_USER_ID) AS AM_USER_ID
+			 	  FROM STOUPOHD UPOHD
+				  JOIN STOUPODT UPODT
+					ON UPOHD.GATE_CD = UPODT.GATE_CD
+				   AND UPOHD.CUST_CD = UPODT.CUST_CD
+				   AND UPOHD.CPO_NO = UPODT.CPO_NO
+				  LEFT JOIN (
+								SELECT GRDT.GATE_CD
+									  , GRDT.CUST_CD
+									  , GRDT.CPO_NO
+									  , GRDT.CPO_SEQ
+									  , SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+									  , SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+									  , CASE WHEN MAX(GRDT.CLOSING_NO) IS NULL THEN SUM(GRDT.GR_ITEM_AMT) ELSE 0 END AS GR_NOCLOSE_AMT
+									  , MAX(GRDT.CLOSING_NO) AS CLOSE_YN
+								  FROM STOCGRDT GRDT
+								  LEFT JOIN STOCAPAR APAR
+									ON  GRDT.GATE_CD = APAR.GATE_CD
+								   AND GRDT.GR_NO = APAR.GR_NO
+								   AND GRDT.GR_SEQ = APAR.GR_SEQ
+								   AND APAR.DEL_FLAG = '0'
+								 WHERE GRDT.GATE_CD = #{ses.gateCd}
+								   AND GRDT.DEL_FLAG = '0'
+								 GROUP BY GRDT.GATE_CD, GRDT.CUST_CD, GRDT.CPO_NO, GRDT.CPO_SEQ
+							) APAR
+				    ON UPODT.GATE_CD = APAR.GATE_CD
+				   AND UPODT.CUST_CD = APAR.CUST_CD
+				   AND UPODT.CPO_NO = APAR.CPO_NO
+				   AND UPODT.CPO_SEQ = APAR.CPO_SEQ
+				  LEFT JOIN (
+								SELECT GATE_CD
+								   	  , CUST_CD
+									<if test="_databaseId == 'mssql'">
+									  , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+									  , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+								  FROM (
+									 	SELECT NWRQ.GATE_CD
+											  , NWRQ.CUST_CD
+											  , NWRQ.CMS_MAPPING_DATE
+											  , INFO.REG_DATE
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.CMS_MAPPING_DATE, INFO.REG_DATE) AS LT_DAYS
+									 	  FROM STOUNWRQ NWRQ
+										  JOIN STOYINFO INFO
+											ON  NWRQ.GATE_CD  = INFO.GATE_CD
+										   AND NWRQ.CONT_NO  = INFO.CONT_NO
+										   AND NWRQ.CONT_SEQ = INFO.CONT_SEQ
+										   AND INFO.DEL_FLAG = '0'
+									     WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+									   	   AND NWRQ.DEL_FLAG = '0'
+									   	   AND NWRQ.PROGRESS_CD = '500' -- 소싱완료
+									   	   AND NWRQ.CONT_NO IS NOT NULL
+									   	   AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									 	) A
+								 WHERE A.LT_DAYS > 0
+								 GROUP BY A.GATE_CD , A.CUST_CD
+							) A
+				    ON UPODT.GATE_CD = A.GATE_CD
+				   AND UPODT.CUST_CD = A.CUST_CD
+				  LEFT JOIN (
+								SELECT GATE_CD
+									  , CUST_CD
+									<if test="_databaseId == 'mssql'">
+									  , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+									  , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+								  FROM (
+									 	SELECT NWRQ.GATE_CD
+											  , NWRQ.CUST_CD
+											  , NWRQ.CMS_MAPPING_DATE
+											  , NWRQ.REQUEST_DATE
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.REQUEST_DATE, NWRQ.CMS_MAPPING_DATE) AS LT_DAYS
+									      FROM STOUNWRQ NWRQ
+									 	 WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+									   	   AND NWRQ.DEL_FLAG = '0'
+									   	   AND NWRQ.CMS_MAPPING_DATE IS NOT NULL
+										   AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									 	) B
+								 WHERE B.LT_DAYS > 0
+								 GROUP BY B.GATE_CD , B.CUST_CD
+							) B
+					ON UPODT.GATE_CD = B.GATE_CD
+				   AND UPODT.CUST_CD = B.CUST_CD
+				  LEFT JOIN (
+								SELECT GATE_CD
+									  , CUST_CD
+									<if test="_databaseId == 'mssql'">
+									  , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+									  , ROUND(SUM(TO_NMUBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+								  FROM (
+									 	SELECT POHD.GATE_CD
+											  , POHD.CUST_CD
+											<if test="_databaseId == 'mssql'">
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, CONVERT(DATETIME, (CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+											</if>
+											<if test="_databaseId == 'oracle'">
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, TO_DATE((CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END), 'YYYYMMDD')) AS LT_DAYS
+											</if>
+									 	  FROM STOUPOHD POHD
+										  JOIN STOUPODT PODT
+											ON PODT.GATE_CD  = POHD.GATE_CD
+										   AND PODT.CPO_NO   = POHD.CPO_NO
+										   AND PODT.CUST_CD  = POHD.CUST_CD
+										   AND PODT.DEL_FLAG = '0'
+										  LEFT JOIN (
+														SELECT IVDT.GATE_CD
+														 	  , IVDT.CPO_NO
+															  , IVDT.CPO_SEQ
+															  , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+															  , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+														  FROM STOYIVDT IVDT
+														  JOIN STOYIVHD IVHD
+															ON  IVDT.GATE_CD  = IVHD.GATE_CD
+														   AND IVDT.IV_NO = IVHD.IV_NO
+														   AND IVHD.DEL_FLAG = '0'
+														   AND IVDT.DEL_FLAG = '0'
+														 WHERE IVHD.GATE_CD = #{ses.gateCd}
+														 GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+													) ITBL
+											 ON ITBL.GATE_CD = PODT.GATE_CD
+											AND ITBL.CPO_NO = PODT.CPO_NO
+											AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+									 	  WHERE POHD.GATE_CD  = #{ses.gateCd}
+									        AND POHD.DEL_FLAG = '0'
+									   		AND PODT.PROGRESS_CD NOT IN ('10', '20')
+									   		AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									 ) C
+								WHERE C.LT_DAYS > 0
+								GROUP BY C.GATE_CD , C.CUST_CD
+							) C
+				  	ON UPODT.GATE_CD = C.GATE_CD
+				   AND UPODT.CUST_CD = C.CUST_CD
+				  LEFT JOIN (
+								SELECT GATE_CD
+									  , CUST_CD
+									<if test="_databaseId == 'mssql'">
+								   	  , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+								   	  , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+								  FROM (
+									 	SELECT POHD.GATE_CD
+											  , POHD.CUST_CD
+											<if test="_databaseId == 'mssql'">
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(ITBL.GR_DATE, CONVERT(DATETIME, (CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+											</if>
+											<if test="_databaseId == 'oracle'">
+											  , <include refid="com.sql.dbo"/>fn_GetWorkingDays(ITBL.GR_DATE, TO_DATE((CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END), 'YYYYMMDD')) AS LT_DAYS
+											</if>
+									 	  FROM STOUPOHD POHD
+										  JOIN STOUPODT PODT
+										  	ON  PODT.GATE_CD  = POHD.GATE_CD
+										   AND PODT.CPO_NO   = POHD.CPO_NO
+										   AND PODT.CUST_CD  = POHD.CUST_CD
+										   AND PODT.DEL_FLAG = '0'
+										  LEFT JOIN (
+														SELECT IVDT.GATE_CD
+															  , IVDT.CPO_NO
+															  , IVDT.CPO_SEQ
+															  , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+															  , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+															  , MIN(GRDT.GR_DATE) AS GR_DATE
+														  FROM STOYIVDT IVDT
+														  JOIN STOYIVHD IVHD
+															ON  IVDT.GATE_CD  = IVHD.GATE_CD
+														   AND IVDT.IV_NO = IVHD.IV_NO
+														   AND IVHD.DEL_FLAG = '0'
+														   AND IVDT.DEL_FLAG = '0'
+														  LEFT JOIN STOCGRDT GRDT
+															ON  IVDT.GATE_CD  = GRDT.GATE_CD
+														   AND IVDT.IV_NO = GRDT.IV_NO
+														   AND IVDT.IV_SEQ = GRDT.IV_SEQ
+														   AND GRDT.DEL_FLAG = '0'
+														 WHERE IVHD.GATE_CD = #{ses.gateCd}
+														 GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+													) ITBL
+											ON ITBL.GATE_CD = PODT.GATE_CD
+										   AND ITBL.CPO_NO = PODT.CPO_NO
+										   AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+									     WHERE POHD.GATE_CD  = #{ses.gateCd}
+									   	   AND POHD.DEL_FLAG = '0'
+									   	   AND PODT.PROGRESS_CD NOT IN ('10', '20')
+									   	   AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+										) D
+				  				   WHERE D.LT_DAYS > 0
+								   GROUP BY D.GATE_CD , D.CUST_CD
+							) D
+				  	ON UPODT.GATE_CD = D.GATE_CD
+				   AND UPODT.CUST_CD = D.CUST_CD
+				  LEFT JOIN (
+								SELECT GATE_CD
+									  , CUST_CD
+									  , SUM(Y_STD_FLAG) AS Y_STD_FLAG
+									  , SUM(N_STD_FLAG) AS N_STD_FLAG
+									<if test="_databaseId == 'mssql'">
+									  , ROUND(CONVERT(FLOAT, SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 2) AS STD_DELY_RATE
+									</if>
+									<if test="_databaseId == 'oracle'">
+									  , ROUND(TO_NUMBER(SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 2) AS STD_DELY_RATE
+									</if>
+								  FROM (
+									 	SELECT GATE_CD
+											  , CUST_CD
+											  , CASE WHEN STD_FLAG = '1' THEN COUNT(STD_FLAG) ELSE 0 END Y_STD_FLAG
+											  , CASE WHEN STD_FLAG = '0' THEN COUNT(STD_FLAG) ELSE 0 END N_STD_FLAG
+									 	  FROM (
+										  		SELECT POHD.GATE_CD
+												  	  , POHD.CUST_CD
+												  	  , CASE WHEN <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), '') = '' THEN '0' ELSE
+													    	  CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+																    THEN '0'
+															  		ELSE '1'
+															   END
+														 END AS STD_FLAG
+										  		  FROM STOUPOHD POHD
+												  JOIN STOUPODT PODT
+													ON  PODT.GATE_CD  = POHD.GATE_CD
+												   AND PODT.CPO_NO   = POHD.CPO_NO
+												   AND PODT.CUST_CD  = POHD.CUST_CD
+												   AND PODT.DEL_FLAG = '0'
+												  LEFT JOIN (
+															 	SELECT IVDT.GATE_CD
+																	  , IVDT.CPO_NO
+																	  , IVDT.CPO_SEQ
+																	  , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+																	  , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+																	  , MIN(GRDT.GR_DATE) AS GR_DATE
+															 	  FROM STOYIVDT IVDT
+																  JOIN STOYIVHD IVHD
+																	ON IVDT.GATE_CD = IVHD.GATE_CD
+																   AND IVDT.IV_NO = IVHD.IV_NO
+																   AND IVHD.DEL_FLAG = '0'
+																   AND IVDT.DEL_FLAG = '0'
+																  LEFT JOIN STOCGRDT GRDT
+																	ON IVDT.GATE_CD  = GRDT.GATE_CD
+																   AND IVDT.IV_NO = GRDT.IV_NO
+																   AND IVDT.IV_SEQ = GRDT.IV_SEQ
+																   AND GRDT.DEL_FLAG = '0'
+															 	 WHERE IVHD.GATE_CD = #{ses.gateCd}
+															 	 GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+															) ITBL
+												    ON ITBL.GATE_CD = PODT.GATE_CD
+												   AND ITBL.CPO_NO = PODT.CPO_NO
+												   AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+										  		 WHERE POHD.GATE_CD  = #{ses.gateCd}
+												   AND POHD.DEL_FLAG = '0'
+												   AND PODT.PROGRESS_CD NOT IN ('10', '20')
+												   AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+												) E
+								   GROUP BY E.GATE_CD, E.CUST_CD, E.STD_FLAG
+										) E
+					   GROUP BY E.GATE_CD, E.CUST_CD
+							) E
+					ON UPODT.GATE_CD = E.GATE_CD
+				   AND UPODT.CUST_CD = E.CUST_CD
+				  LEFT JOIN (
+								SELECT VOCM.GATE_CD
+									  , VOCM.REQ_COM_CD AS CUST_CD
+								      , COUNT (VOCM.REQ_COM_CD) AS VOC_CNT
+								  FROM STOCVOCM VOCM
+								 WHERE VOCM.GATE_CD  = #{ses.gateCd}
+								   AND VOCM.DEL_FLAG = '0'
+								   AND <include refid="com.sql.toDateChar"/>(VOCM.REQ_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+								   AND VOCM.VOC_TYPE IN (
+												        	SELECT CODE
+													      	  FROM STOCCODD
+													     	 WHERE GATE_CD = #{ses.gateCd}
+														   	   AND DEL_FLAG = '0'
+														   	   AND CODE_TYPE = 'MP053'
+														   	   AND TEXT1 = 'C'
+													   	)
+								   AND VOCM.REQ_COM_TYPE = '100'
+								 GROUP BY VOCM.GATE_CD, VOCM.REQ_COM_CD
+							) F
+					ON UPODT.GATE_CD = F.GATE_CD
+				   AND UPODT.CUST_CD = F.CUST_CD
+			  	 WHERE UPOHD.GATE_CD = #{ses.gateCd}
+			   	   AND UPOHD.DEL_FLAG = '0'
+			   	   AND UPODT.DEL_FLAG = '0'
+			   	   AND UPODT.PROGRESS_CD NOT IN ('10', '20')
+			   	   AND UPOHD.CUST_CD NOT IN (
+										 		SELECT TEXT1
+										 		  FROM STOCCODD
+										 		 WHERE GATE_CD = #{ses.gateCd}
+										   		   AND DEL_FLAG = '0'
+										   		   AND CODE_TYPE = 'MP077'
+										 )
+				   AND <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+			   	   AND UPOHD.CUST_CD = #{CUST_CD}
+			 	 GROUP BY UPOHD.GATE_CD, UPOHD.CUST_CD
+				) AA
+
+		UNION ALL
+
+        SELECT CUST_CD
+              , CUST_NM
+              -- 주요 거래현황
+              , <include refid="com.sql.nvl"/>(CPO_CNT, 0) AS CPO_CNT
+              , <include refid="com.sql.nvl"/>(ITEM_CNT, 0) AS ITEM_CNT
+              , <include refid="com.sql.nvl"/>(VENDOR_CNT, 0) AS VENDOR_CNT
+              -- 관리현황
+              , <include refid="com.sql.nvl"/>(A_AVG_LT_DAY, 0) AS A_AVG_LT_DAY
+              , <include refid="com.sql.nvl"/>(D_AVG_LT_DAY, 0) AS D_AVG_LT_DAY
+              , <include refid="com.sql.nvl"/>(C_AVG_LT_DAY, 0) AS C_AVG_LT_DAY
+              , <include refid="com.sql.nvl"/>(STD_DELY_RATE, 0) AS STD_DELY_RATE
+              -- 실적현황
+              , <include refid="com.sql.nvl"/>(CPO_ITEM_AMT, 0) AS CPO_ITEM_AMT
+              , <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) AS GR_ITEM_AMT
+              , <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) AS PO_GR_ITEM_AMT
+              , <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) AS PROFIT_AMT
+              , CASE WHEN <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) = 0 THEN 0 ELSE ROUND((<include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0)) / <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) * 100, 2) END AS PROFIT_RATE
+          FROM (
+                SELECT UPOHD.GATE_CD
+                      , UPOHD.CUST_CD
+                      , <include refid="com.sql.dbo"/>GETCUSTNAME(UPOHD.GATE_CD, UPOHD.CUST_CD) AS CUST_NM
+                      , SUM(UPODT.CPO_ITEM_AMT) AS CPO_ITEM_AMT
+                      , SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+                      , SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+                      , SUM(APAR.GR_ITEM_AMT) - SUM(APAR.PO_GR_ITEM_AMT) AS PROFIT_AMT
+                      , COUNT(UPODT.CPO_NO) AS CPO_CNT
+                      , SUM(GR_NOCLOSE_AMT) AS GR_NOCLOSE_AMT
+                      , COUNT(DISTINCT UPODT.ITEM_CD) AS ITEM_CNT
+                      , COUNT(DISTINCT UPODT.VENDOR_CD) AS VENDOR_CNT
+                      , MAX(A.AVG_LT_DAY) AS A_AVG_LT_DAY
+                      , MAX(B.AVG_LT_DAY) AS B_AVG_LT_DAY
+                      , MAX(C.AVG_LT_DAY) AS C_AVG_LT_DAY
+                      , MAX(D.AVG_LT_DAY) AS D_AVG_LT_DAY
+                      , MAX(E.STD_DELY_RATE) AS STD_DELY_RATE
+                      , MAX(F.VOC_CNT) AS VOC_CNT
+                      , MAX(UPODT.AM_USER_ID) AS AM_USER_ID
+                  FROM STOUPOHD UPOHD
+                  JOIN STOUPODT UPODT
+                    ON UPOHD.GATE_CD = UPODT.GATE_CD
+                   AND UPOHD.CUST_CD = UPODT.CUST_CD
+                   AND UPOHD.CPO_NO = UPODT.CPO_NO
+                  LEFT JOIN (
+                                SELECT GRDT.GATE_CD
+                                      , GRDT.CUST_CD
+                                      , GRDT.CPO_NO
+                                      , GRDT.CPO_SEQ
+                                      , SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+                                      , SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+                                      , CASE WHEN MAX(GRDT.CLOSING_NO) IS NULL THEN SUM(GRDT.GR_ITEM_AMT) ELSE 0 END AS GR_NOCLOSE_AMT
+                                      , MAX(GRDT.CLOSING_NO) AS CLOSE_YN
+                                  FROM STOCGRDT GRDT
+                                  LEFT JOIN STOCAPAR APAR
+                                    ON  GRDT.GATE_CD = APAR.GATE_CD
+                                   AND GRDT.GR_NO = APAR.GR_NO
+                                   AND GRDT.GR_SEQ = APAR.GR_SEQ
+                                   AND APAR.DEL_FLAG = '0'
+                                 WHERE GRDT.GATE_CD = #{ses.gateCd}
+                                   AND GRDT.DEL_FLAG = '0'
+                                 GROUP BY GRDT.GATE_CD, GRDT.CUST_CD, GRDT.CPO_NO, GRDT.CPO_SEQ
+                            ) APAR
+                    ON UPODT.GATE_CD = APAR.GATE_CD
+                   AND UPODT.CUST_CD = APAR.CUST_CD
+                   AND UPODT.CPO_NO = APAR.CPO_NO
+                   AND UPODT.CPO_SEQ = APAR.CPO_SEQ
+                  LEFT JOIN (
+                                SELECT GATE_CD
+                                      , CUST_CD
+									<if test="_databaseId == 'mssql'">
+                                      , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+                                      , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+                                  FROM (
+                                        SELECT NWRQ.GATE_CD
+                                              , NWRQ.CUST_CD
+                                              , NWRQ.CMS_MAPPING_DATE
+                                              , INFO.REG_DATE
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.CMS_MAPPING_DATE, INFO.REG_DATE) AS LT_DAYS
+                                          FROM STOUNWRQ NWRQ
+                                          JOIN STOYINFO INFO
+                                            ON  NWRQ.GATE_CD  = INFO.GATE_CD
+                                           AND NWRQ.CONT_NO  = INFO.CONT_NO
+                                           AND NWRQ.CONT_SEQ = INFO.CONT_SEQ
+                                           AND INFO.DEL_FLAG = '0'
+                                         WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+                                           AND NWRQ.DEL_FLAG = '0'
+                                           AND NWRQ.PROGRESS_CD = '500' -- 소싱완료
+                                           AND NWRQ.CONT_NO IS NOT NULL
+                                           AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                        ) A
+                                 WHERE A.LT_DAYS > 0
+                                 GROUP BY A.GATE_CD , A.CUST_CD
+                            ) A
+                    ON UPODT.GATE_CD = A.GATE_CD
+                   AND UPODT.CUST_CD = A.CUST_CD
+                  LEFT JOIN (
+                                SELECT GATE_CD
+                                      , CUST_CD
+									<if test="_databaseId == 'mssql'">
+                                      , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+                                      , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+                                  FROM (
+                                        SELECT NWRQ.GATE_CD
+                                              , NWRQ.CUST_CD
+                                              , NWRQ.CMS_MAPPING_DATE
+                                              , NWRQ.REQUEST_DATE
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.REQUEST_DATE, NWRQ.CMS_MAPPING_DATE) AS LT_DAYS
+                                          FROM STOUNWRQ NWRQ
+                                         WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+                                           AND NWRQ.DEL_FLAG = '0'
+                                           AND NWRQ.CMS_MAPPING_DATE IS NOT NULL
+                                           AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                        ) B
+                                 WHERE B.LT_DAYS > 0
+                                 GROUP BY B.GATE_CD , B.CUST_CD
+                            ) B
+                    ON UPODT.GATE_CD = B.GATE_CD
+                   AND UPODT.CUST_CD = B.CUST_CD
+                  LEFT JOIN (
+                                SELECT GATE_CD
+                                      , CUST_CD
+									<if test="_databaseId == 'mssql'">
+                                      , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+                                      , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+                                  FROM (
+                                        SELECT POHD.GATE_CD
+                                              , POHD.CUST_CD
+											<if test="_databaseId == 'mssql'">
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, CONVERT(DATETIME, (CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+											</if>
+											<if test="_databaseId == 'oracle'">
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, TO_DATE((CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END), 'YYYYMMDD')) AS LT_DAYS
+											</if>
+                                          FROM STOUPOHD POHD
+                                          JOIN STOUPODT PODT
+                                            ON PODT.GATE_CD  = POHD.GATE_CD
+                                           AND PODT.CPO_NO   = POHD.CPO_NO
+                                           AND PODT.CUST_CD  = POHD.CUST_CD
+                                           AND PODT.DEL_FLAG = '0'
+                                          LEFT JOIN (
+                                                        SELECT IVDT.GATE_CD
+                                                              , IVDT.CPO_NO
+                                                              , IVDT.CPO_SEQ
+                                                              , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+                                                              , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+                                                          FROM STOYIVDT IVDT
+                                                          JOIN STOYIVHD IVHD
+                                                            ON  IVDT.GATE_CD  = IVHD.GATE_CD
+                                                           AND IVDT.IV_NO = IVHD.IV_NO
+                                                           AND IVHD.DEL_FLAG = '0'
+                                                           AND IVDT.DEL_FLAG = '0'
+                                                         WHERE IVHD.GATE_CD = #{ses.gateCd}
+                                                         GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+                                                    ) ITBL
+                                             ON ITBL.GATE_CD = PODT.GATE_CD
+                                            AND ITBL.CPO_NO = PODT.CPO_NO
+                                            AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+                                          WHERE POHD.GATE_CD  = #{ses.gateCd}
+                                            AND POHD.DEL_FLAG = '0'
+                                            AND PODT.PROGRESS_CD NOT IN ('10', '20')
+                                            AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                     ) C
+                                WHERE C.LT_DAYS > 0
+                                GROUP BY C.GATE_CD , C.CUST_CD
+                            ) C
+                    ON UPODT.GATE_CD = C.GATE_CD
+                   AND UPODT.CUST_CD = C.CUST_CD
+                  LEFT JOIN (
+                                SELECT GATE_CD
+                                      , CUST_CD
+									<if test="_databaseId == 'mssql'">
+                                      , ROUND(SUM(CONVERT(float, LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+									<if test="_databaseId == 'oracle'">
+                                      , ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+									</if>
+                                  FROM (
+                                        SELECT POHD.GATE_CD
+                                              , POHD.CUST_CD
+											<if test="_databaseId == 'mssql'">
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(ITBL.GR_DATE, CONVERT(DATETIME, (CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+											</if>
+											<if test="_databaseId == 'oracle'">
+                                              , <include refid="com.sql.dbo"/>fn_GetWorkingDays(ITBL.GR_DATE, TO_DATE((CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END),'YYYYMMDD')) AS LT_DAYS
+											</if>
+                                          FROM STOUPOHD POHD
+                                          JOIN STOUPODT PODT
+                                            ON  PODT.GATE_CD  = POHD.GATE_CD
+                                           AND PODT.CPO_NO   = POHD.CPO_NO
+                                           AND PODT.CUST_CD  = POHD.CUST_CD
+                                           AND PODT.DEL_FLAG = '0'
+                                          LEFT JOIN (
+                                                        SELECT IVDT.GATE_CD
+                                                              , IVDT.CPO_NO
+                                                              , IVDT.CPO_SEQ
+                                                              , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+                                                              , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+                                                              , MIN(GRDT.GR_DATE) AS GR_DATE
+                                                          FROM STOYIVDT IVDT
+                                                          JOIN STOYIVHD IVHD
+                                                            ON  IVDT.GATE_CD  = IVHD.GATE_CD
+                                                           AND IVDT.IV_NO = IVHD.IV_NO
+                                                           AND IVHD.DEL_FLAG = '0'
+                                                           AND IVDT.DEL_FLAG = '0'
+                                                          LEFT JOIN STOCGRDT GRDT
+                                                            ON  IVDT.GATE_CD  = GRDT.GATE_CD
+                                                           AND IVDT.IV_NO = GRDT.IV_NO
+                                                           AND IVDT.IV_SEQ = GRDT.IV_SEQ
+                                                           AND GRDT.DEL_FLAG = '0'
+                                                         WHERE IVHD.GATE_CD = #{ses.gateCd}
+                                                         GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+                                                    ) ITBL
+                                            ON ITBL.GATE_CD = PODT.GATE_CD
+                                           AND ITBL.CPO_NO = PODT.CPO_NO
+                                           AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+                                         WHERE POHD.GATE_CD  = #{ses.gateCd}
+                                           AND POHD.DEL_FLAG = '0'
+                                           AND PODT.PROGRESS_CD NOT IN ('10', '20')
+                                           AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                        ) D
+                                   WHERE D.LT_DAYS > 0
+                                   GROUP BY D.GATE_CD , D.CUST_CD
+                            ) D
+                    ON UPODT.GATE_CD = D.GATE_CD
+                   AND UPODT.CUST_CD = D.CUST_CD
+                  LEFT JOIN (
+                                SELECT GATE_CD
+                                      , CUST_CD
+                                      , SUM(Y_STD_FLAG) AS Y_STD_FLAG
+                                      , SUM(N_STD_FLAG) AS N_STD_FLAG
+									<if test="_databaseId == 'mssql'">
+                                      , ROUND(CONVERT(FLOAT, SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 2) AS STD_DELY_RATE
+									</if>
+									<if test="_databaseId == 'oracle'">
+                                      , ROUND(TO_NUMBER(SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 2) AS STD_DELY_RATE
+									</if>
+                                  FROM (
+                                        SELECT GATE_CD
+                                              , CUST_CD
+                                              , CASE WHEN STD_FLAG = '1' THEN COUNT(STD_FLAG) ELSE 0 END Y_STD_FLAG
+                                              , CASE WHEN STD_FLAG = '0' THEN COUNT(STD_FLAG) ELSE 0 END N_STD_FLAG
+                                          FROM (
+                                                SELECT POHD.GATE_CD
+                                                      , POHD.CUST_CD
+                                                      , CASE WHEN <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), '') = '' THEN '0' ELSE
+                                                              CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+                                                                    THEN '0'
+                                                                    ELSE '1'
+                                                               END
+                                                         END AS STD_FLAG
+                                                  FROM STOUPOHD POHD
+                                                  JOIN STOUPODT PODT
+                                                    ON  PODT.GATE_CD  = POHD.GATE_CD
+                                                   AND PODT.CPO_NO   = POHD.CPO_NO
+                                                   AND PODT.CUST_CD  = POHD.CUST_CD
+                                                   AND PODT.DEL_FLAG = '0'
+                                                  LEFT JOIN (
+                                                                SELECT IVDT.GATE_CD
+                                                                      , IVDT.CPO_NO
+                                                                      , IVDT.CPO_SEQ
+                                                                      , MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+                                                                      , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+                                                                      , MIN(GRDT.GR_DATE) AS GR_DATE
+                                                                  FROM STOYIVDT IVDT
+                                                                  JOIN STOYIVHD IVHD
+                                                                    ON IVDT.GATE_CD = IVHD.GATE_CD
+                                                                   AND IVDT.IV_NO = IVHD.IV_NO
+                                                                   AND IVHD.DEL_FLAG = '0'
+                                                                   AND IVDT.DEL_FLAG = '0'
+                                                                  LEFT JOIN STOCGRDT GRDT
+                                                                    ON IVDT.GATE_CD  = GRDT.GATE_CD
+                                                                   AND IVDT.IV_NO = GRDT.IV_NO
+                                                                   AND IVDT.IV_SEQ = GRDT.IV_SEQ
+                                                                   AND GRDT.DEL_FLAG = '0'
+                                                                 WHERE IVHD.GATE_CD = #{ses.gateCd}
+                                                                 GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+                                                            ) ITBL
+                                                    ON ITBL.GATE_CD = PODT.GATE_CD
+                                                   AND ITBL.CPO_NO = PODT.CPO_NO
+                                                   AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+                                                 WHERE POHD.GATE_CD  = #{ses.gateCd}
+                                                   AND POHD.DEL_FLAG = '0'
+                                                   AND PODT.PROGRESS_CD NOT IN ('10', '20')
+                                                   AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                                ) E
+                                   GROUP BY E.GATE_CD, E.CUST_CD, E.STD_FLAG
+                                        ) E
+                       GROUP BY E.GATE_CD, E.CUST_CD
+                            ) E
+                    ON UPODT.GATE_CD = E.GATE_CD
+                   AND UPODT.CUST_CD = E.CUST_CD
+                  LEFT JOIN (
+                                SELECT VOCM.GATE_CD
+                                      , VOCM.REQ_COM_CD AS CUST_CD
+                                      , COUNT (VOCM.REQ_COM_CD) AS VOC_CNT
+                                  FROM STOCVOCM VOCM
+                                 WHERE VOCM.GATE_CD  = #{ses.gateCd}
+                                   AND VOCM.DEL_FLAG = '0'
+                                   AND <include refid="com.sql.toDateChar"/>(VOCM.REQ_DATE, 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                                   AND VOCM.VOC_TYPE IN (
+                                                            SELECT CODE
+                                                              FROM STOCCODD
+                                                             WHERE GATE_CD = #{ses.gateCd}
+                                                               AND DEL_FLAG = '0'
+                                                               AND CODE_TYPE = 'MP053'
+                                                               AND TEXT1 = 'C'
+                                                        )
+                                   AND VOCM.REQ_COM_TYPE = '100'
+                                 GROUP BY VOCM.GATE_CD, VOCM.REQ_COM_CD
+                            ) F
+                    ON UPODT.GATE_CD = F.GATE_CD
+                   AND UPODT.CUST_CD = F.CUST_CD
+                 WHERE UPOHD.GATE_CD = #{ses.gateCd}
+                   AND UPOHD.DEL_FLAG = '0'
+                   AND UPODT.DEL_FLAG = '0'
+                   AND UPODT.PROGRESS_CD NOT IN ('10', '20')
+                   AND UPOHD.CUST_CD NOT IN (
+                                                SELECT TEXT1
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD = #{ses.gateCd}
+                                                   AND DEL_FLAG = '0'
+                                                   AND CODE_TYPE = 'MP077'
+                                         )
+                   AND <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{PREV_START_DATE} AND #{PREV_END_DATE}
+                   AND UPOHD.CUST_CD = #{CUST_CD}
+                 GROUP BY UPOHD.GATE_CD, UPOHD.CUST_CD
+                ) AA
+	</select>
+
+	<select id="selectTTIH" resultType="java.util.Map">
+		 SELECT TTIH.TAX_NUM -- 일련번호
+				-- 공급자
+			  , <include refid="com.sql.subStr"/>(MAX(TTIH.SIRS_NUM), 1, 3) + '-' +
+				<include refid="com.sql.subStr"/>(MAX(TTIH.SIRS_NUM), 4, 2) + '-' +
+				<include refid="com.sql.subStr"/>(MAX(TTIH.SIRS_NUM), 6, 5) AS SIRS_NUM
+			  , MAX(TTIH.SCOM_NM) AS SCOM_NM
+			  , MAX(TTIH.SCEO_NM) AS SCEO_NM
+			  , MAX(TTIH.SADDR1) + ' ' + MAX(TTIH.SADDR2) AS SADDR
+			  , MAX(TTIH.SBUSINESS_TYPE) AS SBUSINESS_TYPE
+			  , MAX(TTIH.SINDUSTRY_TYPE) AS SINDUSTRY_TYPE
+			  , MAX(TTIH.SUSER_NM) AS SUSER_NM
+			  , MAX(TTIH.SUSER_TEL_NO) AS SUSER_TEL_NO
+			  , MAX(TTIH.SUSER_EMAIL) AS SUSER_EMAIL
+				-- 공급받는자
+			  , <include refid="com.sql.subStr"/>(MAX(TTIH.RIRS_NUM), 1, 3) + '-' +
+				<include refid="com.sql.subStr"/>(MAX(TTIH.RIRS_NUM), 4, 2) + '-' +
+				<include refid="com.sql.subStr"/>(MAX(TTIH.RIRS_NUM), 6, 5) AS RIRS_NUM
+			  , MAX(TTIH.RCOM_NM) AS RCOM_NM
+			  , MAX(TTIH.RCEO_NM) AS RCEO_NM
+			  , MAX(TTIH.RADDR1) + ' ' + MAX(TTIH.RADDR2) AS RADDR
+			  , MAX(TTIH.RBUSINESS_TYPE) AS RBUSINESS_TYPE
+			  , MAX(TTIH.RINDUSTRY_TYPE) AS RINDUSTRY_TYPE
+			  , MAX(TTIH.RUSER_NM) AS RUSER_NM
+			  , MAX(TTIH.RUSER_TEL_NO) AS RUSER_TEL_NO
+			  , MAX(TTIH.RUSER_EMAIL) AS RUSER_EMAIL
+				-- HEADER
+			  , FORMAT(MAX(TTIH.SUP_AMT), N'#,0') AS SUP_AMT -- 공급가액
+			  , FORMAT(MAX(TTIH.TAX_AMT), N'#,0') AS TAX_AMT -- 세액
+			  , CASE WHEN CAST(MAX(TTIH.SSUB_IRS_NUM) AS VARCHAR) IS NOT NULL OR CAST(MAX(TTIH.SSUB_IRS_NUM) AS VARCHAR) != '' THEN <include refid="com.sql.nvl"/>(CAST(MAX(TTIH.SSUB_IRS_NUM) AS VARCHAR), '') ELSE '' END AS SSUB_IRS_NUM -- 종사업장코드
+			  , CASE WHEN CAST(MAX(TTIH.RSUB_IRS_NUM) AS VARCHAR) IS NOT NULL OR CAST(MAX(TTIH.RSUB_IRS_NUM) AS VARCHAR) != '' THEN <include refid="com.sql.nvl"/>(CAST(MAX(TTIH.RSUB_IRS_NUM) AS VARCHAR), '') ELSE '' END AS RSUB_IRS_NUM -- 종사업장코드
+			  , CASE WHEN TTIH.REMAKR IS NOT NULL OR TTIH.REMAKR != '' THEN TTIH.REMAKR ELSE '' END AS REMARK
+			  , FORMAT(SUM(TTIH.SUP_AMT) + SUM(TTIH.TAX_AMT), N'#,0') AS SUP_TAX_SUM -- 합계금액
+			  , <include refid="com.sql.subStr"/>(TTIH.ISSUE_DATE,3,2) ISSUE_YEAR
+			  , <include refid="com.sql.subStr"/>(TTIH.ISSUE_DATE,6,2) ISSUE_MON
+			  , <include refid="com.sql.subStr"/>(TTIH.ISSUE_DATE,9,2) ISSUE_DAY
+			<if test="_databaseId == 'mssql'">
+			  , CONVERT(CHAR(10), TTIH.ISSUE_DATE, 111) AS ISSUE_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  , TO_CHAR(TTIH.ISSUE_DATE, 'YYYY/MM/DD') AS ISSUE_DATE
+			</if>
+			  , 11 - LEN(SUP_AMT) BLANK_COUNT
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),1,1) AS B1
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),2,1) AS B2
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),3,1) AS B3
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),4,1) AS B4
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),5,1) AS B5
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),6,1) AS B6
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),7,1) AS B7
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),8,1) AS B8
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),9,1) AS B9
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),10,1) AS B10
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 11 - LEN(SUP_AMT)) + CAST(SUP_AMT AS VARCHAR),11,1) AS B11
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),1,1) AS V1
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),2,1) AS V2
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),3,1) AS V3
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),4,1) AS V4
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),5,1) AS V5
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),6,1) AS V6
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),7,1) AS V7
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),8,1) AS V8
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),9,1) AS V9
+			  , <include refid="com.sql.subStr"/>(REPLICATE(' ', 10 - LEN(TAX_AMT)) + CAST(TAX_AMT AS VARCHAR),10,1) AS V10
+			  , TTIH.SUBJECT_ITEM_NM
+			  , '/images/kakao/common/sono_company_sign.png' AS STAMP
+			  , TTIH.SALES_TYPE
+		 	  , <include refid="com.sql.nvl"/>(CASE WHEN TTIH.TAX_EXD_ID IS NOT NULL OR TTIH.TAX_EXD_ID != '' THEN TTIH.TAX_EXD_ID ELSE TAX_ASP_BILLSEQ END, '') AS TAX_EXD_ID
+		   FROM STOCTTIH TTIH
+		  WHERE TTIH.GATE_CD = #{ses.gateCd}
+		    AND TTIH.TAX_NUM IN
+		<foreach item="item" index="index" collection="TAX_NUM_LIST" open="(" separator="," close=")">
+                #{item}
+		</foreach>
+		    AND TTIH.DEL_FLAG = '0'
+		  GROUP BY TTIH.TAX_NUM
+				 , TTIH.ISSUE_DATE
+				 , TTIH.SUP_AMT
+				 , TTIH.TAX_AMT
+				 , TTIH.SUBJECT_ITEM_NM
+				 , TTIH.SALES_TYPE
+				 , TTIH.REMAKR
+				 , TTIH.TAX_EXD_ID
+			 	 , TTIH.TAX_ASP_BILLSEQ
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="selectOCNHD" resultType="java.util.Map">
+		SELECT MAX(DT.RFX_NUM) RFQ_NUM
+			  , (DT.RFX_CNT) RFX_CNT
+			  , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS ISSUE_DATE -- 견적일
+			  --수신자
+			  , <include refid="com.sql.nvl"/>(CUST.CUST_NM, ' ') AS CUST_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.POSITION_NM, ' ') AS O_POSITION_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.USER_NM, ' ') AS O_USER_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.DEPT_NM, ' ') AS O_DEPT_NM
+			  , <include refid="com.sql.nvl"/>(CVUR.TEL_NUM, ' ') AS O_TEL_NUM
+			  , <include refid="com.sql.nvl"/>(CVUR.FAX_NUM, ' ') AS O_FAX_NUM
+			  , <include refid="com.sql.nvl"/>(CVUR.EMAIL, ' ') AS O_EMAIL
+			  -- 발신자
+			  , <include refid="com.sql.nvl"/>(OGCM.BUYER_NM, ' ') AS BUYER_NM
+			  , <include refid="com.sql.nvl"/>(OGCM.CEO_USER_NM, ' ') AS V_CEO_USER_NM -- 대표이사
+			  , <include refid="com.sql.nvl"/>(OGCM.ADDR, ' ') AS V_ADDR -- 주소
+			  , <include refid="com.sql.nvl"/>(USR.POSITION_NM, ' ') AS V_POSITION_NM -- 직책
+			  , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getUserDeptName(USR.GATE_CD, USR.USER_ID, #{ses.langCd}), '') AS V_DEPT_NM -- 부서명
+			  , <include refid="com.sql.nvl"/>(USR.USER_NM, ' ') AS V_USER_NM -- 성명
+			  , <include refid="com.sql.nvl"/>(USR.TEL_NUM, ' ') AS V_TEL_NUM -- 전화번호
+			  , <include refid="com.sql.nvl"/>(USR.FAX_NUM, ' ') AS V_FAX_NUM -- FAX번호
+
+
+
+			  ,<![CDATA[ <include refid="com.sql.nvl"/>(trim(USR.EMAIL), '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') ]]> AS V_EMAIL -- EMAIL
+			  -- 합계
+			<if test="_databaseId == 'oracle'">
+			  , COUNT(*) AS GROUP_CNT
+			  , TO_CHAR(SUM(SALES_UNIT_PRC*DT.ITEM_QT),'999,999,999,999') AS GROUP_AMT
+			</if>
+			  -- 비고
+			  , ROW_NUMBER() OVER (PARTITION BY MAX(DT.RFX_NUM) ORDER BY MAX(DT.RFX_NUM)) AS RN
+			  ,#{EXEC_NUM} EXEC_NUM
+			  ,#{EXEC_CNT} EXEC_CNT
+		  FROM STOPCNHD HD
+		  LEFT JOIN STOPCNDT DT
+		 	ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.EXEC_NUM = DT.EXEC_NUM
+		   AND HD.EXEC_CNT = DT.EXEC_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOCOGCM OGCM -- 수신처
+			ON (HD.GATE_CD = OGCM.GATE_CD
+		   AND OGCM.BUYER_CD = #{DEFAULT_AGENT_CODE}
+		   AND OGCM.DEL_FLAG = '0')
+		  JOIN STOCUSER USR -- 수신처 담당자
+			ON (HD.GATE_CD = USR.GATE_CD
+		   AND HD.CTRL_USER_ID = USR.USER_ID)
+		  LEFT JOIN STOCCUST CUST
+			ON (DT.GATE_CD = CUST.GATE_CD
+		   AND DT.PR_BUYER_CD = CUST.CUST_CD
+		   AND CUST.DEL_FLAG = '0')
+		  LEFT JOIN STOCCVUR CVUR
+			ON (HD.GATE_CD = CVUR.GATE_CD
+		   AND HD.REQ_USER_ID = CVUR.USER_ID)
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.EXEC_NUM = #{EXEC_NUM}
+		   AND HD.EXEC_CNT = #{EXEC_CNT}
+		   AND HD.DEL_FLAG = '0'
+		 GROUP BY  DT.RFX_CNT
+				 , CUST.CUST_NM
+				 , CVUR.POSITION_NM
+				 , CVUR.USER_NM
+				 , CVUR.DEPT_NM
+				 , CVUR.TEL_NUM
+				 , CVUR.FAX_NUM
+				 , CVUR.EMAIL
+				 , OGCM.BUYER_NM
+				 , OGCM.CEO_USER_NM
+				 , OGCM.ADDR
+				 , USR.POSITION_NM
+				 , USR.GATE_CD
+				 , USR.COMPANY_CD
+				 , USR.DEPT_CD
+				 , USR.USER_NM
+				 , USR.TEL_NUM
+				 , USR.FAX_NUM
+				 , USR.EMAIL
+				 , USR.USER_ID
+	</select>
+
+
+
+
+
+
+
+	<select id="selectOCNDT" resultType="java.util.Map">
+		SELECT ROW_NUMBER() OVER (ORDER BY DT.RFX_NUM) AS GRID_ITEM_NO
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_CD, ' ') AS DT_ITEM_CD -- 품목코드
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_DESC, ' ') AS DT_ITEM_DESC -- 품명
+			  , <include refid="com.sql.nvl"/>(DT.ITEM_SPEC, ' ') AS DT_ITEM_SPEC -- 규격
+			  , <include refid="com.sql.nvl"/>(DT.UNIT_CD, ' ') AS DT_UNIT_CD
+
+--			  ,1 AS DT_QTY -- 수량
+--			  ,TO_CHAR(DT.SALES_UNIT_PRC,'999,999,999,999') AS DT_QTA_UNIT_PRC -- 단가
+--			  ,TO_CHAR(1 * DT.SALES_UNIT_PRC,'999,999,999,999') DT_QTA_UNIT_AMT
+
+
+
+			  ,TO_CHAR(DT.ITEM_QT,'999,999,999,999') AS DT_QTY -- 수량
+			  ,TO_CHAR(DT.SALES_UNIT_PRC,'999,999,999,999') AS DT_QTA_UNIT_PRC -- 단가
+			  ,TO_CHAR(DT.ITEM_QT * DT.SALES_UNIT_PRC,'999,999,999,999') DT_QTA_UNIT_AMT
+
+
+
+			  ,<include refid="com.sql.nvl"/>(GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD),' ')  AS DT_MAKER_MODEL -- 제조사/모델
+
+		  FROM STOPCNHD HD
+		  JOIN STOPCNDT DT
+		  	ON (HD.GATE_CD = DT.GATE_CD
+		   AND HD.EXEC_NUM = DT.EXEC_NUM
+		   AND HD.EXEC_CNT = DT.EXEC_CNT
+		   AND DT.DEL_FLAG = '0')
+		  LEFT JOIN STOCMTGL MTGL
+			ON (DT.GATE_CD = MTGL.GATE_CD
+		   AND DT.ITEM_CD = MTGL.ITEM_CD
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCMKBR MK
+		    ON (MTGL.GATE_CD = MK.GATE_CD
+		   AND MTGL.MAKER_CD = MK.MKBR_CD
+		   AND MK.MKBR_TYPE = 'MK'
+		   AND MTGL.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		   AND HD.EXEC_NUM = #{EXEC_NUM}
+		   AND HD.EXEC_CNT = #{EXEC_CNT}
+		   AND HD.DEL_FLAG = '0'
+	</select>
+
+	<!-- 납품서 헤더 가져오기 -->
+	<select id="selectUIVHD" parameterType="hashMap" resultType="hashMap">
+		SELECT <include refid="com.sql.nvl"/>(IVHD.INV_NO, '') AS INV_NO
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS V_ISSUE_DATE -- YYYY-MM-DD
+			, <include refid="com.sql.nvl"/>(AGENT.AGENT_CD, '') AS AGENT_CODE
+			, <include refid="com.sql.nvl"/>(IVHD.BUYER_CD, '') AS BUYER_CODE
+			, <include refid="com.sql.nvl"/>(IVHD.V_CPO_NO, '') AS V_CPO_NO
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_DELY_APP_DATE, '') AS V_AC_DELY_APP_DATE
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_HOPE_DUE_DATE, '') AS V_AC_HOPE_DUE_DATE
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'ADDR'), <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_AC_RECIPIENT_ADDRESS
+	<!--    , <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') AS V_AC_RECIPIENT_ADDRESS  -->
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_ADDRESS, '') AS V_AC_BOTTOM_RECIPIENT_ADDRESS
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_TEL_NO, '') AS V_AC_RECIPIENT_TEL_NO
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_CELL_NO, '') AS V_AC_RECIPIENT_CELL_NO
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_NM, '')      AS V_AC_RECIPIENT_NAME
+			, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_DEPT_NM, '') AS V_AC_RECIPIENT_DEPT_NAME
+			<if test="_databaseId == 'mssql'">
+			, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_CNT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_CNT
+			, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_AMT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_AMT
+			</if>
+			, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_CNT), '.00', ''), '0') AS V_GROUP_CNT
+			, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_AMT), '.00', ''), '0') AS V_GROUP_AMT
+			, <include refid="com.sql.nvl"/>(AGENT.ADDR, '') AS V_HEADER_ADDRESS
+			, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') AS V_HEADER_TEL
+			, <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') AS V_HEADER_FAX
+			, ' ' AS V_HEADER_WEBSITE
+			<!-- 공급받는자 -->
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_IRS_NUM'),1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_IRS_NUM'),4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_IRS_NUM'),6,10), <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(CUST.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,6,10), ''))
+	               ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(CUST.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,6,10), '') END AS V_BUYER_IRS_NO
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_NM'), <include refid="com.sql.nvl"/>(CUST.CUST_NM, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') END AS V_BUYER_NAME
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_CEO_NM'), <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '') END AS V_BUYER_CEO_NAME
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'ADDR'), <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_BUYER_ADDRESS
+	        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, '') AS V_BUYER_TEL_NO
+	        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_CELL_NO, '') AS V_BUYER_CELL_NO
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_BUSINESS_TYPE'), <include refid="com.sql.nvl"/>(CUST.BUSINESS_TYPE, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.BUSINESS_TYPE, '') END AS V_BUYER_BUSINESS_TYPE
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'DEPT_INDUSTRY_TYPE'), <include refid="com.sql.nvl"/>(CUST.INDUSTRY_TYPE, ''))
+	               ELSE <include refid="com.sql.nvl"/>(CUST.INDUSTRY_TYPE, '') END AS V_BUYER_INDUSTRY_TYPE
+			<!-- 공급자 -->
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(CUST.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,6,10), <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), ''))
+	               ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), '') END AS V_VENDOR_IRS_NO
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, '') END AS V_VENDOR_NAME
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '') END AS V_VENDOR_CEO_NAME
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(CUST.ADDR1 + ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, <include refid="com.sql.nvl"/>(AGENT.ADDR, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.ADDR, '') END AS V_VENDOR_ADDRESS
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') END AS V_VENDOR_TEL_NO
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN ''
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') END AS V_VENDOR_FAX_NO
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(CUST.BUSINESS_TYPE, <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '') END AS V_VENDOR_BUSINESS_TYPE
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN <include refid="com.sql.nvl"/>(CUST.INDUSTRY_TYPE, <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, ''))
+	               ELSE <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '') END AS V_VENDOR_INDUSTRY_TYPE
+			<!-- 주문요청사항 -->
+			, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETUSERNAME(UPOH.GATE_CD, UPOH.CPO_USER_ID, #{ses.langCd}), '') AS V_CPO_USER_NM
+			, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getCpoDeptInfo(UPOH.GATE_CD, UPOH.CPO_NO, #{ses.langCd}), '') AS V_CPO_USER_DEPT_NM
+			, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_TEL_NUM , '') AS V_CPO_USER_TEL_NUM
+			, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_CELL_NUM, '') AS V_CPO_USER_CELL_NUM
+			, <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM, '') AS O_VENDOR_NAME -- 원납품공급사
+			<!-- , IVHD.V_REQ_TEXT -->
+	        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+	               THEN '/images/kakao/common/bonabank.jpg'
+	               ELSE '/images/kakao/common/biznts_logo.png' END AS IMAGE_PATH
+			, IVHD.DELY_DELAY_NM
+			, IVHD.DELY_DELAY_REASON
+			, <include refid="com.sql.nvl"/>(V_VO_NO , '') AS V_VO_NO
+		FROM
+			( SELECT IHD.GATE_CD
+				   , IHD.INV_NO      AS INV_NO
+				   ,( SELECT MAX(CPO_NO)
+				        FROM STOUIVDT
+					   WHERE GATE_CD  = IHD.GATE_CD
+					     AND DEL_FLAG ='0'
+						 AND INV_NO    = IHD.INV_NO) AS V_CPO_NO
+				   , IHD.CPO_USER_TEL_NUM  AS CPO_USER_TEL_NO
+				   , IHD.CPO_USER_CELL_NUM AS CPO_USER_CELL_NO
+				   ,( SELECT MAX(DEAL_CD)
+				        FROM STOUIVDT
+					   WHERE GATE_CD = IHD.GATE_CD
+					     AND DEL_FLAG='0'
+						 AND INV_NO   = IHD.INV_NO) AS DEAL_CD
+				   , IHD.CUST_CD   AS BUYER_CD
+				   , IHD.VENDOR_CD AS VENDOR_CD
+				   , <include refid="com.sql.dbo"/>GETGMTDATE(IHD.DELY_APP_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_DELY_APP_DATE
+				   , <include refid="com.sql.dbo"/>GETGMTDATE((SELECT MAX(PODT.HOPE_DUE_DATE)
+															     FROM STOUIVDT IVDT
+																 JOIN STOYPODT PODT
+															        ON (IVDT.GATE_CD = PODT.GATE_CD
+																	AND IVDT.PO_NO   = PODT.PO_NO
+															   	  	AND IVDT.PO_SEQ  = PODT.PO_SEQ
+																	AND PODT.DEL_FLAG= '0')
+																 WHERE IVDT.GATE_CD = IHD.GATE_CD
+																   AND IVDT.INV_NO   = IHD.INV_NO
+																   AND IVDT.DEL_FLAG= '0'), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_HOPE_DUE_DATE
+				  , IHD.DELY_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> IHD.DELY_ADDR_2 AS V_AC_RECIPIENT_ADDRESS
+				  , IHD.RECIPIENT_TEL_NUM  AS V_AC_RECIPIENT_TEL_NO
+				  , IHD.RECIPIENT_CELL_NUM AS V_AC_RECIPIENT_CELL_NO
+				  , IHD.RECIPIENT_NM       AS V_AC_RECIPIENT_NM
+				  , IHD.RECIPIENT_DEPT_NM  AS V_AC_RECIPIENT_DEPT_NM
+				  , (SELECT COUNT(*)
+				       FROM STOUIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+					    AND DEL_FLAG='0'
+						AND IF_INVC_CD =#{IF_INVC_CD}) AS V_GROUP_CNT
+				  , (SELECT SUM(INV_ITEM_AMT)
+				       FROM STOUIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+					    AND DEL_FLAG='0'
+					    AND IF_INVC_CD =#{IF_INVC_CD}) AS V_GROUP_AMT
+				 ,#{IF_INVC_CD} AS V_VO_NO
+
+		<!-- 지연사유 추가 -->
+				<if test="_databaseId == 'mssql'">
+				  , <include refid="com.sql.nvl"/>(STUFF((
+				    SELECT ',' + <include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd})
+					  FROM STOUIVDT
+			         WHERE GATE_CD = IHD.GATE_CD
+					   AND DEL_FLAG='0'
+					   AND INV_NO = IHD.INV_NO
+					   FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_NM
+				, <include refid="com.sql.nvl"/>(STUFF ((
+				           SELECT ',' + DELY_DELAY_REASON
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND INV_NO = IHD.INV_NO
+							  FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_REASON
+					</if>
+					<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>((
+				          SELECT LISTAGG(<include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd}), ',')
+							FROM STOUIVDT
+					       WHERE GATE_CD = IHD.GATE_CD
+							 AND DEL_FLAG='0'
+							 AND INV_NO = IHD.INV_NO
+							 ), '') AS DELY_DELAY_NM
+
+				, <include refid="com.sql.nvl"/>((
+				           SELECT LISTAGG(DELY_DELAY_REASON, ',')
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND INV_NO = IHD.INV_NO
+							  ), '') AS DELY_DELAY_REASON
+					</if>
+				, (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> MAX(CPO_NO)
+					 FROM STOUIVDT IVDT
+					WHERE IVDT.GATE_CD  = IHD.GATE_CD
+					  AND IVDT.INV_NO    = IHD.INV_NO
+					  AND IVDT.DEL_FLAG = '0') AS CPO_NO
+		FROM STOUIVHD IHD
+		WHERE IHD.GATE_CD  = #{ses.gateCd}
+		  AND IHD.INV_NO = (SELECT INV_NO
+		  					  FROM STOUIVDT
+		  					 WHERE IF_INVC_CD =#{IF_INVC_CD}
+							AND ROWNUM =1 )
+		  AND IHD.DEL_FLAG = '0'
+		  AND ROWNUM = 1
+						) IVHD
+		 JOIN   STOUPOHD UPOH -- 고객사주문 헤더
+		    ON (IVHD.GATE_CD  = UPOH.GATE_CD
+		    AND IVHD.CPO_NO   = UPOH.CPO_NO
+		    AND UPOH.DEL_FLAG = '0')
+		 JOIN   STOCCUST CUST -- 고객사 인수자 정보
+		    ON (IVHD.GATE_CD  = CUST.GATE_CD
+		    AND IVHD.BUYER_CD = CUST.CUST_CD
+		    AND CUST.DEL_FLAG = '0')
+		 JOIN STOCVNGL VNGL -- 공급사 정보
+		    ON (VNGL.GATE_CD  = IVHD.GATE_CD
+		    AND VNGL.VENDOR_CD= IVHD.VENDOR_CD
+		    AND VNGL.DEL_FLAG = '0')
+		 JOIN (
+			SELECT GATE_CD
+			     , BUYER_CD AS AGENT_CD
+				 , IRS_NUM  AS IRS_NO
+				 , BUYER_NM AS BUYER_NM
+				 , BUYER_NM AS VENDOR_NM
+				 , CEO_USER_NM AS CEO_USER_NM
+			 	 , TEL_NUM  AS TEL_NO
+		 		 , FAX_NUM  AS FAX_NO
+				 , BUSINESS_TYPE
+			 	 , INDUSTRY_TYPE
+				 , ZIP_CD
+		 		 , ADDR
+			FROM STOCOGCM
+		   WHERE GATE_CD  = #{ses.gateCd}
+		     AND BUYER_CD = #{DEFAULT_AGENT_CODE}
+		     AND DEL_FLAG = '0'
+			) AGENT -- 에이전트(운영사) 납품장소
+	   ON (AGENT.GATE_CD = IVHD.GATE_CD)
+	WHERE IVHD.DEAL_CD IN ('100', '400') -- 매입(100), 물류(400)
+	</select>
+
+	<!-- 납품명세서 디테일 -->
+	<select id="selectUIVDT" parameterType="hashMap" resultType="hashMap">
+			SELECT ROW_NUMBER() OVER (ORDER BY IVDT.IV_SEQ) AS V_GRID_ITEM_NO
+				, <include refid="com.sql.nvl"/>(CASE WHEN PODT.CUST_ITEM_CD IS NOT NULL THEN PODT.CUST_ITEM_CD
+					   ELSE IVDT.ITEM_CD
+					   END, '') AS V_GRID_ITEM_CODE
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_DESC, '') AS V_GRID_ITEM_DESC
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_SPEC, '') AS V_GRID_ITEM_SPEC
+			    , <include refid="com.sql.nvl"/>(GETMKBRNAME(IVDT.GATE_CD, 'MK', IVDT.MAKER_CD),' ')  AS V_GRID_MAKER_NAME -- 제조사/모델
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M037', IVDT.UNIT_CD, '0', #{ses.langCd}), '') AS V_GRID_UNIT_MEASURE
+			<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), IVDT.INV_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)) AS MONEY), 1),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_UNIT_PRICE) AS MONEY), 1),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)) AS MONEY), 1),'.00',''), '0') AS V_GRID_AMT
+			</if>
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_QTY),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVDT.INV_QTY),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_UNIT_PRICE),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)),'.00',''), '0') AS V_GRID_AMT
+				, '' AS V_GRID_REMARK
+				, <include refid="com.sql.nvl"/>(YINFO.VENDOR_ITEM_CD, '') AS V_GRID_VENDOR_ITEM_CD
+		FROM STOUIVDT IVDT
+		JOIN STOYPODT PODT
+		   ON  IVDT.GATE_CD = PODT.GATE_CD
+		   AND IVDT.PO_NO = PODT.PO_NO
+		   AND IVDT.PO_SEQ = PODT.PO_SEQ
+		   AND PODT.DEL_FLAG = '0'
+   LEFT JOIN STOUPODT UPODT
+		   ON  UPODT.GATE_CD = PODT.GATE_Cd
+	       AND UPODT.CPO_NO = PODT.CPO_NO
+		   AND UPODT.CPO_SEQ = PODT.CPO_SEQ
+   LEFT JOIN STOYINFO YINFO
+		   ON  YINFO.GATE_CD = UPODT.GATE_CD
+		   AND YINFO.APPLY_COM = UPODT.APPLY_COM
+		   AND YINFO.CONT_NO = UPODT.CONT_NO
+		   AND YINFO.CONT_SEQ = UPODT.CONT_SEQ
+		WHERE IVDT.GATE_CD = #{ses.gateCd}
+		  AND IVDT.IF_INVC_CD   =  #{IF_INVC_CD}
+		  AND IVDT.DEL_FLAG= '0'
+	</select>
+
+
+
+
+
+
+
+
+
+
+<!-- 납품서 헤더 가져오기 DGNS-->
+	<select id="selectIVHD_DGNS" parameterType="hashMap" resultType="hashMap">
+		SELECT <include refid="com.sql.nvl"/>(IVHD.INV_NO, '') AS INV_NO
+				, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS V_ISSUE_DATE -- YYYY-MM-DD
+				, <include refid="com.sql.nvl"/>(AGENT.AGENT_CD, '') AS AGENT_CODE
+				, <include refid="com.sql.nvl"/>(IVHD.BUYER_CD, '') AS BUYER_CODE
+				, <include refid="com.sql.nvl"/>(IVHD.V_CPO_NO, '') AS V_CPO_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_DELY_APP_DATE, '') AS V_AC_DELY_APP_DATE
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_HOPE_DUE_DATE, '') AS V_AC_HOPE_DUE_DATE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getPlantInfo(UPOH.GATE_CD, UPOH.CUST_CD, UPOH.PLANT_CD, 'ADDR'), <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, ''))
+		               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_AC_RECIPIENT_ADDRESS
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_ADDRESS, '') AS V_AC_BOTTOM_RECIPIENT_ADDRESS
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_TEL_NO, '') AS V_AC_RECIPIENT_TEL_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_CELL_NO, '') AS V_AC_RECIPIENT_CELL_NO
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_NM, '')      AS V_AC_RECIPIENT_NAME
+				, <include refid="com.sql.nvl"/>(IVHD.V_AC_RECIPIENT_DEPT_NM, '') AS V_AC_RECIPIENT_DEPT_NAME
+				<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_CNT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_CNT
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(20), (CAST(IVHD.V_GROUP_AMT AS MONEY)), 1), '.00', ''), '0') AS V_GROUP_AMT
+				</if>
+				<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_CNT), '.00', ''), '0') AS V_GROUP_CNT
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVHD.V_GROUP_AMT), '.00', ''), '0') AS V_GROUP_AMT
+				</if>
+				, <include refid="com.sql.nvl"/>(AGENT.ADDR, '') AS V_HEADER_ADDRESS
+				, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') AS V_HEADER_TEL
+				, <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') AS V_HEADER_FAX
+				, ' ' AS V_HEADER_WEBSITE
+				<!-- 공급받는자 -->
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), '')
+		               ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(CUST.IRS_NUM,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(CUST.IRS_NUM,6,10), '') END AS V_BUYER_IRS_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.CUST_NM, '') END AS V_BUYER_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.CEO_USER_NM, '') END AS V_BUYER_CEO_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.ADDR, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> CUST.ADDR2, '') END AS V_BUYER_ADDRESS
+		        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, '') AS V_BUYER_TEL_NO
+		        , <include refid="com.sql.nvl"/>(IVHD.CPO_USER_CELL_NO, '') AS V_BUYER_CELL_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN  <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.BUSINESS_TYPE, '') END AS V_BUYER_BUSINESS_TYPE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '')
+		               ELSE <include refid="com.sql.nvl"/>(CUST.INDUSTRY_TYPE, '') END AS V_BUYER_INDUSTRY_TYPE
+				<!-- 공급자 -->
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(VNGL.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(VNGL.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(VNGL.IRS_NO,6,10), '')
+		       		   ELSE <include refid="com.sql.nvl"/>(<include refid="com.sql.subStr"/>(AGENT.IRS_NO,1,3) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,4,2) <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(AGENT.IRS_NO,6,10), '') END AS V_VENDOR_IRS_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM,'')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.VENDOR_NM, '') END AS V_VENDOR_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.CEO_USER_NM,'')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.CEO_USER_NM, '') END AS V_VENDOR_CEO_NAME
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.HQ_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> VNGL.HQ_ADDR_2, '')
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.ADDR, '') END AS V_VENDOR_ADDRESS
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(IVHD.CPO_USER_TEL_NO, <include refid="com.sql.nvl"/>(AGENT.TEL_NO, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.TEL_NO, '') END AS V_VENDOR_TEL_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN ''
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.FAX_NO, '') END AS V_VENDOR_FAX_NO
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.BUSINESS_TYPE, <include refid="com.sql.nvl"/>(VNGL.BUSINESS_TYPE, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.BUSINESS_TYPE, '') END AS V_VENDOR_BUSINESS_TYPE
+		        , CASE WHEN (UPOH.CUST_CD = #{ses.manageCd})
+		               THEN <include refid="com.sql.nvl"/>(VNGL.INDUSTRY_TYPE, <include refid="com.sql.nvl"/>(VNGL.INDUSTRY_TYPE, ''))
+		               ELSE <include refid="com.sql.nvl"/>(AGENT.INDUSTRY_TYPE, '') END AS V_VENDOR_INDUSTRY_TYPE
+				<!-- 주문요청사항 -->
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETUSERNAME(UPOH.GATE_CD, UPOH.CPO_USER_ID, #{ses.langCd}), '') AS V_CPO_USER_NM
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getCpoDeptInfo(UPOH.GATE_CD, UPOH.CPO_NO, #{ses.langCd}), '') AS V_CPO_USER_DEPT_NM
+				, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_TEL_NUM , '') AS V_CPO_USER_TEL_NUM
+				, <include refid="com.sql.nvl"/>(UPOH.CPO_USER_CELL_NUM, '') AS V_CPO_USER_CELL_NUM
+				, <include refid="com.sql.nvl"/>(VNGL.VENDOR_NM, '') AS O_VENDOR_NAME -- 원납품공급사
+				<!-- , IVHD.V_REQ_TEXT -->
+		        , CASE WHEN (UPOH.CUST_CD = 'C000zz' AND #{ses.isDev}='false')
+		               THEN '/images/kakao/common/bonabank.jpg'
+		               ELSE '/images/kakao/common/biznts_logo.png' END AS IMAGE_PATH
+		<!-- 	, '/images/kakao/common/biznts_logo.png' AS IMAGE_PATH  -->
+				, IVHD.DELY_DELAY_NM
+				, IVHD.DELY_DELAY_REASON
+				, <include refid="com.sql.nvl"/>(V_VO_NO , '') AS V_VO_NO
+	   FROM	(
+	   		 SELECT IHD.GATE_CD
+	   		 	  , #{INV_NO} AS V_VO_NO
+				  , IHD.IV_NO    AS INV_NO
+				  , (SELECT MAX(CPO_NO)
+				  	   FROM STOYIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+					  	AND DEL_FLAG='0'
+						AND IV_NO   = IHD.IV_NO) AS V_CPO_NO
+				  , IHD.CPO_USER_TEL_NUM  AS CPO_USER_TEL_NO
+				  , IHD.CPO_USER_CELL_NUM AS CPO_USER_CELL_NO
+				  , (SELECT MAX(DEAL_CD)
+					   FROM STOYIVDT
+					  WHERE GATE_CD = IHD.GATE_CD
+						AND DEL_FLAG='0'
+						AND IV_NO   = IHD.IV_NO) AS DEAL_CD
+				  , IHD.CUST_CD   AS BUYER_CD
+			      , IHD.VENDOR_CD AS VENDOR_CD
+				  , <include refid="com.sql.dbo"/>GETGMTDATE(IHD.DELY_APP_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_DELY_APP_DATE
+				  , <include refid="com.sql.dbo"/>GETGMTDATE((SELECT MAX(PODT.HOPE_DUE_DATE)
+														        FROM STOYIVDT IVDT
+														        JOIN STOYPODT PODT
+																   ON (IVDT.GATE_CD = PODT.GATE_CD
+																   AND IVDT.PO_NO   = PODT.PO_NO
+																   AND IVDT.PO_SEQ  = PODT.PO_SEQ
+																   AND PODT.DEL_FLAG= '0')
+													 		   WHERE IVDT.GATE_CD = IHD.GATE_CD
+																 AND IVDT.IV_NO   = IHD.IV_NO
+																 AND IVDT.DEL_FLAG= '0'), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS V_AC_HOPE_DUE_DATE
+				 , IHD.DELY_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> IHD.DELY_ADDR_2 AS V_AC_RECIPIENT_ADDRESS
+				 , IHD.RECIPIENT_TEL_NUM  AS V_AC_RECIPIENT_TEL_NO
+				 , IHD.RECIPIENT_CELL_NUM AS V_AC_RECIPIENT_CELL_NO
+				 , IHD.RECIPIENT_NM       AS V_AC_RECIPIENT_NM
+				 , IHD.RECIPIENT_DEPT_NM  AS V_AC_RECIPIENT_DEPT_NM
+				 , '1' AS V_GROUP_CNT
+				 , (SELECT SUM(INV_ITEM_AMT)
+				      FROM STOUIVDT
+					 WHERE GATE_CD = IHD.GATE_CD
+					   AND DEL_FLAG='0'
+					   AND IV_NO =#{INV_NO}) AS V_GROUP_AMT
+		<!-- 지연사유 추가 -->
+					<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(STUFF(( SELECT ',' + <include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd})
+							FROM STOUIVDT
+					       WHERE GATE_CD = IHD.GATE_CD
+							 AND DEL_FLAG='0'
+							 AND IV_NO = IHD.IV_NO
+							 FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_NM
+
+				, <include refid="com.sql.nvl"/>(STUFF (( SELECT ',' + DELY_DELAY_REASON
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND IV_NO = IHD.IV_NO
+							  FOR XML PATH('')), 1,1,''), '') AS DELY_DELAY_REASON
+					</if>
+					<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(( SELECT LISTAGG(<include refid="com.sql.dbo"/>GETCODENAME(IHD.GATE_CD, 'MP067', DELY_DELAY_CD, #{ses.langCd}), ',')
+							FROM STOUIVDT
+					       WHERE GATE_CD = IHD.GATE_CD
+							 AND DEL_FLAG='0'
+							 AND IV_NO = IHD.IV_NO
+							 ), '') AS DELY_DELAY_NM
+
+				, <include refid="com.sql.nvl"/>(( SELECT LISTAGG(DELY_DELAY_REASON, ',')
+							 FROM STOUIVDT
+							WHERE GATE_CD = IHD.GATE_CD
+							  AND DEL_FLAG='0'
+							  AND IV_NO = IHD.IV_NO
+							  ), '') AS DELY_DELAY_REASON
+					</if>
+				, (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> MAX(CPO_NO)
+					 FROM STOYIVDT IVDT
+					WHERE IVDT.GATE_CD  = IHD.GATE_CD
+					  AND IVDT.IV_NO    = IHD.IV_NO
+					  AND IVDT.DEL_FLAG = '0') AS CPO_NO
+		FROM STOYIVHD IHD
+		WHERE IHD.GATE_CD  = #{ses.gateCd}
+		  AND IHD.IV_NO =#{INV_NO}
+
+		  AND IHD.DEL_FLAG = '0'
+		  AND ROWNUM = 1
+			) IVHD
+		 JOIN STOUPOHD UPOH -- 고객사주문 헤더
+		    ON (IVHD.GATE_CD  = UPOH.GATE_CD
+			AND IVHD.CPO_NO   = UPOH.CPO_NO
+			AND UPOH.DEL_FLAG = '0')
+	LEFT JOIN STOCCUST CUST -- 고객사 인수자 정보
+		    ON (IVHD.GATE_CD  = CUST.GATE_CD
+		    AND IVHD.BUYER_CD = CUST.CUST_CD
+		    AND CUST.DEL_FLAG = '0')
+         JOIN STOCVNGL VNGL -- 공급사 정보
+		    ON (VNGL.GATE_CD  = IVHD.GATE_CD
+			AND VNGL.VENDOR_CD= IVHD.VENDOR_CD
+			AND VNGL.DEL_FLAG = '0')
+		 JOIN (
+	    	SELECT
+				  GATE_CD
+				, BUYER_CD AS AGENT_CD
+				, IRS_NUM  AS IRS_NO
+				, BUYER_NM AS BUYER_NM
+				, BUYER_NM AS VENDOR_NM
+				, CEO_USER_NM AS CEO_USER_NM
+				, TEL_NUM  AS TEL_NO
+				, FAX_NUM  AS FAX_NO
+				, BUSINESS_TYPE
+				, INDUSTRY_TYPE
+				, ZIP_CD
+				, ADDR
+			FROM STOCOGCM
+			WHERE GATE_CD  = #{ses.gateCd}
+			  AND BUYER_CD = '2518'
+			  AND DEL_FLAG = '0'
+		   ) AGENT -- 에이전트(운영사) 납품장소
+		   ON (AGENT.GATE_CD = IVHD.GATE_CD)
+	</select>
+
+	<!-- 납품명세서 디테일 DGNS -->
+	<select id="selectIVDT_DGNS" parameterType="hashMap" resultType="hashMap">
+			SELECT ROW_NUMBER() OVER (ORDER BY IVDT.IV_SEQ) AS V_GRID_ITEM_NO
+				, <include refid="com.sql.nvl"/>(CASE WHEN PODT.CUST_ITEM_CD IS NOT NULL THEN PODT.CUST_ITEM_CD
+					   ELSE IVDT.ITEM_CD
+					   END, '') AS V_GRID_ITEM_CODE
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_DESC, '') AS V_GRID_ITEM_DESC
+				, <include refid="com.sql.nvl"/>(IVDT.ITEM_SPEC, '') AS V_GRID_ITEM_SPEC
+
+
+			    , <include refid="com.sql.nvl"/>(GETMKBRNAME(IVDT.GATE_CD, 'MK', IVDT.MAKER_CD),' ')  AS V_GRID_MAKER_NAME -- 제조사/모델
+
+
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M037', IVDT.UNIT_CD, '0', #{ses.langCd}), '') AS V_GRID_UNIT_MEASURE
+			<if test="_databaseId == 'mssql'">
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), IVDT.INV_QTY) AS MONEY), 1),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)) AS MONEY), 1),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_UNIT_PRICE) AS MONEY), 1),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), <include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)) AS MONEY), 1),'.00',''), '0') AS V_GRID_AMT
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_QTY),'.00',''), '0') AS V_GRID_CPO_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(IVDT.INV_QTY),'.00',''), '0') AS V_GRID_INV_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_QTY,0) - <include refid="com.sql.nvl"/>(PODT.INV_QTY,0)),'.00',''), '0') AS V_GRID_RES_QTY
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(PODT.CPO_UNIT_PRICE),'.00',''), '0') AS V_GRID_PRICE
+				, <include refid="com.sql.nvl"/>(REPLACE(TO_CHAR(<include refid="com.sql.dbo"/>getPriceByCur(PODT.CUR, PODT.CPO_UNIT_PRICE * IVDT.INV_QTY)),'.00',''), '0') AS V_GRID_AMT
+			</if>
+				, '' AS V_GRID_REMARK
+
+				, <include refid="com.sql.nvl"/>(YINFO.VENDOR_ITEM_CD, '') AS V_GRID_VENDOR_ITEM_CD
+		FROM STOYIVDT IVDT
+		JOIN STOYPODT PODT
+		ON  IVDT.GATE_CD = PODT.GATE_CD
+		AND IVDT.PO_NO = PODT.PO_NO
+		AND IVDT.PO_SEQ = PODT.PO_SEQ
+		AND PODT.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUPODT UPODT
+		ON  UPODT.GATE_CD = PODT.GATE_Cd
+		AND UPODT.CPO_NO = PODT.CPO_NO
+		AND UPODT.CPO_SEQ = PODT.CPO_SEQ
+		LEFT OUTER JOIN STOYINFO YINFO
+		ON  YINFO.GATE_CD = UPODT.GATE_CD
+		AND YINFO.APPLY_COM = UPODT.APPLY_COM
+		AND YINFO.CONT_NO = UPODT.CONT_NO
+		AND YINFO.CONT_SEQ = UPODT.CONT_SEQ
+
+		WHERE IVDT.GATE_CD = #{ses.gateCd}
+		  AND IVDT.IV_NO   =  #{INV_NO}
+		  AND IVDT.DEL_FLAG= '0'
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="getTTIH" parameterType="hashMap" resultType="hashMap">
+		SELECT DISTINCT
+		  TO_CHAR(SYSDATE, 'YYYY-MM-DD') AS V_ISSUE_DATE
+		,(SELECT COUNT(*) FROM STOCTTID WHERE GATE_CD=#{ses.gateCd} AND TAX_NUM = TTIH.TAX_NUM AND DEL_FLAG='0') AS V_GROUP_CNT
+		, TO_CHAR( (SELECT SUM(SUP_AMT) FROM STOCTTID WHERE GATE_CD=#{ses.gateCd} AND TAX_NUM = TTIH.TAX_NUM AND DEL_FLAG='0')   ,'999,999,999,999') AS V_GROUP_AMT
+		, ' ' AS V_HEADER_WEBSITE
+		<!-- 공급받는자 -->
+        , <include refid="com.sql.nvl"/>(SUBSTR(TTIH.RIRS_NUM,1,3) || '-' || SUBSTR(TTIH.RIRS_NUM,4,2) || '-' || SUBSTR(TTIH.RIRS_NUM,6,10), ' ') AS V_BUYER_IRS_NO
+        , <include refid="com.sql.nvl"/>(APAR.CUBL_NM, '') AS V_CUBL_NAME
+        , <include refid="com.sql.nvl"/>(TTIH.RCOM_NM, ' ') AS V_BUYER_NAME
+        , <include refid="com.sql.nvl"/>(TTIH.RCEO_NM, ' ') AS V_BUYER_CEO_NAME
+        , <include refid="com.sql.nvl"/>(TTIH.RADDR1,' ') || ' ' || <include refid="com.sql.nvl"/>(TTIH.RADDR2,' ') AS V_BUYER_ADDRESS
+        , <include refid="com.sql.nvl"/>(TTIH.RBUSINESS_TYPE, ' ') AS V_BUYER_BUSINESS_TYPE
+        , <include refid="com.sql.nvl"/>(TTIH.RINDUSTRY_TYPE, ' ') AS V_BUYER_INDUSTRY_TYPE
+		<!-- 공급자 -->
+        , <include refid="com.sql.nvl"/>(SUBSTR(TTIH.SIRS_NUM,1,3) || '-' || SUBSTR(TTIH.SIRS_NUM,4,2) || '-' || SUBSTR(TTIH.SIRS_NUM,6,10), ' ') AS V_VENDOR_IRS_NO
+        , <include refid="com.sql.nvl"/>(TTIH.SCOM_NM, ' ') AS V_VENDOR_NAME
+        , <include refid="com.sql.nvl"/>(TTIH.SCEO_NM, ' ') AS V_VENDOR_CEO_NAME
+        , <include refid="com.sql.nvl"/>(TTIH.SADDR1,' ') || ' ' || <include refid="com.sql.nvl"/>(TTIH.SADDR2,' ') AS V_VENDOR_ADDRESS
+        , <include refid="com.sql.nvl"/>(TTIH.SBUSINESS_TYPE, ' ') AS V_VENDOR_BUSINESS_TYPE
+        , <include refid="com.sql.nvl"/>(TTIH.SINDUSTRY_TYPE, ' ') AS V_VENDOR_INDUSTRY_TYPE
+		, TTIH.TAX_NUM
+		, TTIH.TAX_NUM V_CPO_NO
+		FROM STOCTTIH TTIH
+		JOIN STOCTTID TTID
+		   ON  TTIH.GATE_CD  = TTID.GATE_CD
+		   AND TTIH.TAX_NUM  = TTID.TAX_NUM
+		   AND TTID.DEL_FLAG = '0'
+		JOIN STOCAPAR APAR
+		   ON  APAR.GATE_CD     = TTID.GATE_CD
+		   AND APAR.CLOSING_NO  = TTID.CLOSING_NO
+		   AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+		   AND APAR.DEL_FLAG    = '0'
+		WHERE TTIH.GATE_CD = #{ses.gateCd}
+		AND TTIH.TAX_NUM IN
+		<foreach item="item" index="index" collection="printList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+
+	</select>
+
+
+	<select id="getTTID" parameterType="hashMap" resultType="hashMap">
+
+		SELECT    ROW_NUMBER() OVER (ORDER BY TTID.TAX_SEQ) AS V_GRID_ITEM_NO
+				, (SELECT CUST_ITEM_CD FROM STOCMTGL WHERE GATE_CD=#{ses.gateCd} AND ITEM_CD=TTID.ITEM_CD) AS V_GRID_ITEM_CODE
+				, TTID.ITEM_CD
+				, <include refid="com.sql.nvl"/>(TTID.ITEM_DESC, ' ') AS V_GRID_ITEM_DESC
+				, <include refid="com.sql.nvl"/>(TTID.ITEM_SPEC, ' ') AS V_GRID_ITEM_SPEC
+
+			    , <include refid="com.sql.nvl"/>(
+					  ( SELECT GETMKBRNAME(TTID.GATE_CD, 'MK', MAKER_CD) FROM STOCMTGL
+					    WHERE GATE_CD = #{ses.gateCd}
+					    AND ITEM_CD   = TTID.ITEM_CD
+					  )
+			     ,' ')  AS V_GRID_MAKER_NAME -- 제조사/모델
+
+
+			    , <include refid="com.sql.nvl"/>(
+					  ( SELECT GETCOMCODE(#{ses.gateCd}, 'M037',UNIT_CD, '0',#{ses.langCd}) FROM STOCMTGL
+					    WHERE GATE_CD = #{ses.gateCd}
+					    AND ITEM_CD   = TTID.ITEM_CD
+					  )
+			     ,' ') V_GRID_UNIT_MEASURE
+
+				, TO_CHAR(TTID.QTY,'999,999,999,999') AS V_GRID_CPO_QTY
+				, TO_CHAR(TTID.QTY,'999,999,999,999') AS V_GRID_INV_QTY
+				, TO_CHAR(TTID.UNIT_AMT,'999,999,999,999') AS V_GRID_PRICE
+				, TO_CHAR(TTID.SUP_AMT,'999,999,999,999') AS V_GRID_AMT
+		FROM STOCTTID TTID
+		WHERE TTID.GATE_CD = #{ses.gateCd}
+		AND TTID.TAX_NUM   = #{TAX_NUM}
+		AND TTID.DEL_FLAG = '0'
+	</select>
+
+
+</mapper>

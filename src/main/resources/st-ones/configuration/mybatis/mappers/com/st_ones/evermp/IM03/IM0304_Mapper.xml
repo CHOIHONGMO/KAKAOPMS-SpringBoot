@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.IM03.IM0304_Mapper">
+
+    <select id="im03011_doSearch" parameterType="hashmap" resultType="hashMap">
+
+    </select>
+    
+    <!-- IM03_040 : 신규품목 재요청 승인 -->
+    <select id="im03040_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+		      A.GATE_CD
+	        , A.CUST_CD
+	        , A.ITEM_REQ_NO
+	        , A.ITEM_REQ_SEQ
+	        , A.REG_USER_ID AS REQ_USER_ID
+	        , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.REG_USER_ID, #{ses.langCd}) AS REQ_USER_MSK_NM
+			, <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.REG_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+	        , A.AGENT_USER_ID
+	        , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.AGENT_USER_ID, #{ses.langCd}) AS AGENT_USER_NM
+	        , B.CUST_NM
+	        , <include refid="com.sql.toDateChar"/>(A.REQUEST_DATE, 'YYYY-MM-DD') AS REQUEST_DATE
+	        , A.CUST_ITEM_CD
+	        , A.PREV_VENDOR_NM
+	        , A.ITEM_DESC AS ITEM_NM
+	        , A.ITEM_SPEC
+	        , A.MAKER_NM
+	        , A.MODEL_NM
+	        , A.ORIGIN_NM
+	        , A.UNIT_CD
+	        , A.EST_PO_QT
+	        , A.ITEM_RMK
+	        , A.REQ_TXT
+	        , A.ATTACH_FILE_NO
+	        , <include refid="com.sql.nvl"/>((SELECT COUNT(UUID) FROM STOCATCH
+                       WHERE GATE_CD  = A.GATE_CD
+                         AND UUID     = A.ATTACH_FILE_NO
+                         AND DEL_FLAG = '0'), 0) AS ATTACH_FILE_NO_IMG
+	        , A.ITEM_CD
+	        , A.CMS_CTRL_USER_ID
+	        , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.CMS_CTRL_USER_ID, #{ses.langCd}) AS CMS_CTRL_USER_NM
+	        , A.PROGRESS_CD
+	        , <include refid="com.sql.dbo"/>getComCode(A.GATE_CD, 'MP026', A.PROGRESS_CD, 0, 'KO') AS PROGRESS_NM
+	        , A.RE_REQ_CODE
+	        , A.RE_REQ_REASON
+
+			, USR.EMAIL
+        FROM STOUNWRQ A
+        LEFT  OUTER JOIN STOCCUST B
+              ON  A.GATE_CD = B.GATE_CD
+              AND A.CUST_CD = B.CUST_CD
+		LEFT  OUTER JOIN  STOCUSER USR
+			  ON  A.GATE_CD = USR.GATE_CD
+			  AND A.REG_USER_ID = USR.USER_ID
+
+        WHERE A.GATE_CD = #{ses.gateCd}
+          AND A.PROGRESS_CD = '110'
+          AND A.DEL_FLAG = '0'
+        
+        <if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+            AND A.REQUEST_DATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_TO_DATE}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND A.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND B.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ADD_USER_ID != '' and ADD_USER_ID != null">
+            AND A.REG_USER_ID <include refid="com.sql.likeL"/> #{REG_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ADD_USER_NM != '' and ADD_USER_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{ADD_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ITEM_NM != '' and ITEM_NM != null">
+            AND ( ${ITEM_DESC}
+             OR  ${ITEM_SPEC}
+			 OR  A.ITEM_REQ_NO <include refid="com.sql.likeL"/> #{ITEM_REQ_NO} <include refid="com.sql.likeR"/> )
+        </if>
+        <if test="CMS_CTRL_USER_ID != '' and CMS_CTRL_USER_ID != null">
+            AND A.CMS_CTRL_USER_ID = #{CMS_CTRL_USER_ID}
+        </if>
+        <if test="RE_REQ_CODE != '' and RE_REQ_CODE != null">
+            AND A.RE_REQ_CODE = #{RE_REQ_CODE}
+        </if>
+    </select>
+    
+    <!-- 승인 -->
+    <!-- IM03_040 : 신규품목 재요청 승인 -->
+    <update id="im03040_doConfirm" parameterType="hashmap">
+		UPDATE STOUNWRQ
+		   SET MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , PROGRESS_CD = '200' -- 승인
+			 , RE_REQ_CONFIRM_USER_ID = #{ses.userId}
+			 , RE_REQ_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD = #{CUST_CD}
+		  AND ITEM_REQ_NO = #{ITEM_REQ_NO}
+		  AND ITEM_REQ_SEQ = #{ITEM_REQ_SEQ}
+		  AND DEL_FLAG = '0'
+    </update>
+    
+    <!-- 반려 -->
+    <!-- IM03_040 : 신규품목 재요청 반려 -->
+    <update id="im03040_doReject" parameterType="hashmap">
+		UPDATE STOUNWRQ
+		   SET MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , PROGRESS_CD = '100' -- 신규
+			 , RE_REQ_CONFIRM_USER_ID = #{ses.userId}
+			 , RE_REQ_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+			 , RE_REQ_REJECT_RMK = #{RE_REQ_REJECT_RMK}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD = #{CUST_CD}
+		  AND ITEM_REQ_NO = #{ITEM_REQ_NO}
+		  AND ITEM_REQ_SEQ = #{ITEM_REQ_SEQ}
+		  AND DEL_FLAG = '0'
+    </update>
+
+</mapper>

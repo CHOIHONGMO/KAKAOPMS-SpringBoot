@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS03.BS0302_Mapper">
+
+    <select id="bs03004_doSearch" parameterType="hashmap" resultType="hashMap">
+
+    </select>
+
+    <select id="bs03005_doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT
+             CVUR.USER_TYPE
+            ,CVUR.USER_ID
+            ,CVUR.USER_ID AS ORI_USER_ID
+            ,CVUR.USER_NM
+            ,CVUR.COMPANY_CD
+            ,(CASE WHEN CVUR.USER_TYPE='B' THEN CUST.CUST_NM ELSE VNGL.VENDOR_NM END) AS COMPANY_NM
+            ,<include refid="com.sql.dbo"/>GETDIVISIONNM(CVUR.GATE_CD, CVUR.COMPANY_CD, CVUR.PLANT_CD, CVUR.DIVISION_CD, #{ses.langCd}) as DIVISION_NM
+            ,<include refid="com.sql.dbo"/>getUserDeptInfo(CVUR.GATE_CD, CVUR.USER_ID,#{ses.langCd}) AS DEPT_NM
+            ,CVUR.WORK_TYPE
+            ,CVUR.MY_SITE_FLAG
+            ,CVUR.WMS_FLAG
+            ,CVUR.BUDGET_FLAG
+            ,CVUR.GR_FLAG
+            ,CVUR.FINANCIAL_FLAG
+            ,CVUR.TEL_NUM
+            ,CVUR.CELL_NUM
+            ,CVUR.EMAIL
+            ,CVUR.POSITION_NM
+            ,CVUR.DUTY_NM
+            ,<include refid="com.sql.nvl"/>(CVUR.BLOCK_FLAG, '0') AS BLOCK_FLAG
+            ,CVUR.BLOCK_REASON
+            ,CVUR.REG_DATE
+            ,CVUR.CONFIRM_DATE
+            ,<include refid="com.sql.dbo"/>getUserName(CVUR.GATE_CD, CVUR.CONFIRM_USER_ID, #{ses.langCd}) AS CONFIRM_USER_NM
+            ,CVUR.CONFIRM_USER_ID
+            ,CVUR.SMS_FLAG
+            ,CVUR.MAIL_FLAG
+            ,CVUR.MNG_YN
+            ,<include refid="com.sql.nvl"/>(CVUR.APROVAL_USER_FLAG,'0') AS APROVAL_USER_FLAG
+            ,<include refid="com.sql.dbo"/>getUserName(CVUR.GATE_CD, CVUR.CHIEF_USER_ID, #{ses.langCd}) AS CHIEF_USER_NM
+            ,CVUR.CHIEF_USER_ID
+            ,CSDM.SEQ AS CSDM_SEQ
+            ,CSDM.DELY_NM AS DELY_NM
+			,CSDM.RECIPIENT_NM AS DELY_RECIPIENT_NM
+			,'('<include refid="com.sql.stringMerge"/>CSDM.DELY_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CSDM.DELY_ADDR_1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CSDM.DELY_ADDR_2,'') AS DELY_ADDR
+			,CUBL.CUBL_SQ AS CUBL_SQ
+			,CUBL.CUBL_NM AS CUBL_NM
+			,CUBL.COMPANY_NM AS CUBL_COMPANY_NM
+			,CUBL.IRS_NUM AS CUBL_IRS_NUM
+			,'('<include refid="com.sql.stringMerge"/>CUBL.CUBL_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CUBL.CUBL_ADDR1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CUBL.CUBL_ADDR2,'') AS CUBL_ADDR
+            ,CVUR.USE_FLAG
+            ,CVUR.PLANT_CD
+            ,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, CVUR.COMPANY_CD, CVUR.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+        FROM STOCCVUR CVUR
+        LEFT OUTER JOIN STOCCUST CUST
+             ON (CUST.GATE_CD = CVUR.GATE_CD
+             AND CUST.CUST_CD = CVUR.COMPANY_CD)
+        LEFT OUTER JOIN STOCVNGL VNGL
+             ON (VNGL.GATE_CD = CVUR.GATE_CD
+             AND VNGL.VENDOR_CD = CVUR.COMPANY_CD)
+        LEFT OUTER JOIN STOCCSDM CSDM
+			 ON (CSDM.GATE_CD  = CVUR.GATE_CD
+			 AND CSDM.CUST_CD  = CVUR.COMPANY_CD
+			 AND CSDM.SEQ      = CVUR.CSDM_SEQ
+			 AND CSDM.DEL_FLAG = '0'
+			 AND CSDM.USE_FLAG = '1')
+		LEFT OUTER JOIN STOCCUBL CUBL
+			 ON (CUBL.GATE_CD  = CVUR.GATE_CD
+			 AND CUBL.CUST_CD  = CVUR.COMPANY_CD
+			 AND CUBL.CUBL_SQ  = CVUR.CUBL_SEQ
+			 AND CUBL.DEL_FLAG = '0'
+			 AND CUBL.USE_FLAG = '1')
+        WHERE CVUR.GATE_CD   = #{ses.gateCd}
+          AND CVUR.USER_TYPE = #{USER_TYPE}
+          AND CVUR.DEL_FLAG  = '0'
+            
+        <if test="CUST_CD != '' and CUST_CD != null"> <!-- 고객사코드 -->
+            AND UPPER(CVUR.COMPANY_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ses.userType != null and ses.userType != '' and ses.userType != 'C'.toString()">
+            AND CVUR.COMPANY_CD = #{ses.companyCd}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND (UPPER(CVUR.USER_ID) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>
+        	  OR UPPER(CVUR.USER_NM) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>)
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND UPPER(CVUR.USER_NM) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (CASE WHEN CVUR.USER_TYPE='B' THEN CUST.CUST_NM ELSE VNGL.VENDOR_NM END) <include refid="com.sql.likeL"/> UPPER(#{CUST_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserDeptInfo(CVUR.GATE_CD, CVUR.USER_ID,#{ses.langCd}) <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BLOCK_YN != '' and BLOCK_YN != null">
+            AND CVUR.BLOCK_FLAG = #{BLOCK_YN}
+        </if>
+        <if test="WORK_TYPE != '' and WORK_TYPE != null">
+            AND CVUR.WORK_TYPE = #{WORK_TYPE}
+        </if>
+        <if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null">
+            AND CVUR.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND CVUR.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLANT_NM != '' and PLANT_NM != null">
+            AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, CVUR.COMPANY_CD, CVUR.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY 6,4
+    </select>
+
+    <select id="bs03005_doSearchInfo" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+             CVUR.USER_TYPE
+            ,CVUR.USER_ID
+            ,CVUR.USER_NM
+            ,'Y' AS ID_CHECK
+            ,CVUR.COMPANY_CD
+            ,(CASE WHEN CVUR.USER_TYPE='B' THEN CUST.CUST_NM ELSE VNGL.VENDOR_NM END) AS COMPANY_NM
+            ,(CASE WHEN CVUR.USER_TYPE='B' THEN CUST.IRS_NUM ELSE VNGL.IRS_NO END) AS IRS_NO
+			,CVUR.PLANT_CD
+            ,CVUR.DIVISION_CD
+            ,CVUR.DEPT_CD
+            ,<include refid="com.sql.dbo"/>getUserDeptInfo(CVUR.GATE_CD, CVUR.USER_ID, #{ses.langCd}) AS DEPT_NM
+            ,CVUR.PART_CD
+            ,CVUR.EMPLOYEE_NO
+            ,CVUR.MNG_YN
+            ,CVUR.WORK_TYPE
+            ,CVUR.MY_SITE_FLAG
+            ,CVUR.WMS_FLAG
+            ,CVUR.BUDGET_FLAG
+            ,CVUR.GR_FLAG
+            ,CVUR.FINANCIAL_FLAG
+            ,CVUR.TEL_NUM
+            ,CVUR.CELL_NUM
+            ,CVUR.FAX_NUM
+            ,CVUR.EMAIL
+            ,CVUR.POSITION_NM
+            ,CVUR.ZIP_CD
+            ,CVUR.ADDR_1
+            ,CVUR.ADDR_2
+            ,CVUR.BUDGET_DEPT_CD
+            ,(SELECT DEPT_NM FROM STOCOGDP WHERE GATE_CD = CVUR.GATE_CD
+                 AND BUYER_CD   <include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>
+                     PLANT_CD   <include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>
+                     DIVISION_CD<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>
+                     DEPT_CD = CVUR.BUDGET_DEPT_CD AND PART_CD = '*' AND DEL_FLAG = '0') AS BUDGET_DEPT_NM
+            ,<include refid="com.sql.nvl"/>(CVUR.BLOCK_FLAG, '0') AS BLOCK_FLAG
+            ,CVUR.BLOCK_REASON
+            ,CVUR.REG_DATE
+            ,CVUR.CONFIRM_DATE
+            , <include refid="com.sql.dbo"/>getUserName(CVUR.GATE_CD, CVUR.CONFIRM_USER_ID, #{ses.langCd}) AS CONFIRM_USER_NM
+            ,CVUR.SMS_FLAG
+            ,CVUR.MAIL_FLAG
+            ,CVUR.RECIPIENT_NM
+            ,CVUR.RECIPIENT_DEPT_NM
+            ,CVUR.RECIPIENT_TEL_NUM
+            ,CVUR.RECIPIENT_CELL_NUM
+            ,CVUR.RECIPIENT_EMAIL
+            ,CVUR.DELY_ZIP_CD
+            ,CVUR.DELY_ADDR_1
+            ,CVUR.DELY_ADDR_2
+            ,CVUR.VNGL_ROLE
+            ,CVUR.AGREE_ATT_FILE_NUM
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(CVUR.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(CVUR.AGREE_YN, '0'), 0, #{ses.langCd}) AS AGREE_YN
+        <if test="_databaseId == 'oracle'">
+            ,<include refid="com.sql.toDateChar"/>(CVUR.AGREE_YN_DATE, 'YYYY-MM-DD HH24:MI:SS') AS AGREE_YN_DATE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(CVUR.GATE_CD, CVUR.MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.MOD_DATE, 'YYYY-MM-DD HH24:MI:SS') AS MOD_INFO
+        </if>
+        <if test="_databaseId == 'mssql'">
+            ,<include refid="com.sql.toDateChar"/>(CVUR.AGREE_YN_DATE, 20) AS AGREE_YN_DATE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(CVUR.GATE_CD, CVUR.MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.MOD_DATE, 20) AS MOD_INFO
+        </if>
+            ,CVUR.DUTY_NM
+            ,CVUR.CHIEF_USER_ID
+            , <include refid="com.sql.dbo"/>getUserName(CVUR.GATE_CD, CVUR.CHIEF_USER_ID, #{ses.langCd}) AS CHIEF_USER_NM
+            --배송지
+            ,CVUR.CSDM_SEQ
+			,CSDM.DELY_NM AS DELY_NM
+			,CSDM.RECIPIENT_NM AS DELY_RECIPIENT_NM
+			,'('<include refid="com.sql.stringMerge"/>CSDM.DELY_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CSDM.DELY_ADDR_1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CSDM.DELY_ADDR_2,'') AS DELY_ADDR
+			,CSDM.RECIPIENT_TEL_NUM  AS DELY_RECIPIENT_TEL_NUM
+			,CSDM.RECIPIENT_FAX_NUM  AS DELY_RECIPIENT_FAX_NUM
+			,CSDM.RECIPIENT_CELL_NUM AS DELY_RECIPIENT_CELL_NUM
+			,CSDM.RECIPIENT_EMAIL    AS DELY_RECIPIENT_EMAIL
+			--청구지
+			,CVUR.CUBL_SEQ   AS CUBL_SQ
+			,CUBL.CUBL_NM    AS CUBL_NM
+			,CUBL.COMPANY_NM AS CUBL_COMPANY_NM
+			,'('<include refid="com.sql.stringMerge"/>CUBL.CUBL_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CUBL.CUBL_ADDR1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CUBL.CUBL_ADDR2,'') AS CUBL_ADDR
+			,CUBL.CEO_USER_NM        AS CUBL_CEO_USER_NM
+			,CUBL.IRS_NUM            AS CUBL_IRS_NUM
+			,CUBL.BUSINESS_TYPE      AS CUBL_BUSINESS_TYPE
+			,CUBL.INDUSTRY_TYPE      AS CUBL_INDUSTRY_TYPE
+			,CUBL.CUBL_BANK_NM       AS CUBL_BANK_NM
+			,CUBL.CUBL_ACCOUNT_NUM   AS CUBL_ACCOUNT_NUM
+			,CUBL.CUBL_ACCOUNT_NM    AS CUBL_ACCOUNT_NM
+			,CUBL.CUBL_USER_NM       AS CUBL_USER_NM
+			,CUBL.CUBL_USER_TEL_NUM  AS CUBL_USER_TEL_NUM
+			,CUBL.CUBL_USER_FAX_NUM  AS CUBL_USER_FAX_NUM
+			,CUBL.CUBL_USER_CELL_NUM AS CUBL_USER_CELL_NUM
+			,CUBL.CUBL_USER_EMAIL    AS CUBL_USER_EMAIL
+			,<include refid="com.sql.nvl"/>(CVUR.USER_AUTO_PO_FLAG,'0') AS USER_AUTO_PO_FLAG
+			,<include refid="com.sql.nvl"/>(CVUR.APCH_FLAG,'0') AS APCH_FLAG
+			,<include refid="com.sql.nvl"/>(CVUR.APROVAL_USER_FLAG,'0') AS APROVAL_USER_FLAG
+			,(CASE WHEN CVUR.DATA_CREATION_TYPE IN ('I', '1') THEN '1' ELSE '0' END) AS IF_USER_FLAG
+        FROM STOCCVUR CVUR
+        LEFT OUTER JOIN STOCCUST CUST
+             ON (CUST.GATE_CD = CVUR.GATE_CD
+             AND CUST.CUST_CD = CVUR.COMPANY_CD)
+        LEFT OUTER JOIN STOCVNGL VNGL
+             ON (VNGL.GATE_CD = CVUR.GATE_CD
+             AND VNGL.VENDOR_CD = CVUR.COMPANY_CD)
+		LEFT OUTER JOIN STOCCSDM CSDM
+			 ON (CSDM.GATE_CD  = CVUR.GATE_CD
+			 AND CSDM.CUST_CD  = CVUR.COMPANY_CD
+			 AND CSDM.SEQ      = CVUR.CSDM_SEQ
+			 AND CSDM.DEL_FLAG = '0'
+			 AND CSDM.USE_FLAG = '1')
+		LEFT OUTER JOIN STOCCUBL CUBL
+			 ON (CUBL.GATE_CD  = CVUR.GATE_CD
+		     AND CUBL.CUST_CD  = CVUR.COMPANY_CD
+		     AND CUBL.CUBL_SQ  = CVUR.CUBL_SEQ
+		     AND CUBL.DEL_FLAG = '0'
+		     AND CUBL.USE_FLAG = '1')
+        WHERE CVUR.GATE_CD  = #{ses.gateCd}
+          AND CVUR.USER_ID  = #{USER_ID}
+          AND CVUR.DEL_FLAG = '0'
+    </select>
+
+    <select id="bs01002_doCheckUserId" parameterType="hashmap" resultType="java.lang.String">
+
+        SELECT
+
+            (CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END)
+        FROM(
+
+                SELECT USER_ID
+                FROM STOCCVUR
+                WHERE GATE_CD = #{ses.gateCd}
+                      AND UPPER(USER_ID) = UPPER(#{USER_ID})
+                UNION ALL
+                SELECT USER_ID
+                FROM STOCUSER
+                WHERE GATE_CD =  #{ses.gateCd}
+                      AND UPPER(USER_ID) = UPPER(#{USER_ID})
+            )A
+
+
+    </select>
+
+
+    <select id="bs01002_doCheckIrsNo" parameterType="hashmap" resultType="java.lang.String">
+        SELECT
+            (CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END)
+        FROM(
+
+                SELECT '1'
+                FROM STOCVNGL
+                WHERE GATE_CD = #{ses.gateCd}
+                      AND IRS_NO = #{IRS_NO}
+            )A
+    </select>
+
+
+
+    <update id="bs03005_doUpdate" parameterType="hashmap">
+        UPDATE STOCCVUR SET
+          DEL_FLAG = '0'
+          , MOD_DATE = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+          , WORK_TYPE =#{WORK_TYPE}
+          , MY_SITE_FLAG =#{MY_SITE_FLAG}
+          , WMS_FLAG =#{WMS_FLAG}
+          , BUDGET_FLAG =#{BUDGET_FLAG}
+          , GR_FLAG =#{GR_FLAG}
+          , FINANCIAL_FLAG =#{FINANCIAL_FLAG}
+          , BLOCK_FLAG = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+          , BLOCK_REASON =#{BLOCK_REASON}
+          , SMS_FLAG =#{SMS_FLAG}
+          , MAIL_FLAG =#{MAIL_FLAG}
+          , MNG_YN = #{MNG_YN}
+          , APROVAL_USER_FLAG = #{APROVAL_USER_FLAG}
+          , CSDM_SEQ = #{CSDM_SEQ}
+          , CUBL_SEQ = #{CUBL_SQ}
+          , USE_FLAG = #{USE_FLAG}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND USER_ID = #{ORI_USER_ID}
+    </update>
+
+    <update id="bs03005_doDeleteMngYn" parameterType="hashmap">
+        UPDATE STOCCVUR SET MNG_YN = '0'
+        WHERE GATE_CD = #{ses.gateCd}
+          AND COMPANY_CD = #{COMPANY_CD}
+    </update>
+    <update id="bs03005_doDelete" parameterType="hashmap">
+        UPDATE STOCCVUR SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND USER_ID = #{ORI_USER_ID}
+    </update>
+
+	<update id="bs03006_doSave" parameterType="hashmap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCCVUR<include refid="com.sql.mergeAs"/>CVUR
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                      , UPPER(<include refid="com.sql.trim"/>(#{USER_ID})) AS USER_ID<include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+        ON (CVUR.GATE_CD = B.GATE_CD
+        AND UPPER(CVUR.USER_ID) = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+              DEL_FLAG = '0'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            <if test="CHANGE_PW !='' and CHANGE_PW !=null">
+                ,PASSWORD = #{PASSWORD}<!--<include refid="com.sql.dbo"/>setEncPassword(UPPER(#{PASSWORD}))-->
+            </if>
+            , USER_NM = #{USER_NM}
+            , MNG_YN = #{MNG_YN}
+            , PLANT_CD = #{PLANT_CD}
+            , DIVISION_CD = #{DIVISION_CD}
+            , DEPT_CD = #{DEPT_CD}
+            , DEPT_NM = #{DEPT_NM}
+            , PART_CD = #{PART_CD}
+            , EMPLOYEE_NO = #{EMPLOYEE_NO}
+            , POSITION_NM = #{POSITION_NM}
+            , TEL_NUM = #{TEL_NUM}
+            , FAX_NUM = #{FAX_NUM}
+            , CELL_NUM = #{CELL_NUM}
+            , EMAIL = #{EMAIL}
+            , ZIP_CD = #{ZIP_CD}
+            , ADDR_1 = #{ADDR_1}
+            , ADDR_2 = #{ADDR_2}
+            , BUDGET_DEPT_CD =#{BUDGET_DEPT_CD}
+            , WMS_FLAG =#{WMS_FLAG}
+            , MY_SITE_FLAG =#{MY_SITE_FLAG}
+            , BUDGET_FLAG =#{BUDGET_FLAG}
+            , GR_FLAG =#{GR_FLAG}
+            , FINANCIAL_FLAG =#{FINANCIAL_FLAG}
+            , RECIPIENT_NM =#{RECIPIENT_NM}
+            , RECIPIENT_DEPT_NM=#{RECIPIENT_DEPT_NM}
+            , RECIPIENT_TEL_NUM=#{RECIPIENT_TEL_NUM}
+            , RECIPIENT_CELL_NUM=#{RECIPIENT_CELL_NUM}
+            , RECIPIENT_EMAIL=#{RECIPIENT_EMAIL}
+            , DELY_ZIP_CD =#{DELY_ZIP_CD}
+            , DELY_ADDR_1=#{DELY_ADDR_1}
+            , DELY_ADDR_2=#{DELY_ADDR_2}
+            , SMS_FLAG =#{SMS_FLAG}
+            , MAIL_FLAG =#{MAIL_FLAG}
+            , DUTY_NM =#{DUTY_NM}
+            , CHIEF_USER_ID=#{CHIEF_USER_ID}
+            , PW_WRONG_CNT = 0
+            , CSDM_SEQ = #{CSDM_SEQ}
+            , CUBL_SEQ = #{CUBL_SQ}
+            , USER_AUTO_PO_FLAG =#{USER_AUTO_PO_FLAG}
+            , APCH_FLAG =#{APCH_FLAG}
+            , APROVAL_USER_FLAG = #{APROVAL_USER_FLAG}
+			, VNGL_ROLE = #{VNGL_ROLE}
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,USER_ID
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,COMPANY_CD
+            ,MNG_YN
+            ,USER_TYPE
+            ,USER_NM
+            ,PASSWORD
+            ,DEPT_CD
+            ,DEPT_NM
+            ,EMPLOYEE_NO
+            ,POSITION_NM
+            ,TEL_NUM
+            ,FAX_NUM
+            ,CELL_NUM
+            ,EMAIL
+            ,ZIP_CD
+            ,ADDR_1
+            ,ADDR_2
+            ,BUDGET_DEPT_CD
+            ,WMS_FLAG
+            ,MY_SITE_FLAG
+            ,BUDGET_FLAG
+            ,GR_FLAG
+            ,FINANCIAL_FLAG
+            ,RECIPIENT_NM
+            ,RECIPIENT_DEPT_NM
+            ,RECIPIENT_TEL_NUM
+            ,RECIPIENT_CELL_NUM
+            ,RECIPIENT_EMAIL
+            ,DELY_ZIP_CD
+            ,DELY_ADDR_1
+            ,DELY_ADDR_2
+            ,SMS_FLAG
+            ,MAIL_FLAG
+            ,USE_FLAG
+            ,DUTY_NM
+            ,CHIEF_USER_ID
+            ,BLOCK_FLAG
+            ,PROGRESS_CD
+            ,CONFIRM_USER_ID
+            ,CONFIRM_DATE
+            ,CSDM_SEQ
+            ,CUBL_SEQ
+            ,USER_AUTO_PO_FLAG
+            ,APCH_FLAG
+            ,APROVAL_USER_FLAG
+            ,PLANT_CD
+            ,VNGL_ROLE
+        ) VALUES (
+            #{ses.gateCd}
+            ,UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            ,'0'
+            ,#{COMPANY_CD}
+            ,#{MNG_YN}
+            ,#{USER_TYPE}
+            ,#{USER_NM}
+            ,#{PASSWORD}
+            ,#{DEPT_CD}
+            ,#{DEPT_NM}
+            ,#{EMPLOYEE_NO}
+            ,#{POSITION_NM}
+            ,#{TEL_NUM}
+            ,#{FAX_NUM}
+            ,#{CELL_NUM}
+            ,#{EMAIL}
+            ,#{ZIP_CD}
+            ,#{ADDR_1}
+            ,#{ADDR_2}
+            ,#{BUDGET_DEPT_CD}
+            ,#{WMS_FLAG}
+            ,#{MY_SITE_FLAG}
+            ,#{BUDGET_FLAG}
+            ,#{GR_FLAG}
+            ,#{FINANCIAL_FLAG}
+            ,#{RECIPIENT_NM}
+            ,#{RECIPIENT_DEPT_NM}
+            ,#{RECIPIENT_TEL_NUM}
+            ,#{RECIPIENT_CELL_NUM}
+            ,#{RECIPIENT_EMAIL}
+            ,#{DELY_ZIP_CD}
+            ,#{DELY_ADDR_1}
+            ,#{DELY_ADDR_2}
+            ,#{SMS_FLAG}
+            ,#{MAIL_FLAG}
+            ,'1'
+            ,#{DUTY_NM}
+            ,#{CHIEF_USER_ID}
+            ,'0'
+            ,'E'
+            , #{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{CSDM_SEQ}
+            ,#{CUBL_SQ}
+            ,#{USER_AUTO_PO_FLAG}
+            ,#{APCH_FLAG}
+            ,#{APROVAL_USER_FLAG}
+            ,#{PLANT_CD}
+            ,#{VNGL_ROLE}
+        <include refid="com.sql.mergeEnd"/>
+    </update>
+
+    <insert id="bs03006_doSave_custDM" parameterType="hashMap">
+        INSERT INTO STOCCUDM(
+            GATE_CD
+            ,CUST_CD
+            ,USER_ID
+            ,SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,DELY_NM
+            ,RECIPIENT_NM
+            ,RECIPIENT_DEPT_NM
+            ,RECIPIENT_TEL_NUM
+            ,RECIPIENT_CELL_NUM
+            ,RECIPIENT_EMAIL
+            ,DELY_ZIP_CD
+            ,DELY_ADDR_1
+            ,DELY_ADDR_2
+            ,DELY_RMK
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{COMPANY_CD}
+            ,#{USER_ID}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1, 1) FROM STOCCUDM WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{CUST_CD} AND USER_ID = #{USER_ID})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{RECIPIENT_NM}
+            ,#{RECIPIENT_NM}
+            ,#{RECIPIENT_DEPT_NM}
+            ,#{RECIPIENT_TEL_NUM}
+            ,#{RECIPIENT_CELL_NUM}
+            ,#{RECIPIENT_EMAIL}
+            ,#{DELY_ZIP_CD}
+            ,#{DELY_ADDR_1}
+            ,#{DELY_ADDR_2}
+            ,#{DELY_RMK}
+        )
+    </insert>
+
+    <update id="bs03006_doInsertUser_USAP" parameterType="hashmap">
+        INSERT INTO STOCUSAP (
+            GATE_CD
+            , USER_ID
+            , AUTH_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            , #{AUTH_CD}
+            , <include refid="com.sql.sysdate"/>
+            ,  #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            ,  #{ses.userId}
+            , '0'
+        )
+    </update>
+</mapper>

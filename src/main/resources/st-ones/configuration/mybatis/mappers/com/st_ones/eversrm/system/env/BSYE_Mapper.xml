@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.env.BSYE_Mapper">
+
+    <select  id="doSearchEnv" parameterType="hashMap" resultType="hashMap">
+        SELECT SYS_SQ AS SYS_SEQ
+              , SYST.GATE_CD
+              , <include refid="com.sql.dbo"/>getGateName(SYST.GATE_CD,#{ses.langCd})  as GATE_NM
+              <!-- , (CASE WHEN SYST.GATE_CD IS NULL THEN -1 ELSE 0 END) AS GATE_NM_IMAGE -->
+              , SYST.PUR_ORG_CD
+              , <include refid="com.sql.dbo"/>GETPURORGNAME(SYST.GATE_CD,SYST.BUYER_CD,SYST.PUR_ORG_CD,#{ses.langCd})  as PUR_ORG_NM
+              <!-- , (CASE WHEN SYST.PUR_ORG_CD IS NULL THEN -1 ELSE 0 END) AS PUR_ORG_NM_IMAGE -->
+              , SYST.PLANT_CD
+              , <include refid="com.sql.dbo"/>GETPLANTNAME(SYST.GATE_CD,SYST.BUYER_CD,SYST.PLANT_CD,#{ses.langCd})  as PLANT_NM
+              <!-- , (CASE WHEN SYST.PLANT_CD IS NULL THEN -1 ELSE 0 END) AS PLANT_NM_IMAGE -->
+              , SYST.BUYER_CD
+              , <include refid="com.sql.dbo"/>GETBUYERNAME(SYST.GATE_CD,SYST.BUYER_CD,#{ses.langCd})  as BUYER_NM
+              , SYS_KEY
+              , SYS_VALUE
+              , DESCRIPTION
+              , SETTING_TYPE
+              , 'U' AS INSERT_FLAG
+        FROM  STOCSYST SYST
+        WHERE   SYST.DEL_FLAG='0'
+
+
+        <if test="SETTING_TYPE != '' and SETTING_TYPE != null">
+            AND SETTING_TYPE = #{SETTING_TYPE}
+        </if>
+        <if test="HOUSE_NAME != '' and HOUSE_NAME != null ">
+                AND <include refid="com.sql.dbo"/>getGateName(SYST.GATE_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{HOUSE_NAME} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="BUYER_NAME != '' and BUYER_NAME != null">
+                AND <include refid="com.sql.dbo"/>GETBUYERNAME(SYST.GATE_CD,SYST.BUYER_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{BUYER_NAME} <include refid="com.sql.likeR"/>
+            </if>
+
+         <if test="PUR_ORG_NAME != '' and PUR_ORG_NAME != null">
+                AND <include refid="com.sql.dbo"/>GETPURORGNAME(SYST.GATE_CD,SYST.BUYER_CD,SYST.PUR_ORG_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{PUR_ORG_NAME} <include refid="com.sql.likeR"/>
+            </if>
+
+         <if test="PLANT_NAME != '' and PLANT_NAME != null">
+                AND <include refid="com.sql.dbo"/>GETPLANTNAME(SYST.GATE_CD,SYST.BUYER_CD,SYST.PLANT_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NAME} <include refid="com.sql.likeR"/>
+         </if>
+
+         <if test="KEY_COMBO != '' and KEY_COMBO != null ">
+         	<if test="KEY_TEXT != '' and KEY_TEXT != null and KEY_COMBO == 'DESC'">
+                 AND SYST.DESCRIPTION <include refid="com.sql.likeL"/> #{DESCRIPTION} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="KEY_TEXT != '' and KEY_TEXT != null and KEY_COMBO != 'DESC'">
+                 AND ${KEY_TEXT_L} SYST.${KEY_COMBO} ${KEY_TEXT_R}
+           </if>
+        </if>
+
+        ORDER BY SYS_SQ DESC
+    </select>
+
+    <update id="deleteEnvironment" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  SYS_SQ=#{SYS_SEQ}
+    </update>
+
+    <insert id="createEnvironment" parameterType="hashMap">
+        INSERT INTO ${TABLE_NM} (
+          SYS_SQ
+        , GATE_CD
+        , REG_DATE
+        , REG_USER_ID
+        , MOD_DATE
+        , MOD_USER_ID
+        , DEL_FLAG
+        , BUYER_CD
+        , PUR_ORG_CD
+        , PLANT_CD
+        , SYS_KEY
+        , SYS_VALUE
+        , DESCRIPTION
+        , SETTING_TYPE
+        )
+        VALUES (
+          (select <include refid="com.sql.nvl"/>(max(SYS_SQ) + 1, 0) FROM ${TABLE_NM})
+        , #{GATE_CD}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , '0'
+        , #{BUYER_CD}
+        , #{PUR_ORG_CD}
+        , #{PLANT_CD}
+        , #{KEY}
+        , #{VALUE}
+        , #{DESCRIPTION}
+        , #{SETTING_TYPE}
+        )
+    </insert>
+
+    <select id="existsWiseConfInformation" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM STOCSYST
+        WHERE 1 = 1
+          AND DEL_FLAG = '0'
+          AND SETTING_TYPE = #{SETTING_TYPE}
+          AND SYS_KEY = #{KEY}
+
+        <if test="SETTING_TYPE == 'OSHU'">AND
+            GATE_CD = #{GATE_CD}
+        </if>
+
+        <if test="SETTING_TYPE == 'OSCM'">AND
+            GATE_CD = #{GATE_CD} AND
+            BUYER_CD = #{BUYER_CD}
+        </if>
+
+        <if test="SETTING_TYPE == 'OSPU'">AND
+            GATE_CD = #{GATE_CD} AND
+            BUYER_CD = #{BUYER_CD} AND
+            PUR_ORG_CD = #{PUR_ORG_CD}
+        </if>
+
+        <if test="SETTING_TYPE == 'OSPL'">AND
+            GATE_CD = #{GATE_CD} AND
+            BUYER_CD = #{BUYER_CD} AND
+            PLANT_CD = #{PLANT_CD}
+        </if>
+    </select>
+
+    <update id="updateEnvironment" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET    MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , GATE_CD = #{GATE_CD}
+             , BUYER_CD = #{BUYER_CD}
+             , PUR_ORG_CD = #{PUR_ORG_CD}
+             , PLANT_CD = #{PLANT_CD}
+             , SETTING_TYPE = #{SETTING_TYPE}
+             <if test="SYS_KEY != null">,SYS_KEY = #{SYS_KEY}</if>
+             <if test="SYS_VALUE != null">,SYS_VALUE = #{SYS_VALUE}</if>
+             <if test="DESCRIPTION != null">,DESCRIPTION = #{DESCRIPTION}</if>
+        WHERE SYS_SQ=#{SYS_SEQ}
+    </update>
+
+
+
+
+    <select id="selectHouse" parameterType="hashmap" resultType="hashMap">
+        SELECT GATE_CD
+             , <include refid="com.sql.dbo"/>getGateName(GATE_CD, #{ses.langCd})  AS GATE_NM
+        FROM STOCOGHU
+        WHERE  DEL_FLAG = '0'
+    </select>
+
+    <select id="selectCompany" parameterType="hashmap" resultType="hashMap">
+        SELECT OGCM.GATE_CD
+             , <include refid="com.sql.dbo"/>getGateName(OGCM.GATE_CD, #{ses.langCd})  AS GATE_NM
+             , OGCM.BUYER_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGCM.GATE_CD, OGCM.BUYER_CD, #{ses.langCd})  AS BUYER_NM
+        FROM STOCOGCM OGCM INNER JOIN STOCOGHU OGHU ON OGHU.GATE_CD = OGCM.GATE_CD
+        WHERE  OGCM.DEL_FLAG='0'
+          AND OGHU.DEL_FLAG='0'
+
+          <if test="GATE_CD != '' and GATE_CD != null">
+               AND OGHU.GATE_CD = #{GATE_CD}
+          </if>
+    </select>
+
+    <select id="selectPurOrganization" parameterType="hashmap" resultType="hashMap">
+
+        SELECT OGPU.GATE_CD
+             , <include refid="com.sql.dbo"/>getGateName(OGPU.GATE_CD, #{ses.langCd})  AS GATE_NM
+             , OGCM.BUYER_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGPU.GATE_CD, OGPU.BUYER_CD, #{ses.langCd})  AS BUYER_NM
+             , OGPU.PUR_ORG_CD
+             , <include refid="com.sql.dbo"/>GETPURORGNAME(OGPU.GATE_CD, OGPU.BUYER_CD, OGPU.PUR_ORG_CD, #{ses.langCd})  AS PUR_ORG_NM
+         FROM STOCOGPU OGPU JOIN
+                  (STOCOGCM OGCM JOIN STOCOGHU OGHU ON OGHU.GATE_CD = OGCM.GATE_CD)
+               ON OGCM.GATE_CD = OGPU.GATE_CD AND OGCM.BUYER_CD = OGPU.BUYER_CD
+        WHERE OGPU.GATE_CD = #{ses.gateCd}
+          AND OGCM.DEL_FLAG='0'
+          AND OGPU.DEL_FLAG='0'
+          AND OGHU.DEL_FLAG='0'
+          <if test="BUYER_CD != '' and BUYER_CD != null ">
+            AND OGCM.BUYER_CD = #{BUYER_CD}
+          </if>
+
+    </select>
+
+    <select id="selectPlant" parameterType="hashmap" resultType="hashMap">
+        SELECT OGHU.GATE_CD
+             , <include refid="com.sql.dbo"/>getGateName(OGPL.GATE_CD, #{ses.langCd})  AS GATE_NM
+             , OGCM.BUYER_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGPL.GATE_CD, OGPL.BUYER_CD, #{ses.langCd})  AS BUYER_NM
+             , OGPL.PLANT_CD
+             , <include refid="com.sql.dbo"/>GETPLANTNAME(OGPL.GATE_CD, OGPL.BUYER_CD, OGPL.PLANT_CD, #{ses.langCd})  AS PLANT_NM
+        FROM STOCOGPL OGPL JOIN
+                  (STOCOGCM OGCM JOIN STOCOGHU OGHU ON OGHU.GATE_CD=OGCM.GATE_CD)
+               ON OGPL.GATE_CD=OGCM.GATE_CD AND OGPL.BUYER_CD=OGCM.BUYER_CD
+        WHERE  OGPL.DEL_FLAG='0'
+          AND OGHU.DEL_FLAG='0'
+          AND OGCM.DEL_FLAG='0'
+    </select>
+
+</mapper>

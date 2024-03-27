@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.grIF.GRIF_Mapper">
+	
+	<!-- DGNS 입고정보 가져오기 : 매입 -->
+    <select id="GRIF_SELECT_IF_GRDT" resultType="hashmap">
+        SELECT /*+ INDEX(ICOUGRDT_IF ICOUGRDT_IF_IDX11) */
+        	  IFGRDT.HOUSE_CODE
+			, IFGRDT.COMPANY_CODE
+			, IFGRDT.DIVISION_CODE
+			, IFGRDT.PLANT_CODE
+			, IFGRDT.GR_NO  AS IF_GR_NO
+			, IFGRDT.GR_SEQ AS IF_GR_SEQ
+			, IFGRDT.GR_COUNT
+			, IFGRDT.ADD_DATE
+			, IFGRDT.ADD_TIME
+			, IFGRDT.ADD_USER_ID
+			, IFGRDT.CHANGE_DATE
+			, IFGRDT.CHANGE_TIME
+			, IFGRDT.CHANGE_USER_ID
+			, IFGRDT.STATUS
+			, YPODT.VENDOR_CD	AS VENDOR_CODE
+			, IFGRDT.DOC_TYPE
+			, IFGRDT.CPO_NO		-- 고객사 주문번호
+			, IFGRDT.CPO_SEQ	-- 고객사 주문항번
+			, IFGRDT.INV_NO		AS CINV_NO		-- 운영사 납품번호
+			, IFGRDT.INV_SEQ	AS CINV_SEQ		-- 운영사 납품항번
+			, UIVDT.PO_NO		-- 공급사 발주번호
+			, UIVDT.PO_SEQ		-- 공급사 발주항번
+			, UIVDT.IV_NO		AS INV_NO		-- 공급사 납품번호
+			, UIVDT.IV_SEQ		AS INV_SEQ		-- 공급사 납품항번
+			, IFGRDT.ITEM_NO	AS CUST_ITEM_CD
+			,(SELECT ITEM_CD FROM STOCMTGB
+			   WHERE GATE_CD = #{ses.gateCd}
+			     AND CUST_CD = IFGRDT.COMPANY_CODE
+			     AND CUST_ITEM_CD = IFGRDT.ITEM_NO) AS ITEM_CD --운영사 표준상품코드
+			, YPODT.ITEM_DESC
+			, YPODT.ITEM_SPEC
+            , YPODT.MAKER_CD
+            , YPODT.MAKER_NM
+            , YPODT.MAKER_PART_NO
+            , YPODT.BRAND_CD
+            , YPODT.BRAND_NM
+            , YPODT.ORIGIN_CD
+            , YPODT.UNIT_CD
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0)	AS CPO_QTY	-- 주문수량
+			, IFGRDT.ARRIVAL_QTY	-- 입하수량
+			, IFGRDT.GR_QTY			-- 입고수량
+            , YPODT.CUR				-- 화폐단위
+            , <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0) AS PO_UNIT_PRICE	-- 주문단가
+            , ROUND(<include refid="com.sql.nvl"/>(IFGRDT.GR_QTY, 0) * <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)) AS PO_ITEM_AMT
+			, IFGRDT.UNIT_PRICE AS GR_UNIT_PRICE	-- 입고단가
+			, IFGRDT.GR_AMT			-- 입고금액
+            , IFGRDT.GR_DATE		-- 입고일자
+            , '0' AS GR_AGENT_FLAG
+            , ''  AS GR_AGENT_RMK
+            , YPODT.DEAL_CD
+            , YPODT.LOG_CD
+            , YPODT.WH_CD
+            , YPODT.TAX_CD
+            , UIVDT.DELY_TYPE		-- 배송방식 [MP041-직접배송,택배]
+            , UIVDT.DELY_COMPANY_NM	-- 택배사번호
+            , UIVDT.WAYBILL_NO		-- 운송장번호
+            , CASE WHEN <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) != <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) THEN 'Y'
+            	   ELSE 'N'
+              END AS INSERT_YN
+            , IFGRDT.MRO_GR_NO		-- MRO 입고번호
+            , IFGRDT.IF_FLAG
+         FROM ICOUGRDT_IF IFGRDT
+         JOIN STOUIVDT UIVDT
+              ON (UIVDT.GATE_CD  = IFGRDT.HOUSE_CODE
+              AND UIVDT.INV_NO   = IFGRDT.INV_NO
+              AND UIVDT.INV_SEQ  = IFGRDT.INV_SEQ
+              AND UIVDT.DEL_FLAG = '0')
+         JOIN STOYPODT YPODT
+              ON (YPODT.GATE_CD  = UIVDT.GATE_CD
+              AND YPODT.PO_NO    = UIVDT.PO_NO
+              AND YPODT.PO_SEQ   = UIVDT.PO_SEQ
+              AND YPODT.DEL_FLAG = '0')
+        WHERE IFGRDT.HOUSE_CODE = #{ses.gateCd}
+          AND IFGRDT.IF_FLAG    = #{IF_FLAG}
+        ORDER BY IFGRDT.COMPANY_CODE, IFGRDT.DIVISION_CODE, IFGRDT.PLANT_CODE
+        	   , IFGRDT.PO_NO, IFGRDT.PO_SEQ, IFGRDT.GR_NO, IFGRDT.GR_SEQ
+    </select>
+	
+    <insert id="GRIF_INSERT_GRDT" parameterType="hashmap">
+    	
+        INSERT INTO STOCGRDT (
+              GATE_CD
+            , GR_NO
+            , GR_SEQ
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , CUST_CD
+            , PLANT_CD
+            , PR_TYPE		-- 구매유형(일반, 시행, 반품)
+            , CUST_ITEM_CD
+            , ITEM_CD
+            , ITEM_DESC
+            , ITEM_SPEC
+            , MAKER_CD
+            , MAKER_NM
+            , MAKER_PART_NO
+            , BRAND_CD
+            , BRAND_NM
+            , ORIGIN_CD
+            , UNIT_CD
+            , CUR
+            , ARRIVAL_QTY
+            , GR_QTY
+            , GR_UNIT_PRICE
+            , GR_ITEM_AMT
+            , GR_DATE
+            , GR_USER_ID
+            , GR_AGENT_FLAG
+            , GR_AGENT_RMK
+            , VENDOR_CD
+            , CPO_NO
+            , CPO_SEQ
+            , PO_NO
+            , PO_SEQ
+            , INV_NO
+            , INV_SEQ
+            , IV_NO
+            , IV_SEQ
+            , PO_UNIT_PRICE
+            , PO_ITEM_AMT
+            , DEAL_CD
+            , LOG_CD
+            , WH_CD
+            , DOC_TYPE
+            , TAX_CD
+            , DELY_TYPE
+            , DELY_COMPANY_NM
+            , WAYBILL_NO
+            , IF_GR_NO
+            , IF_GR_SEQ
+        )
+        VALUES (
+              #{ses.gateCd}
+            , #{GR_NO}
+            ,<include refid="com.sql.toNumber"/>#{GR_SEQ})
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			, #{ADD_USER_ID}
+			, '0'     --DEL_FLAG
+            , #{COMPANY_CODE}
+            , #{DIVISION_CODE}
+            , #{PR_TYPE}
+            , #{CUST_ITEM_CD}
+            , #{ITEM_CD}
+            , #{ITEM_DESC}
+            , #{ITEM_SPEC}
+            , #{MAKER_CD}
+            , #{MAKER_NM}
+            , #{MAKER_PART_NO}
+            , #{BRAND_CD}
+            , #{BRAND_NM}
+            , #{ORIGIN_CD}
+            , #{UNIT_CD}
+            , #{CUR}
+            , <include refid="com.sql.nvl"/>(#{ARRIVAL_QTY}, 0)		-- 입하수량
+            , <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)			-- 입고수량
+            , <include refid="com.sql.nvl"/>(#{GR_UNIT_PRICE}, 0)	-- 입고단가
+            , <include refid="com.sql.nvl"/>(#{GR_AMT}, ROUND(<include refid="com.sql.nvl"/>(#{GR_QTY}, 0) * <include refid="com.sql.nvl"/>(#{GR_UNIT_PRICE}, 0)))	-- 입고금액
+            , TO_DATE(#{GR_DATE}, 'YYYYMMDD HH24MISS')				-- 입고일자
+            , #{ADD_USER_ID}
+            , #{GR_AGENT_FLAG}
+            , #{GR_AGENT_RMK}
+            , #{VENDOR_CODE}
+            , #{CPO_NO}				--고객사 주문번호
+            , #{CPO_SEQ}			--고객사 주문항번
+            , #{PO_NO}				--공급사 발주번호
+            , #{PO_SEQ}				--공급사 발주항번
+            , #{CINV_NO}			--대행사 납품번호
+            , #{CINV_SEQ}			--대행사 납품항번
+            , #{INV_NO}				--공급사 납품번호
+            , #{INV_SEQ}			--공급사 납품항번
+            , #{PO_UNIT_PRICE}
+            , #{PO_ITEM_AMT}
+            , #{DEAL_CD}
+            , #{LOG_CD}
+            , #{WH_CD}
+            , 'IF'					--문서 Type[MP017]
+            , #{TAX_CD}
+            , <include refid="com.sql.nvl"/>(#{DELY_TYPE}, '01')	--배송방식 [MP041-직접배송(01),택배(02)]
+            , #{DELY_COMPANY_NM}	--택배사코드
+            , #{WAYBILL_NO}			--송장번호
+            , #{IF_GR_NO}
+            , #{IF_GR_SEQ}
+        )
+    </insert>
+	
+	<!-- 운영사 납품의 입고수량 변경 -->
+    <update id="GRIF_UPDATE_UIVDT" parameterType="hashMap">
+    
+		UPDATE STOUIVDT SET
+		      GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) + <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND INV_NO   = #{CINV_NO}
+		   AND INV_SEQ  = #{CINV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- 공급사 납품의 입고수량 변경 -->
+    <update id="GRIF_UPDATE_YIVDT" parameterType="hashMap">
+    
+		UPDATE STOYIVDT SET
+		      GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) + <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND IV_NO    = #{INV_NO}
+		   AND IV_SEQ   = #{INV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- [미사용] 입고완료 및 발주종결 후 미입고 납품서(입고수량 0인건) 삭제 -->
+    <update id="GRIF_DELETE_UIVDT" parameterType="hashMap">
+    
+		UPDATE STOUIVDT SET
+		      DEL_FLAG = '1'
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND PO_NO    = #{PO_NO}
+		   AND PO_SEQ   = #{PO_SEQ}
+		   AND <include refid="com.sql.nvl"/>(GR_QTY, 0) = 0
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- [미사용] 입고완료 및 발주종결 후 미입고 납품서(입고수량 0인건) 삭제 -->
+    <update id="GRIF_DELETE_YIVDT" parameterType="hashMap">
+    
+		UPDATE STOYIVDT SET
+		      DEL_FLAG = '1'
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND PO_NO    = #{PO_NO}
+		   AND PO_SEQ   = #{PO_SEQ}
+		   AND <include refid="com.sql.nvl"/>(GR_QTY, 0) = 0
+		   AND DEL_FLAG = '0'
+	</update>
+
+    <select id="GRIF_SELECT_TOT_GR_QTY" parameterType="hashMap" resultType="int">
+    
+		SELECT <include refid="com.sql.nvl"/>(GR_QTY, 0) AS TOT_GR_QTY
+		  FROM STOUPODT
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND CUST_CD  = #{COMPANY_CODE}
+		   AND CPO_NO   = #{CPO_NO}
+		   AND CPO_SEQ  = #{CPO_SEQ}
+		   AND DEL_FLAG = '0'
+	</select>
+	
+	<!-- 공급사 발주정보 -->
+    <update id="GRIF_UPDATE_YPODT" parameterType="hashMap">
+    
+		UPDATE STOYPODT A
+		   SET PROGRESS_CD = #{PROGRESS_CD}
+			 , GR_COMPLETE_FLAG = #{GR_COMPLETE_FLAG}
+	<choose>
+		<!-- 입고취소 : 입고데이터 "-" 처리 -->
+		<when test="IF_FLAG != '' and IF_FLAG != null and IF_FLAG == '6'.toString()">
+			 , GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) - <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		</when>
+		<otherwise>
+			 , GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) + <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		</otherwise>
+	</choose>
+		<!-- 입고완료, 반품완료 : 입고 및 반품 데이터 생성 후 발주종결 -->
+		<if test="IF_FLAG != '' and IF_FLAG != null and (IF_FLAG == '8'.toString() or IF_FLAG == '10'.toString())">
+		     , INV_QTY = (SELECT SUM(INV_QTY) FROM STOYIVDT
+		    			   WHERE GATE_CD  = A.GATE_CD
+		    			     AND PO_NO    = A.PO_NO
+		    			     AND PO_SEQ   = A.PO_SEQ
+		    			     AND DEL_FLAG = '0') --입고완료 및 발주종결 후 미입고 납품서(입고수량 0인건) 삭제하고, 납품수량 재조정
+			 , FORCE_CLOSE_DATE = <include refid="com.sql.sysdate"/>
+			 , FORCE_CLOSE_USER_ID = #{ADD_USER_ID}
+			 , FORCE_CLOSE_REASON = 'DGNS 고객사 입고/반품 완료에 의한 발주 종결'
+		</if>
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND PO_NO    = #{PO_NO}
+		   AND PO_SEQ   = #{PO_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- 고객사 주문정보 -->
+	<update id="GRIF_UPDATE_UPODT" parameterType="hashMap">
+	
+		UPDATE STOUPODT A
+		   SET PROGRESS_CD = #{PROGRESS_CD}
+			 , GR_COMPLETE_FLAG = #{GR_COMPLETE_FLAG}
+	<choose>
+		<!-- 입고취소 : 입고데이터 "-" 처리 -->
+		<when test="IF_FLAG != '' and IF_FLAG != null and IF_FLAG == '6'.toString()">
+			 , GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) - <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		</when>
+		<otherwise>
+			 , GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) + <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		</otherwise>
+	</choose>
+		<!-- 입고완료, 반품완료 : 입고 및 반품 데이터 생성 후 발주종결 -->
+		<if test="IF_FLAG != '' and IF_FLAG != null and (IF_FLAG == '8'.toString() or IF_FLAG == '10'.toString())">
+		     , INV_QTY = (SELECT SUM(INV_QTY) FROM STOYIVDT
+		    			   WHERE GATE_CD  = A.GATE_CD
+		    			     AND CPO_NO   = A.CPO_NO
+		    			     AND CPO_SEQ  = A.CPO_SEQ
+		    			     AND DEL_FLAG = '0') --입고완료 및 발주종결 후 미입고 납품서(입고수량 0인건) 삭제하고, 납품수량 재조정
+		</if>
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND CUST_CD  = #{COMPANY_CODE}
+		   AND CPO_NO   = #{CPO_NO}
+		   AND CPO_SEQ  = #{CPO_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- 입고데이터 삭제 -->
+    <update id="GRIF_CANCEL_GRDT" parameterType="hashMap">
+    
+		UPDATE STOCGRDT SET
+		      DEL_FLAG = '1'
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND GR_NO    = #{MRO_GR_NO}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- 운영사 입고취소 변경 -->
+    <update id="GRIF_CANCEL_UIVDT" parameterType="hashMap">
+    
+		UPDATE STOUIVDT SET
+		      GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) - <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND INV_NO   = #{CINV_NO}
+		   AND INV_SEQ  = #{CINV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- 공급사 입고취소 변경 -->
+    <update id="GRIF_CANCEL_YIVDT" parameterType="hashMap">
+    
+		UPDATE STOYIVDT SET
+		      GR_QTY = <include refid="com.sql.nvl"/>(GR_QTY, 0) - <include refid="com.sql.nvl"/>(#{GR_QTY}, 0)
+		    , MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ADD_USER_ID}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND IV_NO    = #{INV_NO}
+		   AND IV_SEQ   = #{INV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+	
+	<!-- IF 결과 변경 -->
+    <update id="GRIF_UPDATE_IFGRDT" parameterType="hashMap">
+    
+        UPDATE ICOUGRDT_IF
+           SET IF_FLAG = #{IF_STATUS}
+             , MRO_GR_NO = <include refid="com.sql.nvl"/>(#{GR_NO}, #{MRO_GR_NO})
+             , MP_RESULT_MSG = #{MP_RESULT_MSG}
+         WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PLANT_CODE = #{PLANT_CODE}
+		   AND GR_NO = #{IF_GR_NO}
+    </update>
+
+</mapper>

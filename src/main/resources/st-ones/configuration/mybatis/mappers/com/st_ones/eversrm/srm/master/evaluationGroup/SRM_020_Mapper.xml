@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.master.evaluationGroup.SRM_020_Mapper">
+
+    <select id="doSearch" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+            '1' AS SELECTED
+        <include refid="com.sql.dual"/>
+    
+
+    </select>
+
+<!--     SRM_020   -->
+    <select id="doSearchLeftSourcingGroupMgt" parameterType="hashmap" resultType="hashMap">
+
+             SELECT EGMT.GATE_CD
+                   ,EGMT.EG_NUM
+                   ,EGMT.EG_KIND_CD
+                   ,<include refid="com.sql.dbo"/>GETCOMCODE(EGMT.GATE_CD, 'M105', EGMT.EG_KIND_CD, '0', #{ses.langCd}) AS EG_KIND_NM
+                   ,EGMT.EG_TYPE_CD
+                   ,<include refid="com.sql.dbo"/>GETCOMCODE(EGMT.GATE_CD, 'M106', EGMT.EG_TYPE_CD, '0', #{ses.langCd}) AS EG_TYPE_NM
+                   ,<include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'EG', #{ses.langCd}, EGMT.EG_NUM,'-') AS EG_NM
+                   ,<include refid="com.sql.dbo"/>getGmtDate(EGMT.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+                   ,<include refid="com.sql.dbo"/>getGmtDate(EGMT.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+                   ,EGMT.EG_DEF_TEXT_NUM
+                   ,(SELECT COUNT(*) FROM STOCEGSG EGSG WHERE EGSG.GATE_CD = EGMT.GATE_CD
+                                                          AND EGSG.EG_NUM = EGMT.EG_NUM
+                                                          AND EGSG.DEL_FLAG = '0') AS SG_COUNT
+             
+             FROM STOCEGMT EGMT   
+             WHERE  EGMT.GATE_CD = #{ses.gateCd}
+               AND EGMT.DEL_FLAG = '0'  
+               
+<!--                <if test="VALID_FROM_DATE_S != '' and VALID_FROM_DATE_S != null">                   -->
+<!--                         AND EGMT.VALID_FROM_DATE BETWEEN #{VALID_FROM_DATE_S} AND #{VALID_FROM_DATE_S}                -->
+<!--                </if> -->
+               
+<!--                <if test="VALID_TO_DATE_S != '' and VALID_TO_DATE_S != null">                   -->
+<!--                         AND EGMT.VALID_TO_DATE BETWEEN #{VALID_TO_DATE_S} AND #{VALID_TO_DATE_S}        -->
+<!--                </if> -->
+   
+               <if test="EG_KIND_CD_S != '' and EG_KIND_CD_S != null ">
+                     AND EGMT.EG_KIND_CD= #{EG_KIND_CD_S}
+               </if> 
+               
+               <if test="EG_NM_S != '' and EG_NM_S != null and st_EG_NM_S != '' and st_EG_NM_S != null">
+                     AND ${EG_NM_S_L} <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'EG', #{ses.langCd}, EGMT.EG_NUM,'-') ${EG_NM_S_R}
+               </if> 
+               
+               <if test="EG_TYPE_CD_S != '' and EG_TYPE_CD_S != null">
+                     AND EGMT.EG_TYPE_CD = #{EG_TYPE_CD_S}
+               </if>          
+                         
+    </select> 
+    
+    <select id="doSearchMgtSourcingGroupMgt" parameterType="hashmap" resultType="hashMap">
+             SELECT EGMT.GATE_CD
+                   ,EGMT.EG_NUM
+                   ,EGMT.EG_KIND_CD
+                   ,<include refid="com.sql.dbo"/>GETCOMCODE(EGMT.GATE_CD, 'M105', EGMT.EG_KIND_CD, '0', #{ses.langCd}) AS EG_KIND_NM
+                   ,EGMT.EG_TYPE_CD
+                   ,<include refid="com.sql.dbo"/>GETCOMCODE(EGMT.GATE_CD, 'M106', EGMT.EG_TYPE_CD, '0', #{ses.langCd}) AS EG_TYPE_NM
+                   ,<include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'EG', #{ses.langCd}, EGMT.EG_NUM,'-') AS EG_NM
+                   ,<include refid="com.sql.dbo"/>getGmtDate(EGMT.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS VALID_FROM_DATE
+                   ,<include refid="com.sql.dbo"/>getGmtDate(EGMT.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS VALID_TO_DATE
+                   ,EGMT.EG_DEF_TEXT_NUM
+               
+             FROM STOCEGMT EGMT   
+             WHERE  EGMT.GATE_CD = #{ses.gateCd}
+               AND EGMT.DEL_FLAG = '0'  
+               AND EGMT.EG_NUM = #{EG_NUM}                      
+    </select> 
+    
+    <insert id="doInsertMgtSourcingGroupMgt" parameterType="hashMap">
+        INSERT INTO STOCEGMT (
+            GATE_CD,
+            EG_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            EG_DEF_TEXT_NUM,
+            EG_KIND_CD,
+            EG_TYPE_CD,
+            VALID_FROM_DATE,
+            VALID_TO_DATE
+        ) VALUES (
+            #{ses.gateCd},
+            #{EG_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{EG_DEF_TEXT_NUM},
+            #{EG_KIND_CD},
+            #{EG_TYPE_CD},
+            <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        )        
+    </insert>
+    
+    <update id="doUpdateMgtSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGMT
+        SET    DEL_FLAG = '0'
+             , EG_DEF_TEXT_NUM = #{EG_DEF_TEXT_NUM}
+             , VALID_FROM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , VALID_TO_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+    </update> 
+    
+    <update id="doDeleteMgtSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGMT
+        SET   
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+    </update> 
+    
+    <update id="doDeleteEgsgSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGSG
+        SET   
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+          <if test="SG_NUM != '' and SG_NUM != null">                  
+               AND SG_NUM = #{SG_NUM}                 
+          </if>
+    </update>
+    
+    <update id="doDeleteEgusSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGUS
+        SET   
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+          <if test="USER_ID != '' and USER_ID != null">                  
+               AND USER_ID = #{USER_ID}                 
+          </if>
+    </update> 
+    
+    <select id="existsMgtSourcingGroupMgt" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEGMT
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EG_NUM = #{EG_NUM}
+    </select> 
+    
+    <update id="doUpdateUsSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGUS
+        SET    DEL_FLAG = '0'
+             , REP_FLAG = #{REP_FLAG}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+          AND USER_ID = #{USER_ID}
+    </update> 
+    
+    <insert id="doInsertUsSourcingGroupMgt" parameterType="hashMap">
+        INSERT INTO STOCEGUS (
+            GATE_CD,
+            EG_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            REP_FLAG,
+            USER_ID
+        ) VALUES (
+            #{ses.gateCd},
+            #{EG_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{REP_FLAG},
+            #{USER_ID}          
+        )        
+    </insert> 
+    
+    <select id="existsUsSourcingGroupMgt" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEGUS
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EG_NUM = #{EG_NUM}
+        AND   USER_ID = #{USER_ID}
+    </select> 
+    
+    <select id="doSearchUsSourcingGroupMgt" parameterType="hashmap" resultType="hashMap">
+             SELECT EGUS.EG_NUM
+                   ,EGUS.USER_ID
+                   ,EGUS.REP_FLAG
+                   ,<include refid="com.sql.dbo"/>GETUSERNAME(EGUS.GATE_CD,EGUS.USER_ID,#{ses.langCd}) AS USER_NM
+                   ,<include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+                   ,USERS.POSITION_NM                                
+             FROM STOCEGUS EGUS INNER JOIN STOCUSER USERS ON EGUS.GATE_CD = USERS.GATE_CD
+                                                         AND EGUS.USER_ID = USERS.USER_ID
+                                                         AND USERS.DEL_FLAG = '0'
+             WHERE  EGUS.GATE_CD = #{ses.gateCd}
+               AND EGUS.DEL_FLAG = '0'  
+               AND EGUS.EG_NUM = #{EG_NUM}                      
+    </select> 
+    
+    <select id="doSearchSgSourcingGroupMgt" parameterType="hashmap" resultType="hashMap">
+             SELECT EG_NUM
+                   ,SG_NUM
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},1,SG_NUM) AS SG_NM1 
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},2,SG_NUM) AS SG_NM2
+				   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},3,SG_NUM) AS SG_NM3
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},4,SG_NUM) AS SG_NM4
+                   ,DEL_FLAG                           
+             FROM STOCEGSG
+             WHERE GATE_CD = #{ses.gateCd}
+               AND DEL_FLAG = '0'  
+               AND EG_NUM = #{EG_NUM}    
+             ORDER BY 
+                <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},1,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},2,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},3,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,#{ses.langCd},4,SG_NUM)     
+    </select> 
+    
+        <update id="doUpdateSgSourcingGroupMgt" parameterType="hashmap">    
+        UPDATE STOCEGSG
+        SET    DEL_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EG_NUM = #{EG_NUM}
+          AND SG_NUM = #{SG_NUM}
+    </update> 
+    
+    <insert id="doInsertSgSourcingGroupMgt" parameterType="hashMap">
+        INSERT INTO STOCEGSG (
+            GATE_CD,
+            EG_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            SG_NUM
+        ) VALUES (
+            #{ses.gateCd},
+            #{EG_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{SG_NUM}          
+        )        
+    </insert> 
+    
+    <select id="existsSgSourcingGroupMgt" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEGSG
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EG_NUM = #{EG_NUM}
+        AND   SG_NUM = #{SG_NUM}
+    </select>        
+</mapper>

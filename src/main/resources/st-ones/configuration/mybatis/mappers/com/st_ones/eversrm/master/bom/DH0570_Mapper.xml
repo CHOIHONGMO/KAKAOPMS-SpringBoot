@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0570_Mapper">
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT 
+		 A.MAT_CD
+		,A.MAT_NM
+		,A.MAT_KIND
+		,A.MAT_PRC
+		,CASE WHEN A.DEL_FLAG = '1' THEN 'Y' ELSE 'N' END DEL_FLAG
+        ,<include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+        ,<include refid="com.sql.dbo"/>getGmtDate(A.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS MOD_DATE
+		FROM STOCMATM A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		
+        <if test="MAT_CD != null and MAT_CD != ''">
+            AND A.MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MAT_NM != null and MAT_NM != ''">
+            AND A.MAT_NM <include refid="com.sql.likeL"/> #{MAT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MAT_KIND != null and MAT_KIND != ''">
+            AND A.MAT_KIND <include refid="com.sql.likeL"/> #{MAT_KIND} <include refid="com.sql.likeR"/>
+        </if>
+	</select>
+	
+
+    <update id="saveMatm" parameterType="hashMap">
+         MERGE STOCMATM AS A
+         USING (
+         	SELECT #{ses.gateCd} GATE_CD,#{MAT_CD} MAT_CD
+         ) AS B
+            ON (A.GATE_CD = B.GATE_CD
+            AND 	A.MAT_CD = B.MAT_CD
+           )
+          WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , MAT_NM = #{MAT_NM}
+             , MAT_KIND = #{MAT_KIND}
+             , MAT_PRC = #{MAT_PRC}
+             , DEL_FLAG = '0'
+          WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,MAT_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,MAT_NM
+			,MAT_KIND
+			,MAT_PRC
+        ) VALUES (
+              #{ses.gateCd}
+            , #{MAT_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{MAT_NM}
+            , #{MAT_KIND}
+            , #{MAT_PRC}
+        <include refid="com.sql.mergeEnd"/>
+
+	</update>	
+    <update id="delMatm" parameterType="hashMap">
+        UPDATE STOCMATM
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND MAT_CD = #{MAT_CD}
+    </update>
+	
+</mapper>

@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0520_Mapper">
+
+	<select id="DH0520_doSearch" parameterType="hashmap" resultType="java.util.Map">
+
+		<if test='_databaseId=="oracle"'>
+			WITH BOMTREE AS (
+			SELECT A.GATE_CD
+				 , A.BOM_ID
+				 , A.ITEM_CD
+				 , A.ITEM_DESC
+				 , A.EO_NO
+				 , A.EO_DATE
+				 , A.PARENT_BOM_ID
+				 , A.TOP_ITEM_CD
+				 , 1 AS LEVEL_V
+				 , A.BOM_SQ
+				 , A.ITEM_QT
+				 , A.BOM_REV
+				 , TO_CHAR(A.BOM_ID) AS SORT
+			  FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+								  FROM STOCBOMM S
+							     WHERE S.GATE_CD  = A.GATE_CD
+							       AND S.BOM_ID   = A.BOM_ID
+							       AND S.DEL_FLAG = '0'
+							<if test="BOM_ID != '' and BOM_ID != null">
+							       AND S.BOM_ID = #{BOM_ID}
+							</if>
+							<if test="MAT_CD != '' and MAT_CD != null">
+							       AND S.MAT_CD = #{MAT_CD}
+							       AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+							</if>
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								   AND S.BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+							<if test="ITEM_CD != '' and ITEM_CD != null">
+							       AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+							</if>
+
+							<if test="ITEM_CD == '' and MAT_CD == '' and radio eq 'F'.toString()">
+								   AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+							</if>
+							 )
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+								  FROM STOCBOMM S
+							     WHERE S.GATE_CD  = A.GATE_CD
+							       AND S.BOM_ID   = A.BOM_ID
+							       AND S.DEL_FLAG = '0'
+							<if test="MAT_CD != '' and MAT_CD != null">
+							       AND S.MAT_CD = #{MAT_CD}
+							       AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+							</if>
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								   AND S.BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+
+							<if test="ITEM_CD == '' and MAT_CD == '' and radio eq 'F'.toString()">
+								   AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+							</if>
+							 )
+			   AND A.DEL_FLAG = '0'
+
+			 UNION ALL
+
+			SELECT B.GATE_CD
+				 , B.BOM_ID
+				 , B.ITEM_CD
+				 , B.ITEM_DESC
+				 , B.EO_NO
+				 , B.EO_DATE
+				 , B.PARENT_BOM_ID
+				 , B.TOP_ITEM_CD
+				 , 2 AS LEVEL_V
+				 , B.BOM_SQ
+				 , B.ITEM_QT
+				 , B.BOM_REV
+				 , TO_CHAR(1) || ':' || fn_lpad(B.BOM_SQ, 4,'0') || ' > ' || TO_CHAR(B.BOM_ID) AS SORT
+			  FROM STOCBOMM B
+		)
+		SELECT distinct
+			   BOMTREE.BOM_ID
+			 , BOMTREE.ITEM_CD
+			 , BOMTREE.ITEM_DESC
+			 , EO_NO
+			 , <include refid="com.sql.dbo"/>getGmtDate(EO_DATE,#{ses.userGmt},#{ses.userGmt}, <include refid="com.sql.dateFormat"/>) EO_DATE
+			 , ITEM_QT
+			 , CASE WHEN LEVEL_V = 1 THEN '●' ELSE '' END  A
+			 , CASE WHEN LEVEL_V = 2 THEN '●' ELSE '' END  B
+			 , CASE WHEN LEVEL_V = 3 THEN '●' ELSE '' END  C
+			 , CASE WHEN LEVEL_V = 4 THEN '●' ELSE '' END  D
+			 , CASE WHEN LEVEL_V = 5 THEN '●' ELSE '' END  E
+			 , CASE WHEN LEVEL_V = 6 THEN '●' ELSE '' END  F
+			 , CASE WHEN LEVEL_V = 7 THEN '●' ELSE '' END  G
+			 , CASE WHEN LEVEL_V = 8 THEN '●' ELSE '' END  H
+			 , CASE WHEN LEVEL_V = 9 THEN '●' ELSE '' END  I
+			 , CASE WHEN LEVEL_V = 10 THEN '●' ELSE '' END  K
+			 , BOM_REV
+			 , SORT
+		  FROM BOMTREE
+		  JOIN STOCMTGL MTGL
+			ON(BOMTREE.GATE_CD = MTGL.GATE_CD
+		   AND BOMTREE.ITEM_CD = MTGL.ITEM_CD)
+		 WHERE BOMTREE.GATE_CD = #{ses.gateCd}
+		   AND BOMTREE.BOM_REV = (SELECT MAX(BOM_REV)
+					   				FROM <include refid="com.sql.dbo"/>STOCBOMM
+				  				   WHERE GATE_CD = BOMTREE.GATE_CD
+				  				     AND BOM_ID  = BOMTREE.BOM_ID
+				  				   <if test="BOM_REV != '' and BOM_REV != null">
+		   						   <![CDATA[
+				  					 AND BOM_REV <= #{BOM_REV}
+								   ]]>
+				  				   </if>
+									 AND DEL_FLAG = '0')
+		 ORDER BY SORT ASC
+		</if>
+		<if test='_databaseId=="mssql"'>
+			WITH BOMTREE AS (
+			SELECT A.GATE_CD
+				 , A.BOM_ID
+				 , A.ITEM_CD
+				 , A.ITEM_DESC
+				 , A.EO_NO
+				 , A.EO_DATE
+				 , A.BOM_ID
+				 , A.PARENT_BOM_ID
+				 , A.TOP_ITEM_CD
+				 , 1 LEVEL
+				 , A.BOM_SQ
+				 , A.ITEM_QT
+				 , A.BOM_REV
+				 , CONVERT(VARCHAR(2000), A.BOM_ID) AS SORT
+			  FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+								  FROM STOCBOMM S
+							     WHERE S.GATE_CD  = A.GATE_CD
+							       AND S.BOM_ID   = A.BOM_ID
+							       AND S.DEL_FLAG = '0'
+							<if test="BOM_ID != '' and BOM_ID != null">
+							       AND S.BOM_ID = #{BOM_ID}
+							</if>
+							<if test="MAT_CD != '' and MAT_CD != null">
+							       AND S.MAT_CD = #{MAT_CD}
+							       AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+							</if>
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								   AND S.BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+							<if test="ITEM_CD != '' and ITEM_CD != null">
+							       AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+							</if>
+
+							<if test="ITEM_CD == '' and MAT_CD == '' and radio eq 'F'.toString()">
+								   AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+							</if>
+							 )
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+								  FROM STOCBOMM S
+							     WHERE S.GATE_CD  = A.GATE_CD
+							       AND S.BOM_ID   = A.BOM_ID
+							       AND S.DEL_FLAG = '0'
+							<if test="MAT_CD != '' and MAT_CD != null">
+							       AND S.MAT_CD = #{MAT_CD}
+							       AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+							</if>
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								   AND S.BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+
+							<if test="ITEM_CD == '' and MAT_CD == '' and radio eq 'F'.toString()">
+								   AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+							</if>
+							 )
+			   AND A.DEL_FLAG = '0'
+
+			 UNION ALL
+
+			SELECT B.GATE_CD
+				 , B.BOM_ID
+				 , B.ITEM_CD
+				 , B.ITEM_DESC
+				 , B.EO_NO
+				 , B.EO_DATE
+				 , B.BOM_ID
+				 , B.PARENT_BOM_ID
+				 , B.TOP_ITEM_CD
+				 , LEVEL + 1
+				 , B.BOM_SQ
+				 , B.ITEM_QT
+				 , B.BOM_REV
+				 , CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+			  FROM STOCBOMM B
+			  JOIN BOMTREE C
+			    ON (B.GATE_CD = C.GATE_CD
+			<if test="radio eq 'F'.toString()">
+			   AND B.PARENT_BOM_ID = C.BOM_ID
+			</if>
+			<if test="radio eq 'B'.toString()">
+			   AND B.BOM_ID = C.PARENT_BOM_ID
+			</if>
+			<if test="BOM_REV != '' and BOM_REV != null">
+			<![CDATA[
+			   AND B.BOM_REV <= #{BOM_REV}
+			]]>
+			</if>
+			   AND B.DEL_FLAG = '0')
+		)
+		SELECT distinct
+			   BOMTREE.BOM_ID
+			 , BOMTREE.ITEM_CD
+			 , BOMTREE.ITEM_DESC
+			 , EO_NO
+			 , <include refid="com.sql.dbo"/> getGmtDate(EO_DATE,#{ses.userGmt},#{ses.userGmt}, <include refid="com.sql.dateFormat"/>) EO_DATE
+			 , ITEM_QT
+			 , CASE WHEN LEVEL = 1 THEN '●' ELSE '' END  A
+			 , CASE WHEN LEVEL = 2 THEN '●' ELSE '' END  B
+			 , CASE WHEN LEVEL = 3 THEN '●' ELSE '' END  C
+			 , CASE WHEN LEVEL = 4 THEN '●' ELSE '' END  D
+			 , CASE WHEN LEVEL = 5 THEN '●' ELSE '' END  E
+			 , CASE WHEN LEVEL = 6 THEN '●' ELSE '' END  F
+			 , CASE WHEN LEVEL = 7 THEN '●' ELSE '' END  G
+			 , CASE WHEN LEVEL = 8 THEN '●' ELSE '' END  H
+			 , CASE WHEN LEVEL = 9 THEN '●' ELSE '' END  I
+			 , CASE WHEN LEVEL = 10 THEN '●' ELSE '' END  K
+			 , BOM_REV
+			 , SORT
+		  FROM BOMTREE
+		  JOIN STOCMTGL MTGL
+			ON(BOMTREE.GATE_CD = MTGL.GATE_CD
+		   AND BOMTREE.ITEM_CD = MTGL.ITEM_CD)
+		 WHERE BOMTREE.GATE_CD = #{ses.gateCd}
+		   AND BOMTREE.BOM_REV = (SELECT MAX(BOM_REV)
+					   				FROM <include refid="com.sql.dbo"/>STOCBOMM
+				  				   WHERE GATE_CD = BOMTREE.GATE_CD
+				  				     AND BOM_ID  = BOMTREE.BOM_ID
+				  				   <if test="BOM_REV != '' and BOM_REV != null">
+		   						   <![CDATA[
+				  					 AND BOM_REV <= #{BOM_REV}
+								   ]]>
+				  				   </if>
+									 AND DEL_FLAG = '0')
+		 ORDER BY SORT ASC		
+		</if>
+
+	</select>
+		
+</mapper>

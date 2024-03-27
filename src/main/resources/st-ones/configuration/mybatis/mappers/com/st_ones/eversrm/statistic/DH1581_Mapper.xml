@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1581_Mapper">
+	
+	<select id="DH1581_doSearch" parameterType="hashmap" resultType="hashmap">
+		   SELECT BASE.TEXT2
+			          , BASE.TEXT3
+				      , SUMMARY.FLAG 
+				      , <include refid="com.sql.nvl"/>(SUMMARY.NORMAL_MAT,0) AS NORMAL_MAT 
+				      , <include refid="com.sql.nvl"/>(SUMMARY.SUB_MAT,0) AS SUB_MAT
+				      , <include refid="com.sql.nvl"/>(SUMMARY.INVEST,0) AS INVEST
+				      , <include refid="com.sql.nvl"/>(SUMMARY.SLOVAC,0) AS  SLOVAC
+				      , <include refid="com.sql.nvl"/>(SUMMARY.JAC,0) AS JAC
+				      , <include refid="com.sql.nvl"/>(SUMMARY.GLOBALS, 0) AS GLOBALS
+				      , (<include refid="com.sql.nvl"/>(SUMMARY.NORMAL_MAT,0)+<include refid="com.sql.nvl"/>(SUMMARY.SUB_MAT,0)+<include refid="com.sql.nvl"/>(SUMMARY.INVEST,0)+<include refid="com.sql.nvl"/>(SUMMARY.SLOVAC,0)+<include refid="com.sql.nvl"/>(SUMMARY.JAC,0)+<include refid="com.sql.nvl"/>(SUMMARY.GLOBALS, 0)) AS TOTAL
+				      , BASE.SORT_SQ AS LEV
+		    FROM
+		    (
+		      SELECT MAIN.TEXT2
+		          		, MAIN.TEXT3
+		           		, MAIN.FLAG
+		    			, SUM(MAIN.NORMAL_MAT) AS NORMAL_MAT
+		    			, SUM(MAIN.SUB_MAT) AS SUB_MAT
+		    			, SUM(MAIN.INVEST) AS INVEST
+		    			, SUM(MAIN.SLOVAC) AS SLOVAC
+		    			, SUM(MAIN.JAC) AS JAC
+		    			, SUM(MAIN.GLOBALS) AS GLOBALS
+		    		 FROM	 
+		    		(
+		    		  SELECT CASE WHEN DLHD.PURCHASE_TYPE = 'AS' OR DLHD.PURCHASE_TYPE = 'NEW' OR DLHD.PURCHASE_TYPE = 'DC' OR DLHD.PURCHASE_TYPE = 'DMRO' THEN SUP_AMT ELSE 0 END AS NORMAL_MAT
+		    			         , CASE WHEN DLHD.PURCHASE_TYPE = 'SMT'  THEN SUP_AMT ELSE 0 END AS SUB_MAT
+		    			         , CASE WHEN DLHD.PURCHASE_TYPE = 'ISP'  THEN SUP_AMT ELSE 0 END AS INVEST
+		    			         , CASE WHEN DLHD.PURCHASE_TYPE = 'OMRO' THEN SUP_AMT ELSE 0 END AS SLOVAC
+		    			         , CASE WHEN DLHD.SL_TYPE != 'GS' AND (DLHD.PURCHASE_TYPE IS NULL OR DLHD.PURCHASE_TYPE = '') THEN SUP_AMT ELSE 0 END AS JAC
+								 , CASE WHEN DLHD.SL_TYPE = 'GS' THEN SUP_AMT ELSE 0 END AS GLOBALS
+				                 , CODD.TEXT2
+				                 , CODD.TEXT3
+					             , CASE WHEN TEXT3 = #{CASH} 		THEN 'M'
+					                    	WHEN TEXT3 = #{ONE} 		THEN '1'
+					                    	WHEN TEXT3 = #{TWO} 		THEN '2'
+					                    	WHEN TEXT3 = #{THREE} 	THEN '3'
+					                    	ELSE 'N'
+					               END AS FLAG
+		    		 FROM STOCDLHD DLHD
+		           INNER JOIN STOCCODD CODD
+		           ON CODD.CODE = DLHD.PAY_TERMS
+		    	  WHERE DLHD.PURCHASE_TYPE 		!= 'NORMAL'
+		    	       AND DLHD.SL_NUM IS NOT NULL
+		    		   AND DLHD.GATE_CD	   					= #{ses.gateCd}
+		    		   AND DLHD.DEL_FLAG	 				= '0'
+		    		   AND DLHD.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+		    		   AND DLHD.PLANT_CD	  				IN (${PLANT_CD})
+		    	) MAIN
+		        GROUP BY MAIN.TEXT2, MAIN.TEXT3, MAIN.FLAG
+		    ) SUMMARY
+		    RIGHT OUTER JOIN
+		     (
+		        SELECT #{ROUTINE} AS TEXT2, #{CASH} AS TEXT3, 'M' AS FLAG, 1 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION 
+		        SELECT #{ROUTINE} AS TEXT2, #{ONE} AS TEXT3, '1' AS FLAG,  2 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION 
+		        SELECT #{ROUTINE} AS TEXT2, #{TWO}  AS TEXT3, '2' AS FLAG,  3 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION 
+		        SELECT #{ROUTINE} AS TEXT2, #{THREE} AS TEXT3, '3' AS FLAG,  4 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION 
+		        SELECT #{ROUTINE} AS TEXT2, #{NM} AS TEXT3, 'N' AS FLAG,  5 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION 
+		        SELECT #{ANYTIME} AS TEXT2, #{CASH} AS TEXT3, 'M' AS FLAG,  6 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{ANYTIME} AS TEXT2, #{ONE} AS TEXT3, '1' AS FLAG,  7 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{ANYTIME} AS TEXT2, #{TWO}  AS TEXT3, '2' AS FLAG,  8 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{ANYTIME} AS TEXT2, #{THREE} AS TEXT3, '3' AS FLAG,  9 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{ANYTIME} AS TEXT2, #{NM} AS TEXT3, 'N' AS FLAG,  10 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{CARD} AS TEXT2, #{CARD} AS TEXT3, 'M' AS FLAG,  11 AS SORT_SQ <include refid="com.sql.dual"/>
+		        UNION
+		        SELECT #{ETC} AS TEXT2, #{ETC} AS TEXT3, 'M' AS FLAG,  12 AS SORT_SQ <include refid="com.sql.dual"/>
+		    ) BASE 
+		 ON SUMMARY.TEXT2 = BASE.TEXT2
+		 AND SUMMARY.FLAG = BASE.FLAG
+		 ORDER BY BASE.SORT_SQ
+		
+	</select>
+
+<!-- 	
+	<select id="DH1581_doSearch" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT CASE WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 0 THEN CODD.TEXT2 
+		            WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 1 THEN ' '
+		            WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 2 THEN '  '
+		       END AS TEXT2
+		     , CASE WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 0 THEN CODD.TEXT3 
+		            WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 1 THEN #{SUBSUM}
+		            WHEN GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) = 2 THEN #{SUMMARY}
+		       END AS TEXT3
+		     , SUM(SUMMARY.NORMAL_MAT) AS NORMAL_MAT
+		     , SUM(SUMMARY.SUB_MAT) AS SUB_MAT
+		     , SUM(SUMMARY.INVEST) AS INVEST
+		     , SUM(SUMMARY.SLOVAC) AS SLOVAC
+		     , ( SUM(SUMMARY.NORMAL_MAT)+SUM(SUMMARY.SUB_MAT)+SUM(SUMMARY.INVEST)+SUM(SUMMARY.SLOVAC) ) AS TOTAL
+		     , GROUPING(CODD.TEXT2)+GROUPING(CODD.TEXT3) AS LEV 
+		 FROM
+		(
+		    SELECT MAIN.PAY_TERMS
+		         , MAIN.NORMAL_MAT
+		         , MAIN.SUB_MAT
+		         , MAIN.INVEST
+		         , MAIN.SLOVAC
+		     FROM   
+		    (
+		      SELECT DLHD.PAY_TERMS
+		           , CASE WHEN DLHD.PURCHASE_TYPE = 'AS' OR DLHD.PURCHASE_TYPE = 'NEW' OR DLHD.PURCHASE_TYPE = 'DC' OR DLHD.PURCHASE_TYPE = 'DMRO' THEN SUP_AMT ELSE 0 END AS NORMAL_MAT
+		           , CASE WHEN DLHD.PURCHASE_TYPE = 'SMT'  THEN SUP_AMT ELSE 0 END AS SUB_MAT
+		           , CASE WHEN DLHD.PURCHASE_TYPE = 'ISP'  THEN SUP_AMT ELSE 0 END AS INVEST
+		           , CASE WHEN DLHD.PURCHASE_TYPE = 'OMRO' THEN SUP_AMT ELSE 0 END AS SLOVAC
+		        FROM STOCDLHD DLHD
+		       WHERE DLHD.PURCHASE_TYPE != 'NORMAL'
+		         AND DLHD.GATE_CD       				= #{ses.gateCd}
+		         AND DLHD.DEL_FLAG     				 = '0'
+		         AND DLHD.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+		         AND DLHD.PLANT_CD      				IN (${PLANT_CD})
+		    ) MAIN
+		) SUMMARY
+		INNER JOIN STOCCODD CODD
+		ON SUMMARY.PAY_TERMS    				= CODD.CODE
+		AND CODD.CODE_TYPE      						= 'M018'
+		GROUP BY ROLLUP(CODD.TEXT2, CODD.TEXT3)
+		
+	</select>
+	 -->
+</mapper>

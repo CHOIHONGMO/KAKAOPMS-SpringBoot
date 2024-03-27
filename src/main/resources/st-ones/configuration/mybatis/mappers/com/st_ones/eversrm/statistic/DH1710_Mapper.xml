@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1710_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT HD.ITEM_DIV
+	    	  ,HD.MAT_GROUP
+			  ,DT.EQUIP_DIV
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(DT.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SIGN_DATE
+			  ,DT.EQUIP_SQ
+			  ,DT.ITEM_DESC
+			  ,DT.ITEM_RMK
+			  ,DT.ITEM_QT_RMK
+			  ,DT.VENDOR_NM
+			  ,DT.INVEST_PRC
+			  ,DT.UNIT_PRC
+			  ,DT.CONFIRM_UNIT_PRC
+			  ,DT.RMK
+			  ,DT.GW_EXEC_TEXT
+			  ,DT.GW_EXEC_URL
+			  ,''                      AS SUMMARY_FLAG
+		  FROM STOCGPHD HD
+		  JOIN STOCGPDT DT
+		    ON (DT.GATE_CD      = HD.GATE_CD
+		   AND DT.ITEM_DIV     = HD.ITEM_DIV
+		   AND DT.MAT_GROUP    = HD.MAT_GROUP
+		   AND DT.GR_REQ_DATE  = HD.GR_REQ_DATE
+		   AND DT.INVEST_DIV   = HD.INVEST_DIV
+		   AND DT.DEL_FLAG     = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		<if test="ITEM_DIV != '' and ITEM_DIV != null">
+		   AND HD.ITEM_DIV = #{ITEM_DIV}
+		</if>
+		<if test="MAT_GROUP != '' and MAT_GROUP != null">
+		   AND HD.MAT_GROUP <include refid="com.sql.likeL"/> #{MAT_GROUP} <include refid="com.sql.likeR"/> 
+		</if>
+		<if test="EQUIP_DIV != '' and EQUIP_DIV != null">
+		   AND DT.EQUIP_DIV = #{EQUIP_DIV}
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		   AND DT.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/> 
+		</if>
+		   AND HD.INVEST_DIV   = '7'
+		   AND HD.DEL_FLAG     = '0'
+		 ORDER BY HD.ITEM_DIV, HD.MAT_GROUP, DT.EQUIP_DIV, <include refid="com.sql.dbo"/>fn_lpad(DT.EQUIP_SQ, 10, '0')
+
+    </select>
+    
+	<insert id="doSaveHD" parameterType="hashmap">
+	
+		 MERGE STOCGPHD AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{ITEM_DIV} AS ITEM_DIV, #{MAT_GROUP} AS MAT_GROUP,
+					   (CASE WHEN #{GR_REQ_DATE} IS NULL OR #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END) AS GR_REQ_DATE, '7' AS INVEST_DIV) AS B
+			ON (A.GATE_CD     = B.GATE_CD
+		   AND A.ITEM_DIV    = B.ITEM_DIV
+		   AND A.MAT_GROUP   = B.MAT_GROUP
+		   AND A.GR_REQ_DATE = B.GR_REQ_DATE
+		   AND A.INVEST_DIV  = B.INVEST_DIV)
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , ITEM_DIV
+			 , MAT_GROUP
+			 , GR_REQ_DATE
+			 , INVEST_DIV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 <!-- 
+			 , PROD_COUNTRY_CD
+			 , INVEST_RECEIPT_DATE
+			 , RECEIPT_DATE
+			 , RMK
+			 , GW_EXEC_TEXT
+			 , GW_EXEC_URL
+			  -->
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{ITEM_DIV}
+			 , #{MAT_GROUP}
+			 , (CASE WHEN #{GR_REQ_DATE} IS NULL OR #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+			 , '7'                     <!-- #{INVEST_DIV} -->
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 <!-- 
+			 , #{PROD_COUNTRY_CD}
+			 , #{INVEST_RECEIPT_DATE}
+			 , #{RECEIPT_DATE}
+			 , #{RMK}
+			 , #{GW_EXEC_TEXT}
+			 , #{GW_EXEC_URL}
+			  -->
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<insert id="doSaveDT" parameterType="hashmap">
+	
+		 MERGE STOCGPDT AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{ITEM_DIV} AS ITEM_DIV, #{MAT_GROUP} AS MAT_GROUP,
+		 			   (CASE WHEN #{GR_REQ_DATE} IS NULL OR #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END) AS GR_REQ_DATE, '7' AS INVEST_DIV,
+		 			    #{EQUIP_DIV} AS EQUIP_DIV,  #{EQUIP_SQ} AS EQUIP_SQ) AS B
+			ON (A.GATE_CD     = B.GATE_CD
+		   AND A.ITEM_DIV    = B.ITEM_DIV
+		   AND A.MAT_GROUP   = B.MAT_GROUP
+		   AND A.GR_REQ_DATE = B.GR_REQ_DATE
+		   AND A.INVEST_DIV  = B.INVEST_DIV
+		   AND A.EQUIP_DIV   = B.EQUIP_DIV
+		   AND A.EQUIP_SQ    = B.EQUIP_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , SIGN_DATE = (CASE WHEN #{SIGN_DATE} = '' THEN null ELSE #{SIGN_DATE} END)
+			 , ITEM_DESC = #{ITEM_DESC}
+			 , ITEM_RMK = #{ITEM_RMK}
+			 , ITEM_QT_RMK = #{ITEM_QT_RMK}
+			 , VENDOR_NM = #{VENDOR_NM}
+			 , TARGET_PRC = #{TARGET_PRC}
+			 , INVEST_PRC = #{INVEST_PRC}
+			 , UNIT_PRC = #{UNIT_PRC}
+			 , CONFIRM_UNIT_PRC = #{CONFIRM_UNIT_PRC}
+			 , RMK = #{RMK}
+			 , GW_EXEC_TEXT = #{GW_EXEC_TEXT}
+			 , GW_EXEC_URL = #{GW_EXEC_URL}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , ITEM_DIV
+			 , MAT_GROUP
+			 , GR_REQ_DATE
+			 , INVEST_DIV
+			 , EQUIP_DIV
+			 , EQUIP_SQ
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , SIGN_DATE
+			 , ITEM_DESC
+			 , ITEM_RMK
+			 , ITEM_QT_RMK
+			 , VENDOR_NM
+			 , TARGET_PRC
+			 , INVEST_PRC
+			 , UNIT_PRC
+			 , CONFIRM_UNIT_PRC
+			 , RMK
+			 , GW_EXEC_TEXT
+			 , GW_EXEC_URL
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{ITEM_DIV}
+			 , #{MAT_GROUP}
+			 , (CASE WHEN #{GR_REQ_DATE} IS NULL OR #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+			 , '7'                   <!-- #{INVEST_DIV} -->
+			 , #{EQUIP_DIV}
+			 , #{EQUIP_SQ}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , (CASE WHEN #{SIGN_DATE} = '' THEN null ELSE #{SIGN_DATE} END)
+			 , #{ITEM_DESC}
+			 , #{ITEM_RMK}
+			 , #{ITEM_QT_RMK}
+			 , #{VENDOR_NM}
+			 , '0'                   <!-- #{TARGET_PRC} -->
+			 , #{INVEST_PRC}
+			 , #{UNIT_PRC}
+			 , #{CONFIRM_UNIT_PRC}
+			 , #{RMK}
+			 , #{GW_EXEC_TEXT}
+			 , #{GW_EXEC_URL}
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+	
+	<delete id="doDeleteDT" parameterType="hashmap">
+
+		UPDATE STOCGPDT
+		   SET DEL_FLAG    = '1'
+			 , MOD_DATE    = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND ITEM_DIV    = #{ITEM_DIV}
+		   AND MAT_GROUP   = #{MAT_GROUP}
+		   AND GR_REQ_DATE = (CASE WHEN #{GR_REQ_DATE} IS NULL OR #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+		   AND INVEST_DIV  = '7'     <!-- #{INVEST_DIV} -->
+		   AND EQUIP_DIV   = #{EQUIP_DIV}
+		   AND EQUIP_SQ    = #{EQUIP_SQ}
+		   AND DEL_FLAG    = '0'
+
+	</delete>   
+	
+</mapper>

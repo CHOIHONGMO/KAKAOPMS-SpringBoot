@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.BSOX_260Mapper">
+
+	<!-- comparisonByTotal - BPX_260    -->
+	<select id="doSearchComparisonByTotal_F" parameterType="hashmap" resultType="hashMap">
+         SELECT GATE_CD
+              , RFX_NUM
+			  , RFX_CNT
+			  , RFX_SUBJECT
+			  , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			  , NOT_PRC_PERCENT
+			  , PRC_PERCENT
+			  , EVAL_TYPE
+              , CUR
+              , CTRL_USER_ID
+              , RFX_TYPE
+              , SETTLE_TYPE
+			  , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS')
+			    <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> 
+			    <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') 
+			    AS RFQ_START_END_DATE
+         	  , RQHD.PURCHASE_TYPE
+         	  , RQHD.SUBMIT_TYPE
+         	  , RQHD.PRC_STL_TYPE
+			  , RQHD.VENDOR_OPEN_TYPE
+			  , <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) AS PROGRESS_CD  
+			  , RQHD.MOLD_YN      
+        FROM STOCRQHD RQHD
+        WHERE DEL_FLAG = '0'
+          AND GATE_CD = #{ses.gateCd}
+          AND RFX_NUM = #{RFX_NUM}
+          AND RFX_CNT = #{RFX_CNT}
+    </select>
+
+    <select id="doSearchComparisonByTotal_I" parameterType="hashmap" resultType="hashMap">
+    SELECT
+		  A.*
+		, ROUND((A.P_ITEM_AMT - A.ITEM_AMT) / A.P_ITEM_AMT * 100, 2) AS SAVING_RATE
+	FROM (
+         SELECT RQDT.ITEM_CD
+			  , RQDT.ITEM_DESC
+			  , RQDT.ITEM_SPEC
+			  , RQDT.RFX_QT
+			  , RQDT.UNIT_CD
+			  , <include refid="com.sql.dbo"/>getPriceByCur(<include refid="com.sql.dbo"/>GETCOMCODE(RQHD.GATE_CD,'M023',RQHD.CUR,'0',#{ses.langCd}),RQDT.UNIT_PRC) AS R_UNIT_PRC
+			  , <include refid="com.sql.dbo"/>getPriceByCur(<include refid="com.sql.dbo"/>GETCOMCODE(RQHD.GATE_CD,'M023',RQHD.CUR,'0',#{ses.langCd}),PQTDT.UNIT_PRC) AS P_UNIT_PRC
+			  , <include refid="com.sql.dbo"/>getPriceByCur(<include refid="com.sql.dbo"/>GETCOMCODE(RQHD.GATE_CD,'M023',RQHD.CUR,'0',#{ses.langCd}),QTDT.UNIT_PRC) AS Q_UNIT_PRC
+			  , PQTDT.ITEM_AMT AS P_ITEM_AMT
+			  , QTDT.ITEM_AMT
+			  , (0) AS SUB_ITEM_IMAGE
+              , (SELECT CASE WHEN (COUNT(*) = 0 ) THEN 0 ELSE COUNT(*) END FROM STOCQTSI
+				  WHERE GATE_CD = QTDT.GATE_CD
+					AND QTA_NUM = QTDT.QTA_NUM
+					AND QTA_SQ = QTDT.QTA_SQ
+					AND DEL_FLAG = '0') AS SUB_ITEM
+			  , QTDT.GATE_CD
+			  , RQDT.RFX_NUM
+              , RQDT.RFX_CNT
+              , RQDT.RFX_SQ
+              , QTDT.QTA_NUM
+              , QTDT.QTA_SQ
+              , <include refid="com.sql.dbo"/>GETCOMCODE(RQHD.GATE_CD,'M023',RQHD.CUR,'0',#{ses.langCd}) AS CUR
+              , QTDT.COST_NUM
+              , RQHD.ITEM_CLASS_CD
+              , CASE WHEN <include refid="com.sql.length"/>(QTDT.COST_NUM) > 0  THEN 'Yes' ELSE 'No' END COST_ITEM_NEED
+              , RQDT.TRGT_PRC
+              , QTDT.INVEST_CD
+              , QTDT.INVEST_AMT
+              , QTDT.Y1_UNIT_PRC
+              , QTDT.Y2_UNIT_PRC
+              , QTDT.Y3_UNIT_PRC
+              , QTDT.QTA_DUE_DATE_TEXT
+              
+        FROM STOCQTDT QTDT
+        JOIN STOCQTHD QTHD ON QTDT.GATE_CD = QTHD.GATE_CD AND QTDT.QTA_NUM = QTHD.QTA_NUM AND QTHD.DEL_FLAG = '0' AND QTHD.LAST_FLAG = '1'
+        JOIN STOCRQDT RQDT ON (    RQDT.GATE_CD = QTDT.GATE_CD
+                               AND RQDT.RFX_NUM = QTDT.RFX_NUM
+                               AND RQDT.RFX_CNT = QTDT.RFX_CNT
+                               AND RQDT.RFX_SQ = QTDT.RFX_SQ
+                               AND RQDT.DEL_FLAG = '0')
+        JOIN STOCRQHD RQHD ON (    RQHD.GATE_CD = QTDT.GATE_CD
+                               AND RQHD.RFX_NUM = QTDT.RFX_NUM
+                               AND RQHD.RFX_CNT = QTDT.RFX_CNT
+                               AND RQHD.DEL_FLAG = '0')
+        LEFT OUTER JOIN (
+	        SELECT X.*
+	        FROM (
+	            SELECT QTDT_3.QTA_NUM
+		              ,QTDT_3.RFX_SQ
+		              ,QTDT_3.UNIT_PRC
+		              ,QTDT_3.ITEM_AMT
+		              ,RANK() OVER(PARTITION BY QTDT_3.RFX_SQ ORDER BY QTDT_3.QTA_NUM) AS RANK
+                FROM STOCQTDT QTDT_3
+                WHERE QTDT_3.GATE_CD = #{ses.gateCd}
+                  AND QTDT_3.DEL_FLAG = '0'
+                  AND QTDT_3.RFX_NUM = #{RFX_NUM}
+                  AND QTDT_3.VENDOR_CD = #{VENDOR_CD}
+	       	) X WHERE X.RANK = 1
+	    ) PQTDT ON PQTDT.RFX_SQ=QTDT.RFX_SQ
+<!-- 	    LEFT OUTER JOIN STOCQTDT PQTDT ON ( PQTDT.GATE_CD = QTDT.GATE_CD -->
+<!-- 	                           AND PQTDT.RFX_SQ = QTDT.RFX_SQ -->
+<!--                                AND PQTDT.DEL_FLAG = '0' -->
+<!-- 	                           AND PQTDT.QTA_NUM = ( -->
+<!-- 	                               SELECT MAX(QTHD_2.QTA_NUM) FROM STOCQTDT QTDT_2 JOIN STOCQTHD QTHD_2 ON QTDT_2.GATE_CD=QTHD_2.GATE_CD AND QTDT_2.QTA_NUM = QTHD_2.QTA_NUM -->
+<!--                                     WHERE QTDT_2.GATE_CD = QTDT.GATE_CD  -->
+<!--                                       AND QTDT_2.RFX_NUM = QTDT.RFX_NUM -->
+<!--                                       AND QTDT_2.RFX_SQ = QTDT.RFX_SQ -->
+<!--                                       AND QTDT_2.VENDOR_CD = QTDT.VENDOR_CD -->
+<!--                                       AND QTDT_2.DEL_FLAG = '0' -->
+<!--                                       AND QTHD_2.DEL_FLAG = '0' -->
+<!--                                       AND QTHD_2.LAST_FLAG = '0' -->
+<!--                                    ) -->
+<!-- 	    ) -->
+        WHERE QTDT.DEL_FLAG = '0'
+          AND QTDT.GATE_CD = #{ses.gateCd}
+          AND QTDT.VENDOR_CD = #{VENDOR_CD}
+          AND QTDT.RFX_NUM = #{RFX_NUM}
+          AND QTDT.RFX_CNT = #{RFX_CNT}
+      ) A
+      ORDER BY RFX_SQ
+    </select>
+
+    <select id="doSearchComparisonByTotal_V" parameterType="hashmap" resultType="hashMap">
+         SELECT (SELECT <if test="_databaseId == 'mssql'">TOP 1 </if>
+                        CASE WHEN RQDT1.NEGO_VENDOR_CD=QTDT1.VENDOR_CD THEN 'P' ELSE CASE WHEN <include refid="com.sql.nvl"/>(QTDT1.SETTLE_AMT, 0) = 0 THEN '0' ELSE '1' END END AS ABC
+                   FROM STOCRQDT RQDT1
+                    JOIN STOCQTDT QTDT1 ON RQDT1.GATE_CD= QTDT1.GATE_CD AND RQDT1.RFX_NUM = QTDT1.RFX_NUM AND RQDT1.RFX_CNT=QTDT1.RFX_CNT AND RQDT1.RFX_SQ=QTDT1.RFX_SQ
+                    JOIN STOCRQHD RQHD1 ON RQDT1.GATE_CD= RQHD1.GATE_CD AND RQDT1.RFX_NUM = RQHD1.RFX_NUM AND RQDT1.RFX_CNT=RQHD1.RFX_CNT
+                    JOIN STOCQTHD QTHD1 ON QTDT1.GATE_CD= QTHD1.GATE_CD AND QTDT1.QTA_NUM = QTHD1.QTA_NUM
+                   WHERE RQDT1.DEL_FLAG = '0'
+                     AND QTDT1.DEL_FLAG = '0'
+                     AND RQDT1.GATE_CD = RQVN.GATE_CD
+                     AND RQDT1.RFX_NUM = #{RFX_NUM}
+                     AND RQDT1.RFX_CNT = #{RFX_CNT}
+                     AND QTDT1.VENDOR_CD = RQVN.VENDOR_CD
+                     <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>
+                ) AS AWARD
+              , RQVN.VENDOR_RANK
+			  , RQVN.VENDOR_CD
+	   		  , <include refid="com.sql.dbo"/>GETVENDORNAME(RQVN.GATE_CD, RQVN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			  , QTHD.QTA_NUM
+              , RQHD.CUR
+			  ,	(SELECT SUM(RQDT.ITEM_AMT) FROM STOCRQDT RQDT WHERE RQDT.GATE_CD = RQHD.GATE_CD
+							                               AND RQDT.RFX_NUM = RQHD.RFX_NUM
+							                               AND RQDT.RFX_CNT = RQHD.RFX_CNT
+							                               AND RQDT.DEL_FLAG = '0') AS ITEM_AMT
+			  , QTHD.QTA_AMT
+			  , ROW_NUMBER() OVER (PARTITION BY QTHD.GATE_CD,QTHD.RFX_NUM,QTHD.RFX_CNT ORDER BY 
+			    CASE WHEN SUBMIT_TYPE='RO' THEN 
+						CASE WHEN RQHD.PRC_STL_TYPE = 'LMT' THEN 
+			    			CASE WHEN QTHD.QTA_AMT  > (SELECT SUM(LIMIT_PRC) FROM STOCRQDT WHERE GATE_CD=RQHD.GATE_CD AND RFX_NUM=RQHD.RFX_NUM AND RFX_CNT=RQHD.RFX_CNT AND DEL_FLAG ='0')
+			    			                             THEN 0 ELSE <include refid="com.sql.dbo"/>AGETJUMSU(RQVN.GATE_CD, RQVN.VENDOR_CD, RQVN.RFX_NUM, RQVN.RFX_CNT ,QTHD.QTA_NUM , '', 'TOTAL' )     END
+			    		ELSE 
+			    		<include refid="com.sql.dbo"/>AGETJUMSU(RQVN.GATE_CD, RQVN.VENDOR_CD, RQVN.RFX_NUM, RQVN.RFX_CNT ,QTHD.QTA_NUM , '', 'TOTAL' )   
+			    		END			    
+			    ELSE 
+						CASE WHEN RQHD.PRC_STL_TYPE = 'LMT' THEN 
+			    			CASE WHEN QTHD.QTA_AMT  > (SELECT SUM(LIMIT_PRC) FROM STOCRQDT WHERE GATE_CD=RQHD.GATE_CD AND RFX_NUM=RQHD.RFX_NUM AND RFX_CNT=RQHD.RFX_CNT AND DEL_FLAG ='0')
+			    			                             THEN 99999999999999999 ELSE QTHD.QTA_AMT  END
+			    		ELSE 
+			    		QTHD.QTA_AMT 
+			    		END			    
+			    END 
+
+		        <if test='SUBMIT_TYPE == "RO"'>
+			    DESC
+			    </if>
+			  ) AS PRICE_RANK
+
+			  , ((SELECT SUM(RQET.RESULT_SCORE)/MAX(RQEU.EU_SQ)
+			       FROM STOCRQET RQET INNER JOIN STOCRQEU RQEU ON RQET.GATE_CD = RQEU.GATE_CD AND RQET.RFX_NUM = RQEU.RFX_NUM AND RQET.RFX_CNT = RQEU.RFX_CNT AND RQET.EU_SQ = RQEU.EU_SQ
+          	       WHERE RQET.GATE_CD = RQVN.GATE_CD
+                     AND RQET.RFX_NUM = RQVN.RFX_NUM
+                     AND RQET.RFX_CNT = RQVN.RFX_CNT
+                     AND RQET.VENDOR_CD = RQVN.VENDOR_CD
+                     AND RQET.DEL_FLAG = '0'
+                     and RQEU.DEL_FLAG='0') * RQHD.NOT_PRC_PERCENT) / 100 AS NOT_PRC_SCORE /* RQVN.NOT_PRC_SCORE */
+			  , RQVN.PRC_SCORE
+			  , (((SELECT SUM(RQET.RESULT_SCORE)/MAX(RQEU.EU_SQ)
+			       FROM STOCRQET RQET INNER JOIN STOCRQEU RQEU ON RQET.GATE_CD = RQEU.GATE_CD AND RQET.RFX_NUM = RQEU.RFX_NUM AND RQET.RFX_CNT = RQEU.RFX_CNT AND RQET.EU_SQ = RQEU.EU_SQ
+          	       WHERE RQET.GATE_CD = RQVN.GATE_CD
+                     AND RQET.RFX_NUM = RQVN.RFX_NUM
+                     AND RQET.RFX_CNT = RQVN.RFX_CNT
+                     AND RQET.VENDOR_CD = RQVN.VENDOR_CD
+                     AND RQET.DEL_FLAG = '0'
+                     and RQEU.DEL_FLAG='0') * RQHD.NOT_PRC_PERCENT) / 100 + RQVN.PRC_SCORE) AS TOTAL_PRC_SCORE
+			  , (SELECT MAX(SETTLE_RMK) FROM STOCQTDT QTDT WHERE QTDT.GATE_CD = QTHD.GATE_CD
+							                               AND QTDT.QTA_NUM = QTHD.QTA_NUM
+							                               AND QTDT.DEL_FLAG = '0') AS SETTLE_RMK
+			  , <include refid="com.sql.dbo"/>GETAMOUNTBYCUR(RQHD.CUR, (SELECT QTA_AMT FROM STOCQTHD WHERE GATE_CD = RQHD.GATE_CD
+											   AND DEL_FLAG = '0'
+    										   AND QTA_NUM = (SELECT MIN(QTA_NUM) FROM STOCQTHD WHERE GATE_CD = RQHD.GATE_CD
+																					            AND DEL_FLAG = '0'
+																					            AND VENDOR_CD = RQVN.VENDOR_CD
+																					            AND RFX_NUM = RQHD.RFX_NUM))) AS INIT_AMOUNT
+			  , ROUND(CASE WHEN((SELECT QTA_AMT FROM STOCQTHD WHERE GATE_CD = RQHD.GATE_CD
+																					   AND DEL_FLAG = '0'
+										    										   AND QTA_NUM = (SELECT MIN(QTA_NUM) FROM STOCQTHD
+										    										   									WHERE GATE_CD = RQHD.GATE_CD
+																											            AND DEL_FLAG = '0'
+																											            AND VENDOR_CD = RQVN.VENDOR_CD
+																											            AND RFX_NUM = RQHD.RFX_NUM))
+			  									=0) THEN 0 ELSE
+			  									((SELECT QTA_AMT FROM STOCQTHD WHERE GATE_CD = RQHD.GATE_CD
+								                                               AND DEL_FLAG = '0'
+								                                               AND QTA_NUM =  (SELECT MIN(QTA_NUM) FROM STOCQTHD
+								                                                                                   WHERE GATE_CD = RQHD.GATE_CD
+								                                                                                  AND DEL_FLAG = '0'
+								                                                                                  AND VENDOR_CD = RQVN.VENDOR_CD
+								                                                                                  AND RFX_NUM = RQHD.RFX_NUM)
+                                                 ) - QTHD.QTA_AMT) * 100 / (SELECT QTA_AMT FROM STOCQTHD WHERE GATE_CD = RQHD.GATE_CD
+																							   AND DEL_FLAG = '0'
+												    										   AND QTA_NUM = (SELECT MIN(QTA_NUM) FROM STOCQTHD
+												    										   WHERE GATE_CD = RQHD.GATE_CD
+																					            AND DEL_FLAG = '0'
+																					            AND VENDOR_CD = RQVN.VENDOR_CD
+<!-- 																					            AND RFX_NUM = RQHD.RFX_NUM))) END    AS SAVING_RATE														              																	              																	               																	             -->
+																					            AND RFX_NUM = RQHD.RFX_NUM)) END, 2)   AS SAVING_RATE
+              , (SELECT MAX(NRQDT.RFX_NUM) FROM STOCRQDT NRQDT
+										 WHERE NRQDT.GATE_CD = RQHD.GATE_CD
+										   AND NRQDT.ORIGIN_RFX_NUM = RQHD.RFX_NUM
+										   AND NRQDT.ORIGIN_RFX_CNT = RQHD.RFX_CNT
+										   AND NRQDT.DEL_FLAG = '0') AS RFX_NUM
+              , <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS((SELECT MAX(NRQDT.PROGRESS_CD)
+										FROM STOCRQHD NRQHD, STOCRQDT NRQDT
+										WHERE NRQHD.GATE_CD = NRQDT.GATE_CD
+										  AND NRQHD.RFX_NUM = NRQDT.RFX_NUM
+										  AND NRQHD.RFX_CNT = NRQDT.RFX_CNT
+										  AND NRQDT.GATE_CD = RQHD.GATE_CD
+										  AND NRQDT.ORIGIN_RFX_NUM = RQHD.RFX_NUM
+										  AND NRQDT.ORIGIN_RFX_CNT = RQHD.RFX_CNT
+										  AND NRQHD.DEL_FLAG ='0' AND NRQDT.DEL_FLAG ='0'),
+										 (SELECT MAX(NRQHD.RFQ_CLOSE_DATE)
+										FROM STOCRQHD NRQHD, STOCRQDT NRQDT
+										WHERE NRQHD.GATE_CD = NRQDT.GATE_CD
+										  AND NRQHD.RFX_NUM = NRQDT.RFX_NUM
+										  AND NRQHD.RFX_CNT = NRQDT.RFX_CNT
+										  AND NRQDT.GATE_CD = RQHD.GATE_CD
+										  AND NRQDT.ORIGIN_RFX_NUM = RQHD.RFX_NUM
+										  AND NRQDT.ORIGIN_RFX_CNT = RQHD.RFX_CNT
+										  AND NRQHD.DEL_FLAG ='0' AND NRQDT.DEL_FLAG ='0')) AS PROGRESS_CD
+
+              , RQHD.GATE_CD
+		,(
+		  SELECT SUM(TRGT_PRC) FROM STOCRQDT 
+		  WHERE GATE_CD = RQVN.GATE_CD
+		  AND RFX_NUM = RQVN.RFX_NUM
+		  AND RFX_CNT = RQVN.RFX_CNT
+		  AND DEL_FLAG ='0' 
+		) TRGT_PRC
+
+		<if test='_databaseId=="oracle"'>
+			,CASE WHEN VNGL.DEAL_SQ_CD = '1' THEN TO_CHAR(RQHD.PRC_PERCENT) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> TO_CHAR(RQHD.NOT_PRC_PERCENT)
+				  ELSE TO_CHAR(RQHD.SCND_PRC_PERCENT) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> TO_CHAR(RQHD.SCND_NOT_PRC_PERCENT)
+				  END APERABPER		
+		</if>
+		<if test='_databaseId=="mssql"'>
+			,CASE WHEN VNGL.DEAL_SQ_CD = '1' THEN CAST(RQHD.PRC_PERCENT AS VARCHAR) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> CAST(RQHD.NOT_PRC_PERCENT AS VARCHAR)
+				  ELSE CAST(RQHD.SCND_PRC_PERCENT AS VARCHAR) <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> CAST(RQHD.SCND_NOT_PRC_PERCENT AS VARCHAR)
+				  END APERABPER
+		</if>
+		
+		,<include refid="com.sql.dbo"/>AGETJUMSU(RQVN.GATE_CD, RQVN.VENDOR_CD, RQVN.RFX_NUM, RQVN.RFX_CNT ,QTHD.QTA_NUM , '', 'TOTAL' ) TOTAL_JUMSU
+		,<include refid="com.sql.dbo"/>AGETJUMSU(RQVN.GATE_CD, RQVN.VENDOR_CD, RQVN.RFX_NUM, RQVN.RFX_CNT ,QTHD.QTA_NUM , '', 'AMT' ) AMT_JUMSU
+		,<include refid="com.sql.dbo"/>AGETJUMSU(RQVN.GATE_CD, RQVN.VENDOR_CD, RQVN.RFX_NUM, RQVN.RFX_CNT ,QTHD.QTA_NUM , '', 'NOTAMT' ) EVAL_JUMSU
+
+        FROM STOCRQVN RQVN
+        JOIN STOCQTHD QTHD ON (    QTHD.GATE_CD = RQVN.GATE_CD
+                               AND QTHD.RFX_NUM = RQVN.RFX_NUM
+                               AND QTHD.RFX_CNT = RQVN.RFX_CNT
+                               AND QTHD.VENDOR_CD = RQVN.VENDOR_CD
+                               AND QTHD.DEL_FLAG = '0')
+        JOIN STOCRQHD RQHD ON (    RQHD.GATE_CD = RQVN.GATE_CD
+                               AND RQHD.RFX_NUM = RQVN.RFX_NUM
+                               AND RQHD.RFX_CNT = RQVN.RFX_CNT
+                               AND RQHD.DEL_FLAG = '0')
+        JOIN STOCVNGL VNGL ON (
+        						RQVN.GATE_CD = VNGL.GATE_CD
+        					    AND RQVN.VENDOR_CD = VNGL.VENDOR_CD
+        					    AND VNGL.DEL_FLAG = '0'
+        )
+        WHERE RQVN.DEL_FLAG = '0'
+          AND RQVN.GATE_CD = #{ses.gateCd}
+          AND RQVN.RFX_NUM = #{RFX_NUM}
+          AND RQVN.RFX_CNT = #{RFX_CNT}
+          AND QTHD.LAST_FLAG = '1'
+          AND QTHD.SEND_DATE IS NOT NULL
+    </select>
+
+    <select id="checkRfqProgressStatusComparisonByTotal" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM STOCRQDT RQDT INNER JOIN STOCRQHD RQHD
+        					ON (  RQDT.GATE_CD = RQHD.GATE_CD
+					          AND RQDT.RFX_NUM = RQHD.RFX_NUM
+					          AND RQDT.RFX_CNT = RQHD.RFX_CNT)
+        WHERE RQDT.GATE_CD = #{ses.gateCd}
+          AND RQDT.RFX_NUM = #{RFX_NUM}
+          AND RQDT.RFX_CNT = #{RFX_CNT}
+          AND RQDT.DEL_FLAG = '0'
+          AND RQHD.DEL_FLAG = '0'
+          AND (<include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQDT.PROGRESS_CD,RQHD.RFQ_CLOSE_DATE) >= '2500' OR
+          	<![CDATA[ <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQDT.PROGRESS_CD,RQHD.RFQ_CLOSE_DATE) <= '2300') ]]>
+    </select>
+
+    <update id="doUpdateComparisonByTotal_RQDT" parameterType="hashmap">
+        UPDATE STOCRQDT SET
+        	  MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , PROGRESS_CD = #{PROGRESS_CD}
+            , <choose>
+	            <when test='DATE_UPDATED == "PR_RETURN_DATE"'>
+	                PR_RETURN_DATE
+	            </when>
+	            <when test='DATE_UPDATED == "SETTLE_DATE"'>
+	                SETTLE_DATE
+	            </when>
+	        </choose> = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{ses.gateCd}
+          AND RFX_NUM = #{RFX_NUM}
+          AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+    <update id="doUpdateComparisonByTotal_RQHD" parameterType="hashmap">
+        UPDATE  STOCRQHD
+        SET
+             PROGRESS_CD = #{PROGRESS_CD}
+            , EVAL_TYPE = #{EVAL_TYPE}
+            , MOD_DATE    = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+
+        <if test='PROGRESS_CD == "1300"'>
+        	, FAIL_BID_RMK = #{FAIL_BID_RMK}
+        	, FAIL_BID_DATE = <include refid="com.sql.sysdate"/>
+		</if>
+
+         WHERE GATE_CD = #{ses.gateCd}
+          AND RFX_NUM = #{RFX_NUM}
+          AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+    <insert id="doInsertComparisonByTotal_PRHB" parameterType="hashMap">
+       INSERT INTO STOCPRHB
+       		  SELECT GATE_CD
+       		       , PR_NUM
+       		       , PR_SQ
+       		       , <include refid="com.sql.sysdate"/>
+       		  FROM STOCRQDT RQDT
+       		  WHERE <include refid="com.sql.nvl"/>(RQDT.PR_NUM,'') !=''
+       		    AND RQDT.RFX_NUM = #{RFX_NUM}
+       		    AND RQDT.RFX_CNT = #{RFX_CNT}
+       		    AND RQDT.GATE_CD = #{ses.gateCd}
+       		    AND RQDT.DEL_FLAG='0'
+       		    AND (SELECT COUNT(*) FROM STOCPRHB PRHB
+       		    					  WHERE PRHB.PR_NUM =  RQDT.PR_NUM
+       		    					   AND PRHB.PR_SQ = RQDT.PR_SQ
+       		    					   AND GATE_CD = RQDT.GATE_CD) = 0
+    </insert>
+
+    <update id="doUpdateComparisonByTotal_QTDT" parameterType="hashmap">
+        UPDATE  STOCQTDT
+        SET
+              SETTLE_QT = '0'
+            , SETTLE_AMT = '0'
+            , SETTLE_RMK = 'PR Restore'
+            , MOD_DATE    = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+
+         WHERE GATE_CD = #{ses.gateCd}
+         <if test="_databaseId == 'oracle'">
+          AND (RFX_NUM,RFX_CNT) IN (SELECT RFX_NUM,RFX_CNT FROM STOCRQHD
+          												 WHERE GATE_CD = #{ses.gateCd}
+          												   AND RFX_NUM = #{RFX_NUM}
+          												   AND RFX_CNT = #{RFX_CNT}
+          												   AND DEL_FLAG = '0')
+		</if>
+
+		<if test="_databaseId == 'mssql'">
+		              AND (RFX_NUM+ CAST(RFX_CNT AS VARCHAR)) IN (SELECT RFX_NUM+ CAST(RFX_CNT AS VARCHAR) FROM STOCRQHD
+          												 WHERE GATE_CD = #{ses.gateCd}
+          												   AND RFX_NUM = #{RFX_NUM}
+          												   AND RFX_CNT = #{RFX_CNT}
+          												   AND DEL_FLAG = '0')
+		</if>
+
+    </update>
+
+
+
+    <update id="doUpdateComparisonByTotal_QTDT_F" parameterType="hashmap">
+
+        UPDATE  STOCQTDT SET
+              SETTLE_QT = (CASE WHEN #{AWARD} IN ('1', 'P') THEN (SELECT RQDT.RFX_QT FROM STOCRQDT RQDT
+								        					WHERE RQDT.GATE_CD = STOCQTDT.GATE_CD
+															  AND RQDT.RFX_NUM = STOCQTDT.RFX_NUM
+															  AND RQDT.RFX_CNT = STOCQTDT.RFX_CNT
+															  AND RQDT.RFX_SQ = STOCQTDT.RFX_SQ
+															  AND RQDT.DEL_FLAG = '0')
+													 ELSE 0 END)
+            , SETTLE_AMT = (CASE WHEN #{AWARD} IN ('1', 'P') THEN ITEM_AMT ELSE 0 END)
+            , SETTLE_RMK = #{SETTLE_RMK}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND QTA_NUM = #{QTA_NUM}
+
+    </update>
+
+    <update id="doUpdateComparisonByTotal_RQVN" parameterType="hashmap">
+        UPDATE  STOCRQVN
+        SET
+              PRC_SCORE =  CASE WHEN #{PRC_SCORE} = '' THEN NULL ELSE #{PRC_SCORE} END
+            , VENDOR_RANK = CASE WHEN #{PRICE_RANK} = '' THEN NULL ELSE #{PRICE_RANK} END
+            , MOD_DATE    = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+		   AND RFX_NUM = #{RFX_NUM}
+		   AND RFX_CNT = #{RFX_CNT}
+		   AND VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+    <insert id="doInsertComparisonByTotal_CNHB" parameterType="hashMap">
+       INSERT INTO STOCCNHB
+       		  SELECT  QTDT.GATE_CD
+       		  		, QTDT.QTA_NUM
+				    , QTDT.QTA_SQ
+					, <include refid="com.sql.sysdate"/>
+					, #{ses.userId}
+					, QTDT.RFX_NUM
+					, QTDT.RFX_CNT
+					, QTDT.RFX_SQ
+					, RQDT.PR_NUM
+					, RQDT.PR_SQ
+					, PRHD.REQ_DATE
+					, RQHD.BUYER_CD
+					, RQHD.PUR_ORG_CD
+					, RQHD.CTRL_USER_ID
+					, RQDT.CTRL_CD
+					, RQHD.RFX_TYPE
+					, RQDT.ITEM_CD
+					, RQHD.REG_DATE
+
+       		  FROM STOCQTDT QTDT INNER JOIN STOCRQDT RQDT ON (    QTDT.RFX_NUM = RQDT.RFX_NUM
+														 AND QTDT.RFX_CNT = RQDT.RFX_CNT
+														 AND QTDT.RFX_SQ = RQDT.RFX_SQ
+														 AND QTDT.GATE_CD = RQDT.GATE_CD
+														 AND RQDT.DEL_FLAG = '0')
+
+							LEFT JOIN STOCPRHD PRHD ON (     RQDT.PR_NUM = PRHD.PR_NUM
+														 AND RQDT.GATE_CD = PRHD.GATE_CD
+														 AND PRHD.DEL_FLAG = '0')
+
+							INNER JOIN STOCRQHD RQHD ON (    QTDT.RFX_NUM = RQHD.RFX_NUM
+														 AND QTDT.RFX_CNT = RQHD.RFX_CNT
+														 AND QTDT.GATE_CD = RQHD.GATE_CD
+														 AND RQHD.DEL_FLAG = '0')
+
+       		  WHERE  QTDT.QTA_NUM = #{QTA_NUM}
+       		  <if test='QTA_SQ != null and QTA_SQ != ""'>
+       		    AND QTDT.QTA_SQ = #{QTA_SQ}
+              </if>
+       		    AND QTDT.GATE_CD = #{ses.gateCd}
+       		    AND QTDT.DEL_FLAG = '0'
+       		    AND QTDT.SETTLE_QT > 0
+       		    AND (SELECT COUNT(*) FROM STOCCNHB CNHB
+       		    					  WHERE CNHB.QTA_NUM =  QTDT.QTA_NUM
+       		    					   AND CNHB.QTA_SQ = QTDT.QTA_SQ
+       		    					   AND GATE_CD = #{ses.gateCd}) = 0
+    </insert>
+
+
+
+</mapper>

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.srm.SRM_420_Mapper">
+
+	<select id="SRM_420_doSearch" parameterType="hashmap" resultType="java.util.Map">
+
+		SELECT
+			   <include refid="com.sql.toDateChar"/>(EVVQ.EV_DATE, 'yyyyMMdd') AS EV_DATE
+			 , EVVQ.VENDOR_CD
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME(EVVQ.GATE_CD, EVVQ.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			 , EVVQ.CREDIT_DEGREE
+			 , EVVQ.CASH_FLOW_DEGREE
+			 , EVVQ.EV_USER_NM
+			 , EVVQ.EV_SCORE
+			 ,(SELECT COUNT(*) FROM STOCATCH
+				WHERE GATE_CD = #{ses.gateCd}
+				  AND UUID = EVVQ.ATT_FILE_NUM
+				  AND DEL_FLAG = '0') AS ATT_FILE_CNT
+			 , EVVQ.ATT_FILE_NUM
+			 , EVVQ.EV_RMK
+		  FROM STOCEVVQ EVVQ
+		  JOIN STOCVNGL VNGL
+			   ON(EVVQ.GATE_cD = VNGL.GATE_CD
+			   AND EVVQ.VENDOR_CD = VNGL.VENDOR_CD
+			   AND VNGL.DEL_FLAG = '0')
+		 WHERE EVVQ.GATE_CD = #{ses.gateCd}
+		 
+		<if test="EV_DATE != null and EV_DATE != ''">
+		  <if test='_databaseId == "oracle"'>
+		    AND TO_CHAR(EVVQ.EV_DATE, 'YYYY') = #{EV_DATE}
+		  </if>
+		  <if test='_databaseId == "mssql"'>
+		    AND CONVERT(CHAR(4), EVVQ.EV_DATE, 112) = #{EV_DATE}
+		  </if>
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+		   AND UPPER(<include refid="com.sql.dbo"/>GETVENDORNAME(EVVQ.GATE_CD, EVVQ.VENDOR_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM != null and EV_USER_NM != ''">
+		   AND EVVQ.EV_USER_NM <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+			<if test="PURCHASE_TYPE eq 'NPUR'.toString()" >
+				AND VNGL.NORMAL_PURCHASE_FLAG = '1'
+			</if>
+			<if test="PURCHASE_TYPE eq 'PPUR'.toString()" >
+				AND VNGL.ITEM_PURCHASE_FLAG = '1'
+			</if>
+		</if>
+		   AND EVVQ.DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doVendorCnt" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(VENDOR_CD) AS CNT
+		  FROM STOCVNGL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+		   AND PROGRESS_CD = 'E'
+	</select>
+
+	<select id="SRM_420_doApprovalVendor" parameterType="hashmap" resultType="java.util.Map">
+		SELECT A.E_DATE AS EV_DATE
+			 , VNGL.VENDOR_CD
+			 , VNGL.VENDOR_NM
+			 , A.LASTGRD2 AS CREDIT_DEGREE
+			 , A.CASH_GRADE AS CASH_FLOW_DEGREE
+			 , #{ses.userNm} AS EV_USER_NM
+		  FROM dbk_report01 A
+		  JOIN STOCVNGL VNGL
+			ON(A.biz_no = VNGL.IRS_NUM)
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		   AND VNGL.SIGN_STATUS = 'E'
+		   AND VNGL.DEL_FLAG = '0'
+		<if test="EV_DATE != null and EV_DATE != ''">
+		   AND CONVERT(CHAR(4), A.E_DATE, 112) = #{EV_DATE}
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+		   AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM != null and EV_USER_NM != ''">
+		   AND #{ses.userNm} <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+			<if test="PURCHASE_TYPE eq 'NPUR'.toString()" >
+				AND VNGL.NORMAL_PURCHASE_FLAG = '1'
+			</if>
+			<if test="PURCHASE_TYPE eq 'PPUR'.toString()" >
+				AND VNGL.ITEM_PURCHASE_FLAG = '1'
+			</if>
+		</if>
+
+		UNION ALL
+
+		SELECT A.SUVDT AS EV_DATE
+			 , VNGL.VENDOR_CD
+			 , VNGL.VENDOR_NM
+			 , LASTGRD2
+			 , B.DECISION
+			 , #{ses.userNm} AS EV_USER_NM
+		  FROM DCC_PACKET01 A
+		  JOIN DCC_PACKET11 B
+			ON(A.SUVDT = B.SUVDT
+		   AND A.RESNO = B.RESNO)
+		  JOIN STOCVNGL VNGL
+			ON(A.RESNO = VNGL.IRS_NUM)
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		   AND VNGL.SIGN_STATUS = 'E'
+		   AND VNGL.DEL_FLAG = '0'
+		<if test="EV_DATE != null and EV_DATE != ''">
+		   AND CONVERT(CHAR(4), A.SUVDT, 112) = #{EV_DATE}
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+		   AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM != null and EV_USER_NM != ''">
+		   AND #{ses.userNm} <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+			<if test="PURCHASE_TYPE eq 'NPUR'.toString()" >
+				AND VNGL.NORMAL_PURCHASE_FLAG = '1'
+			</if>
+			<if test="PURCHASE_TYPE eq 'PPUR'.toString()" >
+				AND VNGL.ITEM_PURCHASE_FLAG = '1'
+			</if>
+		</if>
+	</select>
+
+	<update id="SRM_420_doDelete" parameterType="hashmap">
+		UPDATE STOCEVVQ SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '1'
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND EV_DATE = #{EV_DATE}
+	</update>
+	
+	<insert id="SRM_420_doSave" parameterType="hashmap">
+		 MERGE STOCEVVQ AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{EV_DATE} AS EV_DATE) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND 	A.VENDOR_CD = B.VENDOR_CD
+		   AND A.EV_DATE = B.EV_DATE)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   EV_USER_NM = #{EV_USER_NM}
+			 , EV_SCORE = #{EV_SCORE}
+			 , CREDIT_DEGREE = #{CREDIT_DEGREE}
+			 , CASH_FLOW_DEGREE = #{CASH_FLOW_DEGREE}
+			 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+			 , EV_RMK = #{EV_RMK}
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '0'
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , VENDOR_CD
+			 , EV_DATE
+			 , EV_USER_NM
+			 , EV_SCORE
+			 , CREDIT_DEGREE
+			 , CASH_FLOW_DEGREE
+			 , ATT_FILE_NUM
+			 , EV_RMK
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{EV_DATE}
+			 , #{EV_USER_NM}
+			 , #{EV_SCORE}
+			 , #{CREDIT_DEGREE}
+			 , #{CASH_FLOW_DEGREE}
+			 , #{ATT_FILE_NUM}
+			 , #{EV_RMK}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+		<include refid="com.sql.mergeEnd"/>
+	</insert>
+</mapper>

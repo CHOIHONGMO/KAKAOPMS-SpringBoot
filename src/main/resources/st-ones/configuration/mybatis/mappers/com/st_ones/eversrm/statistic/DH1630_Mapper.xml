@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1630_Mapper">
+
+
+    <select id="doSearchByVendor" resultType="hashmap">
+
+		SELECT
+		 T.VENDOR_NM,T.VENDOR_CD
+		,T.GR_AMT_1,T.GR_AMT_2
+		
+		,CASE WHEN M.TOTAL_GR_AMT = 0 THEN 0 ELSE (T.GR_AMT_2/ M.TOTAL_GR_AMT) * 100 END PER
+		
+		FROM (
+			SELECT 
+			K.VENDOR_NM,K.VENDOR_CD
+			,SUM(
+				CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(month, -1, #{END_DATE}), 112),1,6) = <include refid="com.sql.subStr"/>(K.GR_DATE,1,6) THEN K.GR_AMT ELSE 0 END
+			) GR_AMT_1
+	
+			,SUM(
+				CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(month, 0, #{END_DATE}), 112),1,6) = <include refid="com.sql.subStr"/>(K.GR_DATE,1,6) THEN K.GR_AMT ELSE 0 END
+			) GR_AMT_2
+			
+			FROM (
+				SELECT
+				A.VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,<include refid="com.sql.dbo"/>GETGMTDATE(A.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) GR_DATE
+				,GR_AMT
+				FROM STOCGRDT A
+				WHERE A.GATE_CD = #{ses.gateCd}
+			    <if test="PLANT_CD !='' and PLANT_CD !=null">
+			        AND A.PLANT_CD  IN (${PLANT_CD})
+			    </if>
+		
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+				
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+				
+				
+				 AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			) K
+			GROUP BY K.VENDOR_NM,K.VENDOR_CD
+		) T CROSS JOIN (
+			
+			SELECT 
+			SUM(
+				CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(month, 0, #{END_DATE}), 112),1,6) = <include refid="com.sql.subStr"/>(K.GR_DATE,1,6) THEN K.GR_AMT ELSE 0 END
+			) TOTAL_GR_AMT
+			
+			FROM (
+				SELECT
+				A.VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,<include refid="com.sql.dbo"/>GETGMTDATE(A.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) GR_DATE
+				,GR_AMT
+				FROM STOCGRDT A
+				WHERE A.GATE_CD = #{ses.gateCd}
+			    <if test="PLANT_CD !='' and PLANT_CD !=null">
+			        AND A.PLANT_CD  IN (${PLANT_CD})
+			    </if>
+		
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+				
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+				
+				
+				 AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			) K
+			
+		) M
+
+	</select>
+
+	<sql id="additionalColumnsBody">
+		SELECT PLANT_CD
+		FROM STOCOGPL A
+		WHERE A.GATE_CD = #{ses.gateCd}
+	    <if test="PLANT_CD !='' and PLANT_CD !=null">
+	        AND A.PLANT_CD  IN (${PLANT_CD})
+	    </if>	
+	    AND A.DEL_FLAG = '0'	
+
+    </sql>
+    
+    <select id="getAdditionalColumnInfos" resultType="hashmap">
+		SELECT 'V' <include refid="com.sql.stringMerge"/> PLANT_CD <include refid="com.sql.stringMerge"/> '_' <include refid="com.sql.stringMerge"/> TEMPLATE_ID AS COLUMN_ID
+			   ,(SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD = #{ses.gateCd} AND PLANT_CD = TMP.PLANT_CD)  COLUMN_NM
+		       ,PLANT_CD TEMPLATE_ID
+		       ,PLANT_CD AS USER_DATA
+		       ,(SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD = #{ses.gateCd} AND PLANT_CD = TMP.PLANT_CD) COLUMN_NM
+		  FROM  (<include refid="additionalColumnsBody"/>) TMP
+			
+			
+		  CROSS JOIN
+				    (SELECT 'AMT' AS TEMPLATE_ID ,'PLANT' TEMPLATE_NM
+		           ) TMP2
+		           ORDER BY PLANT_CD 
+    </select>
+    
+    <select id="doSearchComparisonTable" resultType="hashMap">
+    
+		SELECT
+		  <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, K.ITEM_CLS4, '4'), '') AS ITEM_CLS_NM4
+		
+          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+            ,(
+             	SELECT SUM( GR_AMT )
+             	  FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	 WHERE A.GATE_CD=#{ses.gateCd}
+		  		   AND A.DEL_FLAG = '0'
+		  		   AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+		  		   AND B.ITEM_CLS4 = K.ITEM_CLS4
+				   AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+				
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+					AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+
+             )   
+             
+             AS ${additionalColumnInfo.COLUMN_ID}
+          </foreach> 		
+            ,(
+             	SELECT SUM( GR_AMT )
+             	FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND B.ITEM_CLS4 = K.ITEM_CLS4
+				AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+				
+             )   
+          TOTAL_AMT
+		FROM (
+		  SELECT
+		  B.ITEM_CLS4
+		  FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+		  WHERE A.GATE_CD=#{ses.gateCd}
+		  AND A.DEL_FLAG = '0'
+
+	    <if test="PLANT_CD !='' and PLANT_CD !=null">
+	        AND A.PLANT_CD  IN (${PLANT_CD})
+	    </if>
+
+	    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+			AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+		</if>
+		<if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+		</if>				
+		
+			AND <include refid="com.sql.nvl"/>(ITEM_CLS4,'') != ''
+			AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+		  GROUP BY ITEM_CLS4
+		) K
+		UNION ALL
+		
+		-- 합계 
+		SELECT
+		  '합계' AS ITEM_CLS_NM4
+		
+          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+            ,(
+             	SELECT SUM( GR_AMT )
+             	FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND <include refid="com.sql.nvl"/>(B.ITEM_CLS4,'') != ''
+		  		AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+				AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+				
+             )   
+             
+             AS ${additionalColumnInfo.COLUMN_ID}
+          </foreach> 		
+            ,(
+             	SELECT SUM( GR_AMT )
+             	FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND <include refid="com.sql.nvl"/>(B.ITEM_CLS4,'') != ''
+				AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+				
+             )   
+          TOTAL_AMT
+
+
+
+
+		UNION ALL
+		
+		-- 매출대비 점유율 
+		SELECT
+		  '매출대비 점유율' AS ITEM_CLS_NM4
+		
+          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+            ,
+            	CASE WHEN (
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             ) = 0 THEN 0 ELSE 
+            
+              (
+             	SELECT SUM( GR_AMT )
+             	FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND <include refid="com.sql.nvl"/>(B.ITEM_CLS4,'') != ''
+		  		AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+				AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+
+
+             )  / (
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             )  * 100
+             END
+             
+             AS ${additionalColumnInfo.COLUMN_ID}
+          </foreach> 		
+            ,CASE WHEN  (
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             ) = 0 THEN 0
+            ELSE
+            (
+             	SELECT SUM( GR_AMT )
+             	FROM STOCGRDT A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD AND B.DEL_FLAG='0'
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND <include refid="com.sql.nvl"/>(B.ITEM_CLS4,'') != ''
+				AND A.GR_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+
+             ) / (
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             )  * 100 END
+          TOTAL_AMT
+
+
+		UNION ALL 
+		
+		SELECT
+		  '매출액' AS ITEM_CLS_NM4
+		
+          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+            ,(
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+		  		AND A.PLANT_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             )   
+             
+             AS ${additionalColumnInfo.COLUMN_ID}
+          </foreach> 		
+            ,(
+             	SELECT SUM( SALES_AMT )
+             	FROM STOCSTPS A
+             	WHERE A.GATE_CD=#{ses.gateCd}
+		  		AND A.DEL_FLAG = '0'
+				AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+             )   
+          TOTAL_AMT		
+		
+			
+		
+		
+		
+    
+    </select>
+
+	
+</mapper>

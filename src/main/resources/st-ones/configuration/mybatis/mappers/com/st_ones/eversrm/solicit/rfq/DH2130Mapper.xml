@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.DH2130Mapper">
+
+	<select id="doSearchRfqReceiptStatus" resultType="hashMap">
+
+		SELECT DISTINCT
+		<include refid="com.sql.dbo"/>getVendorRfxProgressCode( <include refid="com.sql.nvl"/>(RQVN.RFQ_PROGRESS_CD, '100'), RQHD.RFQ_CLOSE_DATE) AS RFQ_PROGRESS_CD
+		--, '' AS PREFFERD_BIDDER_YN
+		, RQHD.RFX_NUM
+		, RQHD.RFX_CNT
+		, RQHD.RFX_SUBJECT
+		, RQHD.RFX_TYPE
+
+		, <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') AS RFQ_START_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') AS RFQ_CLOSE_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE( RQVN.RFQ_RECEIPT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS RFQ_RECEIPT_DATE
+
+		, <include refid="com.sql.dbo"/>GETUSERNAME( RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+		, <include refid="com.sql.dbo"/>GETBUYERNAME( RQHD.GATE_CD, RQHD.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+		, RQHD.SUBMIT_TYPE
+		, RQHD.SETTLE_TYPE
+		, #{ses.companyCd} AS VENDOR_CD
+		, RQHD.GATE_CD
+		, RQHD.VENDOR_OPEN_TYPE
+		
+		
+		, RQVN.QTA_GIVEUP_RMK
+		, RQHD.PURCHASE_TYPE
+		, RQHD.PRC_STL_TYPE
+		
+		, CASE WHEN RQHD.ANN_FLAG = '1' THEN 'Y' ELSE 'N' END ANN_FLAG
+		, RQVN.ANN_PASS_YN
+		
+		, QTHD.QTA_NUM
+		, <include refid="com.sql.dbo"/>GETGMTDATE(QTHD.SEND_DATE , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})  QTA_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE(QTHD.VALID_TO_DATE , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) VALID_TO_DATE
+		
+		<if test='_databaseId=="oracle"'>
+		,(SELECT <include refid="com.sql.subStr"/>(XMLAGG(XMLELEMENT(A, ',' || OGPL.PLANT_NM) ORDER BY OGPL.PLANT_NM).EXTRACT('//text()'), 2)
+		    FROM STOCOGPL OGPL
+		   WHERE OGPL.GATE_CD = #{ses.gateCd}
+		     AND OGPL.PLANT_CD IN (SELECT DISTINCT PLANT_CD
+		     						 FROM STOCRQDT
+		     						WHERE GATE_CD = #{ses.gateCd}
+		     						  AND RFX_NUM = RQHD.RFX_NUM
+		     						  AND RFX_CNT = RQHD.RFX_CNT
+		     						  AND DEL_FLAG = '0')) AS PLANT_NM	
+		</if>
+		
+		<if test='_databaseId=="mssql"'>
+		,STUFF(	(SELECT ', ' + CAST(OGPL.PLANT_NM AS NVARCHAR(500))
+					  FROM STOCOGPL OGPL
+					  WHERE OGPL.GATE_CD = #{ses.gateCd}
+					  AND OGPL.PLANT_CD IN (
+					  SELECT DISTINCT PLANT_CD 
+					  FROM STOCRQDT
+					  WHERE GATE_CD = #{ses.gateCd}
+					  AND RFX_NUM = RQHD.RFX_NUM
+					  AND RFX_CNT = RQHD.RFX_CNT
+					  AND DEL_FLAG = '0'
+					  )
+						FOR XML PATH('')
+					), 1,1,'') AS PLANT_NM			
+		</if>
+		
+		FROM STOCRQHD RQHD  JOIN STOCRQVN RQVN
+		ON (RQVN.GATE_CD = RQHD.GATE_CD
+		AND RQVN.RFX_NUM = RQHD.RFX_NUM
+		AND RQVN.RFX_CNT= RQHD.RFX_CNT
+		AND RQVN.VENDOR_CD= #{ses.companyCd}
+		AND RQVN.DEL_FLAG = '0')
+		
+		LEFT OUTER JOIN STOCQTHD QTHD 
+		ON (
+			RQVN.GATE_CD      = QTHD.GATE_CD
+			AND RQVN.RFX_NUM  = QTHD.RFX_NUM
+			AND RQVN.RFX_CNT  = QTHD.RFX_CNT
+			AND RQVN.VENDOR_CD = QTHD.VENDOR_CD
+			AND QTHD.VENDOR_CD = #{ses.companyCd}
+			AND QTHD.DEL_FLAG = '0'
+		)
+		WHERE RQHD.GATE_CD = #{ses.gateCd}
+		AND RQHD.SIGN_STATUS = 'E'
+		AND RQHD.DEL_FLAG = '0'
+		AND <![CDATA[RQHD.RFQ_START_DATE <= <include refid="com.sql.sysdate"/>]]>
+		AND RQHD.RFQ_CLOSE_DATE >= <include refid="com.sql.sysdate"/>
+
+		<if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null">
+			<if test="ADD_DATE_TO !='' and ADD_DATE_TO != null">
+				AND RQHD.RFQ_START_DATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}, 'YYYYMMDD HH24:MI:SS')  AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND <include refid="com.sql.dbo"/>getVendorRfxProgressCode( <include refid="com.sql.nvl"/>(RQVN.RFQ_PROGRESS_CD, '100'), RQHD.RFQ_CLOSE_DATE) = #{PROGRESS_CD}
+		</if>
+		<if test="RFX_NUM != '' and RFX_NUM != null">
+			AND RQHD.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+			AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test='summary == "Y"'>
+			AND <include refid="com.sql.dbo"/>getVendorRfxProgressCode( <include refid="com.sql.nvl"/>(RQVN.RFQ_PROGRESS_CD, '100'), RQHD.RFQ_CLOSE_DATE) IN ('100','200','250')
+		</if>
+		<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+			AND RQHD.PURCHASE_TYPE = #{PURCHASE_TYPE}
+		</if>
+		<if test="SUBMIT_TYPE != '' and SUBMIT_TYPE != null">
+			AND RQHD.SUBMIT_TYPE = #{SUBMIT_TYPE}
+		</if>
+
+
+		ORDER BY REG_DATE DESC, RQHD.RFX_NUM DESC, RQHD.RFX_CNT
+	</select>
+
+
+
+	<select id="checkVendorRfxProgressCode" parameterType="hashMap" resultType="string">
+
+		SELECT CASE WHEN <include refid="com.sql.nvl"/>(RQDT.NEGO_PROGRESS_CD, '0') != '100'
+		THEN <include refid="com.sql.dbo"/>getVendorRfxProgressCode(RQVN.RFQ_PROGRESS_CD, RQHD.RFQ_CLOSE_DATE)
+		ELSE RQDT.NEGO_PROGRESS_CD END
+		FROM STOCRQHD RQHD JOIN STOCRQVN RQVN
+		ON (RQVN.GATE_CD = RQHD.GATE_CD
+		AND RQVN.RFX_NUM = RQHD.RFX_NUM
+		AND RQVN.RFX_CNT= RQHD.RFX_CNT) LEFT OUTER JOIN (SELECT GATE_CD, RFX_NUM, RFX_CNT, NEGO_VENDOR_CD, <include refid="com.sql.nvl"/>(MAX(NEGO_PROGRESS_CD), 0) AS NEGO_PROGRESS_CD,
+		CASE WHEN SUM(CASE WHEN NEGO_VENDOR_CD IS NOT NULL THEN 1 ELSE 0 END) > 0 THEN 'Y'
+		ELSE 'N' END AS PREFFERD_BIDDER_YN
+		FROM STOCRQDT
+		GROUP BY GATE_CD, RFX_NUM, RFX_CNT, NEGO_VENDOR_CD
+		) RQDT
+		ON (RQDT.GATE_CD = RQVN.GATE_CD
+		AND RQDT.RFX_NUM = RQVN.RFX_NUM
+		AND RQDT.RFX_CNT = RQVN.RFX_CNT
+		AND RQDT.NEGO_VENDOR_CD = RQVN.VENDOR_CD)
+		WHERE RQVN.GATE_CD = #{ses.gateCd}
+		AND RQVN.RFX_NUM = #{RFX_NUM}
+		AND RQVN.RFX_CNT = #{RFX_CNT}
+		AND RQVN.VENDOR_CD = #{VENDOR_CD}
+		AND RQVN.DEL_FLAG = '0'
+		AND RQHD.DEL_FLAG = '0'
+
+	</select>
+
+	<update id="doReceiptRfqReceiptStatus" parameterType="hashMap">
+		UPDATE STOCRQVN
+		SET MOD_DATE       =    <include refid="com.sql.sysdate"/>,
+		MOD_USER_ID    =    #{ses.userId},
+		DEL_FLAG          = '0' ,
+		RFQ_PROGRESS_CD = '200',
+		RFQ_RECEIPT_DATE  =  <include refid="com.sql.sysdate"/>,
+		RFQ_GIVEUP_DATE = NULL
+		WHERE GATE_CD     =    #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND DEL_FLAG = '0'
+
+	</update>
+
+	<select id="checkExistRQVN" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(VENDOR_CD)
+		FROM STOCRQVN
+		WHERE GATE_CD = #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+
+	<insert id="insertStatusRQVN" parameterType="hashMap">
+
+		INSERT INTO STOCRQVN(
+		GATE_CD
+		, RFX_NUM
+		, RFX_CNT
+		, VENDOR_CD
+		, REG_DATE
+		, REG_USER_ID
+		, MOD_DATE
+		, MOD_USER_ID
+		, DEL_FLAG
+		, RFQ_PROGRESS_CD
+		<choose>
+			<when test='RFQ_PROGRESS_CD == "150"'>
+				, RFQ_GIVEUP_DATE
+			</when>
+			<otherwise>
+				, RFQ_RECEIPT_DATE
+			</otherwise>
+		</choose>
+		) VALUES (
+		#{ses.gateCd}
+		, #{RFX_NUM}
+		, #{RFX_CNT}
+		, #{ses.companyCd}
+		, <include refid="com.sql.sysdate"/>
+		, #{ses.userId}
+		, <include refid="com.sql.sysdate"/>
+		, #{ses.userId}
+		, '0'
+		, #{RFQ_PROGRESS_CD}
+		, <include refid="com.sql.sysdate"/>
+		)
+	</insert>
+
+	<update id="doWaiveRfqReceiptStatusPrefferdBidder" parameterType="hashMap">
+		UPDATE STOCRQDT
+		SET MOD_DATE       =    <include refid="com.sql.sysdate"/>,
+		MOD_USER_ID    =    #{ses.userId},
+		NEGO_PROGRESS_CD = '150'
+		WHERE GATE_CD = #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND DEL_FLAG = '0'
+	</update>
+
+	<update id="doWaiveRfqReceiptStatus" parameterType="hashMap">
+		UPDATE STOCRQVN
+		SET MOD_DATE       =    <include refid="com.sql.sysdate"/>,
+		MOD_USER_ID    =    #{ses.userId},
+		DEL_FLAG          = '0' ,
+		RFQ_PROGRESS_CD = '150' ,
+		RFQ_GIVEUP_DATE  =  <include refid="com.sql.sysdate"/>,
+		QTA_GIVEUP_RMK = #{QTA_GIVEUP_RMK}
+
+		WHERE GATE_CD = #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND DEL_FLAG = '0'
+
+	</update>
+
+	<update id="doResetRQDTPrefferedBidderInfo" parameterType="hashMap">
+		UPDATE STOCRQDT
+		SET MOD_DATE       =    <include refid="com.sql.sysdate"/>,
+		MOD_USER_ID    =    #{ses.userId},
+		NEGO_PROGRESS_CD = NULL,
+		NEGO_VENDOR_CD = NULL,
+		NEGO_DATE = NULL
+		WHERE GATE_CD = #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND DEL_FLAG = '0'
+	</update>
+
+	<update id="doUpdateRQDTPrefferedBidderInfo" parameterType="hashMap">
+		UPDATE STOCRQDT
+		SET MOD_DATE       =    <include refid="com.sql.sysdate"/>,
+		MOD_USER_ID    =    #{ses.userId},
+		NEGO_PROGRESS_CD = #{PROGRESS_CD},
+		WHERE GATE_CD = #{GATE_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND DEL_FLAG = '0'
+	</update>
+
+
+</mapper>

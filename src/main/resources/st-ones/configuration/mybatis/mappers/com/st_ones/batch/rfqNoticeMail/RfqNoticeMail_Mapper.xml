@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.rfqNoticeMail.RfqNoticeMail_Mapper">
+
+    <select id="doSelectNonPartRfqVendors" parameterType="hashMap" resultType="hashMap">
+		SELECT Z.*
+		  FROM (
+	        SELECT
+	        	  UR.USER_ID AS RECV_USER_ID
+	            , UR.USER_NM AS RECV_USER_NM
+	            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.MAIL_FLAG, '0') = '1' THEN UR.EMAIL ELSE '' END) AS RECV_EMAIL
+	            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.SMS_FLAG, '0') = '1' THEN UR.CELL_NUM ELSE '' END) AS RECV_CELL_NUM
+	            , VN.VENDOR_CD
+	            ,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+	        	, HD.RFQ_NUM <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toVarchar"/>HD.RFQ_CNT) AS RFQ_NUM_CNT
+	        	, HD.RFQ_SUBJECT
+	            ,<include refid="com.sql.toDateChar"/>(HD.RFQ_CLOSE_DATE, 'YYYY-MM-DD HH24:MI') AS RFQ_CLOSE_DATE
+	            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M066', HD.VENDOR_OPEN_TYPE, 0, #{ses.langCd}) AS VENDOR_OPEN_TYPE
+	            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M065', HD.SETTLE_TYPE, 0, #{ses.langCd}) AS SETTLE_TYPE
+	            , HD.RMK_TEXT_NUM
+	            , '' AS RMK
+	          FROM STOCRQHD HD
+	          JOIN STOCRQVN VN
+		           ON (HD.GATE_CD = VN.GATE_CD
+		           AND HD.RFQ_NUM = VN.RFQ_NUM
+		           AND HD.RFQ_CNT = VN.RFQ_CNT
+		           AND <include refid="com.sql.nvl"/>(VN.RFQ_PROGRESS_CD, '100') NOT IN ('150', '300')	-- 견적포기(150), 제출(300)
+		           AND VN.DEL_FLAG = '0')
+	          LEFT JOIN STOCCVUR UR
+		           ON (VN.GATE_CD  = UR.GATE_CD
+		           AND VN.VENDOR_CD= UR.COMPANY_CD
+		           AND UR.DEL_FLAG = '0')
+	         WHERE HD.GATE_CD = #{ses.gateCd}
+	           AND <include refid="com.sql.toDateChar"/>(HD.RFQ_CLOSE_DATE, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/> + 3, 'yyyyMMdd')
+	           AND <include refid="com.sql.dbo"/>getRfqProgressCd(HD.PROGRESS_CD, HD.RFQ_CLOSE_DATE) = '200'	-- 견적진행중
+	           AND HD.DEL_FLAG = '0'
+	         GROUP BY HD.RFQ_NUM, HD.RFQ_CNT, HD.RFQ_SUBJECT, VN.VENDOR_CD,
+	                  UR.USER_ID, UR.USER_NM, UR.MAIL_FLAG, UR.EMAIL, UR.TEL_NUM, UR.SMS_FLAG, UR.CELL_NUM,
+	                  HD.RFQ_CLOSE_DATE, HD.VENDOR_OPEN_TYPE, HD.SETTLE_TYPE, HD.RMK_TEXT_NUM
+
+			UNION ALL
+
+			SELECT
+	        	  UR.USER_ID AS RECV_USER_ID
+	            , UR.USER_NM AS RECV_USER_NM
+	            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.MAIL_FLAG, '0') = '1' THEN UR.EMAIL ELSE '' END) AS RECV_EMAIL
+	            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.SMS_FLAG, '0') = '1' THEN UR.CELL_NUM ELSE '' END) AS RECV_CELL_NUM
+	            , VN.VENDOR_CD
+	            ,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+	        	, HD.RFX_NUM <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toVarchar"/>HD.RFX_CNT) AS RFQ_NUM_CNT
+	        	, HD.RFX_SUBJECT AS RFQ_SUBJECT
+	            ,<include refid="com.sql.toDateChar"/>(HD.RFX_TO_DATE, 'YYYY-MM-DD HH24:MI') AS RFQ_CLOSE_DATE
+	            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M066', HD.VENDOR_OPEN_TYPE, 0, #{ses.langCd}) AS VENDOR_OPEN_TYPE
+	            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M065', HD.VENDOR_SLT_TYPE, 0, #{ses.langCd}) AS SETTLE_TYPE
+	            , '' AS RMK_TEXT_NUM
+	            , HD.RMK
+	          FROM STOPRQHD HD
+	          JOIN STOPRQVN VN
+		           ON (HD.GATE_CD = VN.GATE_CD
+		           AND HD.RFX_NUM = VN.RFX_NUM
+		           AND HD.RFX_CNT = VN.RFX_CNT
+		           AND <include refid="com.sql.nvl"/>(VN.PROGRESS_CD, '100') NOT IN ('150', '300')	-- 견적포기(150), 제출(300)
+		           AND VN.DEL_FLAG = '0')
+	          LEFT JOIN STOCCVUR UR
+		           ON (VN.GATE_CD  = UR.GATE_CD
+		           AND VN.VENDOR_CD= UR.COMPANY_CD
+		           AND UR.DEL_FLAG = '0')
+	         WHERE HD.GATE_CD = #{ses.gateCd}
+	           AND <include refid="com.sql.toDateChar"/>(HD.RFX_TO_DATE, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/> + 3, 'yyyyMMdd')
+	           AND <include refid="com.sql.dbo"/>getRfxProgressCd(HD.PROGRESS_CD, HD.RFX_TO_DATE) = '2350'	-- 견적진행중
+	           AND HD.DEL_FLAG = '0'
+	         GROUP BY HD.RFX_NUM, HD.RFX_CNT, HD.RFX_SUBJECT, VN.VENDOR_CD,
+	                  UR.USER_ID, UR.USER_NM, UR.MAIL_FLAG, UR.EMAIL, UR.TEL_NUM, UR.SMS_FLAG, UR.CELL_NUM,
+	                  HD.RFX_TO_DATE, HD.VENDOR_OPEN_TYPE, HD.VENDOR_SLT_TYPE, HD.RMK
+		  ) Z
+		 WHERE 1 = 1
+    </select>
+
+	<select id="doSelectNonPartBidVendors" parameterType="hashMap" resultType="hashMap">
+		SELECT
+        	  UR.USER_ID AS RECV_USER_ID
+	        , UR.USER_NM AS RECV_USER_NM
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.MAIL_FLAG, '0') = '1' THEN UR.EMAIL ELSE '' END) AS RECV_EMAIL
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.SMS_FLAG, '0') = '1' THEN UR.CELL_NUM ELSE '' END) AS RECV_CELL_NUM
+            , VN.VENDOR_CD
+            ,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+        	, HD.RFX_NUM <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toVarchar"/>HD.RFX_CNT) AS RFQ_NUM_CNT
+        	, HD.RFX_SUBJECT AS RFQ_SUBJECT
+            ,<include refid="com.sql.toDateChar"/>(HD.RFX_TO_DATE, 'YYYY-MM-DD HH24:MI') AS RFQ_CLOSE_DATE
+            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M066', HD.VENDOR_OPEN_TYPE, 0, #{ses.langCd}) AS VENDOR_OPEN_TYPE
+            ,<include refid="com.sql.dbo"/>getComCode(#{ses.gateCd}, 'M065', HD.VENDOR_SLT_TYPE, 0, #{ses.langCd}) AS SETTLE_TYPE
+            , HD.RMK
+          FROM STOPBDHD HD
+          JOIN STOPBDVN VN
+	           ON (HD.GATE_CD = VN.GATE_CD
+	           AND HD.RFX_NUM = VN.RFX_NUM
+	           AND HD.RFX_CNT = VN.RFX_CNT
+	           AND <include refid="com.sql.nvl"/>(VN.PROGRESS_CD, '100') NOT IN ('150', '300')	-- 견적포기(150), 제출(300)
+	           AND VN.DEL_FLAG = '0')
+          LEFT JOIN STOCCVUR UR
+	           ON (VN.GATE_CD  = UR.GATE_CD
+	           AND VN.VENDOR_CD= UR.COMPANY_CD
+	           AND UR.DEL_FLAG = '0')
+         WHERE HD.GATE_CD = #{ses.gateCd}
+           AND <include refid="com.sql.toDateChar"/>(HD.RFX_TO_DATE, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/> + 3, 'yyyyMMdd')
+           AND <include refid="com.sql.dbo"/>getBidProgressCd(HD.PROGRESS_CD, HD.RFX_TO_DATE) = '2700'	-- 입찰진행중
+           AND HD.DEL_FLAG = '0'
+         GROUP BY HD.RFX_NUM, HD.RFX_CNT, HD.RFX_SUBJECT, VN.VENDOR_CD,
+                  UR.USER_ID, UR.USER_NM, UR.MAIL_FLAG, UR.EMAIL, UR.TEL_NUM, UR.SMS_FLAG, UR.CELL_NUM,
+                  HD.RFX_TO_DATE, HD.VENDOR_OPEN_TYPE, HD.VENDOR_SLT_TYPE, HD.RMK
+    </select>
+
+</mapper>

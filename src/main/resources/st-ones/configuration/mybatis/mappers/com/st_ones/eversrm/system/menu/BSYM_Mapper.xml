@@ -1,0 +1,1074 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.eversrm.system.menu.BSYM_Mapper">
+
+	<resultMap type="java.util.HashMap" id="getReturnMap">
+        <result property="title" column="SCREEN_NM" />
+        <result property="key" column="KEY2" />
+        <result property="isFolder" column="IS_FOLDER" />
+        <result property="menuNm" column="MENU_NM" />
+        <result property="parentid" column="PARENTID" />
+        <result property="useFlag" column="USE_FLAG" />
+        <result property="screenId" column="SCREEN_ID" />
+        <result property="sortSq" column="SORT_SQ" />
+        <result property="menuCd" column="MENU_CD" />
+        <result property="depth" column="DEPTH" />
+    </resultMap>
+
+	<select id="getStocmutm" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			*
+		FROM STOCMUTM
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+		  AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+		  ORDER BY SORT_SQ
+	</select>
+
+    <select id="getMenuTemplates" parameterType="hashmap" resultType="hashMap">
+
+        SELECT MUTG.TMPL_MENU_GROUP_CD
+             , <include refid="com.sql.dbo"/>GETMULTINAME(MUTG.GATE_CD, 'TG', #{ses.langCd}, MUTG.TMPL_MENU_GROUP_CD, '')  AS TMPL_MENU_GROUP_NM
+             , MUTG.MODULE_TYPE
+             , MUTG.USE_FLAG
+             , CASE WHEN  UR.USER_NM IS NULL THEN  MUTG.REG_USER_ID ELSE  UR.USER_NM END AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>getGmtDate(MUTG.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)  AS REG_DATE
+             , 'U' AS INSERT_FLAG
+         FROM STOCMUTG MUTG LEFT OUTER JOIN STOCUSER UR ON
+         	(MUTG.GATE_CD = UR.GATE_CD AND
+         	 MUTG.REG_USER_ID = UR.USER_ID AND
+         	 UR.DEL_FLAG = '0')
+        WHERE MUTG.GATE_CD = #{ses.gateCd}
+          AND MUTG.DEL_FLAG = '0'
+
+        <if test="TMPL_MENU_GROUP_CD != '' and TMPL_MENU_GROUP_CD != null">
+            AND MUTG.TMPL_MENU_GROUP_CD <include refid="com.sql.likeL"/> #{TMPL_MENU_GROUP_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MODULE_TYPE != '' and MODULE_TYPE != null">
+            AND MUTG.MODULE_TYPE = #{MODULE_TYPE}
+        </if>
+        <if test="TMPL_MENU_GROUP_NM != '' and TMPL_MENU_GROUP_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(MUTG.GATE_CD, 'TG', #{ses.langCd}, MUTG.TMPL_MENU_GROUP_CD, '') <include refid="com.sql.likeL"/> #{TMPL_MENU_GROUP_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY <include refid="com.sql.dbo"/>GETMULTINAME(MUTG.GATE_CD, 'TG', #{ses.langCd}, MUTG.TMPL_MENU_GROUP_CD, '')
+
+    </select>
+
+    <select id="existsModuleType" parameterType="hashMap" resultType="int">
+
+        SELECT COUNT(MODULE_TYPE)
+        FROM STOCMUTG
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   MODULE_TYPE = #{MODULE_TYPE}
+        AND   DEL_FLAG = '0'
+
+    </select>
+
+    <select id="getTmplMenuGroupCode" resultType="string">
+
+        SELECT 'TG' <include refid="com.sql.stringMerge"/> <include refid="com.sql.lpad"/>(<include refid="com.sql.subStr"/>(<include refid="com.sql.nvl"/>(MAX(TMPL_MENU_GROUP_CD), 'TG0000'), 3)+1, 4,0)  FROM STOCMUTG
+
+    </select>
+
+    <insert id="createMenuTemplate" parameterType="hashmap">
+
+        INSERT INTO ${TABLE_NM} (
+               GATE_CD
+             , TMPL_MENU_GROUP_CD
+             , REG_USER_ID
+             , REG_DATE
+             , MOD_USER_ID
+             , MOD_DATE
+             , MODULE_TYPE
+             , DEL_FLAG
+             , USE_FLAG
+        ) VALUES (
+               #{ses.gateCd}
+             , #{TMPL_MENU_GROUP_CD}
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{MODULE_TYPE}
+             , '0'
+             , #{USE_FLAG}
+        )
+
+    </insert>
+
+	<select id="selectStocmuba" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  CTRL_TYPE
+		FROM STOCMUBA
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+		  AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+	</select>
+
+    <insert id="insertStocmuba" parameterType="hashmap">
+
+        INSERT INTO STOCMUBA (
+               GATE_CD
+             , TMPL_MENU_CD
+             , CTRL_TYPE
+             , REG_USER_ID
+             , REG_DATE
+             , DEL_FLAG
+        )
+        SELECT
+            <if test="_databaseId == 'mssql'">
+            TOP 1
+			</if>
+               #{ses.gateCd}
+             , #{TMPL_MENU_CD}
+             , #{CTRL_TYPE}
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , '0'
+		  <include refid="com.sql.dual"/>
+        WHERE NOT EXISTS (
+        	SELECT 'X' FROM STOCMUBA B
+        	WHERE B.GATE_CD = #{ses.gateCd}
+        	  AND B.TMPL_MENU_CD = #{TMPL_MENU_CD}
+        	  AND B.CTRL_TYPE = #{CTRL_TYPE}
+        )
+
+    </insert>
+
+    <update id="updateMenuTemplate" parameterType="hashmap">
+
+        UPDATE ${TABLE_NM} SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        <if test="MODULE_TYPE != null">, MODULE_TYPE = #{MODULE_TYPE}</if>
+        <if test="USE_FLAG != null">, USE_FLAG = #{USE_FLAG}</if>
+        WHERE GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+
+    </update>
+
+    <update id="updateMenuTemplateList" parameterType="hashmap">
+
+        UPDATE STOCMUTM SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        <if test="MODULE_TYPE != null">, MODULE_TYPE = #{MODULE_TYPE}</if>
+        WHERE GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+
+    </update>
+
+    <delete id="deleteMenuTemplate" parameterType="hashmap">
+
+        DELETE FROM ${TABLE_NM}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+
+    </delete>
+
+    <delete id="deleteMenuTemplateDetailList" parameterType="hashmap">
+
+        DELETE FROM STOCMUTM
+        WHERE GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+
+    </delete>
+
+    <delete id="deleteStocmuba" parameterType="hashmap">
+
+        DELETE FROM STOCMUBA
+        WHERE GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+
+    </delete>
+
+    <select id="getMenuTemplateTree" parameterType="hashmap" resultMap="getReturnMap">
+
+        SELECT
+            <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD FROM STOCMUTM TM
+        																 WHERE TM.GATE_CD = MUTM.GATE_CD
+        																   AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+        																   							   ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+
+            -- <include refid="com.sql.nvl"/> 대신 CASE 문 사용 MSSQL의 경우 <include refid="com.sql.nvl"/> 사용 시 NULL 값만 체크하여 공백체크 무시 함수 작동 안됨
+            , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+            -- MENU_KEY -> KEY2로 변경
+            , MUTM.TMPL_MENU_CD AS KEY2
+            , MUTM.DEPTH
+            , MUTM.USE_FLAG
+            , MUTM.SORT_SQ
+            , MUTM.SCREEN_ID
+            <if test="_databaseId == 'oracle'">
+            , DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD) AS PARENTID
+            </if>
+            <if test="_databaseId == 'mssql'">
+            ,CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' THEN ''
+                  WHEN MUTM.HIGH_TMPL_MENU_CD is null THEN ''
+             ELSE MUTM.HIGH_TMPL_MENU_CD END AS PARENTID
+            </if>
+            , (CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+            		WHEN ((CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+            					ELSE MUTM.HIGH_TMPL_MENU_CD END)) = '' THEN 'true'
+					WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD) FROM STOCMUTM SUB_TM
+	                 	   WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+	                         AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+	                         AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+	                         AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+	                         		   ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+	                ELSE 'false' END) IS_FOLDER
+         FROM STOCMUTM MUTM JOIN STOCMUTG MUTG
+          ON (MUTM.GATE_CD = MUTG.GATE_CD
+          AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+        WHERE MUTM.GATE_CD = #{ses.gateCd}
+          AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+          AND MUTM.MODULE_TYPE = #{MODULE_TYPE}
+        <choose>
+         	<when test="TMPL_MENU_CD != '' and TMPL_MENU_CD != null">
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+         				  ELSE MUTM.HIGH_TMPL_MENU_CD END) = #{TMPL_MENU_CD }
+         	</when>
+         	<otherwise>
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+         				  ELSE MUTM.HIGH_TMPL_MENU_CD END) = ''
+         	</otherwise>
+        </choose>
+          AND MUTM.DEL_FLAG = '0'
+          AND MUTG.DEL_FLAG = '0'
+        ORDER BY MUTM.SORT_SQ
+
+    </select>
+
+    <select id="getMenuTemplateDtree" parameterType="hashmap" resultType="hashmap">
+        SELECT <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD
+                                                                             FROM STOCMUTM TM
+                                                                            WHERE TM.GATE_CD = MUTM.GATE_CD
+                                                                              AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+                                                                                                          ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+             , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+             , MUTM.TMPL_MENU_CD
+             , MUTM.DEPTH
+             , MUTM.USE_FLAG
+             , MUTM.SORT_SQ
+
+          <if test="_databaseId == 'oracle'">
+             , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, ' ') AS SCREEN_ID
+          </if>
+          <if test="_databaseId == 'mssql'">
+             , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, '') AS SCREEN_ID
+          </if>
+
+          <if test="_databaseId == 'oracle'">
+             , <include refid="com.sql.nvl"/>(DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD), ' ') AS PARENTID
+          </if>
+          <if test="_databaseId == 'mssql'">
+             , CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' THEN ''
+                    WHEN MUTM.HIGH_TMPL_MENU_CD is null THEN ''
+                    ELSE MUTM.HIGH_TMPL_MENU_CD END AS PARENTID
+          </if>
+             , (CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+                     WHEN ((CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+                                 THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END)) = '' THEN 'true'
+                     WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD)
+                             FROM STOCMUTM SUB_TM
+                            WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+                              AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+                              AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+                              AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+                                        ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+                                        ELSE 'false' END) IS_FOLDER
+          FROM STOCMUTM MUTM
+          JOIN STOCMUTG MUTG
+            ON (MUTM.GATE_CD = MUTG.GATE_CD
+           AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+         WHERE MUTM.GATE_CD = #{ses.gateCd}
+           AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+           AND MUTM.MODULE_TYPE = #{MODULE_TYPE}
+           AND MUTM.DEL_FLAG = '0'
+           AND MUTG.DEL_FLAG = '0'
+         ORDER BY MUTM.SORT_SQ
+    </select>
+
+    <select id="searchMenuTemplateTreeNode" parameterType="hashmap" resultType="hashmap">
+
+        SELECT MUTM.GATE_CD
+             , MUTM.TMPL_MENU_CD
+             , <include refid="com.sql.dbo"/>GETMULTINAME ( MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, '-'))  AS MENU_NM
+             , MUTM.TMPL_MENU_CD AS TMPL_MENU_CD_ORI
+             , MUTM.TMPL_MENU_GROUP_CD
+             , MUTM.HIGH_TMPL_MENU_CD
+             , MUTM.USE_FLAG
+             , MUTM.SCREEN_ID
+             , MUTM.MODULE_TYPE
+             , MUTM.DEPTH
+             , MUTM.LEAF_FLAG
+             , MUTM.SORT_SQ
+             , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'SC', #{ses.langCd}, '', MUTM.SCREEN_ID)  AS SCREEN_NM
+         FROM STOCMUTM MUTM LEFT JOIN STOCSCRN SCRN
+          ON (MUTM.GATE_CD = SCRN.GATE_CD
+          AND MUTM.SCREEN_ID = SCRN.SCREEN_ID)
+        WHERE MUTM.GATE_CD = #{ses.gateCd}
+          AND UPPER(MUTM.TMPL_MENU_CD) = UPPER(<include refid="com.sql.trim"/>(#{TMPL_MENU_CD}))
+
+    </select>
+
+    <select id="existsMenuTemplateDetail" parameterType="hashmap" resultType="java.lang.Integer">
+
+        SELECT COUNT(TMPL_MENU_CD) AS CNT
+          FROM STOCMUTM
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+           AND DEL_FLAG != 1
+
+    </select>
+
+    <insert id="createMenuTemplateDetail" parameterType="java.util.HashMap">
+
+        INSERT INTO ${TABLE_NM} (
+               GATE_CD
+             , TMPL_MENU_CD
+             , REG_USER_ID
+             , REG_DATE
+             , MOD_USER_ID
+             , MOD_DATE
+             , DEPTH
+             , HIGH_TMPL_MENU_CD
+             , LEAF_FLAG
+             , USE_FLAG
+             , SORT_SQ
+             , TMPL_MENU_GROUP_CD
+             , SCREEN_ID
+             , MODULE_TYPE
+             , DEL_FLAG
+             , TOP_TMPL_MENU_CD
+        ) VALUES (
+               #{ses.gateCd}
+             , #{TMPL_MENU_CD}
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{DEPTH}
+             , #{HIGH_TMPL_MENU_CD}
+             , #{LEAF_FLAG}
+             , #{USE_FLAG}
+             , #{SORT_SQ}
+             , #{TMPL_MENU_GROUP_CD}
+             , #{SCREEN_ID}
+             , #{MODULE_TYPE}
+             , '0'
+             , #{TOP_TMPL_MENU_CD}
+        )
+
+    </insert>
+
+    <insert id="createMenuTemplateDetailMulg" parameterType="java.util.HashMap">
+
+			INSERT INTO STOCMULG (
+					  GATE_CD
+					, MULTI_SQ
+					, LANG_CD
+					, REG_DATE
+					, REG_USER_ID
+					, MOD_DATE
+					, MOD_USER_ID
+					, DEL_FLAG
+					, MULTI_NM
+					, MULTI_DESC
+					, MULTI_CD
+					, SCREEN_ID
+					, ACTION_CD
+					, TMPL_MENU_CD
+					, AUTH_CD
+					, ACTION_PROFILE_CD
+					, TMPL_MENU_GROUP_CD
+					, MENU_GROUP_CD
+					, COMMON_ID
+					, OTHER_CD
+				) (
+		    SELECT DISTINCT
+					  #{ses.gateCd}
+					, (SELECT <include refid="com.sql.nvl"/>( MAX(MULTI_SQ) , 0)+1 FROM STOCMULG)
+					, A.LANG_CD
+					, <include refid="com.sql.sysdate"/>
+					, #{ses.userId}
+					, <include refid="com.sql.sysdate"/>
+					, #{ses.userId}
+					, '0'
+					, A.MULTI_NM
+					, ''
+					, 'MT'
+					, A.SCREEN_ID
+					, ''
+					, #{TMPL_MENU_CD}
+					, ''
+					, ''
+					, ''
+					, ''
+					, ''
+					, ''
+		    FROM STOCMULG A
+		    WHERE A.GATE_CD = #{ses.gateCd}
+		      AND A.SCREEN_ID = #{SCREEN_ID}
+		      AND A.MULTI_CD = 'SC'
+		      AND A.DEL_FLAG = '0'
+		      AND NOT EXISTS
+		      (SELECT 'X'
+		       FROM STOCMULG B
+		       WHERE A.GATE_CD = B.GATE_CD
+		         AND A.LANG_CD = B.LANG_CD
+		         AND A.TMPL_MENU_CD = B.TMPL_MENU_CD
+		         AND B.MULTI_CD = 'MT'
+		         AND B.DEL_FLAG = '0')
+				)
+
+    </insert>
+
+    <insert id="copyMenuTemplateDetailMulg" parameterType="java.util.HashMap">
+
+			INSERT INTO STOCMULG (
+					  GATE_CD
+
+            <if test="_databaseId == 'oracle'">
+					, MULTI_SQ
+			</if>
+					, LANG_CD
+					, REG_DATE
+					, REG_USER_ID
+					, MOD_DATE
+					, MOD_USER_ID
+					, DEL_FLAG
+					, MULTI_NM
+					, MULTI_DESC
+					, MULTI_CD
+					, SCREEN_ID
+					, ACTION_CD
+					, TMPL_MENU_CD
+					, AUTH_CD
+					, ACTION_PROFILE_CD
+					, TMPL_MENU_GROUP_CD
+					, MENU_GROUP_CD
+					, COMMON_ID
+					, OTHER_CD
+				) (
+			SELECT
+					  A.GATE_CD
+            <if test="_databaseId == 'oracle'">
+					, A.MULTI_SQ + A.RN
+			</if>
+					, A.LANG_CD
+					, A.REG_DATE
+					, A.REG_USER_ID
+					, A.MOD_DATE
+					, A.MOD_USER_ID
+					, A.DEL_FLAG
+					, A.MULTI_NM
+					, A.MULTI_DESC
+					, A.MULTI_CD
+					, A.SCREEN_ID
+					, A.ACTION_CD
+					, A.TMPL_MENU_CD
+					, A.AUTH_CD
+					, A.ACTION_PROFILE_CD
+					, A.TMPL_MENU_GROUP_CD
+					, A.MENU_GROUP_CD
+					, A.COMMON_ID
+					, A.OTHER_CD
+			FROM (
+			    SELECT DISTINCT
+						  #{ses.gateCd} AS GATE_CD
+	            <if test="_databaseId == 'oracle'">
+						, (SELECT <include refid="com.sql.nvl"/>( MAX(MULTI_SQ) , 0)+1 FROM STOCMULG) AS MULTI_SQ
+				</if>
+						, A.LANG_CD AS LANG_CD
+						, <include refid="com.sql.sysdate"/> AS REG_DATE
+						, #{ses.userId} AS REG_USER_ID
+						, <include refid="com.sql.sysdate"/> AS MOD_DATE
+						, #{ses.userId} AS MOD_USER_ID
+						, '0' AS DEL_FLAG
+						, A.MULTI_NM AS MULTI_NM
+						, '' AS MULTI_DESC
+						, 'MT' AS MULTI_CD
+						, A.SCREEN_ID AS SCREEN_ID
+						, '' AS ACTION_CD
+						, #{TMPL_MENU_CD} AS TMPL_MENU_CD
+						, '' AS AUTH_CD
+						, '' AS ACTION_PROFILE_CD
+						, '' AS TMPL_MENU_GROUP_CD
+						, '' AS MENU_GROUP_CD
+						, '' AS COMMON_ID
+						, '' AS OTHER_CD
+	            <if test="_databaseId == 'oracle'">
+						, ROWNUM AS RN
+				</if>
+			    FROM STOCMULG A
+			    WHERE A.GATE_CD = #{ses.gateCd}
+			      AND A.TMPL_MENU_CD = #{OLD_TMPL_MENU_CD}
+			      AND A.MULTI_CD = 'MT'
+			      AND A.DEL_FLAG = '0'
+				) A
+			)
+    </insert>
+
+    <update id="updateMenuTemplateDetail" parameterType="java.util.HashMap">
+
+        UPDATE ${TABLE_NM} SET
+              MOD_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , LEAF_FLAG = #{LEAF_FLAG}
+            , DEPTH = #{DEPTH}
+            , USE_FLAG = #{USE_FLAG}
+            <if test="SCREEN_ID != '' and SCREEN_ID != null">, SCREEN_ID = #{SCREEN_ID}</if>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+
+    </update>
+
+    <update id="deleteMenuTemplateDetail" parameterType="java.util.HashMap">
+	<if test="_databaseId == 'oracle'">
+        UPDATE ${TABLE_NM} MUTM
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   TMPL_MENU_CD IN (SELECT TMPL_MENU_CD
+                FROM ${TABLE_NM}
+                WHERE  GATE_CD = MUTM.GATE_CD START WITH TMPL_MENU_CD = #{TMPL_MENU_CD} CONNECT BY PRIOR TMPL_MENU_CD = HIGH_TMPL_MENU_CD
+                AND   DEL_FLAG = '0')
+     </if>
+     <if test="_databaseId == 'mssql'">
+        WITH CTE_TABLE
+		AS
+		(
+		      SELECT TMPL_MENU_CD
+		      FROM STOCMUTM A
+		      WHERE A.TMPL_MENU_CD = #{TMPL_MENU_CD}
+		      UNION ALL
+		      SELECT B.TMPL_MENU_CD
+		      FROM STOCMUTM B
+		      JOIN CTE_TABLE C ON C.TMPL_MENU_CD = B.HIGH_TMPL_MENU_CD
+		      WHERE B.DEL_FLAG = '0'
+		)
+		UPDATE STOCMUTM
+		SET   DEL_FLAG = '1'
+			  ,MOD_USER_ID = #{ses.userId}
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		FROM STOCMUTM A JOIN CTE_TABLE B on A.TMPL_MENU_CD = B.TMPL_MENU_CD
+		AND GATE_CD = #{ses.gateCd}
+    </if>
+    </update>
+
+    <select id="getMaxSortSeq" parameterType="hashmap" resultType="hashMap">
+
+		SELECT CAST(<include refid="com.sql.nvl"/>(MAX(SORT_SQ),0) + 1 AS VARCHAR(10)) AS SORT_SQ
+          FROM STOCMUTM
+         WHERE GATE_CD = #{ses.gateCd}
+           AND HIGH_TMPL_MENU_CD = #{HIGH_TMPL_MENU_CD}
+
+    </select>
+
+    <select id="getMenuTmplCode" parameterType="hashmap" resultType="java.lang.String">
+		<if test="_databaseId == 'oracle'">
+			SELECT 'TM'<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>(MAX(TO_NUMBER(<include refid="com.sql.subStr"/>(TMPL_MENU_CD,3,6)))+1,6,'0'),'000001')
+	          FROM STOCMUTM
+	         WHERE GATE_CD = #{ses.gateCd}
+		</if>
+		<if test="_databaseId == 'mssql'">
+			SELECT 'TM'<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>(MAX(CONVERT(INT,<include refid="com.sql.subStr"/>(TMPL_MENU_CD,3,6)))+1,6,'0'),'000001') AS CNT
+	          FROM STOCMUTM
+	         WHERE GATE_CD = #{ses.gateCd}
+		</if>
+
+
+
+    </select>
+
+    <update id="updateSortSeqPlusOne" parameterType="hashmap">
+
+        UPDATE ${TABLE_NM} SET
+               SORT_SQ = SORT_SQ + 1
+             , DEL_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+        AND   SORT_SQ &gt;= #{SORT_SQ}
+        AND   DEL_FLAG = '0'
+
+    </update>
+
+    <select id="searchMenu" parameterType="hashmap" resultType="hashMap">
+        SELECT MUGR.GATE_CD
+             , MUGR.MODULE_TYPE
+             , MUGR.MENU_GROUP_CD
+             , <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'MG', #{ses.langCd}, MUGR.MENU_GROUP_CD, '')  AS MENU_GROUP_NM
+             , MUGR.TMPL_MENU_GROUP_CD
+             , <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'TG', #{ses.langCd}, MUTG.TMPL_MENU_GROUP_CD, '')  AS TMPL_MENU_GROUP_NM
+             , MUGR.USE_FLAG
+             , CASE WHEN  UR.USER_NM IS NULL THEN  MUGR.REG_USER_ID ELSE  UR.USER_NM END AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>getGmtDate(MUGR.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)  AS REG_DATE
+             , ('') AS SCREEN_NM_IMG
+             , 'U' AS INSERT_FLAG
+		  FROM STOCMUGR MUGR JOIN STOCMUTG MUTG
+		   ON (MUGR.GATE_CD = MUTG.GATE_CD
+		   AND MUGR.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+		   LEFT OUTER JOIN STOCUSER UR ON
+		      (MUGR.GATE_CD = UR.GATE_CD AND
+		       MUGR.REG_USER_ID = UR.USER_ID AND
+		       UR.DEL_FLAG = '0')
+		 WHERE MUGR.GATE_CD = #{ses.gateCd}
+		   AND MUGR.DEL_FLAG = '0'
+        <if test="MODULE_TYPE != '' and MODULE_TYPE != null">
+            AND MUGR.MODULE_TYPE = #{MODULE_TYPE}
+        </if>
+        <if test="MENU_GROUP_NM != '' and MENU_GROUP_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'MG', #{ses.langCd}, MUGR.MENU_GROUP_CD, '') <include refid="com.sql.likeL"/> #{MENU_GROUP_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="TMPL_MENU_GROUP_NM != '' and TMPL_MENU_GROUP_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'TG', #{ses.langCd}, MUTG.TMPL_MENU_GROUP_CD, '') <include refid="com.sql.likeL"/> #{TMPL_MENU_GROUP_NM} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY MUGR.MENU_GROUP_CD
+
+    </select>
+
+    <insert id="createMenu" parameterType="hashMap">
+
+        INSERT INTO ${TABLE_NM}(
+               GATE_CD
+             , TMPL_MENU_GROUP_CD
+             , MENU_GROUP_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , USE_FLAG
+             , MODULE_TYPE
+        ) VALUES(
+               #{ses.gateCd}
+             , #{TMPL_MENU_GROUP_CD}
+             , #{MENU_GROUP_CD}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{USE_FLAG}
+             , #{MODULE_TYPE}
+        )
+
+    </insert>
+
+	<insert id="copyMenuMums" parameterType="hashMap">
+
+		INSERT INTO STOCMUMS (
+		      GATE_CD
+		    , MENU_CD
+		    , REG_DATE
+		    , REG_USER_ID
+		    , MOD_DATE
+		    , MOD_USER_ID
+		    , DEL_FLAG
+		    , USE_FLAG
+		    , MODULE_TYPE
+		    , MENU_GROUP_CD
+		    , TMPL_MENU_CD
+		)
+		SELECT
+		      A.GATE_CD
+            <if test="_databaseId == 'oracle'">
+		    , A.MENU_CD <include refid="com.sql.stringMerge"/> 'C' <include refid="com.sql.stringMerge"/> TO_CHAR((SELECT COUNT(*)
+		    							   FROM STOCMUMS B
+            							   WHERE B.GATE_CD = #{ses.gateCd}
+            								 AND B.MENU_CD LIKE A.MENU_CD  <include refid="com.sql.stringMerge"/>  'C%') + 1)
+            </if>
+            <if test="_databaseId == 'mssql'">
+		    , A.MENU_CD <include refid="com.sql.stringMerge"/> 'C' <include refid="com.sql.stringMerge"/> CONVERT(VARCHAR, (SELECT COUNT(*)
+		    							   FROM STOCMUMS B
+            							   WHERE B.GATE_CD = #{ses.gateCd}
+            								 AND B.MENU_CD LIKE A.MENU_CD  <include refid="com.sql.stringMerge"/>  'C%') + 1)
+            </if>
+
+		    , A.REG_DATE
+		    , A.REG_USER_ID
+		    , A.MOD_DATE
+		    , A.MOD_USER_ID
+		    , A.DEL_FLAG
+		    , A.USE_FLAG
+		    , #{MODULE_TYPE}
+		    , #{MENU_GROUP_CD}
+		    , A.TMPL_MENU_CD
+		FROM STOCMUMS A
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND MENU_GROUP_CD = #{OLD_MENU_GROUP_CD}
+		  AND A.DEL_FLAG = '0'
+
+    </insert>
+
+    <insert id="updateMenu" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+             MOD_USER_ID = #{ses.userId}
+		     , MOD_DATE = <include refid="com.sql.sysdate"/>
+		     , USE_FLAG = #{USE_FLAG}
+		     , MODULE_TYPE = #{MODULE_TYPE}
+		     , TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+		     , DEL_FLAG = '0'
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+
+    </insert>
+
+    <delete id="deleteMenu" parameterType="hashMap">
+
+        DELETE FROM ${TABLE_NM}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+          AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+
+    </delete>
+
+    <delete id="deleteMenuMums" parameterType="hashMap">
+
+        DELETE FROM STOCMUMS
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+
+    </delete>
+
+    <select id="getMenuTree" parameterType="hashmap" resultMap="getReturnMap">
+
+        SELECT
+        	<include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD FROM STOCMUTM TM
+        																 WHERE TM.GATE_CD = MUTM.GATE_CD
+																	  AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+																	  							  THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+        	, <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+            , MUTM.TMPL_MENU_CD AS KEY2
+            , MUTM.DEPTH
+            , MUTM.USE_FLAG
+            , MUTM.SORT_SQ
+            , MUTM.SCREEN_ID
+            , MUMS.MENU_CD AS MENU_CD
+            <if test="_databaseId == 'oracle'">
+            , DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD) AS PARENTID
+            </if>
+            <if test="_databaseId == 'mssql'">
+            ,CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' THEN ''
+                  WHEN MUTM.HIGH_TMPL_MENU_CD is null THEN ''
+             ELSE MUTM.HIGH_TMPL_MENU_CD END AS PARENTID
+            </if>
+            , (CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+            		WHEN (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+            				   THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = '' THEN 'true'
+					WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD) FROM STOCMUTM SUB_TM
+	                 	   WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+	                         AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+	                         AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+	                         AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL)
+	                         		   THEN '' ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+	                ELSE 'false' END) IS_FOLDER
+		  FROM STOCMUMS MUMS INNER JOIN STOCMUTM MUTM
+		   ON (MUMS.GATE_CD = MUTM.GATE_CD
+		   AND MUMS.TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+		   <!-- AND MUTM.MODULE_TYPE = MUMS.MODULE_TYPE -->
+		   AND MUTM.DEL_FLAG = '0'
+		   AND MUTM.USE_FLAG = '1')
+         WHERE MUMS.GATE_CD = #{ses.gateCd}
+		   AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+		   AND MUMS.MENU_GROUP_CD = #{MENU_GROUP_CD}
+		   <!-- AND MUMS.MODULE_TYPE = #{MODULE_TYPE} -->
+		 <choose>
+         	<when test="TMPL_MENU_CD != '' and TMPL_MENU_CD != null">
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+         				  THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = #{TMPL_MENU_CD }
+         	</when>
+         	<otherwise>
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+         				  THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = ''
+         	</otherwise>
+        </choose>
+		   AND MUMS.USE_FLAG = '1'
+		   AND MUMS.DEL_FLAG = '0'
+         ORDER BY MUTM.SORT_SQ
+    </select>
+
+    <select id="getMenuDtree" parameterType="hashmap" resultType="hashmap">
+
+        SELECT <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD
+                                                                             FROM STOCMUTM TM
+        																    WHERE TM.GATE_CD = MUTM.GATE_CD
+																	          AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+                                                                                                          ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+        	 , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+             , MUTM.TMPL_MENU_CD
+             , MUTM.DEPTH
+             , MUTM.USE_FLAG
+             , MUTM.SORT_SQ
+
+            <if test="_databaseId == 'oracle'">
+             , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, ' ') AS SCREEN_ID
+             , <include refid="com.sql.nvl"/>(MUMS.MENU_CD, ' ') AS MENU_CD
+            </if>
+            <if test="_databaseId == 'mssql'">
+             , MUTM.SCREEN_ID
+             , MUMS.MENU_CD
+            </if>
+            <if test="_databaseId == 'oracle'">
+             , <include refid="com.sql.nvl"/>(DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD), ' ') AS HIGH_TMPL_MENU_CD
+            </if>
+            <if test="_databaseId == 'mssql'">
+             , CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL THEN ''
+                    ELSE MUTM.HIGH_TMPL_MENU_CD END AS HIGH_TMPL_MENU_CD
+            </if>
+             ,(CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+            		WHEN (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+            				   THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = '' THEN 'true'
+					WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD)
+                            FROM STOCMUTM SUB_TM
+	                 	   WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+	                         AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+	                         AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+	                         AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+                                       ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+	                ELSE 'false' END) AS IS_FOLDER
+		  FROM STOCMUMS MUMS
+         INNER JOIN STOCMUTM MUTM
+		    ON (MUMS.GATE_CD = MUTM.GATE_CD
+		   AND MUMS.TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+		   <!-- AND MUTM.MODULE_TYPE = MUMS.MODULE_TYPE -->
+		   AND MUTM.DEL_FLAG = '0'
+		   AND MUTM.USE_FLAG = '1')
+         WHERE MUMS.GATE_CD = #{ses.gateCd}
+		   AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+		   AND MUMS.MENU_GROUP_CD = #{MENU_GROUP_CD}
+		   AND MUMS.USE_FLAG = '1'
+		   AND MUMS.DEL_FLAG = '0'
+         ORDER BY MUTM.SORT_SQ
+    </select>
+
+    <select id="getMenuTreeForHiddenGrid" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+        	MUTM.TMPL_MENU_CD
+        	, MUMS.MENU_GROUP_CD
+        	, MUMS.MODULE_TYPE
+        	, 'U' AS INSERT_FLAG
+        	, MUMS.MENU_CD
+        	, MUMS.GATE_CD
+		  FROM STOCMUMS MUMS INNER JOIN STOCMUTM MUTM
+		   ON (MUMS.GATE_CD = MUTM.GATE_CD
+		   AND MUMS.TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+		   AND MUTM.MODULE_TYPE = MUMS.MODULE_TYPE
+		   AND MUTM.DEL_FLAG = '0'
+		   AND MUTM.USE_FLAG = '1')
+         WHERE MUMS.GATE_CD = #{ses.gateCd}
+		   AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+		   AND MUMS.MENU_GROUP_CD = #{MENU_GROUP_CD}
+		   AND MUMS.MODULE_TYPE = #{MODULE_TYPE}
+		   AND MUMS.USE_FLAG = '1'
+		   AND MUMS.DEL_FLAG = '0'
+         ORDER BY MUTM.SORT_SQ
+    </select>
+
+    <select id="getMenuTemplateTreePopup" parameterType="hashmap" resultMap="getReturnMap">
+
+        SELECT
+        	<include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD FROM STOCMUTM TM
+																		 WHERE TM.GATE_CD = MUTM.GATE_CD
+																		   AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+																		   							   THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+        	, <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+            , MUTM.TMPL_MENU_CD AS KEY2
+            , MUTM.DEPTH
+            , MUTM.USE_FLAG
+            , MUTM.SORT_SQ
+            , MUTM.SCREEN_ID
+            , MUMS.MENU_CD AS MENU_CD
+            <if test="_databaseId == 'oracle'">
+            , DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD) AS PARENTID
+            </if>
+            <if test="_databaseId == 'mssql'">
+            ,CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL THEN ''
+                  ELSE MUTM.HIGH_TMPL_MENU_CD END AS PARENTID
+            </if>
+            , (CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+            		WHEN (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+            				   THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = '' THEN 'true'
+					WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD) FROM STOCMUTM SUB_TM
+	                 	   WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+	                         AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+	                         AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+	                         AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL)
+	                         		   THEN '' ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+	                ELSE 'false' END) IS_FOLDER
+         FROM STOCMUTM MUTM JOIN STOCMUTG MUTG
+          ON (MUTM.GATE_CD = MUTG.GATE_CD
+          AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+         LEFT OUTER JOIN STOCMUMS MUMS
+          ON (MUTM.GATE_CD = MUMS.GATE_CD
+          AND MUTM.TMPL_MENU_CD = MUMS.TMPL_MENU_CD
+          AND MUMS.DEL_FLAG = '0'
+          AND MUMS.USE_FLAG = '1'
+          AND MENU_GROUP_CD = #{MENU_GROUP_CD})
+        WHERE MUTM.GATE_CD = #{ses.gateCd}
+          AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+          <!-- AND MUTM.MODULE_TYPE = #{MODULE_TYPE} -->
+        <choose>
+         	<when test="TMPL_MENU_CD != '' and TMPL_MENU_CD != null">
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+					  	  THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = #{TMPL_MENU_CD }
+         	</when>
+         	<otherwise>
+         		AND (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+					  	  THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = ''
+         	</otherwise>
+        </choose>
+          AND MUTM.DEL_FLAG = '0'
+          AND MUTG.DEL_FLAG = '0'
+        ORDER BY MUTM.SORT_SQ
+
+    </select>
+
+    <select id="getMenuTemplateDtreePopup" parameterType="hashmap" resultType="hashmap">
+
+            SELECT <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD
+                                                                                 FROM STOCMUTM TM
+    																		    WHERE TM.GATE_CD = MUTM.GATE_CD
+    																		      AND TM.TMPL_MENU_CD = (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL) THEN ''
+                                                                                                              ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-')) AS MENU_NM
+            	 , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+                 , MUTM.TMPL_MENU_CD
+                 , MUTM.DEPTH
+                 , MUTM.USE_FLAG
+                 , MUTM.SORT_SQ
+
+                <if test="_databaseId == 'oracle'">
+                 , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, ' ') AS SCREEN_ID
+                 , <include refid="com.sql.nvl"/>(MUMS.MENU_CD, ' ') AS MENU_CD
+                </if>
+                <if test="_databaseId == 'mssql'">
+                 , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, '') AS SCREEN_ID
+                 , <include refid="com.sql.nvl"/>(MUMS.MENU_CD, '') AS MENU_CD
+                </if>
+
+                <if test="_databaseId == 'oracle'">
+                 , <include refid="com.sql.nvl"/>(DECODE(MUTM.HIGH_TMPL_MENU_CD, '', '', null, '', MUTM.HIGH_TMPL_MENU_CD), ' ') AS HIGH_TMPL_MENU_CD
+                </if>
+                <if test="_databaseId == 'mssql'">
+                 , CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL THEN ''
+                        ELSE MUTM.HIGH_TMPL_MENU_CD END AS HIGH_TMPL_MENU_CD
+                </if>
+                 ,(CASE WHEN MUTM.LEAF_FLAG = '1' THEN 'false'
+                	    WHEN (CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+                				   THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END) = '' THEN 'true'
+    					WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD) FROM STOCMUTM SUB_TM
+    	                 	   WHERE SUB_TM.GATE_CD = #{ses.gateCd}
+    	                         AND SUB_TM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+    	                         AND SUB_TM.MODULE_TYPE = #{MODULE_TYPE}
+    	                         AND (CASE WHEN (SUB_TM.HIGH_TMPL_MENU_CD = '' OR SUB_TM.HIGH_TMPL_MENU_CD IS NULL)
+    	                         		   THEN '' ELSE SUB_TM.HIGH_TMPL_MENU_CD END) = MUTM.TMPL_MENU_CD) > 0 THEN 'true'
+    	                ELSE 'false' END) AS IS_FOLDER
+             FROM STOCMUTM MUTM JOIN STOCMUTG MUTG
+               ON (MUTM.GATE_CD = MUTG.GATE_CD
+              AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+             LEFT OUTER JOIN STOCMUMS MUMS
+               ON (MUTM.GATE_CD = MUMS.GATE_CD
+              AND MUTM.TMPL_MENU_CD = MUMS.TMPL_MENU_CD
+              AND MUMS.DEL_FLAG = '0'
+              AND MUMS.USE_FLAG = '1'
+              AND MENU_GROUP_CD = #{MENU_GROUP_CD})
+            WHERE MUTM.GATE_CD = #{ses.gateCd}
+              AND MUTM.TMPL_MENU_GROUP_CD = #{TMPL_MENU_GROUP_CD}
+              AND MUTM.DEL_FLAG = '0'
+              AND MUTG.DEL_FLAG = '0'
+            ORDER BY MUTM.SORT_SQ
+
+        </select>
+
+    <insert id="createMenuGroupCode" parameterType="hashmap">
+
+        INSERT INTO ${TABLE_NM}(
+               GATE_CD
+             , MENU_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , MENU_GROUP_CD
+             , MODULE_TYPE
+             , TMPL_MENU_CD
+             , DEL_FLAG
+             , USE_FLAG
+        ) VALUES(
+               #{ses.gateCd}
+             <if test="_databaseId == 'oracle'">
+             , (SELECT 'MC'<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>(MAX(TO_NUMBER(<include refid="com.sql.subStr"/>(MENU_CD,3,6))+1),6,'0'),'000001') FROM STOCMUMS WHERE GATE_CD = #{ses.gateCd})
+             </if>
+             <if test="_databaseId == 'mssql'">
+             , (SELECT 'MC'<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>(MAX(CONVERT(INT,<include refid="com.sql.subStr"/>(MENU_CD,3,6))+1),6,'0'),'000001') FROM STOCMUMS WHERE GATE_CD = #{ses.gateCd})
+             </if>
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , #{MENU_GROUP_CD}
+             , #{MODULE_TYPE}
+             , #{TMPL_MENU_CD}
+             , '0'
+             , '1'
+        )
+
+    </insert>
+
+    <insert id="updateMenuGroupCode" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+             MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , DEL_FLAG = '0'
+             , USE_FLAG = #{USE_FLAG}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+           AND MODULE_TYPE = #{MODULE_TYPE}
+           AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+           AND MENU_CD = #{MENU_CD}
+
+    </insert>
+
+    <update id="deleteMenuGroupCode" parameterType="hashmap">
+
+        UPDATE ${TABLE_NM}
+        SET DEL_FLAG = '1'
+          , MOD_USER_ID = #{ses.userId}
+          , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+           AND MODULE_TYPE = #{MODULE_TYPE}
+           AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+           AND MENU_CD = #{MENU_CD}
+
+    </update>
+
+    <select id="existsMenuGroupCode" parameterType="hashmap" resultType="java.lang.Integer">
+
+        SELECT COUNT(MENU_CD) AS CNT
+          FROM ${TABLE_NM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+           AND MODULE_TYPE = #{MODULE_TYPE}
+           AND TMPL_MENU_CD = #{TMPL_MENU_CD}
+           AND MENU_CD = #{MENU_CD}
+
+    </select>
+
+    <update id="deleteMenuTree" parameterType="hashmap">
+        UPDATE ${TABLE_NM}
+        SET DEL_FLAG = '1'
+          , MOD_USER_ID = #{ses.userId}
+          , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND MENU_GROUP_CD = #{MENU_GROUP_CD}
+           AND MODULE_TYPE = #{MODULE_TYPE}
+    </update>
+
+</mapper>

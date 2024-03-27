@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.regEval.eval.SRM_530_Mapper"> 
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT 	 T1.RH_NUM
+				,T1.PROGRESS_CD
+				,<include refid="com.sql.dbo"/>GETCODENAME(T1.GATE_CD, 'M189', T1.PROGRESS_CD, #{ses.langCd}) AS PROGRESS_NM
+				,T1.SUBJECT
+				,T1.RH_USER_ID   
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, T1.RH_USER_ID, #{ses.langCd}) AS RH_USER_NM
+				,T2.VENDOR_NM 
+				,T1.VENDOR_CODE AS VENDOR_CD
+				,<include refid="com.sql.toDateChar"/>(T1.RH_DATE, 'yyyyMMdd') AS RH_DATE
+				,T1.MAT_GROUP
+				,T1.ITEM_CD
+				,T1.ITEM_DESC
+				,T1.ATTENDEES_BUYER
+				,T1.ATTENDEES_VENDOR
+				,T1.RMK_BUYER
+				,T1.ATT_FILE_NUM_BUYER
+				,T1.RMK_VENDOR
+				,T1.ATT_FILE_NUM_VENDOR
+				
+		  FROM	STOCEVRH	 T1
+	INNER JOIN	STOCVNGL T2 ON (T1.VENDOR_CODE = T2.VENDOR_CD AND T1.GATE_CD = T2.GATE_CD)
+		 WHERE	T1.DEL_FLAG = '0'
+		   AND	T1.GATE_CD 	= #{ses.gateCd}
+		   AND	T1.RH_NUM 	= #{RH_NUM}
+		   
+	</select>
+
+	<select id="doSearchDetail" parameterType="hashmap" resultType="hashmap">
+		SELECT 	 RH_SQ
+				,RH_NM
+				,ISSUE_NM
+				,RESULT_NM
+				,PIC_USER_NM
+				,<include refid="com.sql.toDateChar"/>(FINISH_DATE, 'yyyyMMdd') AS FINISH_DATE
+				,RMK
+		  FROM	STOCEVRD
+		 WHERE	GATE_CD 	= #{ses.gateCd}
+		 AND	RH_NUM 		= #{RH_NUM} 
+		 AND	DEL_FLAG 	= '0'
+	
+	</select>
+	
+	
+	<update id="doDelete" parameterType="hashmap">
+		UPDATE 	 STOCEVRH 
+		SET    	 DEL_FLAG 		= '1'
+              	,MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                ,MOD_USER_ID 	= #{ses.userId}
+        WHERE  	RH_NUM 			= #{RH_NUM}
+        AND		GATE_CD 		= #{ses.gateCd}
+	</update>
+	
+	<update id="doDeleteGrid" parameterType="hashmap">
+		UPDATE 	 STOCEVRD 
+		SET 	 MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                ,MOD_USER_ID 	= #{ses.userId}
+                ,DEL_FLAG 		= '1'
+         WHERE 	RH_NUM 			= #{RH_NUM}
+           AND GATE_CD 		= #{ses.gateCd}   
+	</update>
+	
+	<!-- 품번이 없는경우  -->
+	<insert id="buyerInsertForm" parameterType="hashmap">
+		INSERT
+		INTO	STOCEVRH(
+				 GATE_CD
+				,RH_NUM
+				,REG_DATE
+				,REG_USER_ID
+				,DEL_FLAG
+				,PROGRESS_CD
+				,SUBJECT
+				,RH_USER_ID
+				,VENDOR_CODE
+				,RH_DATE
+				,MAT_GROUP
+				,ITEM_CD
+				,ITEM_DESC
+				,ATTENDEES_BUYER
+				,ATTENDEES_VENDOR
+				,RMK_BUYER
+				,ATT_FILE_NUM_BUYER
+				,EV_NUM)
+		VALUES  (
+				 #{ses.gateCd}
+				,#{RH_NUM}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,#{PROGRESS_CD}
+				,#{SUBJECT}
+				,#{RH_USER_ID}
+				,#{VENDOR_CD}
+				,#{RH_DATE}
+				,#{MAT_GROUP}
+				,#{ITEM_CD}
+				,#{ITEM_DESC}
+				,#{ATTENDEES_BUYER}
+				,#{ATTENDEES_VENDOR}
+				,#{RMK_BUYER}
+				,#{ATT_FILE_NUM_BUYER,jdbcType=VARCHAR}
+				,#{EV_NUM})
+	</insert>
+	
+	<insert id="buyerInsertGrid" parameterType="hashmap">
+		<selectKey keyProperty="RH_SQ_MAX" resultType="int" order="BEFORE">
+            SELECT <include refid="com.sql.nvl"/>(MAX(RH_SQ) + 1, 1) RH_SQ FROM STOCEVRD
+            WHERE GATE_CD 	= #{ses.gateCd}
+            AND RH_NUM 		= #{RH_NUM}
+        </selectKey>
+		INSERT
+		INTO	STOCEVRD( 
+				 GATE_CD
+				,RH_NUM
+				,RH_SQ
+				,REG_DATE
+				,REG_USER_ID
+				,DEL_FLAG
+				,RH_NM
+				,ISSUE_NM)
+		VALUES  (
+				 #{ses.gateCd}
+				,#{RH_NUM}
+				,#{RH_SQ_MAX}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,#{RH_NM}
+				,#{ISSUE_NM})
+	</insert>
+	
+	<update id="buyerUpdateForm" parameterType="hashmap">
+		UPDATE	STOCEVRH 
+		SET		 MOD_DATE 			= <include refid="com.sql.sysdate"/>
+				,MOD_USER_ID 		= #{ses.userId}
+				,SUBJECT 			= #{SUBJECT}
+				,RH_USER_ID 		= #{RH_USER_ID}
+				,VENDOR_CODE 		= #{VENDOR_CD}
+				,RH_DATE 			= #{RH_DATE}
+				,MAT_GROUP 			= #{MAT_GROUP}
+				,ITEM_CD 			= #{ITEM_CD}
+				,ITEM_DESC 			= #{ITEM_DESC}
+				,ATTENDEES_BUYER 	= #{ATTENDEES_BUYER}
+				,ATTENDEES_VENDOR 	= #{ATTENDEES_VENDOR}
+				,RMK_BUYER 			= #{RMK_BUYER}
+				,ATT_FILE_NUM_BUYER = #{ATT_FILE_NUM_BUYER,jdbcType=VARCHAR}
+		WHERE	GATE_CD 			= #{ses.gateCd}
+		AND		RH_NUM 				= #{RH_NUM}
+	</update>
+	
+	<update id="doDeleteGridAll" parameterType="hashmap">
+		UPDATE 	STOCEVRD
+		SET		DEL_FLAG 	= '1'
+			   ,MOD_DATE 	= <include refid="com.sql.sysdate"/>
+			   ,MOD_USER_ID = #{ses.userId}
+		WHERE	GATE_CD 	= #{ses.gateCd}
+		  AND	RH_NUM 		= #{RH_NUM}
+	</update>
+	
+	<select id="existGrid" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT 	COUNT(RH_SQ)
+		FROM	STOCEVRD
+		WHERE	GATE_CD = #{ses.gateCd}
+		AND		RH_NUM 	= #{RH_NUM}
+		AND		RH_SQ 	= #{RH_SQ}
+	</select>
+	
+	<update id="buyerUpdateGrid" parameterType="hashmap">
+		UPDATE	STOCEVRD
+		SET		 MOD_DATE 		= <include refid="com.sql.sysdate"/>
+				,MOD_USER_ID 	= #{ses.userId}
+				,DEL_FLAG 		= '0'
+				,RH_NM 			= #{RH_NM}
+				,ISSUE_NM 		= #{ISSUE_NM}
+		WHERE	GATE_CD 		= #{ses.gateCd}
+		AND		RH_NUM 			= #{RH_NUM}
+		AND		RH_SQ 			= #{RH_SQ}
+	</update>
+	
+	<update id="supplierUpdateForm" parameterType="hashmap">
+		UPDATE 	STOCEVRH
+		SET		 RMK_VENDOR 			= #{RMK_VENDOR}
+				,ATT_FILE_NUM_VENDOR 	= #{ATT_FILE_NUM_VENDOR,jdbcType=VARCHAR}
+		WHERE	GATE_CD 				= #{ses.gateCd}
+		AND		RH_NUM 					= #{RH_NUM}
+	</update>
+	
+	<update id="supplierUpdateGrid" parameterType="hashmap">
+		UPDATE 	STOCEVRD
+		SET		 MOD_DATE 		= <include refid="com.sql.sysdate"/>
+				,MOD_USER_ID 	= #{ses.userId}
+				,DEL_FLAG 		= '0'
+				,RESULT_NM 		= #{RESULT_NM}
+				,PIC_USER_NM 	= #{PIC_USER_NM}
+				,FINISH_DATE 	= #{FINISH_DATE}
+				,RMK 			= #{RMK}
+		WHERE 	GATE_CD 		= #{ses.gateCd}
+		AND		RH_NUM 			= #{RH_NUM}
+		AND		RH_SQ 			= #{RH_SQ}
+	</update>
+	
+	
+	<update id="buyerSend">
+		UPDATE 	STOCEVRH
+		SET		PROGRESS_CD = '200'
+		WHERE	RH_NUM 		= #{RH_NUM}
+          AND  GATE_CD 	= #{ses.gateCd}   
+	</update>
+	
+	<update id="supplierSend">
+		UPDATE 	STOCEVRH
+		SET		PROGRESS_CD = '300'
+		WHERE	RH_NUM 		= #{RH_NUM}
+          AND  GATE_CD 	= #{ses.gateCd}   
+	</update>
+	
+	<select id="checkSupplierGrid" parameterType="hashmap" resultType="hashmap">
+		SELECT 	 RH_NUM
+				,RESULT_NM
+				,PIC_USER_NM
+				,<include refid="com.sql.toDateChar"/>(FINISH_DATE, 'yyyyMMdd') AS FINISH_DATE
+		FROM 	STOCEVRD 
+		WHERE RH_NUM = #{RH_NUM}
+	</select>
+
+	<select id="getOfVendorInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT EVRH.VENDOR_CODE AS VENDOR_CD
+             , <include refid="com.sql.dbo"/>GETVENDORNAME(EVRH.GATE_CD, EVRH.VENDOR_CODE, #{ses.langCd}) AS VENDOR_NM
+        	 , '' AS PURCHASE_TYPE
+        	 , USR.TEL_NUM
+		  FROM STOCEVRH EVRH
+		  LEFT OUTER JOIN STOCUSER USR
+            ON(EVRH.GATE_CD 	= USR.GATE_CD
+           AND EVRH.RH_USER_ID 	= USR.USER_ID
+           AND USR.DEL_FLAG 	= '0')
+		 WHERE EVRH.GATE_CD 	= #{ses.gateCd}
+		   AND EVRH.RH_NUM 		= #{RH_NUM}
+		   AND EVRH.DEL_FLAG 	= '0'
+	</select>
+	
+	<select id="getReceiverMailAddress" parameterType="hashmap" resultType="hashmap">
+		SELECT 	USER_NM 	AS RECV_NM
+		       ,EMAIL		AS RECV_EMAIL
+		       ,CELL_NUM 	AS TEL_NUM
+		  FROM STOCVNCP
+		 WHERE GATE_CD 			= #{ses.gateCd} 
+		   AND VENDOR_CD 		= #{VENDOR_CD} 
+		   AND DEL_FLAG			='0' 
+		   AND PURCHASE_TYPE 	= 'PPUR'
+	</select>
+	
+	<select id="getBuyerMailAddress" parameterType="hashmap" resultType="hashmap">
+		SELECT 	USER_NM 	AS RECV_NM
+		       ,EMAIL		AS RECV_EMAIL
+		       ,TEL_NUM 	AS TEL_NUM
+		  FROM STOCUSER
+		 WHERE GATE_CD 	= #{ses.gateCd} 
+		   AND DEL_FLAG	='0' 
+		   AND USER_ID 	= #{RH_USER_ID}
+	</select>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+

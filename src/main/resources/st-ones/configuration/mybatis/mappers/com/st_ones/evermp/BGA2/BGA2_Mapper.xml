@@ -1,0 +1,1473 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BGA2.BGA2_Mapper">
+
+	<select id="bga2010_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  YPOHD.CUST_CD
+			,<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) AS CUST_NM
+			, YPODT.CPO_NO  -- 주문번호
+			, YPODT.CPO_SEQ -- 주문항번
+			, YPODT.PO_NO   -- 발주번호
+			, YPODT.PO_SEQ  -- 발주항번
+			, UPODT.PR_TYPE
+			, <include refid="com.sql.toDateChar"/>(YPODT.REG_DATE, 'yyyyMMdd') AS REG_DATE -- YYYY-MM-DD
+			, YPOHD.CPO_USER_ID                -- 주문자ID
+			, CVUR.USER_NM AS CPO_USER_NM      -- 주문자명
+			, YPOHD.CPO_USER_DEPT_CD -- 주문자부서코드
+			, YPOHD.CPO_USER_TEL_NUM  -- 주문자전화번호
+			, YPOHD.CPO_USER_CELL_NUM -- 주문자휴대전화번호
+			, YPODT.CUST_ITEM_CD
+			, YPODT.ITEM_CD
+			, YPODT.ITEM_DESC
+			, YPODT.ITEM_SPEC
+			, YPODT.MAKER_CD
+			, YPODT.MAKER_NM
+			, YPODT.MAKER_PART_NO
+			, YPODT.BRAND_CD
+			, YPODT.BRAND_NM
+			, YPODT.ORIGIN_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M004',YPODT.ORIGIN_CD,#{ses.langCd}) AS ORIGIN_NM
+			, YPODT.UNIT_CD
+			, YPODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, <include refid="com.sql.nvl"/>(YPODT.MOQ_QTY, 1) AS MOQ_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.RV_QTY, 1)  AS RV_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) AS CPO_QTY
+			, YPODT.CUR
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_UNIT_PRICE, 0) AS CPO_UNIT_PRICE -- 주문단가
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_ITEM_AMT, 0)   AS CPO_ITEM_AMT   -- 주문금액   -- 주문금액
+			, <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)  AS PO_UNIT_PRICE  -- 매입단가
+			, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0)    AS PO_ITEM_AMT    -- 매입금액
+			, CASE WHEN <include refid="com.sql.nvl"/>(YPODT.PRIOR_GR_FLAG, '0') = '0' THEN 'N' ELSE 'Y' END AS PRIOR_GR_FLAG -- 선입고여부
+			, <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'yyyyMMdd') AS CPO_DATE -- 주문일자
+			, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0) AS LEAD_TIME -- 납기일자
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(YPOHD.CPO_DATE, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0)), 'yyyyMMdd') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(YPODT.HOPE_DUE_DATE, 'yyyyMMdd') AS HOPE_DUE_DATE -- 희망납기일자
+			, (SELECT CSDM.DELY_NM FROM STOCCSDM CSDM WHERE CSDM.GATE_CD = YPODT.GATE_CD AND CSDM.CUST_CD = #{ses.manageCd} AND CSDM.SEQ = YPODT.DELY_PLACE) AS DELY_PLACE -- 배송장소
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP041',UIVDT.DELY_TYPE,#{ses.langCd}) AS DELY_TYPE --납품방법
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_NM, YPODT.RECIPIENT_NM) ELSE YPODT.RECIPIENT_NM END AS RECIPIENT_NM  -- 인수자명
+			, YPODT.RECIPIENT_DEPT_NM  -- 인수자부서명
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_TEL_NUM) ELSE YPODT.RECIPIENT_TEL_NUM END AS RECIPIENT_TEL_NUM  -- 인수자전화번호
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_CELL_NUM) ELSE YPODT.RECIPIENT_CELL_NUM END AS RECIPIENT_CELL_NUM -- 인수자휴대전화번호
+			, YPODT.DELY_ZIP_CD  -- 납품장소 우편번호
+			, YPODT.DELY_ADDR_1  -- 납품장소 기본주소
+			, YPODT.DELY_ADDR_2  -- 납품장소 상세주소
+			, YPODT.REQ_TEXT
+			, YPODT.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,YPODT.ATTACH_FILE_NO) AS ATTACH_FILE_CNT
+			, UPODT.AGENT_ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,UPODT.AGENT_ATTACH_FILE_NO) AS AGENT_ATTACH_FILE_CNT
+			, YPODT.DEAL_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP021',YPODT.DEAL_CD,#{ses.langCd}) AS DEAL_NM
+			, YPODT.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP056',<include refid="com.sql.nvl"/>(YPODT.PROGRESS_CD, YPODT.PROGRESS_CD),#{ses.langCd}) AS PROGRESS_NM
+			, getUserName(UPODT.GATE_CD, UPODT.AM_USER_ID, 'KO') AS SG_CTRL_USER_NM -- 상품담당자
+			, UPODT.AM_USER_ID
+		    , YPODT.AM_USER_ID AS MANAGE_ID
+			, USR.USER_NM AS MANAGE_NM -- 진행관리담당자
+			, YPODT.DOC_TYPE
+			,(SELECT VAT_CD
+				FROM STOCMTGL A
+			   WHERE A.DEL_FLAG = '0'
+				 AND A.GATE_CD  = YPODT.GATE_CD
+				 AND A.ITEM_CD  = YPODT.ITEM_CD
+				) AS TAX_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M036',YPODT.TAX_CD,#{ses.langCd}) AS TAX_NM
+			, YPODT.REF_MNG_NO -- 관리번호
+			, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS GR_COMPLETE_FLAG -- 출고완료여부
+			, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) AS BF_INV_QTY  -- 기납품수량(=기납품수량 - 납품수량)
+			, <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)  AS BF_GR_QTY   -- 기입고수량
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE       -- 납품예정일자
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE_RES   -- 납품예정일자(원본)
+			, UIVDT.INV_QTY AS INV_QTY_RES -- 납품수량 원본
+			, UIVDT.INV_QTY         -- 납품수량
+			, UIVDT.INV_QTY * YPODT.PO_UNIT_PRICE AS IV_ITEM_AMT  -- 납품금액
+			, UIVDT.INV_QTY  AS GI_QTY    -- 출고수량
+			, UIVDT.DELY_COMPANY_NM -- 택배사명
+			, UIVDT.WAYBILL_NO      -- 송장번호
+			, <include refid="com.sql.nvl"/>(YPODT.RETURN_REMARK, YPODT.RETURN_REMARK) AS RETURN_REMARK -- 반품사유
+			, UIVDT.DELY_DELAY_CD    -- 납품지연 사유
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP067',UIVDT.DELY_DELAY_CD,#{ses.langCd}) AS DELY_DELAY_NM -- 납품지연 사유명
+			, UIVDT.DELY_DELAY_REASON-- 납품지연 상세사유
+			, <include refid="com.sql.nvl"/>(UIVDT.DELY_COMPLETE_FLAG, '0') AS DELY_COMPLETE_FLAG
+			, <include refid="com.sql.toDateChar"/>(UIVDT.DELY_COMPLETE_DATE, 'yyyyMMdd') AS DELY_COMPLETE_DATE
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, YPODT.FORCE_CLOSE_DATE) AS FORCE_CLOSE_DATE -- 주문종결일자
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_USER_ID, YPODT.FORCE_CLOSE_USER_ID) AS FORCE_CLOSE_USER_ID -- 주문종결자ID
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_REASON, YPODT.FORCE_CLOSE_REASON) AS FORCE_CLOSE_REASON  -- 주문종결사유
+			, UIVDT.INV_NO  AS INV_NO
+			, UIVDT.IV_SEQ AS IV_SEQ
+			, <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') AS AGENT_YN
+			, CASE WHEN <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') = '1' THEN <include refid="com.sql.dbo"/>getUserName(UIVHD.GATE_CD, UIVHD.REG_USER_ID, #{ses.langCd})
+			       ELSE NULL
+			  END AS AGENT_USER_NM
+			, TO_CHAR(YPODT.PO_DATE,'YYYYMMDD') PO_DATE
+			, YPODT.AGENT_MEMO
+			, YPODT.SHIPPER_TYPE
+			<if test="_databaseId == 'mssql'">
+			, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) AS IF_CPO_NO_SEQ
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.IF_CPO_SEQ) AS IF_CPO_NO_SEQ
+			</if>
+			, YPODT.REF_MNG_NO
+			, YPODT.NAP_FLAG
+			, YPODT.CSDM_SEQ
+			, YPODT.DELY_NM
+			<if test="_databaseId == 'mssql'">
+			, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) AS CPO_NO_SEQ --주문키
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.CPO_SEQ) AS CPO_NO_SEQ --주문키
+			</if>
+			, YPODT.VENDOR_ITEM_CD
+			, UPOHD.PLANT_CD
+			,<include refid="com.sql.dbo"/>getPlantName(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, UPOHD.CPO_USER_ID, #{ses.langCd}) AS CPO_USER_DEPT_NM
+			, UPOHD.PR_SUBJECT
+            ,<include refid="com.sql.dbo"/>getUserName(UPODT.GATE_CD, UPODT.AM_USER_ID, #{ses.langCd}) AM_USER_NM
+			, UPODT.TEMP_PO_UNIT_PRICE
+			, UPODT.TEMP_PO_ITEM_AMT
+			, (SELECT INV_NO  FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_NO
+			, (SELECT INV_SEQ FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_SEQ
+			, OGWH.STR_CTRL_CODE  			--물류센터
+			, OGWH.WAREHOUSE_CODE AS WH_CD	--창고코드
+			, OGWH.WH_NM				    --창고유형
+			, UPODT.PRIOR_GR_FLAG
+			, GETCODENAME(UPOHD.GATE_CD, 'M044', UPODT.PRIOR_GR_FLAG, 'KO') AS PRIOR_GR_FLAG_NM  --선입고여부
+			, AGENT_YN AS INV_AGENT_YN
+			, UPODT.CPO_UNIT_PRICE AS GI_UNIT_PRICE 													   --출고단가
+			, <include refid="com.sql.nvl"/>(UPODT.CPO_UNIT_PRICE, 0) * ( <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) -  <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)) AS GI_AMT --출고금액
+		    , <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) -  <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) AS AV_GI_QTY
+			,<include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM
+			, UIVDT.DELY_COMPLETE_DATE AS GI_DATE -- 출고일자 (출하완료일로)
+		FROM STOUIVDT UIVDT -- 운영사 납품상세
+		JOIN STOUIVHD UIVHD -- 운영사 납품헤더
+		   ON (UIVDT.GATE_CD = UIVHD.GATE_CD
+		   AND UIVDT.INV_NO  = UIVHD.INV_NO
+	    <if test="USER_TYPE != null and USER_TYPE != null and USER_TYPE eq 'S'.toString()">
+		   AND UIVHD.VENDOR_CD = #{ses.companyCd}
+		 </if>
+		   AND UIVHD.DEL_FLAG = '0')
+		JOIN STOYPODT YPODT
+		   ON (UIVDT.GATE_CD  = YPODT.GATE_CD
+		   AND UIVDT.PO_NO    = YPODT.PO_NO
+		   AND UIVDT.PO_SEQ   = YPODT.PO_SEQ
+		   AND YPODT.DEAL_CD IN ('100','400')     --매입,VMI
+		   AND YPODT.DEL_FLAG = '0')
+		JOIN STOYPOHD YPOHD
+		   ON (YPODT.GATE_CD  = YPOHD.GATE_CD
+		   AND YPODT.PO_NO    = YPOHD.PO_NO
+		   AND YPOHD.SIGN_STATUS = 'E' -- 결재완료
+		   AND YPOHD.DEL_FLAG = '0')
+		JOIN STOUPODT UPODT
+		   ON (UPODT.GATE_CD  = YPODT.GATE_CD
+		   AND UPODT.CPO_NO   = YPODT.CPO_NO
+		   AND UPODT.CPO_SEQ  = YPODT.CPO_SEQ
+		   AND UPODT.DEL_FLAG = '0')
+        JOIN STOUPOHD UPOHD
+		   ON (UPOHD.GATE_CD  = UPODT.GATE_CD
+		   AND UPOHD.CPO_NO   = UPODT.CPO_NO
+		   AND UPOHD.DEL_FLAG = '0')
+		JOIN STOCVNGL VNGL -- 공급사
+		   ON (YPODT.GATE_CD   = VNGL.GATE_CD
+		   AND YPODT.VENDOR_CD = VNGL.VENDOR_CD)
+   		LEFT JOIN STOCCVUR CVUR -- 고객사 주문자
+		   ON (YPOHD.GATE_CD  = CVUR.GATE_CD
+		   AND YPOHD.CUST_CD  = CVUR.COMPANY_CD
+		   AND YPOHD.CPO_USER_ID = CVUR.USER_ID
+		   AND CVUR.USER_TYPE = 'B')
+   		LEFT JOIN STOCUSER USR -- 진행관리담당자
+		   ON (YPODT.GATE_CD    = USR.GATE_CD
+		   AND YPODT.AM_USER_ID = USR.USER_ID)
+   		LEFT JOIN STOCOGWH OGWH
+		   ON(UIVDT.GATE_CD  = OGWH.GATE_CD
+		   AND UIVDT.LOG_CD  = OGWH.STR_CTRL_CODE
+		   AND UIVDT.WH_CD   = OGWH.WAREHOUSE_CODE)
+		WHERE UIVDT.GATE_CD  = #{ses.gateCd}
+		  AND UIVDT.DEL_FLAG = '0'
+		  AND UPODT.PROGRESS_CD != '20' -- 결재반려 제외
+		  AND UIVDT.DELY_COMPLETE_FLAG = '1' -- 납품완료인건만
+		  AND YPODT.CUST_CD != #{ses.manageCd}
+		  AND NOT EXISTS (SELECT 1 FROM STOIGIDT
+		  				   WHERE GATE_CD  = UIVDT.GATE_CD
+		  				     AND INV_NO   = UIVDT.INV_NO
+		  				     AND INV_SEQ  = UIVDT.INV_SEQ
+		  				     AND DEL_FLAG = '0')
+
+    	<if test="CPO_NO != '' and CPO_NO != null">
+          AND UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+          AND UPOHD.PR_SUBJECT <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+       	<if test="CUST_CD != '' and CUST_CD != null">
+		  AND YPOHD.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+	    </if>
+	    <if test="CUST_NM != '' and CUST_NM != null">
+		  AND <include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+		  AND YPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_NM != '' and PLANT_NM != null">
+		  AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, YPOHD.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DDP_CD != '' and DDP_CD != null">
+		  AND <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+		</if>
+        <if test="DIVISION_CD != '' and DIVISION_CD != null">
+		  AND CVUR.DIVISION_CD = #{DIVISION_CD}
+	    </if>
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+		  AND CVUR.DEPT_CD = #{DEPT_CD}
+	    </if>
+        <if test="PART_CD != '' and PART_CD != null">
+		  AND CVUR.PART_CD = #{PART_CD}
+	    </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+		  AND UPODT.PR_TYPE = #{PR_TYPE}
+	    </if>
+        <if test="DEAL_CD != '' and DEAL_CD != null">
+		  AND UPODT.DEAL_CD = #{DEAL_CD}
+	    </if>
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+		  AND UPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+		  AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="START_DATE != '' and START_DATE != null">
+		  AND YPODT.PO_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="DOC_NUM != '' and DOC_NUM != null">
+			<choose>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IN ${DOC_NUM})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) ${DOC_NUM_ORG_R})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO_SEQ'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT IN ${DOC_NUM}
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) IN ${DOC_NUM}
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND ${DOC_NUM_ORG_L} YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'PO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND YPOHD.PO_NO NOT IN ${DOC_NUM}
+                            </when>
+                            <otherwise>
+                                AND YPOHD.PO_NO IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND YPOHD.PO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+                            </when>
+                            <otherwise>
+                                AND YPOHD.PO_NO <include refid="com.sql.likeL"/> #{PO_NO} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'IF_INVC_CD'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (UIVDT.IF_INVC_CD NOT IN ${DOC_NUM} OR UIVDT.IF_INVC_CD IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UIVDT.IF_INVC_CD IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (UIVDT.IF_INVC_CD NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR UIVDT.IF_INVC_CD IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UIVDT.IF_INVC_CD <include refid="com.sql.likeL"/> #{IF_INVC_CD} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<otherwise>
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (YPODT.REF_MNG_NO NOT IN ${DOC_NUM} OR YPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND YPODT.REF_MNG_NO IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (YPODT.REF_MNG_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR YPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND YPODT.REF_MNG_NO <include refid="com.sql.likeL"/> #{REF_MNG_NO} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</otherwise>
+			</choose>
+		</if>
+
+		<if test="INV_NO != '' and INV_NO != null">
+		  AND UIVDT.INV_NO <include refid="com.sql.likeL"/> #{INV_NO} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  AND UPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND (UPODT.ITEM_CD IN ${ITEM_CD} OR UPODT.CUST_ITEM_CD IN ${ITEM_CD})
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND (UPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR UPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+	      AND (${ITEM_DESC} OR ${ITEM_SPEC} OR ${ITEM_CD} OR ${CUST_ITEM_CD})
+		</if>
+		<if test="MAKER_CD != '' and MAKER_CD != null">
+		  AND ${MAKER_CD_01}
+		</if>
+		<if test="MAKER_NM != '' and MAKER_NM != null">
+		  AND ${MAKER_NM_01}
+		</if>
+        <if test="AM_USER_ID != '' and AM_USER_ID != null">
+          AND UPODT.AM_USER_ID = #{AM_USER_ID}
+        </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+          AND UPODT.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="DEAL_CD != '' and DEAL_CD != null">
+          AND UPODT.DEAL_CD = #{DEAL_CD}
+        </if>
+		 ORDER BY
+		          YPODT.CPO_NO  -- 동일한 주문
+		        , YPODT.PO_NO   -- 동일한 발주
+				, UIVDT.INV_NO
+	</select>
+
+	<insert id="bga2010_doGrSaveGIDT" parameterType="hashMap">
+		INSERT INTO STOIGIDT(
+			 GATE_CD
+			,AGENT_CODE
+			,GI_NO
+			,GI_SEQ
+			,DEAL_CD
+			,MOVEMENT_TYPE
+			,STR_CTRL_CODE
+			,WAREHOUSE_CODE
+			,ITEM_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,GI_DATE
+			,JOB_STATUS
+			,ITEM_DESC
+			,ITEM_SPEC
+			,UNIT_CD
+			,GI_QTY
+			,CUR
+			,UNIT_PRICE
+			,GI_AMT
+			,BUYING_UNIT_PRICE
+			,GI_ACCOUNT_CODE
+			,COMPANY_CODE
+			,DIVISION_CODE
+			,VENDOR_CODE
+			,CPO_NO
+			,CPO_SEQ
+			,DO_NO
+			,DO_SEQ
+			,INV_NO
+			,INV_SEQ
+			,PO_NO
+			,PO_SEQ
+			,IV_NO
+			,IV_SEQ
+			,INV_DATE
+			,GR_NO
+			,GR_SEQ
+			,GR_DATE
+        ) VALUES (
+			 #{ses.gateCd}                    --GATE_CD
+			,#{ses.companyCd}                 --AGENT_CODE
+			,#{GI_NO}						  --GI_NO
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(GI_SEQ), 0) + 1 FROM STOIGIDT WHERE GATE_CD = #{ses.gateCd} AND GI_NO = #{GI_NO})  --GI_SEQ
+			,#{DEAL_CD}
+			,'903'
+			,#{STR_CTRL_CODE}
+			,#{WH_CD}
+			,#{ITEM_CD}
+			,<include refid="com.sql.sysdate"/>                     --REG_DATE
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>						--MOD_DATE
+			,#{ses.userId}
+			,'0'
+			,#{GI_DATE}
+			,#{JOB_STATUS}
+			,#{ITEM_DESC}
+			,#{ITEM_SPEC}
+			,#{UNIT_CD}
+			,#{GI_QTY}
+			,#{CUR}
+			,#{GI_UNIT_PRICE}
+			,#{GI_AMT}
+			,#{PO_UNIT_PRICE}
+			,#{GI_ACCOUNT_CODE}
+			,#{COMPANY_CODE}
+			,#{DIVISION_CODE}
+			,#{VENDOR_CD}
+			,#{CPO_NO}
+			,#{CPO_SEQ}
+			,#{PO_NO}
+			,#{PO_SEQ}
+			,#{INV_NO}
+			,#{INV_SEQ}
+			,#{PO_NO}
+			,#{PO_SEQ}
+			,#{IV_NO}
+			,#{IV_SEQ}
+			,#{DELY_APP_DATE}
+			,#{GR_NO}
+			,#{GR_SEQ}
+			,#{GR_DATE}
+            )
+	</insert>
+
+	<update id="bga2010_doGrSaveUIVDT" parameterType="hashMap">
+	   UPDATE STOUIVDT
+		  SET GR_QTY      = <include refid="com.sql.nvl"/>(GR_QTY, 0) + (CASE WHEN #{CANCEL_YN} != 'Y' THEN #{GR_QTY} ELSE (#{GR_QTY} * -1) END)
+			, MOD_DATE    = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND INV_NO  = #{INV_NO}
+		  AND INV_SEQ = #{INV_SEQ}
+	</update>
+
+	<update id="bga2010_doGrSaveYPODT" parameterType="hashMap">
+	   UPDATE STOYPODT
+		  SET PROGRESS_CD = CASE WHEN #{PROGRESS_CD} IS NOT NULL THEN #{PROGRESS_CD} ELSE PROGRESS_CD END
+			, MOD_DATE    = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND PO_NO   = #{PO_NO}
+		  AND PO_SEQ  = #{PO_SEQ}
+	</update>
+
+	<update id="bga2010_doGrSaveUPODT" parameterType="hashMap">
+	   UPDATE STOUPODT
+		  SET PROGRESS_CD = CASE WHEN #{PROGRESS_CD} IS NOT NULL THEN #{PROGRESS_CD} ELSE PROGRESS_CD END
+			, MOD_DATE    = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD = #{CUST_CD}
+		  AND CPO_NO  = #{CPO_NO}
+		  AND CPO_SEQ = #{CPO_SEQ}
+	</update>
+
+	<select id="bga2010_doSearchTOT_GR_QTY" parameterType="hashMap" resultType="int">
+	   SELECT <include refid="com.sql.nvl"/>(GR_QTY, 0) AS TOT_GR_QTY
+		 FROM STOUPODT
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD = #{CUST_CD}
+		  AND CPO_NO  = #{CPO_NO}
+		  AND CPO_SEQ = #{CPO_SEQ}
+	</select>
+
+
+	<update id="bga2010_doGrSaveMMRS" parameterType="hashMap">
+		UPDATE STOIMMRS
+		   SET	ITEM_QTY 	  = #{INV_QTY}
+		   	   ,MOVEMENT_TYPE = '990'
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND DOC_NO   = #{INV_NO}
+		   AND DOC_SEQ  = #{INV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<!-- 출고현황 -->
+	<select id="bga2020_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  YPOHD.CUST_CD
+			,<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) AS CUST_NM
+			, YPODT.CPO_NO  -- 주문번호
+			, YPODT.CPO_SEQ -- 주문항번
+			, YPODT.PO_NO   -- 발주번호
+			, YPODT.PO_SEQ  -- 발주항번
+			, UPODT.PR_TYPE
+			, <include refid="com.sql.toDateChar"/>(YPODT.REG_DATE, 'yyyyMMdd') AS REG_DATE -- YYYY-MM-DD
+			, YPOHD.CPO_USER_ID                -- 주문자ID
+			, CVUR.USER_NM AS CPO_USER_NM      -- 주문자명
+			, YPOHD.CPO_USER_DEPT_CD -- 주문자부서코드
+			, YPOHD.CPO_USER_TEL_NUM  -- 주문자전화번호
+			, YPOHD.CPO_USER_CELL_NUM -- 주문자휴대전화번호
+			, YPODT.CUST_ITEM_CD
+			, YPODT.ITEM_CD
+			, YPODT.ITEM_DESC
+			, YPODT.ITEM_SPEC
+			, YPODT.MAKER_CD
+			, YPODT.MAKER_NM
+			, YPODT.MAKER_PART_NO
+			, YPODT.BRAND_CD
+			, YPODT.BRAND_NM
+			, YPODT.ORIGIN_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M004',YPODT.ORIGIN_CD,#{ses.langCd}) AS ORIGIN_NM
+			, YPODT.UNIT_CD
+			, YPODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, <include refid="com.sql.nvl"/>(YPODT.MOQ_QTY, 1) AS MOQ_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.RV_QTY, 1)  AS RV_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) AS CPO_QTY
+			, YPODT.CUR
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_UNIT_PRICE, 0) AS CPO_UNIT_PRICE -- 주문단가
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_ITEM_AMT, 0)   AS CPO_ITEM_AMT   -- 주문금액
+			, <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)  AS PO_UNIT_PRICE  -- 매입단가
+			, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0)    AS PO_ITEM_AMT    -- 매입금액
+			, CASE WHEN <include refid="com.sql.nvl"/>(YPODT.PRIOR_GR_FLAG, '0') = '0' THEN 'N' ELSE 'Y' END AS PRIOR_GR_FLAG -- 선입고여부
+			, <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'yyyyMMdd') AS CPO_DATE -- 주문일자
+			, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0) AS LEAD_TIME -- 납기일자
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(YPOHD.CPO_DATE, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0)), 'yyyyMMdd') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(YPODT.HOPE_DUE_DATE, 'yyyyMMdd') AS HOPE_DUE_DATE -- 희망납기일자
+			, (SELECT CSDM.DELY_NM FROM STOCCSDM CSDM WHERE CSDM.GATE_CD = YPODT.GATE_CD AND CSDM.CUST_CD = #{ses.manageCd} AND CSDM.SEQ = YPODT.DELY_PLACE) AS DELY_PLACE -- 배송장소
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP041',UIVDT.DELY_TYPE,#{ses.langCd}) AS DELY_TYPE --납품방법
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_NM, YPODT.RECIPIENT_NM) ELSE YPODT.RECIPIENT_NM END AS RECIPIENT_NM  -- 인수자명
+			, YPODT.RECIPIENT_DEPT_NM  -- 인수자부서명
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_TEL_NUM) ELSE YPODT.RECIPIENT_TEL_NUM END AS RECIPIENT_TEL_NUM  -- 인수자전화번호
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_CELL_NUM) ELSE YPODT.RECIPIENT_CELL_NUM END AS RECIPIENT_CELL_NUM -- 인수자휴대전화번호
+			, YPODT.DELY_ZIP_CD  -- 납품장소 우편번호
+			, YPODT.DELY_ADDR_1  -- 납품장소 기본주소
+			, YPODT.DELY_ADDR_2  -- 납품장소 상세주소
+			, YPODT.REQ_TEXT
+			, YPODT.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,YPODT.ATTACH_FILE_NO) AS ATTACH_FILE_CNT
+			, UPODT.AGENT_ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,UPODT.AGENT_ATTACH_FILE_NO) AS AGENT_ATTACH_FILE_CNT
+			, YPODT.DEAL_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP021',YPODT.DEAL_CD,#{ses.langCd}) AS DEAL_NM
+			, YPODT.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP056',<include refid="com.sql.nvl"/>(YPODT.PROGRESS_CD, YPODT.PROGRESS_CD),#{ses.langCd}) AS PROGRESS_NM
+			, YPODT.SG_CTRL_USER_ID -- 품목담당자
+		    , YPODT.AM_USER_ID
+			, USR.USER_NM 		AS MANAGE_NM -- 진행관리담당자
+			, YPODT.DOC_TYPE
+			, YPODT.TAX_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M036',YPODT.TAX_CD,#{ses.langCd}) AS TAX_NM
+			, YPODT.REF_MNG_NO -- 관리번호
+			, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS GR_COMPLETE_FLAG -- 출고완료여부
+			, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) AS BF_INV_QTY  -- 기납품수량(=기납품수량 - 납품수량)
+			, <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)  AS BF_GR_QTY   -- 기입고수량
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE       -- 납품예정일자
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE_RES   -- 납품예정일자(원본)
+			, UIVDT.INV_QTY AS INV_QTY_RES -- 납품수량 원본
+			, UIVDT.INV_QTY         -- 납품수량
+			, UIVDT.INV_QTY * YPODT.PO_UNIT_PRICE AS IV_ITEM_AMT  -- 납품금액
+			, GIDT.GI_QTY  AS GI_QTY -- 출고수량
+			, UIVDT.DELY_COMPANY_NM -- 택배사명
+			, UIVDT.WAYBILL_NO      -- 송장번호
+			, <include refid="com.sql.nvl"/>(YPODT.RETURN_REMARK, YPODT.RETURN_REMARK) AS RETURN_REMARK -- 반품사유
+			, UIVDT.DELY_DELAY_CD    -- 납품지연 사유
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP067',UIVDT.DELY_DELAY_CD,#{ses.langCd}) AS DELY_DELAY_NM -- 납품지연 사유명
+			, UIVDT.DELY_DELAY_REASON-- 납품지연 상세사유
+			, <include refid="com.sql.nvl"/>(UIVDT.DELY_COMPLETE_FLAG, '0') AS DELY_COMPLETE_FLAG
+			, <include refid="com.sql.toDateChar"/>(UIVDT.DELY_COMPLETE_DATE, 'yyyyMMdd') AS DELY_COMPLETE_DATE
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, YPODT.FORCE_CLOSE_DATE) AS FORCE_CLOSE_DATE -- 주문종결일자
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_USER_ID, YPODT.FORCE_CLOSE_USER_ID) AS FORCE_CLOSE_USER_ID -- 주문종결자ID
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_REASON, YPODT.FORCE_CLOSE_REASON) AS FORCE_CLOSE_REASON  -- 주문종결사유
+			, UIVDT.INV_NO  AS INV_NO
+			, UIVDT.IV_SEQ AS IV_SEQ
+			, <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') AS AGENT_YN
+			, CASE WHEN <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') = '1' THEN <include refid="com.sql.dbo"/>getUserName(UIVHD.GATE_CD, UIVHD.REG_USER_ID, #{ses.langCd})
+			       ELSE NULL
+			  END AS AGENT_USER_NM
+			, TO_CHAR(YPODT.PO_DATE,'YYYYMMDD') PO_DATE
+			, YPODT.AGENT_MEMO
+			, YPODT.SHIPPER_TYPE
+			<if test="_databaseId == 'mssql'">
+			, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) AS IF_CPO_NO_SEQ
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.IF_CPO_SEQ) AS IF_CPO_NO_SEQ
+			</if>
+			, YPODT.REF_MNG_NO
+			, YPODT.NAP_FLAG
+			, YPODT.CSDM_SEQ
+			, YPODT.DELY_NM
+			<if test="_databaseId == 'mssql'">
+			, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) AS CPO_NO_SEQ --주문키
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.CPO_SEQ) AS CPO_NO_SEQ --주문키
+			</if>
+			, YPODT.VENDOR_ITEM_CD
+			, UPOHD.PLANT_CD
+			,<include refid="com.sql.dbo"/>getPlantName(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, UPOHD.CPO_USER_ID, #{ses.langCd}) AS CPO_USER_DEPT_NM
+			, UPOHD.PR_SUBJECT
+            ,<include refid="com.sql.dbo"/>getUserName(UPODT.GATE_CD, UPODT.AM_USER_ID, #{ses.langCd}) AM_USER_NM
+			, UPODT.TEMP_PO_UNIT_PRICE
+			, UPODT.TEMP_PO_ITEM_AMT
+			,(SELECT INV_NO  FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_NO
+			,(SELECT INV_SEQ FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_SEQ
+			, OGWH.STR_CTRL_CODE  			--물류센터
+			, OGWH.WAREHOUSE_CODE AS WH_CD	--창고코드
+			, OGWH.WH_NM						--창고유형
+			, UPODT.PRIOR_GR_FLAG
+			, GETCODENAME(UPOHD.GATE_CD, 'M044', UPODT.PRIOR_GR_FLAG, 'KO') AS PRIOR_GR_FLAG_NM  --선입고여부
+			, AGENT_YN AS INV_AGENT_YN
+			, UPODT.CPO_UNIT_PRICE AS GI_UNIT_PRICE 														   --출고단가
+			, <include refid="com.sql.nvl"/>(UPODT.CPO_UNIT_PRICE, 0) * <include refid="com.sql.nvl"/>(GIDT.GI_QTY, 0) AS GI_AMT  --출고금액
+		    , <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) -  <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) AS AV_GI_QTY								   --출고가능수량
+		    , GIDT.GI_NO  		--출고번호
+			, GIDT.GI_SEQ 		--출고항번
+			, GIDT.GI_DATE   	--출고일자
+			, UIVDT.GR_QTY -- 입고 수량
+			, <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM
+	       ,(SELECT MAX((CASE WHEN GRDT.GR_CLOSE_YN = '1' THEN 'Y'
+	  	  			 		ELSE 'N' END)) CLOSING_YN
+	  	   	   FROM STOCGRDT GRDT
+	   		  WHERE UIVDT.GATE_CD  = GRDT.GATE_CD
+	   	 		AND UIVDT.INV_NO  = GRDT.INV_NO
+	  	 		AND UIVDT.INV_SEQ = GRDT.INV_SEQ
+	  	 		AND GRDT.DEL_FLAG = '0'
+	  	 		AND UIVDT.DEL_FLAG= '0' ) AS CLOSING_YN
+		FROM STOIGIDT GIDT
+   		JOIN STOUIVDT UIVDT
+		   ON  UIVDT.GATE_CD = GIDT.GATE_CD
+	 	   AND UIVDT.INV_NO  = GIDT.INV_NO
+	       AND UIVDT.INV_SEQ = GIDT.INV_SEQ
+		   AND UIVDT.DEL_FLAG = '0'
+		JOIN STOUIVHD UIVHD -- 운영사 납품헤더
+		   ON (UIVDT.GATE_CD  = UIVHD.GATE_CD
+		   AND UIVDT.INV_NO   = UIVHD.INV_NO
+		<if test="USER_TYPE != null and USER_TYPE != null and USER_TYPE eq 'S'.toString()">
+		   AND UIVHD.VENDOR_CD = #{ses.companyCd}
+		</if>
+	       AND UIVHD.DEL_FLAG = '0')
+		JOIN STOYPODT YPODT
+		   ON (UIVDT.GATE_CD  = YPODT.GATE_CD
+		   AND UIVDT.PO_NO    = YPODT.PO_NO
+		   AND UIVDT.PO_SEQ   = YPODT.PO_SEQ
+		   AND YPODT.DEAL_CD IN ('100','400') --매입, VMI 재고
+		   AND YPODT.DEL_FLAG = '0')
+		JOIN STOYPOHD YPOHD
+		   ON (YPODT.GATE_CD     = YPOHD.GATE_CD
+		   AND YPODT.PO_NO       = YPOHD.PO_NO
+		   AND YPOHD.SIGN_STATUS = 'E' 	-- 결재완료
+		   AND YPOHD.DEL_FLAG    = '0')
+		JOIN STOUPODT UPODT
+		   ON (UPODT.GATE_CD  = YPODT.GATE_CD
+		   AND UPODT.CPO_NO   = YPODT.CPO_NO
+		   AND UPODT.CPO_SEQ  = YPODT.CPO_SEQ
+		   AND UPODT.DEL_FLAG = '0')
+        JOIN STOUPOHD UPOHD
+		   ON (UPOHD.GATE_CD  = UPODT.GATE_CD
+		   AND UPOHD.CPO_NO   = UPODT.CPO_NO
+		   AND UPOHD.DEL_FLAG = '0')
+		JOIN STOCVNGL VNGL -- 공급사
+		   ON (YPODT.GATE_CD   = VNGL.GATE_CD
+		   AND YPODT.VENDOR_CD = VNGL.VENDOR_CD)
+   		LEFT JOIN STOCCVUR CVUR -- 고객사 주문자
+		   ON (YPOHD.GATE_CD     = CVUR.GATE_CD
+		   AND YPOHD.CUST_CD     = CVUR.COMPANY_CD
+		   AND YPOHD.CPO_USER_ID = CVUR.USER_ID
+		   AND CVUR.USER_TYPE    = 'B')
+   		LEFT JOIN STOCUSER USR -- 진행관리담당자
+		   ON (YPODT.GATE_CD    = USR.GATE_CD
+		   AND YPODT.AM_USER_ID = USR.USER_ID)
+   		LEFT JOIN STOCOGWH OGWH
+		   ON(UIVDT.GATE_CD = OGWH.GATE_CD
+		   AND UIVDT.LOG_CD = OGWH.STR_CTRL_CODE
+		   AND UIVDT.WH_CD  = OGWH.WAREHOUSE_CODE)
+	   WHERE GIDT.GATE_CD  = #{ses.gateCd}
+		 AND GIDT.DEL_FLAG = '0'
+		 AND YPODT.PR_TYPE in ('G','C')
+		 AND <include refid="com.sql.nvl"/>(GIDT.GI_QTY, 0) != 0
+
+		<if test="CPO_NO != '' and CPO_NO != null">
+          AND (
+          ( UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>)
+          OR ( YPODT.PO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> )
+          OR ( GIDT.GI_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>)
+          )
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+          AND UPOHD.PR_SUBJECT <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+       	<if test="CUST_CD != '' and CUST_CD != null">
+		  AND YPOHD.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+	    </if>
+	    <if test="CUST_NM != '' and CUST_NM != null">
+		  AND <include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+		  AND YPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_NM != '' and PLANT_NM != null">
+		  AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, YPOHD.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DDP_CD != '' and DDP_CD != null">
+		  AND <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+		</if>
+        <if test="DIVISION_CD != '' and DIVISION_CD != null">
+		  AND CVUR.DIVISION_CD = #{DIVISION_CD}
+	    </if>
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+		  AND CVUR.DEPT_CD = #{DEPT_CD}
+	    </if>
+        <if test="PART_CD != '' and PART_CD != null">
+		  AND CVUR.PART_CD = #{PART_CD}
+	    </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+		  AND UPODT.PR_TYPE = #{PR_TYPE}
+	    </if>
+        <if test="DEAL_CD != '' and DEAL_CD != null">
+		  AND UPODT.DEAL_CD = #{DEAL_CD}
+	    </if>
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+		  AND UPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+		  AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="START_DATE != '' and START_DATE != null">
+		  AND YPODT.PO_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="DOC_NUM != '' and DOC_NUM != null">
+			<choose>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IN ${DOC_NUM})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) ${DOC_NUM_ORG_R})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO_SEQ'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT IN ${DOC_NUM}
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) IN ${DOC_NUM}
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND ${DOC_NUM_ORG_L} YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'PO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND YPOHD.PO_NO NOT IN ${DOC_NUM}
+                            </when>
+                            <otherwise>
+                                AND YPOHD.PO_NO IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND YPOHD.PO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+                            </when>
+                            <otherwise>
+                                AND YPOHD.PO_NO <include refid="com.sql.likeL"/> #{PO_NO} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'IF_INVC_CD'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (UIVDT.IF_INVC_CD NOT IN ${DOC_NUM} OR UIVDT.IF_INVC_CD IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UIVDT.IF_INVC_CD IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (UIVDT.IF_INVC_CD NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR UIVDT.IF_INVC_CD IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UIVDT.IF_INVC_CD <include refid="com.sql.likeL"/> #{IF_INVC_CD} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<otherwise>
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (YPODT.REF_MNG_NO NOT IN ${DOC_NUM} OR YPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND YPODT.REF_MNG_NO IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+			                    AND (YPODT.REF_MNG_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR YPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND YPODT.REF_MNG_NO <include refid="com.sql.likeL"/> #{REF_MNG_NO} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+					</if>
+				</otherwise>
+			</choose>
+		</if>
+
+		<if test="INV_NO != '' and INV_NO != null">
+		  AND UIVDT.INV_NO <include refid="com.sql.likeL"/> #{INV_NO} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  AND UPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND (UPODT.ITEM_CD IN ${ITEM_CD} OR UPODT.CUST_ITEM_CD IN ${ITEM_CD})
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND (UPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR UPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+	      AND (${ITEM_DESC} OR ${ITEM_SPEC} OR ${ITEM_CD} OR ${CUST_ITEM_CD})
+		</if>
+		<if test="MAKER_CD != '' and MAKER_CD != null">
+		  AND ${MAKER_CD_01}
+		</if>
+		<if test="MAKER_NM != '' and MAKER_NM != null">
+		  AND ${MAKER_NM_01}
+		</if>
+        <if test="AM_USER_ID != '' and AM_USER_ID != null">
+          AND UPODT.AM_USER_ID = #{AM_USER_ID}
+        </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+          AND UPODT.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="DEAL_CD != '' and DEAL_CD != null">
+          AND UPODT.DEAL_CD = #{DEAL_CD}
+        </if>
+        ORDER BY  GI_NO DESC
+        		 ,GI_SEQ ASC
+
+	</select>
+
+
+	<update id="bga2010_doGiCancelGIDT" parameterType="hashMap">
+		UPDATE STOIGIDT
+		   SET  DEL_FLAG = '1'
+			   ,MOD_DATE = <include refid="com.sql.sysdate"/>
+			   ,MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD    = #{ses.gateCd}
+		  AND AGENT_CODE = #{ses.companyCd}
+		  AND GI_NO      = #{GI_NO}
+		  AND GI_SEQ     = #{GI_SEQ}
+	</update>
+
+	<update id="bga2010_doGiCancelMMRS" parameterType="hashMap">
+		UPDATE STOIMMRS
+		   SET MOVEMENT_TYPE = '903'
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND DOC_NO   = #{INV_NO}
+		   AND DOC_SEQ  = #{INV_SEQ}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<select id="bga2030_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 YPOHD.CUST_CD
+			,<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) AS CUST_NM
+			, YPODT.CPO_NO  -- 주문번호
+			, YPODT.CPO_SEQ -- 주문항번
+			, YPODT.PO_NO   -- 발주번호
+			, YPODT.PO_SEQ  -- 발주항번
+			, UPODT.PR_TYPE
+			, <include refid="com.sql.toDateChar"/>(YPODT.REG_DATE, 'yyyyMMdd') AS REG_DATE -- YYYY-MM-DD
+			, YPOHD.CPO_USER_ID                -- 주문자ID
+			, CVUR.USER_NM AS CPO_USER_NM      -- 주문자명
+			, YPOHD.CPO_USER_DEPT_CD -- 주문자부서코드
+			, YPOHD.CPO_USER_TEL_NUM  -- 주문자전화번호
+			, YPOHD.CPO_USER_CELL_NUM -- 주문자휴대전화번호
+			, YPODT.CUST_ITEM_CD
+			, YPODT.ITEM_CD
+			, YPODT.ITEM_DESC
+			, YPODT.ITEM_SPEC
+			, YPODT.MAKER_CD
+			, YPODT.MAKER_NM
+			, YPODT.MAKER_PART_NO
+			, YPODT.BRAND_CD
+			, YPODT.BRAND_NM
+			, YPODT.ORIGIN_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M004',YPODT.ORIGIN_CD,#{ses.langCd}) AS ORIGIN_NM
+			, YPODT.UNIT_CD
+			, YPODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, <include refid="com.sql.nvl"/>(YPODT.MOQ_QTY, 1) AS MOQ_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.RV_QTY, 1)  AS RV_QTY
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) AS CPO_QTY
+			, YPODT.CUR
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_UNIT_PRICE, 0) AS CPO_UNIT_PRICE -- 주문단가
+			, <include refid="com.sql.nvl"/>(YPODT.CPO_ITEM_AMT, 0)   AS CPO_ITEM_AMT   -- 주문금액
+			, <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)  AS PO_UNIT_PRICE  -- 매입단가
+			, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0)    AS PO_ITEM_AMT    -- 매입금액
+			, CASE WHEN <include refid="com.sql.nvl"/>(YPODT.PRIOR_GR_FLAG, '0') = '0' THEN 'N' ELSE 'Y' END AS PRIOR_GR_FLAG -- 선입고여부
+			, <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'yyyyMMdd') AS CPO_DATE -- 주문일자
+			, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0) AS LEAD_TIME -- 납기일자
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(YPOHD.CPO_DATE, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0)), 'yyyyMMdd') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(YPODT.HOPE_DUE_DATE, 'yyyyMMdd') AS HOPE_DUE_DATE -- 희망납기일자
+			, (SELECT CSDM.DELY_NM FROM STOCCSDM CSDM WHERE CSDM.GATE_CD = YPODT.GATE_CD AND CSDM.CUST_CD = #{ses.manageCd} AND CSDM.SEQ = YPODT.DELY_PLACE) AS DELY_PLACE -- 배송장소
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP041',UIVDT.DELY_TYPE,#{ses.langCd}) AS DELY_TYPE --납품방법
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_NM, YPODT.RECIPIENT_NM) ELSE YPODT.RECIPIENT_NM END AS RECIPIENT_NM  -- 인수자명
+			, YPODT.RECIPIENT_DEPT_NM  -- 인수자부서명
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_TEL_NUM) ELSE YPODT.RECIPIENT_TEL_NUM END AS RECIPIENT_TEL_NUM  -- 인수자전화번호
+			, CASE WHEN YPODT.DELY_PLACE = '1' THEN <include refid="com.sql.nvl"/>(YPODT.REQ_USER_TEL_NUM, YPODT.RECIPIENT_CELL_NUM) ELSE YPODT.RECIPIENT_CELL_NUM END AS RECIPIENT_CELL_NUM -- 인수자휴대전화번호
+			, YPODT.DELY_ZIP_CD  -- 납품장소 우편번호
+			, YPODT.DELY_ADDR_1  -- 납품장소 기본주소
+			, YPODT.DELY_ADDR_2  -- 납품장소 상세주소
+			, YPODT.REQ_TEXT
+			, YPODT.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,YPODT.ATTACH_FILE_NO) AS ATTACH_FILE_CNT
+			, UPODT.AGENT_ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(YPODT.GATE_CD,UPODT.AGENT_ATTACH_FILE_NO) AS AGENT_ATTACH_FILE_CNT
+			, YPODT.DEAL_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP021',YPODT.DEAL_CD,#{ses.langCd}) AS DEAL_NM
+			, YPODT.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP056',<include refid="com.sql.nvl"/>(YPODT.PROGRESS_CD, YPODT.PROGRESS_CD),#{ses.langCd}) AS PROGRESS_NM
+			, YPODT.SG_CTRL_USER_ID -- 품목담당자
+			, YPODT.AM_USER_ID
+			, USR.USER_NM 		AS MANAGE_NM -- 진행관리담당자
+			, YPODT.DOC_TYPE
+			, YPODT.TAX_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M036',YPODT.TAX_CD,#{ses.langCd}) AS TAX_NM
+			, YPODT.REF_MNG_NO -- 관리번호
+			, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS GR_COMPLETE_FLAG -- 출고완료여부
+			, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) AS BF_INV_QTY  -- 기납품수량(=기납품수량 - 납품수량)
+			, <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)  AS BF_GR_QTY   -- 기입고수량
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE       -- 납품예정일자
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE_RES   -- 납품예정일자(원본)
+			, UIVDT.INV_QTY AS INV_QTY_RES -- 납품수량 원본
+			, UIVDT.INV_QTY         -- 납품수량
+			, UIVDT.INV_QTY * YPODT.PO_UNIT_PRICE AS IV_ITEM_AMT  -- 납품금액
+			, GIDT.GI_QTY  AS GI_QTY -- 출고수량
+			, UIVDT.DELY_COMPANY_NM -- 택배사명
+			, UIVDT.WAYBILL_NO      -- 송장번호
+			, <include refid="com.sql.nvl"/>(YPODT.RETURN_REMARK, YPODT.RETURN_REMARK) AS RETURN_REMARK -- 반품사유
+			, UIVDT.DELY_DELAY_CD    -- 납품지연 사유
+			, <include refid="com.sql.dbo"/>GETCODENAME(UIVDT.GATE_CD,'MP067',UIVDT.DELY_DELAY_CD,#{ses.langCd}) AS DELY_DELAY_NM -- 납품지연 사유명
+			, UIVDT.DELY_DELAY_REASON-- 납품지연 상세사유
+			, <include refid="com.sql.nvl"/>(UIVDT.DELY_COMPLETE_FLAG, '0') AS DELY_COMPLETE_FLAG
+			, <include refid="com.sql.toDateChar"/>(UIVDT.DELY_COMPLETE_DATE, 'yyyyMMdd') AS DELY_COMPLETE_DATE
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, YPODT.FORCE_CLOSE_DATE) AS FORCE_CLOSE_DATE -- 주문종결일자
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_USER_ID, YPODT.FORCE_CLOSE_USER_ID) AS FORCE_CLOSE_USER_ID -- 주문종결자ID
+			, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_REASON, YPODT.FORCE_CLOSE_REASON) AS FORCE_CLOSE_REASON  -- 주문종결사유
+			, UIVDT.INV_NO  AS INV_NO
+			, UIVDT.IV_SEQ AS IV_SEQ
+			, <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') AS AGENT_YN
+			, CASE WHEN <include refid="com.sql.nvl"/>(UIVHD.AGENT_YN, '0') = '1' THEN <include refid="com.sql.dbo"/>getUserName(UIVHD.GATE_CD, UIVHD.REG_USER_ID, #{ses.langCd})
+			ELSE NULL
+			END AS AGENT_USER_NM
+			, TO_CHAR(YPODT.PO_DATE,'YYYYMMDD') PO_DATE
+			, YPODT.AGENT_MEMO
+			, YPODT.SHIPPER_TYPE
+			<if test="_databaseId == 'mssql'">
+				, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) AS IF_CPO_NO_SEQ
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, UPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.IF_CPO_SEQ) AS IF_CPO_NO_SEQ
+			</if>
+			, YPODT.REF_MNG_NO
+			, YPODT.NAP_FLAG
+			, YPODT.CSDM_SEQ
+			, YPODT.DELY_NM
+			<if test="_databaseId == 'mssql'">
+				, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) AS CPO_NO_SEQ --주문키
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.CPO_SEQ) AS CPO_NO_SEQ --주문키
+			</if>
+			, YPODT.VENDOR_ITEM_CD
+			, UPOHD.PLANT_CD
+			,<include refid="com.sql.dbo"/>getPlantName(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, UPOHD.CPO_USER_ID, #{ses.langCd}) AS CPO_USER_DEPT_NM
+			, UPOHD.PR_SUBJECT
+			,<include refid="com.sql.dbo"/>getUserName(UPODT.GATE_CD, UPODT.AM_USER_ID, #{ses.langCd}) AM_USER_NM
+			, UPODT.TEMP_PO_UNIT_PRICE
+			, UPODT.TEMP_PO_ITEM_AMT
+			,(SELECT INV_NO  FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_NO
+			,(SELECT INV_SEQ FROM STOUIVDT WHERE GATE_CD=UIVDT.GATE_CD AND INV_NO = UIVDT.INV_NO AND IV_SEQ=UIVDT.IV_SEQ  AND DEL_FLAG = '0') INV_SEQ
+			, OGWH.STR_CTRL_CODE  			--물류센터
+			, OGWH.WAREHOUSE_CODE AS WH_CD	--창고코드
+			, OGWH.WH_NM						--창고유형
+			, UPODT.PRIOR_GR_FLAG
+			, GETCODENAME(UPOHD.GATE_CD, 'M044', UPODT.PRIOR_GR_FLAG, 'KO') AS PRIOR_GR_FLAG_NM  --선입고여부
+			, AGENT_YN AS INV_AGENT_YN
+			, UPODT.CPO_UNIT_PRICE AS GI_UNIT_PRICE 														   --출고단가
+			, <include refid="com.sql.nvl"/>(UPODT.CPO_UNIT_PRICE, 0) * ( <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) -  <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)) AS GI_AMT  --출고금액
+			, <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) -  <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) AS AV_GI_QTY								   --출고가능수량
+			, GIDT.GI_NO  		--출고번호
+			, GIDT.GI_SEQ 		--출고항번
+			, GIDT.GI_DATE   	--출고일자
+			, UIVDT.GR_QTY -- 입고 수량
+			, <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM
+			, ( SELECT MAX((CASE WHEN GRDT.GR_CLOSE_YN = '1' THEN 'Y'
+				ELSE 'N' END)) CLOSING_YN
+				FROM STOCGRDT GRDT
+				WHERE UIVDT.GATE_CD  = GRDT.GATE_CD
+				AND UIVDT.INV_NO  = GRDT.INV_NO
+				AND UIVDT.INV_SEQ = GRDT.INV_SEQ
+				AND GRDT.DEL_FLAG = '0'
+				AND UIVDT.DEL_FLAG= '0' ) AS CLOSING_YN
+		FROM STOIGIDT GIDT
+		JOIN STOUIVDT UIVDT
+		  ON  UIVDT.GATE_CD = GIDT.GATE_CD
+		 AND UIVDT.INV_NO  = GIDT.INV_NO
+		 AND UIVDT.INV_SEQ = GIDT.INV_SEQ
+		 AND UIVDT.DEL_FLAG = '0'
+		JOIN STOUIVHD UIVHD -- 운영사 납품헤더
+		  ON (UIVDT.GATE_CD  = UIVHD.GATE_CD
+		 AND UIVDT.INV_NO   = UIVHD.INV_NO
+		<if test="USER_TYPE != null and USER_TYPE != null and USER_TYPE eq 'S'.toString()">
+			AND UIVHD.VENDOR_CD = #{ses.companyCd}
+		</if>
+		AND UIVHD.DEL_FLAG = '0')
+		JOIN STOYPODT YPODT
+		  ON (UIVDT.GATE_CD  = YPODT.GATE_CD
+	     AND UIVDT.PO_NO    = YPODT.PO_NO
+		 AND UIVDT.PO_SEQ   = YPODT.PO_SEQ
+		 AND YPODT.DEAL_CD IN ('100','400') --매입, VMI 재고
+		 AND YPODT.DEL_FLAG = '0')
+		JOIN STOYPOHD YPOHD
+		  ON (YPODT.GATE_CD     = YPOHD.GATE_CD
+		 AND YPODT.PO_NO       = YPOHD.PO_NO
+		 AND YPOHD.SIGN_STATUS = 'E' 	-- 결재완료
+		 AND YPOHD.DEL_FLAG    = '0')
+		JOIN STOUPODT UPODT
+		  ON (UPODT.GATE_CD  = YPODT.GATE_CD
+		 AND UPODT.CPO_NO   = YPODT.CPO_NO
+		 AND UPODT.CPO_SEQ  = YPODT.CPO_SEQ
+		 AND UPODT.DEL_FLAG = '0')
+		JOIN STOUPOHD UPOHD
+		  ON (UPOHD.GATE_CD  = UPODT.GATE_CD
+		 AND UPOHD.CPO_NO   = UPODT.CPO_NO
+		 AND UPOHD.DEL_FLAG = '0')
+		JOIN STOCVNGL VNGL -- 공급사
+		  ON (YPODT.GATE_CD   = VNGL.GATE_CD
+		 AND YPODT.VENDOR_CD = VNGL.VENDOR_CD)
+	LEFT JOIN STOCCVUR CVUR -- 고객사 주문자
+		  ON (YPOHD.GATE_CD     = CVUR.GATE_CD
+		 AND YPOHD.CUST_CD     = CVUR.COMPANY_CD
+		 AND YPOHD.CPO_USER_ID = CVUR.USER_ID
+		 AND CVUR.USER_TYPE    = 'B')
+	LEFT JOIN STOCUSER USR -- 진행관리담당자
+		  ON (YPODT.GATE_CD    = USR.GATE_CD
+		 AND YPODT.AM_USER_ID = USR.USER_ID)
+	LEFT JOIN STOCOGWH OGWH
+		  ON(UIVDT.GATE_CD = OGWH.GATE_CD
+		 AND UIVDT.LOG_CD = OGWH.STR_CTRL_CODE
+		 AND UIVDT.WH_CD  = OGWH.WAREHOUSE_CODE)
+		WHERE GIDT.GATE_CD  = #{ses.gateCd}
+		 AND GIDT.DEL_FLAG = '0'
+		 AND YPODT.PR_TYPE in ('G','C')
+		 AND <include refid="com.sql.nvl"/>(GIDT.GI_QTY, 0) != 0
+		 AND YPODT.VENDOR_CD = #{ses.companyCd}
+		<if test="CPO_NO != '' and CPO_NO != null">
+			AND (
+			( UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>)
+			OR ( YPODT.PO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> )
+			OR ( GIDT.GI_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>)
+			)
+		</if>
+		<if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+			AND UPOHD.PR_SUBJECT <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND YPOHD.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND <include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, YPOHD.CUST_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+			AND YPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_NM != '' and PLANT_NM != null">
+			AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, YPOHD.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DDP_CD != '' and DDP_CD != null">
+			AND <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DIVISION_CD != '' and DIVISION_CD != null">
+			AND CVUR.DIVISION_CD = #{DIVISION_CD}
+		</if>
+		<if test="DEPT_CD != '' and DEPT_CD != null">
+			AND CVUR.DEPT_CD = #{DEPT_CD}
+		</if>
+		<if test="PART_CD != '' and PART_CD != null">
+			AND CVUR.PART_CD = #{PART_CD}
+		</if>
+		<if test="PR_TYPE != '' and PR_TYPE != null">
+			AND UPODT.PR_TYPE = #{PR_TYPE}
+		</if>
+		<if test="DEAL_CD != '' and DEAL_CD != null">
+			AND UPODT.DEAL_CD = #{DEAL_CD}
+		</if>
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+			AND UPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+			AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="START_DATE != '' and START_DATE != null">
+			AND YPODT.PO_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="DOC_NUM != '' and DOC_NUM != null">
+			<choose>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+									AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND ((YPOHD.CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT IN ${DOC_NUM}) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+							</when>
+							<otherwise>
+								<if test="_databaseId == 'mssql'">
+									AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM})
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND (YPOHD.CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO IN ${DOC_NUM} OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IN ${DOC_NUM})
+								</if>
+							</otherwise>
+						</choose>
+					</if>
+					<if test="DOC_CNT == 0">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+									AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND ((YPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+							</when>
+							<otherwise>
+								<if test="_databaseId == 'mssql'">
+									AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(YPODT.IF_CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R})
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND (YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR YPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} YPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.IF_CPO_SEQ) ${DOC_NUM_ORG_R})
+								</if>
+							</otherwise>
+						</choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO_SEQ'.toString()">
+					<if test="DOC_CNT == 1">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT IN ${DOC_NUM}
+								</if>
+							</when>
+							<otherwise>
+								<if test="_databaseId == 'mssql'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) IN ${DOC_NUM}
+								</if>
+							</otherwise>
+						</choose>
+					</if>
+					<if test="DOC_CNT == 0">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+							</when>
+							<otherwise>
+								<if test="_databaseId == 'mssql'">
+									AND ${DOC_NUM_ORG_L} YPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(YPODT.CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+								</if>
+								<if test="_databaseId == 'oracle'">
+									AND YPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(YPODT.CPO_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+							</otherwise>
+						</choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'PO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND YPOHD.PO_NO NOT IN ${DOC_NUM}
+							</when>
+							<otherwise>
+								AND YPOHD.PO_NO IN ${DOC_NUM}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="DOC_CNT == 0">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND YPOHD.PO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+							</when>
+							<otherwise>
+								AND YPOHD.PO_NO <include refid="com.sql.likeL"/> #{PO_NO} <include refid="com.sql.likeR"/>
+							</otherwise>
+						</choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'IF_INVC_CD'.toString()">
+					<if test="DOC_CNT == 1">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND (UIVDT.IF_INVC_CD NOT IN ${DOC_NUM} OR UIVDT.IF_INVC_CD IS NULL)
+							</when>
+							<otherwise>
+								AND UIVDT.IF_INVC_CD IN ${DOC_NUM}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="DOC_CNT == 0">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND (UIVDT.IF_INVC_CD NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR UIVDT.IF_INVC_CD IS NULL)
+							</when>
+							<otherwise>
+								AND UIVDT.IF_INVC_CD <include refid="com.sql.likeL"/> #{IF_INVC_CD} <include refid="com.sql.likeR"/>
+							</otherwise>
+						</choose>
+					</if>
+				</when>
+				<otherwise>
+					<if test="DOC_CNT == 1">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND (YPODT.REF_MNG_NO NOT IN ${DOC_NUM} OR YPODT.REF_MNG_NO IS NULL)
+							</when>
+							<otherwise>
+								AND YPODT.REF_MNG_NO IN ${DOC_NUM}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="DOC_CNT == 0">
+						<choose>
+							<when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								AND (YPODT.REF_MNG_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR YPODT.REF_MNG_NO IS NULL)
+							</when>
+							<otherwise>
+								AND YPODT.REF_MNG_NO <include refid="com.sql.likeL"/> #{REF_MNG_NO} <include refid="com.sql.likeR"/>
+							</otherwise>
+						</choose>
+					</if>
+				</otherwise>
+			</choose>
+		</if>
+
+		<if test="INV_NO != '' and INV_NO != null">
+			AND UIVDT.INV_NO <include refid="com.sql.likeL"/> #{INV_NO} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND UPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND (UPODT.ITEM_CD IN ${ITEM_CD} OR UPODT.CUST_ITEM_CD IN ${ITEM_CD})
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND (UPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR UPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (${ITEM_DESC} OR ${ITEM_SPEC} OR ${ITEM_CD} OR ${CUST_ITEM_CD})
+		</if>
+		<if test="MAKER_CD != '' and MAKER_CD != null">
+			AND ${MAKER_CD_01}
+		</if>
+		<if test="MAKER_NM != '' and MAKER_NM != null">
+			AND ${MAKER_NM_01}
+		</if>
+		<if test="AM_USER_ID != '' and AM_USER_ID != null">
+			AND UPODT.AM_USER_ID = #{AM_USER_ID}
+		</if>
+		<if test="PR_TYPE != '' and PR_TYPE != null">
+			AND UPODT.PR_TYPE = #{PR_TYPE}
+		</if>
+		<if test="DEAL_CD != '' and DEAL_CD != null">
+			AND UPODT.DEAL_CD = #{DEAL_CD}
+		</if>
+		ORDER BY  GI_NO DESC, GI_SEQ ASC
+	</select>
+</mapper>

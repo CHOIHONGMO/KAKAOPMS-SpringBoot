@@ -1,0 +1,1096 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.org.BSYO_Mapper">
+
+	<select id="getPlantCd" parameterType="hashmap" resultType="String">
+
+     	SELECT
+     		'P' <include refid="com.sql.stringMerge"/> <include refid="com.sql.lpad"/>((<include refid="com.sql.subStr"/>(<include refid="com.sql.nvl"/>(MAX(A.PLANT_CD),'P00000'), 2) + 1), 5, '0') PLANT_CD
+		  FROM STOCOGPL A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		 <!-- AND A.BUYER_CD = #{BUYER_CD} -->
+		   AND A.PLANT_CD LIKE 'P%'
+
+	</select>
+
+	<select id="selectGate" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+               <include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , OGHU.GATE_CD
+             , OGHU.GATE_CD AS GATE_CD_ORI
+             , GATE_NM
+             , GATE_NM_ENG
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGHU.GATE_CD, OGHU.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , OGHU.DEL_FLAG
+             , OGHU.GMT_CD
+         FROM STOCOGHU OGHU
+        WHERE OGHU.DEL_FLAG = '0'
+        ORDER BY OGHU.GATE_CD
+
+    </select>
+
+    <select id="selectGateInfo" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+               <include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             ,  OGHU.REG_USER_ID AS REG_USER_ID
+             , OGHU.GATE_CD
+             , OGHU.GATE_CD AS GATE_CD_ORI
+             , GATE_NM
+             , GATE_NM_ENG
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGHU.GATE_CD, OGHU.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , OGHU.DEL_FLAG
+             , OGHU.GMT_CD
+             , 'U' AS INSERT_FLAG
+         FROM STOCOGHU OGHU
+        WHERE OGHU.DEL_FLAG = '0'
+          AND GATE_CD = #{GATE_CD}
+
+    </select>
+
+    <select id="checkGateUnitExists" parameterType="hashmap" resultType="java.lang.Integer">
+
+        SELECT COUNT(GATE_CD) AS CNT
+          FROM STOCOGHU
+         WHERE GATE_CD = #{gateCd}
+
+    </select>
+
+    <insert id="insertGate" parameterType="hashMap">
+
+        INSERT INTO ${TABLE_NM} (
+        	GATE_CD
+            , GATE_NM
+            , GATE_NM_ENG
+            , DEL_FLAG
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , GMT_CD)
+        VALUES (UPPER(#{gateCd})
+            , #{gateNm}
+            , #{gateNmEng}
+            , '0'
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , #{gmtCd})
+
+    </insert>
+
+    <update id="updateGate" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	  MOD_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , DEL_FLAG = '0'
+            <if test="gateNm != null">, GATE_NM = #{gateNm}</if>
+            <if test="gateNmEng != null">, GATE_NM_ENG = #{gateNmEng}</if>
+            <if test="gmtCd != null">, GMT_CD = #{gmtCd}</if>
+        WHERE GATE_CD = #{gateCd}
+
+    </update>
+
+    <update id="deleteGate" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	DEL_FLAG = '1'
+            , MOD_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE GATE_CD = #{gateCd}
+
+    </update>
+
+	<select id="selectCompany" parameterType="hashmap" resultType="hashMap">
+
+        SELECT  OGCM.ADDR  AS ADDR
+             ,  OGCM.ADDR_ENG  AS ADDR_ENG
+             , OGCM.BUSINESS_TYPE
+             , OGCM.BUYER_CD
+             , OGCM.BUYER_CD AS BUYER_CD_ORI
+             , OGCM.BUYER_NM
+             , OGCM.BUYER_NM_ENG
+             ,  OGCM.CEO_USER_NM AS CEO_USER_NM
+             ,  OGCM.CEO_USER_NM_ENG AS CEO_USER_NM_ENG
+             , OGCM.CITY_NM
+             , OGCM.COMPANY_REG_NUM
+             , OGCM.COUNTRY_CD
+             , OGCM.CUR
+             , OGCM.DUNS_NUM
+             ,  OGCM.FAX_NUM  AS FAX_NUM
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGCM.FOUNDATION_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS FOUNDATION_DATE
+             , OGCM.GATE_CD
+             , OGCM.GATE_CD AS GATE_CD_ORI
+             , <include refid="com.sql.dbo"/>getGateName(OGCM.GATE_CD, #{ses.langCd}) AS GATE_NM
+        	 , OGCM.GMT_CD
+             , OGCM.INDUSTRY_TYPE
+             ,  OGCM.IRS_NUM AS IRS_NUM
+             , OGCM.LANG_CD
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGCM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGCM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE_FORM
+             ,  OGCM.REG_USER_ID AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGCM.GATE_CD, OGCM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             ,  OGCM.TEL_NUM  AS TEL_NUM
+             ,  OGCM.ZIP_CD AS ZIP_CD
+             , OGCM.ACCOUNT_UNIT_CD
+             ,  OGCM.ZIP_CD_5 AS ZIP_CD_5
+             , CASE WHEN OGCM.USE_FLAG = '1' THEN 'Y' ELSE 'N' END AS USE_FLAG
+             ,  OGCM.IRS_SUB_ZIP_CD AS IRS_SUB_ZIP_CD
+             ,  OGCM.SUB_ZIP_CD_5 AS SUB_ZIP_CD_5
+             ,  OGCM.IRS_SUB_NO AS IRS_SUB_NO
+             ,  OGCM.IRS_SUB_ADDR  AS IRS_SUB_ADDR
+             , OGCM.IRS_SUB_NM AS IRS_SUB_NM
+             , OGCM.CI_FILE_NUM
+         FROM (STOCOGCM OGCM INNER JOIN STOCOGHU OGHU ON OGCM.GATE_CD = OGHU.GATE_CD)
+        WHERE OGCM.DEL_FLAG = '0'
+          AND OGHU.DEL_FLAG = '0'
+        ORDER BY OGCM.BUYER_CD
+
+    </select>
+
+	<select id="selectDeptGrid" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+        	  DEPT.DEPT_CD
+        	, <include refid="com.sql.dbo"/>GETDEPTNAME(DEPT.GATE_CD, DEPT.BUYER_CD, DEPT.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+        	, DEPT.BUYER_CD
+        	, <include refid="com.sql.dbo"/>GETBUYERNAME(DEPT.GATE_CD, DEPT.BUYER_CD, #{ses.langCd}) as BUYER_NM
+         FROM STOCOGDP DEPT
+         JOIN STOCOGCM OGCM ON (
+         	DEPT.GATE_CD = OGCM.GATE_CD AND
+         	DEPT.BUYER_CD = OGCM.BUYER_CD AND
+         	OGCM.DEL_FLAG = '0'
+         )
+        WHERE DEPT.DEL_FLAG = '0'
+          AND DEPT.GATE_CD = #{ses.gateCd}
+        ORDER BY DEPT.DEPT_NM
+
+    </select>
+
+    <select id="checkCompanyExists" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(BUYER_CD)
+          FROM STOCOGCM
+         WHERE UPPER(GATE_CD) = UPPER(#{gateCd})
+           AND UPPER(BUYER_CD) = UPPER(#{buyerCd})
+
+    </select>
+
+    <insert id="insertCompany" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} (GATE_CD
+             , BUYER_CD
+             , BUYER_NM
+             , BUYER_NM_ENG
+             , LANG_CD
+             , COUNTRY_CD
+             , CITY_NM
+             , ADDR
+             , ADDR_ENG
+             , ZIP_CD
+             , TEL_NUM
+             , IRS_NUM
+             , FAX_NUM
+             , CEO_USER_NM
+             , CEO_USER_NM_ENG
+             , FOUNDATION_DATE
+             , CUR
+             , INDUSTRY_TYPE
+             , BUSINESS_TYPE
+             , COMPANY_REG_NUM
+             , DUNS_NUM
+             , GMT_CD
+             , DEL_FLAG
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , ACCOUNT_UNIT_CD
+             , ZIP_CD_5
+             , USE_FLAG
+             , IRS_SUB_ZIP_CD
+             , SUB_ZIP_CD_5
+             , IRS_SUB_NO
+             , IRS_SUB_ADDR
+             , IRS_SUB_NM
+             , CI_FILE_NUM
+            
+        ) VALUES (
+        	   #{gateCd}
+             , #{buyerCd}
+             , #{buyerNm}
+             , #{buyerNmEng}
+             , #{langCd}
+             , #{countryCd}
+             , #{cityNm}
+             , #{address} 
+             , #{addressEng} 
+             , #{zipCd}
+             , #{telNum} 
+             , #{irsNum}
+             , #{faxNum} 
+             , #{ceoUserNm}
+             , #{ceoUserNmEng}
+             , <include refid="com.sql.dbo"/>SETGMTDATE(#{foundationDate}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) 
+             , #{cur}
+             , #{industryType}
+             , #{businessType}
+             , #{companyRegNum}
+             , #{dunsNum}
+             , #{gmtCd}
+             , '0'
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , #{ACCOUNT_UNIT_CD}
+             , #{ZIP_CD_5}
+             , CASE WHEN <include refid="com.sql.nvl"/>(#{USE_FLAG}, '') = '' THEN '0' ELSE '1' END
+             
+             , #{IRS_SUB_ZIP_CD}
+             , #{SUB_ZIP_CD_5}
+             , #{IRS_SUB_NO}
+             , #{IRS_SUB_ADDR} 
+             , #{IRS_SUB_NM}
+             , #{CI_FILE_NUM}
+             )
+    </insert>
+
+    <update id="updateCompany" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	   MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , DEL_FLAG = '0'
+             <if test="buyerNm != null">, BUYER_NM = #{buyerNm}</if>
+             <if test="buyerNmEng != null">, BUYER_NM_ENG = #{buyerNmEng}</if>
+             <if test="langCd != null">, LANG_CD = #{langCd}</if>
+             <if test="countryCd != null">, COUNTRY_CD = #{countryCd}</if>
+             <if test="cityNm != null">, CITY_NM = #{cityNm}</if>
+             <if test="address != null">, ADDR = #{address} </if>
+             <if test="addressEng != null">, ADDR_ENG = #{addressEng} </if>
+             <if test="zipCd != null">, ZIP_CD = #{zipCd}</if>
+             <if test="telNum != null">, TEL_NUM = #{telNum} </if>
+             <if test="irsNum != null">, IRS_NUM = #{irsNum}</if>
+             <if test="faxNum != null">, FAX_NUM = #{faxNum} </if>
+             <if test="ceoUserNm != null">, CEO_USER_NM = #{ceoUserNm}</if>
+             <if test="ceoUserNmEng != null">, CEO_USER_NM_ENG = #{ceoUserNmEng}</if>
+             <if test="businessType != null">, BUSINESS_TYPE = #{businessType}</if>
+             <if test="industryType != null">, INDUSTRY_TYPE = #{industryType}</if>
+             <if test="foundationDate != null">, FOUNDATION_DATE = #{foundationDate}</if>
+             <if test="cur != null">, CUR = #{cur}</if>
+             <if test="companyRegNum != null">, COMPANY_REG_NUM = #{companyRegNum}</if>
+             <if test="dunsNum != null">, DUNS_NUM = #{dunsNum}</if>
+             <if test="gmtCd != null">, GMT_CD = #{gmtCd}</if>
+             <if test="ACCOUNT_UNIT_CD != null">, ACCOUNT_UNIT_CD = #{ACCOUNT_UNIT_CD}</if>
+             <if test="ZIP_CD_5 != null">, ZIP_CD_5 = #{ZIP_CD_5}</if>
+             <if test="USE_FLAG != null">, USE_FLAG = CASE WHEN <include refid="com.sql.nvl"/>(#{USE_FLAG}, '') = '' THEN '0' ELSE '1' END</if>
+             
+             <if test="IRS_SUB_ZIP_CD != null">, IRS_SUB_ZIP_CD = #{IRS_SUB_ZIP_CD}</if>
+             <if test="SUB_ZIP_CD_5 != null">, SUB_ZIP_CD_5 = #{SUB_ZIP_CD_5}</if>
+             <if test="IRS_SUB_NO != null">, IRS_SUB_NO = #{IRS_SUB_NO}</if>
+             <if test="IRS_SUB_ADDR != null">, IRS_SUB_ADDR = #{IRS_SUB_ADDR} </if>
+             <if test="IRS_SUB_NM != null">, IRS_SUB_NM = #{IRS_SUB_NM}</if>
+             <if test="CI_FILE_NUM != null">, CI_FILE_NUM = #{CI_FILE_NUM}</if>
+                          
+         WHERE GATE_CD = #{gateCd}
+           AND BUYER_CD = #{buyerCd}
+
+    </update>
+
+    <update id="deleteCompany" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	   DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{GATE_CD_ORI}
+           AND BUYER_CD = #{BUYER_CD_ORI}
+
+    </update>
+
+	<select id="selectPurchaseComMapping" parameterType="hashMap" resultType="hashMap">
+
+       SELECT BUYER_CD
+            , <include refid="com.sql.dbo"/>GETBUYERNAME(GATE_CD, BUYER_CD, #{ses.langCd}) as BUYER_NM
+            , REAL_BUYER_CD
+            , GATE_CD
+         FROM STOCOGCM
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND DEL_FLAG = '0'
+
+    </select>
+
+    <select id="selectPurchaseCompanycombobox" parameterType="hashMap" resultType="hashMap">
+
+       SELECT BUYER_CD AS "value"
+            , <include refid="com.sql.dbo"/>GETBUYERNAME(GATE_CD, BUYER_CD, #{ses.langCd}) AS "text"
+       FROM STOCOGCM
+       WHERE  GATE_CD = #{ses.gateCd}
+         AND DEL_FLAG = '0'
+
+    </select>
+
+    <update id="savePurchaseComMapping" parameterType="hashMap">
+
+       UPDATE ${TABLE_NM} SET
+       		  REAL_BUYER_CD = #{REAL_BUYER_CD}
+            , MOD_DATE      = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID   = #{ses.userId}
+        WHERE GATE_CD       = #{GATE_CD}
+       	  AND BUYER_CD      = #{BUYER_CD}
+
+    </update>
+
+    <select id="selectPurchaseOrg" parameterType="hashMap" resultType="hashMap">
+
+        SELECT OGPU.GATE_CD AS GATE_CD
+             , OGPU.BUYER_CD AS BUYER_CD
+             , OGPU.PUR_ORG_CD AS PUR_ORG_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGPU.GATE_CD, OGPU.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+             , OGPU.PUR_ORG_NM AS PUR_ORG_NM
+             , OGPU.PUR_ORG_NM_ENG AS PUR_ORG_NM_ENG
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGPU.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , OGPU.REG_USER_ID AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGCM.GATE_CD, OGCM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGPU.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE_FORM
+        FROM STOCOGPU OGPU INNER JOIN STOCOGCM OGCM ON
+               OGPU.GATE_CD=OGCM.GATE_CD
+               AND  OGPU.BUYER_CD=  OGCM.BUYER_CD
+        WHERE  OGPU.GATE_CD = #{ses.gateCd}
+          AND OGPU.DEL_FLAG = '0'
+          AND OGCM.DEL_FLAG = '0'
+      ORDER BY OGPU.GATE_CD
+
+    </select>
+
+    <select id="checkPurchaseOrgExists" parameterType="hashMap" resultType="java.lang.Integer">
+
+        <if test="_databaseId == 'oracle'">
+	    	SELECT COUNT(PUR_ORG_CD) AS CNT
+        	FROM STOCOGPU
+        	WHERE  ROWNUM = 1
+	        AND GATE_CD = UPPER(#{ses.gateCd})
+	        AND BUYER_CD = #{buyerCd}
+	        AND PUR_ORG_CD = #{purOrgCd}
+		</if>
+
+		<if test="_databaseId == 'mssql'">
+	     	SELECT TOP 1 COUNT(PUR_ORG_CD) AS CNT
+        	FROM STOCOGPU
+        	WHERE GATE_CD = UPPER(#{ses.gateCd})
+	        AND BUYER_CD = #{buyerCd}
+	        AND PUR_ORG_CD = #{purOrgCd}
+		</if>
+
+    </select>
+
+    <insert id="insertPurchaseOrg" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} (
+               GATE_CD
+             , BUYER_CD
+             , PUR_ORG_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , PUR_ORG_NM
+             , PUR_ORG_NM_ENG
+             )
+        VALUES (UPPER(#{ses.gateCd})
+             , #{buyerCd}
+             , #{purOrgCd}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{purOrgNm}
+             , #{purOrgNmEng}
+             )
+    </insert>
+
+    <update id="updatePurchaseOrg" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	MOD_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , PUR_ORG_NM = #{purOrgNm}
+            , PUR_ORG_NM_ENG = #{purOrgNmEng}
+            , DEL_FLAG = '0'
+         WHERE GATE_CD = <include refid="com.sql.nvl"/>(CAST(#{GATE_CD} AS VARCHAR(20)), CAST(#{ses.gateCd} AS VARCHAR(20)))
+           AND BUYER_CD = #{buyerCd}
+           AND PUR_ORG_CD = #{purOrgCd}
+
+    </update>
+
+    <update id="deletePurchaseOrg" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	DEL_FLAG = '1'
+            , MOD_USER_ID =  #{ses.userId}
+         WHERE GATE_CD =  #{GATE_CD}
+           AND BUYER_CD = #{buyerCdOri}
+           AND PUR_ORG_CD = #{purOrgCdOri}
+
+    </update>
+
+	<select id="selectPlant" parameterType="hashMap" resultType="hashMap">
+
+        SELECT PLANT_CD
+             , PLANT_NM
+             , PLANT_NM_ENG
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGPL.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , OGPL.BUYER_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGPL.GATE_CD, OGPL.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+          FROM STOCOGPL OGPL
+               JOIN STOCOGCM OGCM ON OGPL.GATE_CD=OGCM.GATE_CD AND OGPL.BUYER_CD=OGCM.BUYER_CD
+               JOIN STOCOGHU OGHU ON OGPL.GATE_CD=OGHU.GATE_CD
+         WHERE OGPL.GATE_CD = #{ses.gateCd}
+           AND OGPL.DEL_FLAG = '0'
+           AND OGCM.DEL_FLAG = '0'
+           AND OGHU.DEL_FLAG = '0'
+
+		 ORDER BY PLANT_CD
+    </select>
+
+    <select id="getPlantInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT OGPL.GATE_CD
+             , OGPL.BUYER_CD
+             , OGPL.BUYER_CD AS BUYER_CD_ORI
+             , OGPL.PLANT_CD
+             , OGPL.PLANT_CD AS PLANT_CD_ORI
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGPL.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+             , OGPL.PLANT_NM
+             , OGPL.PLANT_NM_ENG
+             , OGPL.COUNTRY_CD
+             , OGPL.CITY_NM
+             , OGPL.ADDR AS ADDR
+             , OGPL.ADDR_ENG AS ADDR_ENG
+             , OGPL.ZIP_CD AS ZIP_CD
+             , OGPL.TEL_NUM AS TEL_NUM
+             , OGPL.FAX_NUM AS FAX_NUM
+             , OGPL.IRS_NUM AS IRS_NUM
+             , OGPL.CEO_USER_NM AS CEO_USER_NM
+             , OGPL.CEO_USER_NM_ENG AS CEO_USER_NM_ENG
+             , OGPL.INDUSTRY_TYPE
+             , OGPL.BUSINESS_TYPE
+             , OGPL.COMPANY_REG_NUM AS COMPANY_REG_NUM
+             , OGPL.DUNS_NUM
+             , OGPL.BUYER_NM AS BUYER_NM
+             , OGPL.BUYER_NM_ENG AS BUYER_NM_ENG
+             , OGPL.ATT_FILE_NUM
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGPL.GATE_CD, OGPL.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , 'R' AS INSERT_FLAG
+             , REGION_CD
+             , EMAIL AS EMAIL
+             , PLANT_TYPE
+             , PLANT_STATUS_CD
+             , OGPL.MAPPING_PLANT_CD
+             , OGPL.ZIP_CD_5
+       FROM  STOCOGPL OGPL
+       WHERE   OGPL.GATE_CD = #{ses.gateCd}
+          AND OGPL.DEL_FLAG = '0'
+          AND OGPL.PLANT_CD = #{PLANT_CD}
+          AND OGPL.BUYER_CD = #{BUYER_CD_ORI}
+	</select>
+
+    <select id="checkPlantExists" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(PLANT_CD) AS CNT
+        FROM STOCOGPL
+        WHERE  GATE_CD = UPPER(#{ses.gateCd})
+          AND BUYER_CD = #{BUYER_CD}
+          AND PLANT_CD = #{PLANT_CD}
+          <if test='_databaseId=="oracle"'>AND ROWNUM = 1</if>
+
+    </select>
+
+    <insert id="insertPlant" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} ( GATE_CD
+             , BUYER_CD
+             , PLANT_CD
+             , REGION_CD
+             , EMAIL
+             , PLANT_TYPE
+             , PLANT_STATUS_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , PLANT_NM
+             , PLANT_NM_ENG
+             , COUNTRY_CD
+             , CITY_NM
+             , ADDR
+             , ADDR_ENG
+             , ZIP_CD
+             , TEL_NUM
+             , FAX_NUM
+             , IRS_NUM
+             , CEO_USER_NM
+             , CEO_USER_NM_ENG
+             , INDUSTRY_TYPE
+             , BUSINESS_TYPE
+             , COMPANY_REG_NUM
+             , DUNS_NUM
+             , BUYER_NM
+             , BUYER_NM_ENG
+             , ATT_FILE_NUM
+             , ZIP_CD_5)
+        VALUES  (#{ses.gateCd}
+             , #{BUYER_CD}
+             , UPPER(<include refid="com.sql.trim"/>(#{PLANT_CD}))
+             , #{REGION_CD}
+             , #{EMAIL} 
+             , #{PLANT_TYPE}
+             , #{PLANT_STATUS_CD}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{PLANT_NM}
+             , #{PLANT_NM_ENG}
+             , #{COUNTRY_CD}
+             , #{CITY_NM}
+             , #{ADDR} 
+             , #{ADDR_ENG} 
+             , #{ZIP_CD} 
+             , #{TEL_NUM} 
+             , #{FAX_NUM} 
+             , #{IRS_NUM}
+             , #{CEO_USER_NM}
+             , #{CEO_USER_NM_ENG}
+             , #{INDUSTRY_TYPE}
+             , #{BUSINESS_TYPE}
+             , #{COMPANY_REG_NUM}
+             , #{DUNS_NUM}
+             , #{BUYER_NM}
+             , #{BUYER_NM_ENG}
+             , #{ATT_FILE_NUM}
+             , #{ZIP_CD_5} )
+
+    </insert>
+
+    <update id="updatePlant" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM}
+        SET    BUYER_CD = #{BUYER_CD}
+             , PLANT_CD = #{PLANT_CD}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , DEL_FLAG = '0'
+             , PLANT_NM = #{PLANT_NM}
+             , PLANT_NM_ENG = #{PLANT_NM_ENG}
+             , COUNTRY_CD = #{COUNTRY_CD}
+             , CITY_NM = #{CITY_NM}
+             , ADDR = #{ADDR} 
+             , ADDR_ENG = #{ADDR_ENG} 
+             , ZIP_CD = #{ZIP_CD} 
+             , TEL_NUM = #{TEL_NUM} 
+             , FAX_NUM = #{FAX_NUM} 
+             , IRS_NUM = #{IRS_NUM}
+             , CEO_USER_NM = #{CEO_USER_NM}
+             , CEO_USER_NM_ENG = #{CEO_USER_NM_ENG}
+             , INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+             , BUSINESS_TYPE = #{BUSINESS_TYPE}
+             , COMPANY_REG_NUM = #{COMPANY_REG_NUM}
+             , DUNS_NUM = #{DUNS_NUM}
+             , BUYER_NM = #{BUYER_NM}
+             , BUYER_NM_ENG = #{BUYER_NM_ENG}
+             , ATT_FILE_NUM = #{ATT_FILE_NUM}
+             , REGION_CD = #{REGION_CD}
+             , EMAIL = #{EMAIL} 
+             , PLANT_TYPE = #{PLANT_TYPE}
+             , PLANT_STATUS_CD = #{PLANT_STATUS_CD}
+             , ZIP_CD_5 = #{ZIP_CD_5} 
+        WHERE  GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+        AND   PLANT_CD = #{PLANT_CD}
+        AND   BUYER_CD = #{BUYER_CD}
+
+    </update>
+
+    <update id="deletePlant" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM}
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   PLANT_CD = #{PLANT_CD_ORI}
+        AND   BUYER_CD = #{BUYER_CD}
+
+    </update>
+
+<!--
+    <resultMap id="gateCdItem" type="java.util.HashMap">
+        <result property="value" column="GATE_CD"/>
+        <result property="text" column="HOUSE_NM"/>
+    </resultMap>
+
+    <select id="getgateCdList" parameterType="hashMap" resultMap="gateCdItem">
+
+        SELECT GATE_CD
+             , HOUSE_NM
+        FROM STOCOGHU
+        WHERE  DEL_FLAG = '0'
+        ORDER BY GATE_CD
+
+    </select>
+-->
+
+
+	<select id="doSearchDeptINFO" parameterType="hashMap" resultType="hashMap">
+        SELECT OGDP.GATE_CD
+             , OGDP.BUYER_CD
+             , OGDP.DEPT_CD
+             , OGDP.BUYER_CD AS BUYER_CD_ORI
+             , OGDP.DEPT_CD AS DEPT_CD_ORI
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGDP.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+             , OGDP.REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGDP.GATE_CD, OGDP.REG_USER_ID, #{ses.langCd}) AS USER_NM
+             , OGDP.DEL_FLAG
+             , OGDP.DEPT_NM
+             , OGDP.DEPT_NM_ENG
+             , OGDP.DEPT_CHIEF_NM
+             , OGDP.PARENT_DEPT_CD
+             , OGDP.ADDR
+             , OGDP.ADDR_ENG
+             , OGDP.TEL_NUM
+             , OGDP.FAX_NUM
+             , 'U' AS INSERT_FLAG
+        FROM STOCOGDP OGDP
+        JOIN STOCOGCM OGCM ON (
+        	OGDP.GATE_CD = OGCM.GATE_CD AND
+        	OGDP.BUYER_CD = OGCM.BUYER_CD AND
+        	OGCM.DEL_FLAG = '0'
+        )
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+              AND OGDP.DEL_FLAG = '0'
+          <if test="BUYER_CD != '' and BUYER_CD != null">
+              AND OGDP.BUYER_CD = #{BUYER_CD}
+          </if>
+          <if test="DEPT_CD != '' and DEPT_CD != null">
+              AND OGDP.DEPT_CD = #{DEPT_CD}
+          </if>
+
+    </select>
+
+
+	<select id="doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT DEPT_CD
+             , <include refid="com.sql.dbo"/>GETDEPTNAME(OGDP.GATE_CD, OGDP.BUYER_CD, DEPT_CD, #{ses.langCd}) AS TITLE
+             , PARENT_DEPT_CD
+        FROM STOCOGDP OGDP
+                JOIN STOCOGCM OGCM ON OGDP.GATE_CD=OGCM.GATE_CD AND OGDP.BUYER_CD=OGCM.BUYER_CD
+                JOIN STOCOGHU OGHU ON OGDP.GATE_CD=OGHU.GATE_CD
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+              AND OGDP.DEL_FLAG = '0'
+              AND OGCM.DEL_FLAG = '0'
+              AND OGHU.DEL_FLAG = '0'
+          <if test="BUYER_CD != '' and BUYER_CD != null">
+              AND OGDP.BUYER_CD = #{BUYER_CD}
+          </if>
+        ORDER BY PARENT_DEPT_CD DESC
+
+    </select>
+
+	<select id="doSearch2" parameterType="hashMap" resultType="hashMap">
+        SELECT DEPT_CD
+             , <include refid="com.sql.dbo"/>GETDEPTNAME(OGDP.GATE_CD, OGDP.BUYER_CD, DEPT_CD, #{ses.langCd}) AS TITLE
+             , PARENT_DEPT_CD
+        FROM STOCOGDP OGDP
+                JOIN STOCOGCM OGCM ON OGDP.GATE_CD=OGCM.GATE_CD AND OGDP.BUYER_CD=OGCM.BUYER_CD
+                JOIN STOCOGHU OGHU ON OGDP.GATE_CD=OGHU.GATE_CD
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+              AND OGDP.DEL_FLAG = '0'
+              AND OGCM.DEL_FLAG = '0'
+              AND OGHU.DEL_FLAG = '0'
+          <if test="BUYER_CD != '' and BUYER_CD != null">
+              AND OGDP.BUYER_CD = #{BUYER_CD}
+          </if>
+              AND PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+        ORDER BY PARENT_DEPT_CD DESC
+
+    </select>
+
+
+
+
+
+
+
+
+    <select id="getInfo_Dept" parameterType="hashmap" resultType="hashmap">
+
+        SELECT OGDP.GATE_CD
+             , OGDP.BUYER_CD
+             , OGDP.DEPT_CD
+             , OGDP.BUYER_CD AS BUYER_CD_ORI
+             , OGDP.DEPT_CD AS DEPT_CD_ORI
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGDP.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+             , OGDP.REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGDP.GATE_CD, OGDP.REG_USER_ID, #{ses.langCd}) AS USER_NM
+             , OGDP.DEL_FLAG
+             , OGDP.DEPT_NM
+             , OGDP.DEPT_NM_ENG
+             , OGDP.DEPT_CHIEF_NM
+             , OGDP.PARENT_DEPT_CD
+             , OGDP.ADDR
+             , OGDP.ADDR_ENG
+             , OGDP.TEL_NUM
+             , OGDP.FAX_NUM
+             , 'U' AS INSERT_FLAG
+        FROM STOCOGDP OGDP
+        WHERE  OGDP.GATE_CD = #{ses.gateCd}
+           AND OGDP.DEPT_CD = UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD}))
+           AND OGDP.BUYER_CD = #{BUYER_CD}
+
+    </select>
+
+    <select id="checkExists_Dept" parameterType="hashmap" resultType="java.lang.Integer">
+	    SELECT COUNT(DEPT_CD) AS CNT
+        FROM STOCOGDP
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   BUYER_CD = #{BUYER_CD}
+        AND   UPPER(DEPT_CD) = UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD}) )
+        <if test='_databaseId == "oracle"'>AND ROWNUM = 1</if>
+    </select>
+
+    <insert id="doInsert_Dept" parameterType="hashmap">
+
+        INSERT INTO ${TABLE_NM} (
+               GATE_CD
+             , BUYER_CD
+             , DEPT_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , DEPT_NM
+             , DEPT_NM_ENG
+             , PARENT_DEPT_CD
+             , DEPT_CHIEF_NM
+             , ADDR
+             , ADDR_ENG
+             , TEL_NUM
+             , FAX_NUM)
+        VALUES  (#{ses.gateCd}
+             , #{BUYER_CD}
+             , UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD}))
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{DEPT_NM}
+             , #{DEPT_NM_ENG}
+             , #{PARENT_DEPT_CD}
+             , #{DEPT_CHIEF_NM}
+             , #{ADDR}
+             , #{ADDR_ENG}
+             , #{TEL_NUM}
+             , #{FAX_NUM})
+
+    </insert>
+
+    <update id="doUpdate_Dept" parameterType="hashmap">
+
+        UPDATE ${TABLE_NM}
+        SET  BUYER_CD = #{BUYER_CD}
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEPT_CD = UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD}))
+            ,DEL_FLAG = '0'
+            , DEPT_NM = #{DEPT_NM}
+            , DEPT_NM_ENG = #{DEPT_NM_ENG}
+            , PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+            , DEPT_CHIEF_NM = #{DEPT_CHIEF_NM}
+            , ADDR = #{ADDR}
+            , ADDR_ENG = #{ADDR_ENG}
+            , TEL_NUM = #{TEL_NUM}
+            , FAX_NUM = #{FAX_NUM}
+        WHERE  GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+        AND   BUYER_CD = #{BUYER_CD}
+        AND   DEPT_CD = #{DEPT_CD}
+
+    </update>
+<!--
+    <update id="updateParentDepartmentUnit" parameterType="hashmap">
+
+        UPDATE STOCOGDP
+        SET    PARENT_DEPT_CD = UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD}))
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   PARENT_DEPT_CD = #{DEPT_CD_ORI}
+        AND   BUYER_CD = #{BUYER_CD}
+
+    </update>
+-->
+    <update id="doDelete_Dept" parameterType="hashmap">
+
+        UPDATE ${TABLE_NM}
+        SET  MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   DEPT_CD = #{DEPT_CD_ORI}
+        AND   BUYER_CD = #{BUYER_CD}
+
+    </update>
+
+    <select id="selectDeptParent" parameterType="hashmap" resultType="hashmap">
+
+        SELECT GATE_CD, DEPT_CD, DEPT_NM, BUYER_CD
+        FROM
+            (SELECT GATE_CD, DEPT_CD
+                 , <include refid="com.sql.lpad"/>(' ', (LEVEL-1)*4) <include refid="com.sql.stringMerge"/>
+                   <include refid="com.sql.dbo"/>GETDEPTNAME(GATE_CD, BUYER_CD, DEPT_CD, #{ses.langCd}) AS DEPT_NM
+                 , BUYER_CD
+               FROM STOCOGDP
+              WHERE GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+                AND DEL_FLAG = '0'
+               <if test="BUYER_CD != '' and BUYER_CD != null">
+                AND BUYER_CD = #{BUYER_CD}
+               </if>
+               <if test="DEPT_CD_CHILD != '' and DEPT_CD_CHILD != null">
+                AND DEPT_CD != UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD_CHILD}))
+               </if>
+               START WITH PARENT_DEPT_CD IS NULL
+               CONNECT BY PRIOR DEPT_CD = PARENT_DEPT_CD
+               <if test="DEPT_CD_CHILD != '' and DEPT_CD_CHILD != null">
+                 AND PARENT_DEPT_CD != UPPER(<include refid="com.sql.trim"/>(#{DEPT_CD_CHILD}))
+               </if>
+            )
+        WHERE 1=1
+           <if test="DEPT_CD != '' and DEPT_CD != null">
+               AND DEPT_CD <include refid="com.sql.likeL"/> #{DEPT_CD} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="DEPT_NM != '' and DEPT_NM != null">
+               AND DEPT_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+           </if>
+
+    </select>
+
+    <select id="selectWareHouse" parameterType="hashMap" resultType="hashMap">
+
+        SELECT OGWM.GATE_CD AS GATE_CD
+             , OGWM.BUYER_CD AS BUYER_CD
+             , OGWM.PLANT_CD AS PLANT_CD
+             , <include refid="com.sql.dbo"/>GETPLANTNAME(OGWM.GATE_CD, OGWM.BUYER_CD, OGWM.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+             , OGWM.WH_CD AS WH_CD
+             , <include refid="com.sql.dbo"/>GETBUYERNAME(OGWM.GATE_CD, OGWM.BUYER_CD,#{ses.langCd}) AS BUYER_NM
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGWM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , OGWM.REG_USER_ID AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(OGWM.GATE_CD, OGWM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , OGWM.WH_NM AS WH_NM
+             , OGWM.WH_NM_ENG AS WH_NM_ENG
+             , OGWM.ADDR
+             , OGWM.ADDR_ENG
+
+             , <include refid="com.sql.dbo"/>GETGMTDATE(OGWM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE_FORM
+         FROM STOCOGCM OGCM INNER JOIN
+                    (STOCOGPL OGPL INNER JOIN STOCOGWM OGWM
+                        ON OGPL.GATE_CD=OGWM.GATE_CD
+                       AND OGPL.BUYER_CD=OGWM.BUYER_CD
+                       AND OGPL.PLANT_CD=OGWM.PLANT_CD)
+                    ON OGCM.GATE_CD=OGPL.GATE_CD
+                   AND OGCM.BUYER_CD=OGPL.BUYER_CD
+        WHERE OGWM.GATE_CD=#{ses.gateCd}
+          AND OGWM.DEL_FLAG='0'
+          AND OGPL.DEL_FLAG='0'
+          AND OGCM.DEL_FLAG='0'
+        ORDER BY OGCM.BUYER_CD
+
+    </select>
+
+    <select id="selectWareHouseDetail" parameterType="hashmap" resultType="hashmap">
+
+        SELECT BIN_CD AS BIN_CD
+             , BIN_NM AS BIN_NM
+             , BIN_NM_ENG AS BIN_NM_ENG
+             , RMK AS RMK
+             , GATE_CD AS GATE_CD
+             , BUYER_CD AS BUYER_CD
+             , PLANT_CD AS PLANT_CD
+             , WH_CD AS WH_CD
+        FROM STOCOGSL
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND BUYER_CD = #{BUYER_CD_ORI}
+          AND PLANT_CD = #{PLANT_CD_ORI}
+          AND WH_CD = #{WH_CD_ORI}
+          AND DEL_FLAG = '0'
+       ORDER BY BIN_CD
+
+    </select>
+
+    <select id="checkWareHouseExists" parameterType="hashmap" resultType="java.lang.Integer">
+
+        SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+               COUNT(WH_CD)
+        FROM STOCOGWM
+        WHERE  GATE_CD = UPPER(#{ses.gateCd})
+          AND BUYER_CD=#{BUYER_CD}
+          AND PLANT_CD=#{PLANT_CD}
+          AND WH_CD=UPPER(#{WH_CD})
+          <if test='_databaseId=="oracle"'>
+              AND ROWNUM = 1
+          </if>
+    </select>
+
+    <insert id="insertWareHouse" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} (
+               GATE_CD
+             , BUYER_CD
+             , PLANT_CD
+             , WH_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , WH_NM
+             , WH_NM_ENG
+             , ADDR
+             , ADDR_ENG
+             )
+        VALUES (#{ses.gateCd}
+             , #{BUYER_CD}
+             , #{PLANT_CD}
+             , UPPER(#{WH_CD})
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{WH_NM}
+             , #{WH_NM_ENG}
+             , #{ADDR} 
+             , #{ADDR_ENG} 
+             )
+    </insert>
+
+    <update id="updateWareHouse" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM}
+        SET    MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , DEL_FLAG = '0'
+             , WH_NM = #{WH_NM}
+             , WH_NM_ENG = #{WH_NM_ENG}
+             , ADDR = #{ADDR} 
+             , ADDR_ENG = #{ADDR_ENG} 
+        WHERE  GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+          AND BUYER_CD=#{BUYER_CD}
+          AND PLANT_CD=#{PLANT_CD}
+          AND WH_CD=#{WH_CD}
+
+    </update>
+
+    <update id="deleteWareHouse" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM}
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+          AND BUYER_CD=#{BUYER_CD_ORI}
+          AND PLANT_CD=#{PLANT_CD_ORI}
+          AND WH_CD=#{WH_CD_ORI}
+
+    </update>
+
+    <update id="deleteDetailByMaster" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM}
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+          AND BUYER_CD = #{BUYER_CD}
+          AND PLANT_CD = #{PLANT_CD}
+          AND WH_CD = #{WH_CD}
+    </update>
+
+    <insert id="insertDetailByMaster" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} (
+               GATE_CD
+             , BUYER_CD
+             , PLANT_CD
+             , WH_CD
+             , BIN_CD
+             , BIN_NM
+             , BIN_NM_ENG
+             , RMK
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             )
+        VALUES (
+               #{ses.gateCd}
+             , #{BUYER_CD}
+             , #{PLANT_CD}
+             , UPPER(#{WH_CD})
+             , UPPER(#{BIN_CD})
+             , #{BIN_NM}
+             , #{BIN_NM_ENG}
+             , #{RMK}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             )
+    </insert>
+
+    <update id="updateDetailByMaster" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+        	BIN_NM = #{BIN_NM}
+            , BIN_NM_ENG = #{BIN_NM_ENG}
+            , RMK = #{RMK}
+            , DEL_FLAG = '0'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = <include refid="com.sql.nvl"/>(#{GATE_CD}, #{ses.gateCd})
+          AND BUYER_CD = #{BUYER_CD}
+          AND PLANT_CD = #{PLANT_CD}
+          AND WH_CD = #{WH_CD}
+          AND BIN_CD = #{BIN_CD}
+
+    </update>
+
+    <select id="existsWareHouseDetailKey" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+               COUNT(BIN_CD)
+        FROM STOCOGSL
+        WHERE  GATE_CD = UPPER(#{ses.gateCd})
+          AND BUYER_CD=#{BUYER_CD}
+          AND PLANT_CD=#{PLANT_CD}
+          AND WH_CD=#{WH_CD}
+          AND BIN_CD=#{BIN_CD}
+          <if test='_databaseId=="oracle"'>AND ROWNUM = 1</if>
+
+    </select>
+
+</mapper>

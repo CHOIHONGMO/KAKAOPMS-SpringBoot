@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS99.BS9901_Mapper">
+
+	<select id="bs99010_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			TPMG.TMPL_NUM,
+			TPMG.TMPL_NM,
+			TPMG.TMPL_NUM AS TMPL_NUM_H,
+			TPMG.TMPL_CONTENTS,
+		    TPMG.ATT_FILE_NUM,
+		    (SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+		    		ATCH.REAL_FILE_NM
+		       FROM STOCATCH ATCH
+		      WHERE ATCH.GATE_CD  = TPMG.GATE_CD
+		        AND ATCH.UUID     = TPMG.ATT_FILE_NUM
+		        AND ATCH.DEL_FLAG = '0'
+			<if test="_databaseId == 'oracle'">
+				AND ROWNUM = 1
+			</if>
+		    ) AS ATT_FILE_NM,
+			<include refid="com.sql.dbo"/>GETUSERNAME(TPMG.GATE_CD, TPMG.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM,
+			<include refid="com.sql.toDateChar"/>(TPMG.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE,
+			<include refid="com.sql.dbo"/>GETUSERNAME(TPMG.GATE_CD, TPMG.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM,
+			<include refid="com.sql.toDateChar"/>(TPMG.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+		FROM STOCTPMG TPMG
+	   WHERE TPMG.GATE_CD  = #{ses.gateCd}
+		 AND TPMG.DEL_FLAG = '0'
+	   <if test="TMPL_NM != null and TMPL_NM != ''">
+	     AND TPMG.TMPL_NM <include refid="com.sql.likeL"/> #{TMPL_NM} <include refid="com.sql.likeR"/>
+	   </if>
+	   <if test="TMPL_CONTENTS != null and TMPL_CONTENTS != ''">
+	     AND TPMG.TMPL_CONTENTS <include refid="com.sql.likeL"/> #{TMPL_CONTENTS} <include refid="com.sql.likeR"/>
+	   </if>
+	   <!-- 각 화면의 템플릿 번호를 가져와서 다운로드 -->
+	   <if test="TMPL_NUM != null and TMPL_NUM != ''">
+	     AND TPMG.TMPL_NUM = #{TMPL_NUM}
+	   </if>
+
+	</select>
+	
+	<!-- 파일 템플릿 정보 가져오기 -->
+	<select id="doSearch_templateFile" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  TPMG.TMPL_NM
+			, TPMG.ATT_FILE_NUM
+		FROM STOCTPMG TPMG
+	   WHERE TPMG.GATE_CD  = #{ses.gateCd}
+	     AND TPMG.TMPL_NUM = #{TMPL_NUM}
+		 AND TPMG.DEL_FLAG = '0'
+	</select>
+	
+	<select id="bs99010_doCheck" parameterType="hashMap" resultType="java.lang.Integer">
+
+		SELECT COUNT(*) FROM STOCTPMG
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND TMPL_NUM = #{TMPL_NUM}
+
+	</select>
+
+	<update id="bs99010_doSave" parameterType="hashmap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCTPMG<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD
+				     ,#{TMPL_NUM} AS TMPL_NUM
+			     <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+		ON (A.GATE_CD = B.GATE_CD
+		AND A.TMPL_NUM = B.TMPL_NUM)
+
+		WHEN MATCHED THEN
+		UPDATE SET
+		  TMPL_NM = #{TMPL_NM},
+		  TMPL_CONTENTS = #{TMPL_CONTENTS},
+		  MOD_DATE = <include refid="com.sql.sysdate"/>,
+		  MOD_USER_ID = #{ses.userId}
+
+		WHEN NOT MATCHED THEN
+		INSERT (
+		    GATE_CD,
+			TMPL_NUM,
+			TMPL_NM,
+			TMPL_CONTENTS,
+			ATT_FILE_NUM,
+			REG_DATE,
+			REG_USER_ID,
+			MOD_DATE,
+			MOD_USER_ID,
+			DEL_FLAG
+		) VALUES (
+			#{ses.gateCd},
+			#{TMPL_NUM},
+			#{TMPL_NM},
+			#{TMPL_CONTENTS},
+			#{ATT_FILE_NUM},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0'
+		<include refid="com.sql.mergeEnd"/>
+
+	</update>
+
+	<select id="bs99020_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  A.GATE_CD
+			, A.VC_NO
+			, A.VOC_TYPE
+			, <include refid="com.sql.dbo"/>getComCode(A.GATE_CD, 'MP053', A.VOC_TYPE, 0, #{ses.langCd}) AS VOC_TYPE_NM
+			, A.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>getComCode(A.GATE_CD, 'MP052', A.PROGRESS_CD, 0, #{ses.langCd}) AS PROGRESS_NM
+			, A.REQ_COM_CD
+			, CASE A.REQ_COM_TYPE WHEN '100' THEN B.CUST_NM
+				   				  WHEN '200' THEN C.VENDOR_NM
+				   				  WHEN '' 	 THEN ''
+			  END  AS REQ_COM_NM
+			, A.REQ_COM_TYPE
+			, A.REQ_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.REG_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+			, D.TEL_NUM <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> D.CELL_NUM AS REQ_TEL_NUM
+			, D.CELL_NUM AS REQ_CELL_NUM
+			, D.EMAIL AS REQ_EMAIL
+			, <include refid="com.sql.nvl"/>(D.DEPT_NM,' ') AS DEPT_NM
+			, A.REQ_RMK
+			, <include refid="com.sql.toDateChar"/>(A.REQ_DATE, 'YYYY-MM-DD') AS REQ_DATE
+			, <include refid="com.sql.toDateChar"/>(A.PH_DATE, 'YYYY-MM-DD') AS PH_DATE
+			, <include refid="com.sql.toDateChar"/>(A.RECV_DATE, 'YYYY-MM-DD') AS RECV_DATE
+			, <include refid="com.sql.toDateChar"/>(A.RECV_DATE, 'YYYY-MM-DD HH24:MI') AS V_RECV_DATE
+			, <include refid="com.sql.toDateChar"/>(A.CD_DATE, 'YYYY-MM-DD') AS CD_DATE
+			, <include refid="com.sql.toDateChar"/>(A.DS_DATE, 'YYYY-MM-DD HH24:MI') AS DS_DATE
+			, A.DS_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.DS_USER_ID, 'KO') AS DS_USER_NM
+			, A.DF_RMK
+			, A.ORDER_NO
+			, A.ITEM_CD
+			, A.RUB_TYPE
+			, <include refid="com.sql.dbo"/>getComCode(A.GATE_CD, 'MP054', A.RUB_TYPE, 0, #{ses.langCd}) AS RUB_TYPE_NM
+			, A.ATTACH_FILE_NO
+			, A.DS_ATTACH_FILE_NO
+			, <include refid="com.sql.toDateChar"/>(A.REG_DATE, 'YYYYMMDD')  AS IF_REG_DATE
+			, <include refid="com.sql.toDateChar"/>(A.RECV_DATE, 'YYYYMMDD') AS IF_RECV_DATE
+			, <include refid="com.sql.nvl"/>(A.IF_FLAG, '0') AS IF_FLAG
+		FROM STOCVOCM A
+		LEFT OUTER JOIN STOCCUST B
+		ON  A.GATE_CD = B.GATE_CD
+		AND A.REQ_COM_CD = B.CUST_CD
+		LEFT OUTER JOIN STOCVNGL C
+		ON  A.GATE_CD = C.GATE_CD
+		AND A.REQ_COM_CD = C.VENDOR_CD
+		LEFT OUTER JOIN STOCCVUR D
+		ON  A.GATE_CD = D.GATE_CD
+		AND A.REQ_USER_ID = D.USER_ID
+
+		WHERE  A.GATE_CD = #{ses.gateCd}
+		AND   A.DEL_FLAG = '0'
+		<if test="START_DATE !='' and START_DATE != null and END_DATE !='' and END_DATE != null">
+			AND   A.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND   A.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="ORDR_ITEM_NM != '' and ORDR_ITEM_NM != null">
+			AND   (A.ORDER_NO = #{ORDR_ITEM_NM} OR A.ITEM_CD = #{ORDR_ITEM_NM})
+		</if>
+		<if test="VOC_TYPE != '' and VOC_TYPE != null">
+		  AND A.VOC_TYPE IN
+          <foreach item="item" index="index" collection="VOC_TYPE_LIST" open="(" separator="," close=")">
+            #{item}
+          </foreach>
+        </if>
+		<if test="REQ_COM_CD != '' and REQ_COM_CD != null">
+			AND   ${REQ_COM_CD_L} CASE A.REQ_COM_TYPE WHEN '100' THEN B.CUST_NM WHEN '200' THEN C.VENDOR_NM WHEN '' THEN '' END ${REQ_COM_CD_R}
+		</if>
+        <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+            AND   <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DS_USER_ID != '' and DS_USER_ID != null">
+            AND   A.DS_USER_ID = #{DS_USER_ID}
+        </if>
+		<if test="VC_NO != '' and VC_NO != null">
+			AND   A.VC_NO = #{VC_NO}
+		</if>
+		ORDER BY A.VC_NO DESC
+	</select>
+
+	<update id="bs99020_doReceipt" parameterType="hashMap">
+		UPDATE STOCVOCM
+		SET   PROGRESS_CD = #{PROGRESS_CD}
+			, DS_USER_ID = #{DS_USER_ID}
+			, RECV_DATE = CASE WHEN RECV_DATE IS NULL THEN <include refid="com.sql.sysdate"/> ELSE RECV_DATE END
+
+			, MOD_DATE= <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  VC_NO = #{VC_NO}
+	</update>
+
+	<update id="bs99021_doReceipt" parameterType="hashMap">
+		UPDATE STOCVOCM
+		SET   PROGRESS_CD = #{PROGRESS_CD}
+			, DS_USER_ID = #{DS_USER_ID}
+			, RECV_DATE = CASE WHEN RECV_DATE IS NULL THEN <include refid="com.sql.sysdate"/> ELSE RECV_DATE END
+			, CD_DATE = #{CD_DATE}
+			, DS_ATTACH_FILE_NO = #{DS_ATTACH_FILE_NO}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, IF_FLAG = <include refid="com.sql.nvl"/>(#{IF_FLAG}, '0')
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  VC_NO = #{VC_NO}
+	</update>
+
+	<update id="bs99021_doInAction" parameterType="hashMap">
+		UPDATE STOCVOCM
+		SET   PROGRESS_CD = #{PROGRESS_CD}
+			, DS_USER_ID = #{DS_USER_ID}
+			, RECV_DATE = CASE WHEN RECV_DATE IS NULL THEN <include refid="com.sql.sysdate"/> ELSE RECV_DATE END
+			, CD_DATE = #{CD_DATE}
+			, DF_RMK = #{DF_RMK}
+			, DS_ATTACH_FILE_NO = #{DS_ATTACH_FILE_NO}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, IF_FLAG = <include refid="com.sql.nvl"/>(#{IF_FLAG}, '0')
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  VC_NO = #{VC_NO}
+	</update>
+
+	<update id="bs99021_doActionComplete" parameterType="hashMap">
+		UPDATE STOCVOCM
+		SET   PROGRESS_CD = #{PROGRESS_CD}
+			, DS_USER_ID = #{DS_USER_ID}
+			, RECV_DATE = CASE WHEN RECV_DATE IS NULL THEN <include refid="com.sql.sysdate"/> ELSE RECV_DATE END
+			, CD_DATE = #{CD_DATE}
+			, DF_RMK = #{DF_RMK}
+			, DS_DATE = <include refid="com.sql.sysdate"/>
+			, DS_ATTACH_FILE_NO = #{DS_ATTACH_FILE_NO}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, IF_FLAG = <include refid="com.sql.nvl"/>(#{IF_FLAG}, '0')
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  VC_NO = #{VC_NO}
+	</update>
+	
+</mapper>

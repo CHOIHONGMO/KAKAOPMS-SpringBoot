@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1530_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT ST.PLANT_CD            AS PLANT_CD
+			  ,<include refid="com.sql.nvl"/>((SELECT SUM(SA.NETWR)
+			 			 FROM STOCSTSA SA
+						WHERE SA.WERKS = ST.PLANT_CD
+					  	  AND SA.FKDAT BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+					   ), 0)          AS SALES_AMT
+			  ,SUM(ST.CUST_PART_AMT)  AS CUST_PART_AMT
+			  ,SUM(ST.CUST_RAW_AMT)   AS CUST_RAW_AMT
+			  ,SUM(ST.VEND_PART_AMT)  AS VEND_PART_AMT
+			  ,SUM(ST.VEND_RAW_AMT)   AS VEND_RAW_AMT
+			  ,SUM(ST.CUST_PART_AMT) + SUM(ST.CUST_RAW_AMT) + SUM(ST.VEND_PART_AMT) + SUM(ST.VEND_RAW_AMT) AS BUY_AMT
+			  ,SUM(ST.CM_PART_AMT)    AS CM_PART_AMT
+			  ,SUM(ST.CM_RAW_AMT)     AS CM_RAW_AMT
+			  ,SUM(ST.CM_PART_AMT)   + SUM(ST.CM_RAW_AMT)                                                  AS CM_TOT_AMT
+			  ,SUM(ST.CUST_PART_AMT) + SUM(ST.VEND_PART_AMT) - SUM(ST.CM_PART_AMT) AS PUR_PART_AMT
+			  ,SUM(ST.CUST_RAW_AMT)  + SUM(ST.VEND_RAW_AMT)  - SUM(ST.CM_RAW_AMT)  AS PUR_RAW_AMT
+			  ,(SUM(ST.CUST_PART_AMT) + SUM(ST.CUST_RAW_AMT) + SUM(ST.VEND_PART_AMT) + SUM(ST.VEND_RAW_AMT) - (SUM(ST.CM_PART_AMT) + SUM(ST.CM_RAW_AMT))) AS PUR_TOT_AMT
+		  FROM (SELECT PU.WERKS                AS PLANT_CD
+					  ,(CASE WHEN VN.DEAL_SQ_CD = '3' AND PU.MTART != 'ROH1' THEN PU.WRBTR ELSE 0 END) AS CUST_PART_AMT 
+					  ,(CASE WHEN VN.DEAL_SQ_CD = '3' AND PU.MTART  = 'ROH1' THEN PU.WRBTR ELSE 0 END) AS CUST_RAW_AMT  <!-- MTART = 'ROH1'는 소재 -->
+					  ,(CASE WHEN <include refid="com.sql.nvl"/>(VN.DEAL_SQ_CD, 'X') != '3' AND PU.MTART != 'ROH1' THEN PU.WRBTR ELSE 0 END) AS VEND_PART_AMT 
+					  ,(CASE WHEN <include refid="com.sql.nvl"/>(VN.DEAL_SQ_CD, 'X') != '3' AND PU.MTART  = 'ROH1' THEN PU.WRBTR ELSE 0 END) AS VEND_RAW_AMT
+					  ,0              AS CM_PART_AMT
+					  ,0              AS CM_RAW_AMT
+		  		  FROM STOCSTPU PU
+				  LEFT OUTER JOIN STOCVNGL VN
+				    ON (VN.GATE_CD   = #{ses.gateCd}
+				    AND VN.VENDOR_CD = PU.LIFNR
+				    )
+				  LEFT OUTER JOIN STOCCODD DD
+		    		ON (DD.GATE_CD   = #{ses.gateCd}
+				    AND DD.CODE_TYPE = 'M185'
+				    AND DD.LANG_CD   = #{ses.langCd}
+				    AND DD.CODE      = VN.DEAL_SQ_CD
+				    AND DD.DEL_FLAG  = '0')
+				 WHERE PU.SPMON BETWEEN <include refid="com.sql.subStr"/>(#{FROM_DATE}, 1, 6) AND <include refid="com.sql.subStr"/>(#{TO_DATE}, 1, 6)
+			      <if test="PLANT_CD != '' and PLANT_CD != null">
+			      AND PU.WERKS = #{PLANT_CD}
+			     </if>
+
+				UNION ALL
+
+				SELECT SA.WERKS       AS PLANT_CD
+					  ,0              AS CUST_PART_AMT 
+					  ,0              AS CUST_RAW_AMT
+					  ,0              AS VEND_PART_AMT 
+					  ,0              AS VEND_RAW_AMT
+					  ,(CASE WHEN SA.VTWEG = '99' AND SA.VRKME NOT IN ('KG','BN') THEN SA.NETWR ELSE 0 END) AS CM_PART_AMT
+					  ,(CASE WHEN SA.VTWEG = '99' AND SA.VRKME     IN ('KG','BN') THEN SA.NETWR ELSE 0 END) AS CM_RAW_AMT
+		  		  FROM STOCSTSA SA
+				  LEFT OUTER JOIN STOCVNGL VN
+				    ON (VN.GATE_CD   = #{ses.gateCd}
+				    AND VN.VENDOR_CD = SA.KUNRG
+				    )
+				  LEFT OUTER JOIN STOCCODD DD
+		    		ON (DD.GATE_CD   = #{ses.gateCd}
+				    AND DD.CODE_TYPE = 'M185'
+				    AND DD.LANG_CD   = #{ses.langCd}
+				    AND DD.CODE      = VN.DEAL_SQ_CD
+				    AND DD.DEL_FLAG  = '0')
+				 WHERE SA.FKDAT BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			      <if test="PLANT_CD != '' and PLANT_CD != null">
+			      AND SA.WERKS       = #{PLANT_CD}
+			     </if>
+		       ) ST
+		 GROUP BY ST.PLANT_CD
+
+    </select>
+
+</mapper>

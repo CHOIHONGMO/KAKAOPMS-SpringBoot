@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.eval.EV0215Mapper">
+
+    <select id="doImportSrm" parameterType="hashmap" resultType="hashmap">
+		SELECT MAX(GY.PROJECT_CD)     AS PROJECT_CD
+			  ,MAX(GY.SALES_CONT_NUM) AS SALES_CONT_NUM
+			  ,(CASE WHEN CF.CONTRACT_FORM_TYPE IN ('01','03') THEN 'SI'
+			         WHEN CF.CONTRACT_FORM_TYPE IN ('02') THEN 'SM'
+			         ELSE ''
+			     END) AS PERIODIC_EV_TYPE
+			  ,'' AS EXEC_EV_TPL_NM
+			  ,CT.CONT_NUM
+			  ,CT.CONT_DESC
+			  ,CT.VENDOR_CD
+			  ,<include refid="com.sql.dbo"/>GETVENDORNAME(CT.GATE_CD, CT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		FROM STOCECCT CT
+		JOIN STOCECRL RL
+			ON (RL.GATE_CD = CT.GATE_CD
+		    AND RL.CONT_NUM = CT.CONT_NUM
+		    AND RL.CONT_CNT = CT.CONT_CNT
+		    AND RL.FORM_SQ = 0
+		    AND RL.DEL_FLAG = '0')
+		JOIN STOCECCF CF
+		    ON (CF.GATE_CD = RL.GATE_CD
+		    AND CF.FORM_NUM = RL.FORM_NUM
+		    AND CF.CONTRACT_FORM_TYPE IN ('01','02','03'))
+		LEFT OUTER JOIN TGYSMIGY GY
+		    ON (GY.VENDOR_CD = CT.VENDOR_CD
+		    AND GY.CONT_NUM = CT.CONT_NUM)
+	 	WHERE CT.GATE_CD = #{ses.gateCd}
+	 	AND CT.PROGRESS_CD = '4300'
+	 	AND CT.DEL_FLAG = '0'
+		AND #{CLOSE_DATE} BETWEEN CT.CONT_START_DATE AND CT.CONT_END_DATE
+		GROUP BY CT.GATE_CD, CT.CONT_NUM, CT.CONT_DESC, CT.VENDOR_CD, CF.CONTRACT_FORM_TYPE
+		UNION ALL
+		SELECT DISTINCT
+		       ''   AS PROJECT_CD
+			  ,''   AS SALES_CONT_NUM
+			  ,'CO' AS PERIODIC_EV_TYPE
+			  ,''   AS EXEC_EV_TPL_NM
+			  ,''   AS CONT_NUM
+			  ,''   AS CONT_DESC
+			  ,CT.VENDOR_CD
+			  ,<include refid="com.sql.dbo"/>GETVENDORNAME(CT.GATE_CD, CT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		FROM STOCECCT CT
+		JOIN STOCECRL RL
+		    ON (RL.GATE_CD = CT.GATE_CD
+		    AND RL.CONT_NUM = CT.CONT_NUM
+		    AND RL.CONT_CNT = CT.CONT_CNT
+		    AND RL.FORM_SQ = 0
+		    AND RL.DEL_FLAG = '0')
+		JOIN STOCECCF CF
+		    ON (CF.GATE_CD = RL.GATE_CD
+		    AND CF.FORM_NUM = RL.FORM_NUM
+		    AND CF.CONTRACT_FORM_TYPE IN ('01','02','03'))
+	 	WHERE CT.GATE_CD = #{ses.gateCd}
+	 	AND CT.PROGRESS_CD = '4300'
+	 	AND CT.DEL_FLAG = '0'
+		AND #{CLOSE_DATE} BETWEEN CT.CONT_START_DATE AND CT.CONT_END_DATE
+	</select>
+
+	<select id="doSearchEVTM" parameterType="hashmap" resultType="hashMap">
+		SELECT EVTM.EV_TPL_NUM
+			, EVTM.EV_TPL_SUBJECT
+			, EVTM.PERIODIC_EV_TYPE
+		FROM STOCEVTM EVTM
+		WHERE EVTM.GATE_CD = #{ses.gateCd}
+		AND EVTM.DEL_FLAG = '0'
+		AND EVTM.USE_FLAG = '1'
+		AND EVTM.EV_TPL_NUM = #{EV_TPL_NUM}
+		AND EVTM.PERIODIC_EV_TYPE = #{PERIODIC_EV_TYPE}
+	</select>
+
+	<select id="doSearchVNGL" parameterType="hashmap" resultType="hashMap">
+		SELECT TOP 1 VNGL.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, VNGL.IRS_NUM
+			, VNGL.CEO_USER_NM AS CEO_USER_NM
+			, VNCP.USER_ID
+			, VNCP.USER_NM     AS USER_NM
+			, VNCP.EMAIL       AS EMAIL
+		FROM STOCVNGL VNGL
+		JOIN STOCVNCP VNCP
+			ON (VNCP.GATE_CD = VNGL.GATE_CD
+			AND VNCP.VENDOR_CD = VNGL.VENDOR_CD
+			AND VNCP.DEL_FLAG = '0')
+		WHERE VNGL.GATE_CD = #{ses.gateCd}
+		AND VNGL.SIGN_STATUS = 'E'
+		AND VNGL.DEL_FLAG = '0'
+		AND VNGL.VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="doSearchUSER" parameterType="hashmap" resultType="hashMap">
+		SELECT CUSER.USER_ID
+		    , CUSER.USER_NM AS USER_NM
+		FROM STOCUSER CUSER
+		WHERE CUSER.GATE_CD = #{ses.gateCd}
+		AND CUSER.DEL_FLAG = '0'
+		AND CUSER.USE_FLAG = '1'
+		AND CUSER.PROGRESS_CD = 'E'
+		AND CUSER.USER_TYPE = 'B'
+		AND CUSER.COMPANY_CD = '1000'
+		AND CUSER.USER_ID = #{USER_ID}
+	</select>
+
+</mapper>

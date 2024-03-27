@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:36 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.eversrm.system.popup.BSYP_Mapper">
+	<select id="getComboList" resultType="hashMap">
+		SELECT
+		     COMMON_ID
+			,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'CC') AS COMMON_DESC
+			,TYPE_CD
+			,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'TT') AS TITLE_TEXT
+			,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'LT') AS LIST_ITEM_TEXT
+			,LIST_ITEM_CD
+			,SQL_TEXT
+			,DATABASE_CD
+			,USE_FLAG
+		FROM STOCCMPC
+		WHERE GATE_CD = #{ses.gateCd}
+		AND DEL_FLAG = '0'
+        <if test="USE_FLAG != '' and USE_FLAG != null">
+    		AND	USE_FLAG = #{USE_FLAG}
+		</if>
+		<if test="TYPE != '' AND TYPE != null">
+    		AND	TYPE_CD = #{TYPE}
+		</if>
+		<if test="DATABASE != '' and DATABASE != null">
+    		AND	DATABASE_CD = #{DATABASE}
+		</if>
+		<if test="COMMON_ID != '' and COMMON_ID != null">
+            AND COMMON_ID <include refid="com.sql.likeL"/> #{COMMON_ID} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="COMMON_DESC != '' and COMMON_DESC != null">
+            AND ( <include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'CC') <include refid="com.sql.likeL"/> #{COMMON_DESC} <include refid="com.sql.likeR"/>
+                OR <include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'TT') <include refid="com.sql.likeL"/> #{COMMON_DESC} <include refid="com.sql.likeR"/> )
+        </if>
+		<if test="SQL_TEXT != '' and SQL_TEXT != null">
+            AND SQL_TEXT <include refid="com.sql.likeL"/> #{SQL_TEXT} <include refid="com.sql.likeR"/>
+        </if>
+		ORDER BY COMMON_ID , DATABASE_CD
+	</select>
+
+	<select id="getComboDetailInfo" resultType="hashmap">
+			SELECT DATABASE_CD
+	              ,COMMON_ID
+	              ,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'CC') AS COMMON_DESC
+	              ,TYPE_CD
+	              ,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'TT') AS TITLE_TEXT
+	              ,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'LT') AS LIST_ITEM_TEXT
+	              ,LIST_ITEM_CD
+	              ,<include refid="com.sql.dbo"/>getMultiNameByCommonId(GATE_CD, #{ses.langCd}, COMMON_ID, 'ST') AS SEARCH_CONDITION_TEXT
+				  ,SQL_TEXT
+				  ,USE_FLAG
+				  ,AUTO_SEARCH_FLAG
+				  ,<include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+				  ,<include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'hh24:mi:ss') AS REG_TIME
+				  ,REG_USER_ID
+
+
+				  ,( SELECT  USER_NM FROM STOCUSER WHERE GATE_CD=CMPC.GATE_CD AND user_id=CMPC.REG_USER_ID  ) REG_USER_NM
+
+				  ,<include refid="com.sql.dbo"/>GETGMTDATE(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS MOD_DATE
+				  ,<include refid="com.sql.dbo"/>GETGMTDATE(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'hh24:mi:ss') AS MOD_TIME
+				  ,MOD_USER_ID
+				  ,( SELECT  USER_NM FROM STOCUSER WHERE GATE_CD=CMPC.GATE_CD AND user_id=CMPC.MOD_USER_ID  ) MOD_USER_NM
+	              ,WINDOW_WIDTH
+	              ,WINDOW_HEIGHT
+			 FROM STOCCMPC CMPC
+			WHERE GATE_CD = #{ses.gateCd}
+			  AND DATABASE_CD = #{DATABASE_CD}
+			  AND DEL_FLAG = '0'
+			  AND COMMON_ID = #{COMMON_ID}
+	</select>
+
+	<select id="checkCommonCodeSql" resultType="int">
+			SELECT
+				COUNT(*) AS CNT
+			  FROM STOCCMPC
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND COMMON_ID = #{COMMON_ID}
+			   AND DATABASE_CD = #{DATABASE_CD}
+	</select>
+
+	<insert id="insertCommonCodeSql">
+		INSERT INTO ${TABLE_NM} (
+				 GATE_CD
+				,COMMON_ID
+				,DATABASE_CD
+				,TYPE_CD
+				,USE_FLAG
+				,LIST_ITEM_CD
+				,AUTO_SEARCH_FLAG
+				,SQL_TEXT
+				,WINDOW_WIDTH
+				,WINDOW_HEIGHT
+				,DEL_FLAG
+				,REG_DATE
+				,REG_USER_ID
+				,MOD_DATE
+				,MOD_USER_ID
+		) VALUES (
+				 #{ses.gateCd}
+				,#{COMMON_ID}
+				,#{DATABASE_CD}
+				,#{TYPE_CD}
+				,#{USE_FLAG}
+				,#{LIST_ITEM_CD}
+				,#{AUTO_SEARCH_FLAG}
+				,LTRIM(RTRIM(#{SQL_TEXT}))
+				,#{WINDOW_WIDTH}
+				,#{WINDOW_HEIGHT}
+				,'0'
+				,<include refid="com.sql.sysdate"/>
+				, #{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				, #{ses.userId}
+		)
+	</insert>
+
+	<update id="updateCommonCodeSql">
+			UPDATE ${TABLE_NM} SET
+				  TYPE_CD = #{TYPE_CD}
+				, USE_FLAG = #{USE_FLAG}
+				, DEL_FLAG = '0'
+				, LIST_ITEM_CD = #{LIST_ITEM_CD}
+				, AUTO_SEARCH_FLAG = #{AUTO_SEARCH_FLAG}
+				, SQL_TEXT = LTRIM(RTRIM(#{SQL_TEXT}))
+				, WINDOW_WIDTH = #{WINDOW_WIDTH}
+				, WINDOW_HEIGHT = #{WINDOW_HEIGHT}
+				, MOD_DATE = <include refid="com.sql.sysdate"/>
+				, MOD_USER_ID = #{ses.userId}
+			WHERE GATE_CD = #{ses.gateCd}
+			  AND COMMON_ID = #{COMMON_ID}
+			  AND DATABASE_CD = #{DATABASE_CD}
+	</update>
+
+	<select id="verifyCommonCodeSql" resultType="hashMap">
+${SQL_TEXT}
+	</select>
+
+	<update id="deleteCommonCodeSql">
+			UPDATE ${TABLE_NM} SET
+				DEL_FLAG = '1',
+				MOD_DATE = <include refid="com.sql.sysdate"/>,
+				MOD_USER_ID = #{ses.userId}
+			WHERE GATE_CD = #{ses.gateCd}
+	          AND COMMON_ID = #{COMMON_ID}
+	          AND DATABASE_CD = #{DATABASE_CD}
+	</update>
+</mapper>

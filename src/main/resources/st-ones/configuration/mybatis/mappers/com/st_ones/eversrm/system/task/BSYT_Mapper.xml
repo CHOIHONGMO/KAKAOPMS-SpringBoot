@@ -1,0 +1,724 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.task.BSYT_Mapper">
+
+	<resultMap type="java.util.HashMap" id="getReturnMap">
+		<result property="value" column="CODE" />
+		<result property="text" column="TEXT" />
+	</resultMap>
+
+	<select id="selectTaskPersonInCharge" parameterType="hashmap" resultType="hashmap">
+		SELECT BACO.CTRL_TYPE
+			 , <include refid="com.sql.dbo"/>GETCTRLNAME(BACP.GATE_CD, BACP.BUYER_CD, BACP.CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			 , USR.USER_NM
+			 , BACP.USE_FLAG
+			 , BACP.GATE_CD
+			 , BACP.GATE_CD AS GATE_CD_ORI
+			 , BACP.BUYER_CD
+			 , BACP.BUYER_CD AS BUYER_NM
+			 , <include refid="com.sql.dbo"/>GETBUYERNAME(BACP.GATE_CD, BACP.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+			 , BACP.BUYER_CD AS BUYER_CD_ORI
+			 , BACP.CTRL_CD
+			 , BACP.CTRL_CD AS CTRL_CD_ORI
+			 , BACP.CTRL_USER_ID AS CTRL_USER_ID
+			 , BACP.CTRL_USER_ID AS CTRL_USER_ID_ORI
+			 , 'U' AS INSERT_FLAG
+			 ,<include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+			 ,<include refid="com.sql.dbo"/>getUserName(BACP.GATE_CD, BACP.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			 ,<include refid="com.sql.dbo"/>getUserName(BACP.GATE_CD, BACP.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+			 ,<include refid="com.sql.toDateChar"/>(BACP.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+			 ,<include refid="com.sql.toDateChar"/>(BACP.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+		FROM STOCBACP BACP
+		JOIN STOCBACO BACO
+			 ON (BACO.GATE_CD  = BACP.GATE_CD
+			 AND BACO.BUYER_CD = BACP.BUYER_CD
+			 AND BACO.CTRL_CD  = BACP.CTRL_CD
+			 AND BACO.DEL_FLAG = '0')
+		JOIN STOCUSER USR
+			 ON (BACP.GATE_CD  = USR.GATE_CD
+			 AND BACP.CTRL_USER_ID = USR.USER_ID
+			 AND USR.DEL_FLAG  = '0')
+		WHERE BACP.GATE_CD  = #{ses.gateCd}
+		  AND BACP.DEL_FLAG = '0'
+		  
+		<if test="buyerCd != '' and buyerCd != null">
+			AND BACP.BUYER_CD = #{buyerCd}
+		</if>
+		<if test="ctrlType != '' and ctrlType != null">
+			AND BACO.CTRL_TYPE = #{ctrlType}
+		</if>
+			<if test="CTRL_NM != '' and CTRL_NM != null">
+				AND <include refid="com.sql.dbo"/>GETCTRLNAME(BACP.GATE_CD, BACP.BUYER_CD, BACP.CTRL_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="USER_NM != '' and USER_NM != null">
+				AND UPPER( USR.USER_NM ) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+			</if>
+		<if test="USER_ID != '' and USER_ID != null">
+			AND	UPPER( USR.USER_ID ) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DEPT_CD != '' and DEPT_CD != null">
+			AND	UPPER(USR.DEPT_CD) <include refid="com.sql.likeL"/> UPPER(#{DEPT_CD}) <include refid="com.sql.likeR"/>
+		</if>
+		<if test="DEPT_NM != '' and DEPT_NM != null">
+			AND	UPPER(<include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY BACO.CTRL_TYPE, BACP.CTRL_CD, USR.USER_NM
+	</select>
+
+	<!-- 직무에 맵핑된 플랜트 조회하기 -->
+	<select id="selectMappingPlant" parameterType="hashmap" resultType="hashMap">
+		SELECT BUYER_CD
+		     , <include refid="com.sql.dbo"/>GETBUYERNAME(GATE_CD, BUYER_CD, #{ses.langCd}) AS BUYER_NM
+			 , CTRL_CD
+			 , <include refid="com.sql.dbo"/>GETCTRLNAME(GATE_CD, BUYER_CD, CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			 , PLANT_CD
+			 , USE_FLAG
+		FROM STOCBAPL
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+		<if test="BUYER_CD != '' and BUYER_CD != null">
+			AND BUYER_CD = #{BUYER_CD}
+		</if>
+		<if test="CTRL_CD != '' and CTRL_CD != null">
+			AND CTRL_CD = #{CTRL_CD}
+		</if>
+		ORDER BY PLANT_CD
+	</select>
+
+	<!-- 직무에 맵핑된 사용자 조회하기 -->
+	<select id="selectMappingUser" parameterType="hashmap" resultType="hashMap">
+		SELECT BACP.CTRL_CD
+		     , BACP.CTRL_USER_ID
+			 , USR.USER_NM AS CTRL_USER_NM
+			 , BAPL.PLANT_CD
+			 , <include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		FROM STOCBACO BACO JOIN STOCBACP BACP
+			ON (BACO.GATE_CD = BACP.GATE_CD
+			AND BACO.BUYER_CD = BACP.BUYER_CD
+			AND BACO.CTRL_CD = BACP.CTRL_CD
+			AND BACP.DEL_FLAG = '0')
+		JOIN STOCUSER USR
+			ON (BACP.CTRL_USER_ID = USR.USER_ID
+			AND BACP.GATE_CD = USR.GATE_CD)
+		LEFT JOIN STOCBAPL BAPL
+		    ON (BACO.GATE_CD = BAPL.GATE_CD
+		    AND BACO.BUYER_CD = BAPL.BUYER_CD
+		    AND BACO.CTRL_CD = BAPL.CTRL_CD
+		    AND BAPL.DEL_FLAG = '0')
+		LEFT JOIN STOCUSPL USPL
+		    ON (BACP.GATE_CD = USPL.GATE_CD
+		    AND BACP.CTRL_USER_ID = USPL.USER_ID
+		    AND BAPL.PLANT_CD = USPL.PLANT_CD
+		    AND USPL.DEL_FLAG = '0')
+		WHERE BACO.GATE_CD = #{ses.gateCd}
+		AND BACO.DEL_FLAG = '0'
+		<if test="BUYER_CD != '' and BUYER_CD != null">
+			AND BACO.BUYER_CD = #{BUYER_CD}
+		</if>
+		<if test="CTRL_CD != '' and CTRL_CD != null">
+			AND BACO.CTRL_CD = #{CTRL_CD}
+		</if>
+		ORDER BY BAPL.PLANT_CD, USR.USER_NM
+	</select>
+
+	<!-- 직무에 맵핑된 플랜트 저장하기 -->
+    <insert id="saveMappingPlant">
+         MERGE STOCBAPL AS A
+         USING (SELECT #{ses.gateCd} AS GATE_CD, #{BUYER_CD} AS BUYER_CD, #{CTRL_CD} AS CTRL_CD, #{PLANT_CD} AS PLANT_CD) AS B
+           ON (A.GATE_CD = B.GATE_CD
+           AND A.BUYER_CD = B.BUYER_CD
+           AND A.CTRL_CD = B.CTRL_CD
+           AND A.PLANT_CD = B.PLANT_CD)
+          WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , DEL_FLAG = '0'
+             , USE_FLAG = #{USE_FLAG}
+          WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , BUYER_CD
+            , CTRL_CD
+            , PLANT_CD
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+        ) VALUES (
+              #{ses.gateCd}
+            , #{BUYER_CD}
+            , #{CTRL_CD}
+            , #{PLANT_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , '1'
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="deleteMappingPlant" parameterType="hashmap">
+		UPDATE STOCBAPL SET
+			   DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{BUYER_CD}
+		   AND CTRL_CD = #{CTRL_CD}
+		   AND PLANT_CD = #{PLANT_CD}
+	</update>
+
+	<select id="checkTaskPersonInCharge" parameterType="hashmap" resultType="java.lang.Integer">
+
+	    SELECT COUNT(CTRL_CD) AS CNT
+          FROM STOCBACP
+         WHERE GATE_CD = UPPER(#{ses.gateCd})
+           AND BUYER_CD = UPPER(#{BUYER_CD})
+           AND CTRL_CD = UPPER(#{CTRL_CD})
+           AND CTRL_USER_ID = UPPER(#{CTRL_USER_ID})
+		 <if test="_databaseId == 'oracle'">
+		   AND ROWNUM = 1
+		 </if>
+
+	</select>
+
+	<insert id="insertTaskPersonInCharge" parameterType="hashmap">
+
+		INSERT INTO ${TABLE_NM} (
+			  REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, GATE_CD
+			, BUYER_CD
+			, CTRL_CD
+			, CTRL_USER_ID
+			, DEL_FLAG
+			, USE_FLAG )
+		VALUES (
+			  <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, #{ses.gateCd}
+			, #{BUYER_CD}
+			, #{CTRL_CD}
+			, #{CTRL_USER_ID}
+			, '0'
+			, #{USE_FLAG} )
+	</insert>
+
+	<update id="updateTaskPersonInCharge" parameterType="hashmap">
+
+		UPDATE ${TABLE_NM}
+     	   SET MOD_USER_ID = #{ses.userId}
+		     , MOD_DATE = <include refid="com.sql.sysdate"/>
+		     , DEL_FLAG = '0'
+		<if test="USE_FLAG != '' and USE_FLAG != null">, USE_FLAG = #{USE_FLAG}</if>
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND BUYER_CD = #{BUYER_CD}
+		  AND CTRL_USER_ID = #{CTRL_USER_ID}
+		  AND CTRL_CD = #{CTRL_CD}
+
+	</update>
+
+	<update id="deleteTaskPersonInCharge" parameterType="hashmap">
+
+		UPDATE ${TABLE_NM} SET
+			DEL_FLAG = '1'
+			, MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{BUYER_CD_ORI}
+		   AND CTRL_USER_ID = #{CTRL_USER_ID_ORI}
+		   AND CTRL_CD = #{CTRL_CD_ORI}
+
+	</update>
+
+
+	<update id="saveHistoryBACH" parameterType="hashmap">
+
+		INSERT INTO STOCBACH (
+			GATE_CD
+			,BUYER_CD
+			,CTRL_CD
+			,CTRL_USER_ID
+			,SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,CH_TYPE
+			,DEL_FLAG
+			,USE_FLAG
+		)
+		VALUES (
+			#{ses.gateCd}
+			,#{BUYER_CD}
+			,#{CTRL_CD}
+			,#{CTRL_USER_ID}
+			,<include refid="com.sql.nvl"/>((SELECT MAX(SEQ) FROM STOCBACH WHERE GATE_CD = #{ses.gateCd}
+													 AND BUYER_CD = #{BUYER_CD}
+													 AND CTRL_CD = #{CTRL_CD}
+													 AND CTRL_USER_ID = #{CTRL_USER_ID}),0) +1
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,#{CH_TYPE}
+			,'0'
+			, #{USE_FLAG}
+		)
+
+	</update>
+
+	<select id="selectUserInCharge" resultType="hashmap">
+
+		SELECT UR.USER_ID
+			  ,UR.USER_NM
+			  ,OGDP.DEPT_NM
+		  FROM STOCUSER UR
+		  JOIN STOCOGDP OGDP
+			   ON (UR.GATE_CD = OGDP.GATE_CD
+			   AND UR.COMPANY_CD = OGDP.BUYER_CD
+			   AND UR.DEPT_CD = OGDP.DEPT_CD)
+		  JOIN STOCOGCM OGCM
+			   ON (UR.GATE_CD = OGCM.GATE_CD
+			   AND OGDP.BUYER_CD = OGCM.BUYER_CD)
+		 WHERE UR.GATE_CD = #{ses.gateCd}
+		   AND UR.DEL_FLAG = '0'
+		   AND OGDP.DEL_FLAG = '0'
+		   AND OGCM.DEL_FLAG = '0'
+		   AND UR.USER_TYPE = 'B'
+		   AND UR.USE_FLAG = '1'
+		<if test="buyerCode != ''">
+		   AND UR.COMPANY_CD = #{buyerCode}
+		</if>
+			<if test="USER_NM != '' and USER_NM != null">
+				AND UR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="DEPT_NM != '' and DEPT_NM != null">
+				AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+			</if>
+		ORDER BY UR.USER_NM, UR.USER_ID
+
+	</select>
+	
+	<!-- 직무관리/직무-사용자매핑 (BSYT_010) : 직무정보 -->
+	<select id="selectTaskCode" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  BACO.GATE_CD
+			, BACO.BUYER_CD
+			, BACO.BUYER_CD AS BUYER_CD_ORI
+			, <include refid="com.sql.dbo"/>GETCOMPANYNAME(BACO.GATE_CD, BACO.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+			, BACO.PUR_ORG_CD
+			, <include refid="com.sql.dbo"/>GETPURORGNAME(BACO.GATE_CD, BACO.BUYER_CD, BACO.PUR_ORG_CD, #{ses.langCd}) AS PUR_ORG_NM
+			, BACO.CTRL_CD
+			, BACO.CTRL_CD AS CTRL_CD_ORI
+			, BACO.CTRL_NM
+			, BACO.CTRL_NM_ENG
+			, BACO.CTRL_TYPE
+			, BACO.USE_FLAG
+			, 'U' AS INSERT_FLAG
+			, (SELECT COUNT(CTRL_CD) FROM STOCBAMT WHERE GATE_CD=BACO.GATE_CD AND BUYER_CD=BACO.BUYER_CD AND CTRL_CD=BACO.CTRL_CD AND DEL_FLAG='0') AS MAPPING_ITEMS
+			, (SELECT COUNT(CTRL_CD) FROM STOCBACP WHERE GATE_CD=BACO.GATE_CD AND BUYER_CD=BACO.BUYER_CD AND CTRL_CD=BACO.CTRL_CD AND DEL_FLAG='0') AS PIC_NUMBER
+		    , BACO.SORT_SQ
+		 FROM STOCBACO BACO
+		WHERE BACO.GATE_CD  = #{ses.gateCd}
+		  AND BACO.BUYER_CD = #{BUYER_CD}
+		  AND BACO.DEL_FLAG = '0'
+		  
+		<if test="CTRL_TYPE != '' and CTRL_TYPE != null">
+		  AND BACO.CTRL_TYPE = #{CTRL_TYPE}
+		</if>
+		<if test="CTRL_CD != '' and CTRL_CD != null">
+		  AND BACO.CTRL_CD <include refid="com.sql.likeL"/> #{CTRL_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CTRL_NM != '' and CTRL_NM != null">
+		  AND BACO.CTRL_NM <include refid="com.sql.likeL"/> #{CTRL_NM} <include refid="com.sql.likeR"/>
+		</if>
+		
+		ORDER BY BACO.USE_FLAG DESC, BACO.SORT_SQ
+
+	</select>
+	
+	<!-- 직무관리/직무-사용자매핑 (BSYT_010) : 직무-사용자 매핑 -->
+	<select id="selectMappingUser_add" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  USR.USER_NM AS USER_NM
+			, BACP.CTRL_USER_ID AS USER_ID
+			, BACP.CTRL_USER_ID AS USER_ID_V
+			, <include refid="com.sql.dbo"/>getUserDeptInfo(USR.GATE_CD, USR.USER_ID, #{ses.langCd}) AS DEPT_NM
+			, BACP.USE_FLAG
+			, <include refid="com.sql.dbo"/>getUserName(BACP.GATE_CD, BACP.MOD_USER_ID, #{ses.langCd}) AS US_MOD_USER_NM
+			, <include refid="com.sql.toDateChar"/>(BACP.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS US_MOD_INFO
+	     FROM STOCBACP BACP
+		 JOIN USERCVUR_VW USR
+		 	  ON (BACP.GATE_CD  = USR.GATE_CD
+		 	  AND BACP.CTRL_USER_ID = USR.USER_ID
+		 	  AND USR.DEL_FLAG  = '0')
+		WHERE BACP.GATE_CD  = #{ses.gateCd}
+		  AND BACP.BUYER_CD = #{BUYER_CD_S}
+		  AND BACP.CTRL_CD  = #{CTRL_CD_S}
+		  AND BACP.DEL_FLAG = '0'
+		ORDER BY BACP.CTRL_USER_ID
+	</select>
+
+	<select id="checkTaskCode" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(CTRL_CD)
+		FROM STOCBACO
+		WHERE GATE_CD = #{GATE_CD}
+		AND BUYER_CD = #{BUYER_CD}
+		AND CTRL_CD = #{CTRL_CD}
+		<if test='_databaseId == "oracle"'>
+			AND ROWNUM = 1
+		</if>
+	</select>
+
+	<insert id="insertTaskCode" parameterType="hashmap">
+
+		INSERT INTO ${TABLE_NM} (
+		REG_DATE
+		, REG_USER_ID
+		, MOD_DATE
+		, MOD_USER_ID
+		, GATE_CD
+		, BUYER_CD
+		, CTRL_CD
+		, CTRL_TYPE
+		, CTRL_NM
+		, CTRL_NM_ENG
+		, PUR_ORG_CD
+		, DEL_FLAG
+		, USE_FLAG
+		, SORT_SQ
+		)
+		VALUES (
+		<include refid="com.sql.sysdate"/>
+		, #{ses.userId}
+		, <include refid="com.sql.sysdate"/>
+		, #{ses.userId}
+		, #{GATE_CD}
+		, #{BUYER_CD}
+		, #{CTRL_CD}
+		, #{CTRL_TYPE}
+		, #{CTRL_NM}
+		, #{CTRL_NM_ENG}
+		, #{PUR_ORG_CD}
+		, '0'
+		, #{USE_FLAG}
+		, #{SORT_SQ}
+		)
+
+	</insert>
+
+	<update id="updateTaskCode" parameterType="hashmap">
+
+		UPDATE ${TABLE_NM}
+		SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '0'
+			, CTRL_TYPE = #{CTRL_TYPE}
+			, CTRL_NM = #{CTRL_NM}
+			, CTRL_NM_ENG = #{CTRL_NM_ENG}
+			, PUR_ORG_CD = #{PUR_ORG_CD}
+			, SORT_SQ = #{SORT_SQ}
+			, USE_FLAG = #{USE_FLAG}
+		WHERE GATE_CD = #{GATE_CD}
+		AND BUYER_CD = #{BUYER_CD}
+		AND CTRL_CD = #{CTRL_CD}
+	</update>
+
+	<update id="deleteTaskCode" parameterType="hashmap">
+
+		UPDATE ${TABLE_NM}
+		SET DEL_FLAG = '1'
+		, MOD_USER_ID = #{ses.userId}
+		, MOD_DATE = <include refid="com.sql.sysdate"/>
+		WHERE GATE_CD = #{GATE_CD}
+		AND BUYER_CD = #{BUYER_CD_ORI}
+		AND CTRL_CD = #{CTRL_CD_ORI}
+
+	</update>
+
+	<select id="selectTaskCodeBySearch" parameterType="hashmap" resultType="hashMap">
+
+		SELECT BACO.BUYER_CD
+			, '' AS PUR_ORG_NM
+			, BACO.CTRL_CD
+			, <include refid="com.sql.dbo"/>GETCTRLNAME(BACO.GATE_CD, BACO.BUYER_CD, BACO.CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			, BACO.CTRL_TYPE
+		FROM STOCBACO BACO JOIN STOCOGCM OGCM
+		 ON BACO.GATE_CD=OGCM.GATE_CD AND BACO.BUYER_CD=OGCM.BUYER_CD
+		WHERE BACO.GATE_CD = #{ses.gateCd}
+		AND BACO.DEL_FLAG = '0'
+		AND OGCM.DEL_FLAG = '0'
+		<if test="buyerCd != '' and buyerCd != null">
+			AND BACO.BUYER_CD = #{buyerCd}
+		</if>
+		<if test="ctrlType != '' and ctrlType != null">
+			AND CTRL_TYPE = #{ctrlType}
+		</if>
+		ORDER BY CTRL_CD
+
+	</select>
+
+
+	<select id="selectTaskItemMapping" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			  BAMT.BUYER_CD
+			, BAMT.BUYER_CD AS BUYER_CD_ORI
+			, BAMT.CTRL_CD
+			, BACO.CTRL_CD AS CTRL_CD_ORI
+			, BAMT.GATE_CD
+			, <include refid="com.sql.dbo"/>GETCTRLNAME(BAMT.GATE_CD, BAMT.BUYER_CD, BAMT.CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			, BAMT.ITEM_CLS1 AS ITEM_CLS1_NM
+			, <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, BAMT.ITEM_CLS2, '2') AS ITEM_CLS2_NM
+			, <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, BAMT.ITEM_CLS3, '3') AS ITEM_CLS3_NM
+			, BAMT.ITEM_CLS1
+			, <include refid="com.sql.nvl"/>(BAMT.ITEM_CLS2, ' ') AS ITEM_CLS2
+			, <include refid="com.sql.nvl"/>(BAMT.ITEM_CLS3, ' ') AS ITEM_CLS3
+			, <include refid="com.sql.nvl"/>(BAMT.ITEM_CLS1, ' ') AS ITEM_CLS1_ORI
+			, <include refid="com.sql.nvl"/>(BAMT.ITEM_CLS2, ' ') AS ITEM_CLS2_ORI
+			, <include refid="com.sql.nvl"/>(BAMT.ITEM_CLS3, ' ') AS ITEM_CLS3_ORI
+			, 'U' AS INSERT_FLAG
+		 FROM STOCBAMT BAMT
+		 JOIN STOCBACO BACO
+			  ON BACO.GATE_CD=BAMT.GATE_CD AND BACO.BUYER_CD=BAMT.BUYER_CD AND BACO.CTRL_CD=BAMT.CTRL_CD
+		 LEFT OUTER JOIN STOCOGPU OGPU
+			  ON BACO.GATE_CD=OGPU.GATE_CD AND BACO.BUYER_CD=OGPU.BUYER_CD AND BACO.PUR_ORG_CD=OGPU.PUR_ORG_CD
+			  AND OGPU.DEL_FLAG = '0'
+		 JOIN STOCOGCM OGCM
+			  ON OGCM.GATE_CD=BAMT.GATE_CD AND OGCM.BUYER_CD=BAMT.BUYER_CD
+		WHERE BAMT.GATE_CD = #{ses.gateCd}
+		  AND BAMT.DEL_FLAG = '0'
+		  AND BACO.DEL_FLAG = '0'
+		  AND OGCM.DEL_FLAG = '0'
+		<if test="BUYER_CD != '' and BUYER_CD != null"> AND
+			BAMT.BUYER_CD = #{BUYER_CD}
+		</if>
+		<if test="CTRL_NM != '' and CTRL_NM != null">
+			AND <include refid="com.sql.dbo"/>GETCTRLNAME(BAMT.GATE_CD, BAMT.BUYER_CD, BAMT.CTRL_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CLS1!= '' and ITEM_CLS1 != null"> AND
+			BAMT.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2!= '' and ITEM_CLS2 != null"> AND
+			BAMT.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3!= '' and ITEM_CLS3 != null"> AND
+			BAMT.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		ORDER BY ITEM_CLS1, ITEM_CLS2, ITEM_CLS3
+
+	</select>
+
+	<update id="updateTaskItemMapping" parameterType="hashmap">
+
+		UPDATE ${TABLE_NM}
+		  SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '0'
+		WHERE GATE_CD = #{ses.gateCd}
+		AND BUYER_CD = #{BUYER_CD}
+		AND CTRL_CD = #{CTRL_CD}
+		AND ITEM_CLS1 = #{ITEM_CLS1_NM}
+	</update>
+
+	<insert id="insertTaskItemMapping" parameterType="hashMap">
+
+		INSERT INTO ${TABLE_NM} (
+			REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, GATE_CD
+			, BUYER_CD
+			, CTRL_CD
+			, ITEM_CLS1
+			, ITEM_CLS2
+			, ITEM_CLS3
+			, DEL_FLAG)
+		VALUES (
+			<include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, #{ses.gateCd}
+			, #{BUYER_CD}
+			, #{CTRL_CD}
+			, #{ITEM_CLS1_NM}
+
+			, CASE WHEN #{ITEM_CLS2} IS NULL THEN ' ' ELSE #{ITEM_CLS2} END
+			, CASE WHEN #{ITEM_CLS3} IS NULL THEN ' ' ELSE #{ITEM_CLS3} END
+
+			, '0')
+
+	</insert>
+
+	<insert id="BSYT_070_doSave" parameterType="hashmap">
+
+		<if test="_databaseId == 'oracle'">
+			MERGE INTO STOCUSPL A
+				USING (
+					SELECT #{ses.gateCd} AS GATE_CD, #{USER_ID} AS USER_ID, #{PLANT_CD} AS PLANT_CD FROM DUAL
+				) B
+				ON (A.GATE_CD = B.GATE_CD
+				AND A.USER_ID = B.USER_ID
+				AND A.PLANT_CD = B.PLANT_CD)
+
+				WHEN MATCHED THEN
+				UPDATE SET
+					   MOD_DATE = <include refid="com.sql.sysdate"/>
+					 , MOD_USER_ID = #{ses.userId}
+					 , USE_FLAG = #{USE_FLAG}
+					 , DEL_FLAG = '0'
+
+				WHEN NOT MATCHED THEN
+				INSERT (
+					  GATE_CD
+					, USER_ID
+					, PLANT_CD
+					, REG_DATE
+					, REG_USER_ID
+					, DEL_FLAG
+					, USE_FLAG
+				) VALUES (
+					  #{ses.gateCd}
+					, #{USER_ID}
+					, #{PLANT_CD}
+					, <include refid="com.sql.sysdate"/>
+					, #{ses.userId}
+					, '0'
+					, #{USE_FLAG}
+				)
+		</if>
+		<if test="_databaseId == 'mssql'">
+			MERGE STOCUSPL AS A
+				USING (
+					SELECT #{ses.gateCd} AS GATE_CD, #{USER_ID} AS USER_ID, #{PLANT_CD} AS PLANT_CD
+				) AS B
+				ON (A.GATE_CD = B.GATE_CD
+				AND A.USER_ID = B.USER_ID
+				AND A.PLANT_CD = B.PLANT_CD)
+
+				WHEN MATCHED THEN
+				UPDATE SET
+					   MOD_DATE = <include refid="com.sql.sysdate"/>
+					 , MOD_USER_ID = #{ses.userId}
+					 , USE_FLAG = #{USE_FLAG}
+					 , DEL_FLAG = '0'
+
+				WHEN NOT MATCHED THEN
+				INSERT (
+					  GATE_CD
+					, USER_ID
+					, PLANT_CD
+					, REG_DATE
+					, REG_USER_ID
+					, DEL_FLAG
+					, USE_FLAG
+				) VALUES (
+					  #{ses.gateCd}
+					, #{USER_ID}
+					, #{PLANT_CD}
+					, <include refid="com.sql.sysdate"/>
+					, #{ses.userId}
+					, '0'
+					, #{USE_FLAG}
+				)
+		</if>
+
+	</insert>
+
+	<update id="deleteTaskItemMapping" parameterType="hashMap">
+
+		UPDATE ${TABLE_NM} SET
+			DEL_FLAG = '1'
+			, MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{BUYER_CD_ORI}
+		   AND CTRL_CD = #{CTRL_CD_ORI}
+		   AND ITEM_CLS1 = #{ITEM_CLS1_ORI}
+
+	</update>
+
+	<update id="BSYT_070_doDelete" parameterType="hashmap">
+		UPDATE STOCUSPL SET
+			   DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND USER_ID = #{USER_ID}
+		   AND PLANT_CD = #{PLANT_CD}
+	</update>
+
+	<select id="existTaskItemMapping" parameterType="hashMap" resultType="java.lang.Integer">
+
+		SELECT COUNT(CTRL_CD) FROM STOCBAMT
+		 WHERE GATE_CD = UPPER(#{ses.gateCd})
+		   AND BUYER_CD = UPPER(#{BUYER_CD})
+		   AND CTRL_CD = UPPER(#{CTRL_CD})
+		   AND ITEM_CLS1 = UPPER(#{ITEM_CLS1_NM})
+		   <if test="_databaseId == 'oracle'">
+		   	AND ROWNUM = 1
+		   </if>
+
+	</select>
+
+	<select id="BSYT_070_doSearch" resultType="hashmap" parameterType="hashmap">
+		SELECT USER_ID
+			 , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd}) AS USER_NM
+			 , PLANT_CD
+			 , USE_FLAG
+		  FROM STOCUSPL
+		 WHERE GATE_CD = #{ses.gateCd}
+		<if test="USER_NM != null and USER_NM != ''">
+		   AND <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != null and PLANT_CD != ''">
+		   AND PLANT_CD = #{PLANT_CD}
+		</if>
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="bsyt080Select" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  <include refid="com.sql.dbo"/>GETCODENAME(BACH.GATE_CD, 'MP012', BACH.CH_TYPE, #{ses.langCd}) AS CH_TYPE
+			, BACH.SEQ
+			, BACH.CTRL_CD
+			, <include refid="com.sql.dbo"/>GETCTRLNAME(BACH.GATE_CD, BACH.BUYER_CD, BACH.CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			, <include refid="com.sql.dbo"/>GETUSERNAME(BACH.GATE_CD, BACH.CTRL_USER_ID, #{ses.langCd}) AS USER_NM
+			, BACH.CTRL_USER_ID  AS CTRL_USER_ID
+			, USR.EMPLOYEE_NUM  AS EMPLOYEE_NUM
+			, <include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+			, CASE WHEN BACH.USE_FLAG='1' THEN 'Y' ELSE 'N' END AS USE_FLAG
+			, <include refid="com.sql.dbo"/>GETUSERNAME(BACH.GATE_CD, BACH.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+			, <include refid="com.sql.toDateChar"/>(BACH.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+		FROM STOCBACH BACH
+		LEFT OUTER JOIN STOCUSER USR
+			 ON (BACH.GATE_CD = USR.GATE_CD
+			 AND BACH.CTRL_USER_ID = USR.USER_ID)
+		WHERE BACH.GATE_CD = #{ses.gateCd}
+		AND BACH.DEL_FLAG = '0'
+
+		<if test="buyerCd != '' and buyerCd != null">
+			AND BACH.BUYER_CD = #{buyerCd}
+		</if>
+		<if test="CTRL_NM != '' and CTRL_NM != null">
+			AND <include refid="com.sql.dbo"/>GETCTRLNAME(BACH.GATE_CD, BACH.BUYER_CD, BACH.CTRL_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="USER_NM != '' and USER_NM != null">
+			AND UPPER(USR.USER_NM) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+
+		</if>
+		<if test="USER_ID != '' and USER_ID != null">
+			AND	UPPER( USR.USER_ID) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>
+		</if>
+
+		ORDER BY BACH.CTRL_CD, USR.USER_NM, BACH.SEQ DESC
+	</select>
+</mapper>

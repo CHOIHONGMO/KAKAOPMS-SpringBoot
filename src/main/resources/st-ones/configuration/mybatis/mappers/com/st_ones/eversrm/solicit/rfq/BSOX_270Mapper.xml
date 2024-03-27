@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.BSOX_270Mapper">
+
+
+	<sql id="additionalColumnsBody">
+		SELECT DISTINCT RQVN.VENDOR_CD
+	      FROM STOCRQDT RQDT
+	        JOIN STOCRQHD RQHD ON RQDT.GATE_CD = RQHD.GATE_CD AND RQDT.RFX_NUM=RQHD.RFX_NUM AND RQHD.DEL_FLAG='0' AND RQDT.DEL_FLAG='0' 
+	        JOIN
+	           STOCRQVN RQVN
+	           
+	        ON (    RQDT.GATE_CD = RQVN.GATE_CD
+	            AND RQDT.RFX_NUM = RQVN.RFX_NUM
+	            AND RQVN.DEL_FLAG = '0'
+	            AND RQDT.DEL_FLAG = '0'
+	            AND CASE WHEN (RQHD.RFX_TYPE = 'RFQ' AND RQHD.SUBMIT_TYPE = 'RT') THEN <include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, '0') ELSE '1' END = '1'
+	            AND RQDT.GATE_CD = #{ses.gateCd}
+			    AND RQDT.RFX_NUM = #{RFX_NUM}
+			    AND RQDT.RFX_CNT = #{RFX_CNT})
+			    
+		   WHERE RQVN.GATE_CD = #{ses.gateCd}
+		   AND EXISTS (
+		   		SELECT '1' 
+		   		FROM STOCQTHD A JOIN STOCQTDT B ON A.GATE_CD = B.GATE_CD AND A.QTA_NUM = B.QTA_NUM AND B.DEL_FLAG = '0'
+		   		WHERE A.GATE_CD = #{ses.gateCd}
+		   		AND A.DEL_FLAG = '0'
+		   		AND A.SEND_DATE IS NOT NULL
+		   		AND A.VENDOR_CD = RQVN.VENDOR_CD
+		   		AND B.VENDOR_CD = RQVN.VENDOR_CD
+		   		AND B.RFX_NUM = RQVN.RFX_NUM
+		   )			    
+			    
+    </sql>
+    
+    <select id="getAdditionalColumnInfos" resultType="hashmap">
+		SELECT 'V' <include refid="com.sql.stringMerge"/> VENDOR_CD <include refid="com.sql.stringMerge"/> '_' <include refid="com.sql.stringMerge"/> TEMPLATE_ID AS COLUMN_ID
+			   ,TEMPLATE_NM COLUMN_NM
+		       ,TEMPLATE_ID
+		       ,VENDOR_CD AS USER_DATA
+		       ,<include refid="com.sql.dbo"/> GETVENDORNAME(#{ses.gateCd},VENDOR_CD,  #{ses.langCd} )  VENDOR_NM
+		  FROM  (<include refid="additionalColumnsBody"/>) TMP
+		       CROSS JOIN
+		       
+		       	<if test="_databaseId == 'oracle'">
+				    (SELECT 'INIT_AMT' AS TEMPLATE_ID ,'최초견적금액' TEMPLATE_NM <include refid="com.sql.dual"/>
+		           UNION ALL
+		           SELECT 'FINAL_AMT' AS TEMPLATE_ID,'최종금액' TEMPLATE_NM <include refid="com.sql.dual"/>) TMP2 
+				</if>
+			            
+				<if test="_databaseId == 'mssql'">
+				    (SELECT 'INIT_AMT' AS TEMPLATE_ID ,'최초견적금액' TEMPLATE_NM
+		             UNION ALL
+		             SELECT 'FINAL_AMT' AS TEMPLATE_ID ,'최종금액' TEMPLATE_NM
+		             UNION ALL
+		             SELECT 'COST_NUM' AS TEMPLATE_ID ,'COST_NUM' COST_NUM
+		             UNION ALL
+		             SELECT 'COST_ITEM_NEED' AS TEMPLATE_ID ,'원가계산서' COST_ITEM_NEED
+		             
+		           ) TMP2
+				</if>
+		           ORDER BY VENDOR_CD 
+    </select>
+    
+
+    
+    <select id="doSearchComparisonTable" resultType="hashMap">
+
+	    SELECT  --ROW_NUMBER() OVER (ORDER BY ITEM_CD)  AS ROW_NUM   
+	            ITEM_CD
+	          , ITEM_DESC
+	          , UNIT_CD
+	          , RFX_QT         
+	          , MAX(ITEM_AMT) ITEM_AMT
+	          , MAX(FINAL_AWARD) AS FINAL_AWARD
+	          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+	                ,MAX(${additionalColumnInfo.COLUMN_ID}) AS ${additionalColumnInfo.COLUMN_ID}
+	          </foreach> 
+	     FROM         
+	        (SELECT    
+	                  RQ.ITEM_CD
+	                , RQ.ITEM_DESC
+	                , RQ.UNIT_CD
+	                , RQ.RFX_QT
+	                , RQ.VENDOR_CD
+	                , RQ.RFX_NUM
+	                , RQ.RFX_SQ
+	                , RQ.ITEM_AMT
+	                , <include refid="com.sql.nvl"/>(MIN_QT.ITEM_AMT, 0) AS INIT_AMT
+	                , <include refid="com.sql.nvl"/>(MAX_QT.ITEM_AMT, 0) AS FINAL_AMT
+	                , <include refid="com.sql.dbo"/>GETCOMCODE(RQ.GATE_CD, 'M044', 
+	                         CASE WHEN <include refid="com.sql.nvl"/>(MIN_QT.SETTLE_QT, 0) > 0 THEN '1'
+	                               WHEN <include refid="com.sql.nvl"/>(MAX_QT.SETTLE_QT, 0) > 0 THEN '1'
+	                               ELSE '0' END 
+	                      , '0', #{ses.langCd})
+	                  AS FINAL_AWARD
+
+	                <if test='_databaseId=="oracle"'>
+	                	<foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+	                        , CASE WHEN RQ.VENDOR_CD = #{additionalColumnInfo.USER_DATA} 
+	                                    THEN CASE WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'INIT_AMT' THEN <include refid="com.sql.nvl"/>(TO_CHAR(MIN_QT.ITEM_AMT), '0')
+												  WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'COST_NUM' THEN CASE WHEN <include refid="com.sql.nvl"/>(MAX_QT.COST_NUM, '') = '' THEN 'X' ELSE MAX_QT.COST_NUM END
+												  WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'COST_ITEM_NEED' THEN CASE WHEN CASE WHEN <include refid="com.sql.nvl"/>(MAX_QT.COST_NUM, '') = '' THEN 'X' ELSE MAX_QT.COST_NUM END = 'X' THEN 'No' ELSE 'Yes' END 
+	                                              ELSE <include refid="com.sql.nvl"/>(TO_CHAR(MAX_QT.ITEM_AMT), '0')	
+	                                         END
+	                               ELSE '0' 
+	                          END AS ${additionalColumnInfo.COLUMN_ID} 
+	                	</foreach>
+	                </if>
+	                <if test='_databaseId=="mssql"'>
+	                	<foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+	                        , CASE WHEN RQ.VENDOR_CD = #{additionalColumnInfo.USER_DATA} 
+	                                    THEN CASE WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'INIT_AMT' THEN <include refid="com.sql.nvl"/>(CAST(MIN_QT.ITEM_AMT AS VARCHAR), '0')
+												  WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'COST_NUM' THEN CASE WHEN <include refid="com.sql.nvl"/>(MAX_QT.COST_NUM, '') = '' THEN 'X' ELSE MAX_QT.COST_NUM END
+												  WHEN #{additionalColumnInfo.TEMPLATE_ID} = 'COST_ITEM_NEED' THEN CASE WHEN CASE WHEN <include refid="com.sql.nvl"/>(MAX_QT.COST_NUM, '') = '' THEN 'X' ELSE MAX_QT.COST_NUM END = 'X' THEN 'No' ELSE 'Yes' END 
+	                                              ELSE <include refid="com.sql.nvl"/>(CAST(MAX_QT.ITEM_AMT AS VARCHAR), '0')	
+	                                         END
+	                               ELSE '0' 
+	                          END AS ${additionalColumnInfo.COLUMN_ID} 
+	                	</foreach>
+	                </if>
+
+	            FROM (    
+	                SELECT DISTINCT 
+	                      RQDT.ITEM_CD
+	                    , RQDT.ITEM_DESC
+	                    , RQDT.UNIT_CD
+	                    , RQDT.RFX_QT
+	                    , RQVN.VENDOR_CD AS VENDOR_CD
+	                    , RQDT.RFX_NUM
+	                    , RQDT.RFX_SQ
+	                    , RQDT.GATE_CD
+	                    , RQDT.ITEM_AMT
+	                FROM STOCRQDT RQDT
+	                            JOIN    STOCRQVN RQVN ON  RQDT.GATE_CD = RQVN.GATE_CD
+	                                                  AND RQDT.RFX_NUM = RQVN.RFX_NUM
+	                                                  AND RQVN.DEL_FLAG = '0' 
+	                WHERE RQDT.GATE_CD = #{ses.gateCd}
+	                  AND RQDT.DEL_FLAG = '0'                  
+	                  AND RQDT.RFX_NUM =  #{RFX_NUM} 
+	             ) RQ LEFT OUTER JOIN
+	                (SELECT DISTINCT
+	                      QTDT.ITEM_AMT
+	                    , QTDT.SETTLE_QT
+	                    , QTDT.GATE_CD
+	                    , QTDT.RFX_NUM
+	                    , QTDT.RFX_SQ
+	                    , QTDT.QTA_NUM
+	                    , QTDT.VENDOR_CD
+	                    , QTDT.COST_NUM
+	                 FROM STOCQTDT QTDT
+	                        JOIN (  SELECT DISTINCT MAX(QTA_NUM) OVER (PARTITION BY GATE_CD, RFX_NUM, VENDOR_CD ) AS MAX_QTA_NUM
+	                                , GATE_CD
+	                                , RFX_NUM                     
+	                                , VENDOR_CD
+	                                , QTA_NUM
+	                                FROM STOCQTDT
+	                                WHERE   GATE_CD = #{ses.gateCd}
+	                                    AND DEL_FLAG = '0'                                     
+	                                    AND RFX_NUM = #{RFX_NUM}
+	                            )                 
+	                             QTDT_MAX
+	                                       ON      QTDT.GATE_CD =  QTDT_MAX.GATE_CD
+	                                        AND   QTDT.RFX_NUM= QTDT_MAX.RFX_NUM  
+	                                        AND   QTDT.QTA_NUM = QTDT_MAX.MAX_QTA_NUM                                                                                 
+	                                        AND   QTDT.VENDOR_CD  = QTDT_MAX.VENDOR_CD                       
+	                 WHERE 1 = 1
+	                   AND QTDT.GATE_CD = #{ses.gateCd}
+	                   AND QTDT.RFX_NUM = #{RFX_NUM}
+	                   AND QTDT.DEL_FLAG = '0' 
+	                ) MAX_QT
+	                        ON RQ.GATE_CD = MAX_QT.GATE_CD
+	                           AND RQ.RFX_NUM = MAX_QT.RFX_NUM
+	                           AND RQ.RFX_SQ = MAX_QT.RFX_SQ                           
+	                           AND RQ.VENDOR_CD = MAX_QT.VENDOR_CD                           
+	               LEFT OUTER JOIN
+	                (SELECT DISTINCT    
+	                      QTDT.ITEM_AMT
+	                    , QTDT.SETTLE_QT
+	                    , QTDT.GATE_CD
+	                    , QTDT.RFX_NUM
+	                    , QTDT.RFX_SQ
+	                    , QTDT.VENDOR_CD
+	                 FROM STOCQTDT QTDT
+	                    JOIN (  SELECT DISTINCT  MIN(QTA_NUM) OVER (PARTITION BY GATE_CD, RFX_NUM, VENDOR_CD ) AS MIN_QTA_NUM
+	                                , GATE_CD
+	                                , RFX_NUM
+	                                , VENDOR_CD
+	                                , QTA_NUM
+	                                FROM STOCQTDT
+	                                WHERE   GATE_CD =  #{ses.gateCd}
+	                                    AND DEL_FLAG = '0' 
+	                                    
+	                                     AND RFX_NUM = #{RFX_NUM}
+	                            )                 
+	                             QTDT_MIN
+	                                   ON          QTDT.GATE_CD =  QTDT_MIN.GATE_CD
+	                                        AND   QTDT.RFX_NUM= QTDT_MIN.RFX_NUM  
+	                                        AND   QTDT.QTA_NUM = QTDT_MIN.MIN_QTA_NUM                                           
+	                                        AND   QTDT.VENDOR_CD  = QTDT_MIN.VENDOR_CD
+	                 ) MIN_QT
+	                 ON RQ.GATE_CD = MIN_QT.GATE_CD
+	                   AND RQ.RFX_NUM = MIN_QT.RFX_NUM
+	                   AND RQ.RFX_SQ = MIN_QT.RFX_SQ                     
+	                   AND RQ.VENDOR_CD = MIN_QT.VENDOR_CD
+	            ) TMP
+	            GROUP BY
+	                  ITEM_CD
+	                , ITEM_DESC
+	                , UNIT_CD
+	                , RFX_QT
+	                , RFX_NUM
+	                , RFX_SQ
+	            ORDER BY ITEM_CD    
+    </select>
+
+</mapper>

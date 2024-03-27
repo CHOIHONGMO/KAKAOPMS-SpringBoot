@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1600_Mapper">
+	<select id="DH1600_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT	 ITEM_GROUP
+				,ITEM_DESC
+				,ITEM_DIV
+				,INVEST_DIV
+				,EO_NO
+				,<include refid="com.sql.dbo"/>GETGMTDATE(EO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EO_DATE
+				,ORDER_NO
+				,ORDER_SQ
+				,ITEM_DETAIL_DESC
+				,ITEM_DETAIL_SPEC
+				,ITEM_QT
+				,UNIT_CD
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,VENDOR_CD
+				,TARGET_PRC
+				,INVEST_PRC
+				,UNIT_PRC
+				,CONFIRM_UNIT_PRC
+				,RMK
+		  FROM	STOCGPEO
+		 WHERE	GATE_CD 	= #{ses.gateCd}
+		   AND	DEL_FLAG	= '0'
+		<if test="ITEM_GROUP != '' and ITEM_GROUP != null">
+			AND ITEM_GROUP = #{ITEM_GROUP}
+		</if>
+		<if test="ORDER_NO != '' and ORDER_NO != null">
+			AND ORDER_NO <include refid="com.sql.likeL"/> #{ORDER_NO} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_DIV != '' and ITEM_DIV != null">
+			AND ITEM_DIV = #{ITEM_DIV}
+		</if>
+		<if test="ITEM_DETAIL_DESC != '' and ITEM_DETAIL_DESC != null">
+			AND ITEM_DETAIL_DESC <include refid="com.sql.likeL"/> #{ITEM_DETAIL_DESC} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND VENDOR_CD = #{VENDOR_CD}
+		</if>
+		ORDER BY ORDER_NO DESC, ORDER_SQ ASC
+	</select>
+	
+	<update id="DH1600_doDelete" parameterType="hashmap">
+		UPDATE	STOCGPEO
+		   SET	DEL_FLAG 	= '1'
+		 WHERE	GATE_CD		= #{ses.gateCd}
+		   AND	ORDER_NO	= #{ORDER_NO}
+		   AND	ORDER_SQ	= #{ORDER_SQ}
+	</update>
+	
+	<insert id="DH1600_doSave" parameterType="hashmap">
+		 MERGE STOCGPEO A
+		 USING (SELECT 	 #{ses.gateCd} 			AS GATE_CD
+		 				,#{ITEM_GROUP}			AS ITEM_GROUP
+		 				,#{ITEM_DESC}			AS ITEM_DESC
+		 				,#{ITEM_DIV}			AS ITEM_DIV
+		 				,#{INVEST_DIV} 			AS INVEST_DIV
+		 				,#{EO_NO}				AS EO_NO
+		 				,#{EO_DATE}				AS EO_DATE
+		 				,#{ORDER_NO}			AS ORDER_NO
+		 				,#{ORDER_SQ}			AS ORDER_SQ
+		 				,#{ITEM_DETAIL_DESC}	AS ITEM_DETAIL_DESC
+		 				,#{ITEM_DETAIL_SPEC}	AS ITEM_DETAIL_SPEC
+		 				,#{ITEM_QT}				AS ITEM_QT
+		 				,#{UNIT_CD}				AS UNIT_CD
+		 				,#{VENDOR_CD}			AS VENDOR_CD
+		 				,#{TARGET_PRC}			AS TARGET_PRC
+		 				,#{INVEST_PRC}			AS INVEST_PRC
+		 				,#{UNIT_PRC}			AS UNIT_PRC
+		 				,#{CONFIRM_UNIT_PRC}	AS CONFIRM_UNIT_PRC
+		 				,#{RMK}					AS RMK
+		 				,'0'					AS DEL_FLAG
+		 				,<include refid="com.sql.sysdate"/>		AS MOD_DATE
+		 				,#{ses.userId}			AS MOD_USER_ID
+		 				,<include refid="com.sql.sysdate"/>		AS REG_DATE
+		 				,#{ses.userId}			AS REG_USER_ID
+		 		<include refid="com.sql.dual"/>
+		 		) B
+            ON (	A.GATE_CD 	= B.GATE_CD
+            	AND	A.ORDER_NO	= B.ORDER_NO
+            	AND	A.ORDER_SQ	= B.ORDER_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   ITEM_GROUP		= B.ITEM_GROUP
+			  ,ITEM_DESC		= B.ITEM_DESC
+			  ,ITEM_DIV			= B.ITEM_DIV
+			  ,INVEST_DIV		= B.INVEST_DIV
+			  ,EO_NO			= B.EO_NO
+			  ,EO_DATE			= B.EO_DATE
+			  ,ITEM_DETAIL_DESC	= B.ITEM_DETAIL_DESC
+			  ,ITEM_DETAIL_SPEC	= B.ITEM_DETAIL_SPEC
+			  ,ITEM_QT			= B.ITEM_QT
+			  ,UNIT_CD			= B.UNIT_CD
+			  ,VENDOR_CD		= B.VENDOR_CD
+			  ,TARGET_PRC		= B.TARGET_PRC
+			  ,INVEST_PRC		= B.INVEST_PRC
+			  ,UNIT_PRC			= B.INVEST_PRC
+			  ,CONFIRM_UNIT_PRC	= B.CONFIRM_UNIT_PRC
+			  ,RMK				= B.RMK
+			  ,MOD_DATE			= B.MOD_DATE
+			  ,MOD_USER_ID		= B.MOD_USER_ID
+			  ,DEL_FLAG			= B.DEL_FLAG
+		  WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, ITEM_GROUP, ITEM_DESC, ITEM_DIV, INVEST_DIV, EO_NO, EO_DATE, ORDER_NO, ORDER_SQ, ITEM_DETAIL_DESC, ITEM_DETAIL_SPEC,
+		        ITEM_QT, UNIT_CD, VENDOR_CD, TARGET_PRC, INVEST_PRC, UNIT_PRC, CONFIRM_UNIT_PRC, RMK, REG_DATE, REG_USER_ID, DEL_FLAG) 			
+		VALUES (B.GATE_CD, B.ITEM_GROUP, B.ITEM_DESC, B.ITEM_DIV, B.INVEST_DIV, B.EO_NO, B.EO_DATE, B.ORDER_NO, B.ORDER_SQ, B.ITEM_DETAIL_DESC, B.ITEM_DETAIL_SPEC,
+		        B.ITEM_QT, B.UNIT_CD, B.VENDOR_CD, B.TARGET_PRC, B.INVEST_PRC, B.UNIT_PRC, B.CONFIRM_UNIT_PRC, B.RMK, B.REG_DATE, B.REG_USER_ID, B.DEL_FLAG<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+	
+</mapper>

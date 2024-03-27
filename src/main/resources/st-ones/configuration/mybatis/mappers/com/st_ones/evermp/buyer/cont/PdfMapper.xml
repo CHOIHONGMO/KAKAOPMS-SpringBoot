@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.evermp.buyer.cont.PdfMapper">
+
+    <!-- HTML 생성여부 등록 -->
+    <update id="doUpdateHtmlCreateFlag" parameterType="hashMap">
+
+    	UPDATE STOCECCT SET
+    		 MOD_DATE = <include refid="com.sql.sysdate"/>
+    		,PDF_STATUS = #{PDF_STATUS}
+    		,PDF_CREATE_DATE = (CASE WHEN #{PDF_STATUS} = '2' THEN <include refid="com.sql.sysdate"/> ELSE NULL END)
+		<if test='CALL_TYPE == "S"'>
+			,PROGRESS_CD = '4210'
+		</if>
+    	 WHERE GATE_CD  = #{GATE_CD}
+    	   AND CONT_NUM = #{CONT_NUM}
+    	   AND CONT_CNT = #{CONT_CNT}
+
+    </update>
+
+	<!-- 계약서 주서식정보 가져오기 -->
+	<select id="getContractListForPDF" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 ET.CONT_NUM
+			,ET.CONT_CNT
+			,RL.CONTRACT_TEXT
+
+			<if test="_databaseId == 'mssql'">
+						,ET.CONT_NUM <include refid="com.sql.stringMerge"/> '@' <include refid="com.sql.stringMerge"/> CONVERT(NVARCHAR,ET.CONT_CNT) AS FILE_NAME
+			</if>
+			<if test="_databaseId == 'oracle'">
+						,ET.CONT_NUM <include refid="com.sql.stringMerge"/> '@' <include refid="com.sql.stringMerge"/> ET.CONT_CNT AS FILE_NAME
+			</if>
+
+
+			,RL.FORM_NUM
+			,CASE WHEN APAR_TYPE ='S' THEN <include refid="com.sql.dbo"/>GETBUYERNAME(#{ses.gateCd},ET.BUYER_CD,#{ses.langCd})
+			 ELSE <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},ET.VENDOR_CD,#{ses.langCd})
+			 END VENDOR_NM
+		  FROM STOCECCT ET
+		  LEFT JOIN STOCECRL RL
+		   ON (ET.GATE_CD = RL.GATE_CD
+		   AND ET.CONT_NUM = RL.CONT_NUM
+		   AND ET.CONT_CNT = RL.CONT_CNT
+		   AND RL.FORM_SQ = 0)
+		 WHERE ET.GATE_CD = #{ses.gateCd}
+		<!-- 실시간으로 처리할 경우 -->
+		<if test="CONT_NUM != null and CONT_NUM != '' and CONT_CNT != null and CONT_CNT != ''">
+			AND ET.CONT_NUM = #{CONT_NUM}
+			AND ET.CONT_CNT = #{CONT_CNT}
+		</if>
+		   AND ET.DEL_FLAG = '0'
+
+	</select>
+
+	<!-- 계약서 부서식정보 가져오기 -->
+	<select id="getContractSubListForPDF" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	 ET.CONT_NUM
+            ,ET.CONT_CNT
+            ,RL.CONTRACT_TEXT
+          FROM STOCECCT ET
+          JOIN STOCECRL RL
+           ON (ET.GATE_CD = RL.GATE_CD
+           AND ET.CONT_NUM = RL.CONT_NUM
+           AND ET.CONT_CNT = RL.CONT_CNT
+           AND RL.FORM_SQ <![CDATA[>]]> 0)
+         WHERE ET.GATE_CD  = #{ses.gateCd}
+           AND ET.CONT_NUM = #{CONT_NUM}
+           AND ET.CONT_CNT = #{CONT_CNT}
+           AND ET.DEL_FLAG = '0'
+         ORDER BY RL.FORM_SQ
+
+    </select>
+
+	<!-- 파트너사에서 계약서 최종확인시 주서식 하단에 안내문구를 삽입한다. -->
+	<update id="putSignOnMainForm" parameterType="hashMap">
+
+		UPDATE STOCECRL SET
+			 CONTRACT_TEXT = #{CONTRACT_TEXT}
+			<!-- ,ORI_CONTRACT_TEXT = #{CONTRACT_TEXT} -->
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND FORM_NUM = #{FORM_NUM}
+
+	</update>
+
+</mapper>

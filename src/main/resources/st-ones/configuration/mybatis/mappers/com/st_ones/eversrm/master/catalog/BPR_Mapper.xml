@@ -1,0 +1,1841 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.catalog.BPR_Mapper">
+
+    <select id="doSearchCatalogTree" parameterType="hashMap" resultType="java.util.Map">
+
+        SELECT TREE AS "tree",
+               A.ITEM_CLS_NM,
+               A.ITEM_CLS1,
+               A.ITEM_CLS2,
+               A.ITEM_CLS3,
+               A.ITEM_CLS4,
+               A.ITEM_CLS_PATH_NM
+          FROM (
+
+            <if test="ITEM_CLS2 != null and ITEM_CLS2 != ''">
+            SELECT MTCA.GATE_CD,
+                   MTCA.ITEM_CLS1 AS TREE,
+                   CLS1.ITEM_CLS_NM ITEM_CLS_PATH_NM,
+                   MTCA.ITEM_CLS_NM,
+                   MTCA.ITEM_CLS1,
+                   MTCA.ITEM_CLS2,
+                   MTCA.ITEM_CLS3,
+                   MTCA.ITEM_CLS4
+               FROM STOCMTCA MTCA
+               LEFT OUTER JOIN STOCMTCA CLS1
+               ON (MTCA.GATE_CD = CLS1.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS1.ITEM_CLS1
+               AND CLS1.ITEM_CLS2 = '*'
+               AND CLS1.ITEM_CLS3 = '*'
+               AND CLS1.ITEM_CLS4 = '*'
+               AND CLS1.DEL_FLAG = '0')
+             WHERE MTCA.GATE_CD = #{ses.gateCd}
+               AND MTCA.DEL_FLAG = '0'
+               AND MTCA.ITEM_CLS1 = #{ITEM_CLS1}
+               AND MTCA.ITEM_CLS2 = '*'
+
+                UNION ALL
+
+            </if>
+
+            <if test="ITEM_CLS3 != null and ITEM_CLS3 != ''">
+            SELECT MTCA.GATE_CD,
+                   MTCA.ITEM_CLS2 AS TREE,
+                   CLS1.ITEM_CLS_NM ||' > '||CLS2.ITEM_CLS_NM AS ITEM_CLS_PATH_NM,
+                   MTCA.ITEM_CLS_NM,
+                   MTCA.ITEM_CLS1,
+                   MTCA.ITEM_CLS2,
+                   MTCA.ITEM_CLS3,
+                   MTCA.ITEM_CLS4
+               FROM STOCMTCA MTCA
+               LEFT OUTER JOIN STOCMTCA CLS1
+               ON (MTCA.GATE_CD = CLS1.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS1.ITEM_CLS1
+               AND CLS1.ITEM_CLS2 = '*'
+               AND CLS1.ITEM_CLS3 = '*'
+               AND CLS1.ITEM_CLS4 = '*'
+               AND CLS1.DEL_FLAG = '0')
+               LEFT OUTER JOIN STOCMTCA CLS2
+               ON (MTCA.GATE_CD = CLS2.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS2.ITEM_CLS1
+               AND MTCA.ITEM_CLS2 = CLS2.ITEM_CLS2
+               AND CLS2.ITEM_CLS3 = '*'
+               AND CLS2.ITEM_CLS4 = '*'
+               AND CLS2.DEL_FLAG = '0')
+             WHERE MTCA.GATE_CD = #{ses.gateCd}
+               AND MTCA.DEL_FLAG = '0'
+               AND MTCA.ITEM_CLS1 = #{ITEM_CLS1}
+               AND MTCA.ITEM_CLS2 = #{ITEM_CLS2}
+               AND MTCA.ITEM_CLS3 = '*'
+
+                UNION ALL
+
+            </if>
+
+            <if test="ITEM_CLS4 != null and ITEM_CLS4 != ''">
+            SELECT MTCA.GATE_CD,
+                   MTCA.ITEM_CLS3 AS TREE,
+                   CLS1.ITEM_CLS_NM ||' > '||CLS2.ITEM_CLS_NM ||' > '||CLS3.ITEM_CLS_NM AS ITEM_CLS_PATH_NM,
+                   MTCA.ITEM_CLS_NM,
+                   MTCA.ITEM_CLS1,
+                   MTCA.ITEM_CLS2,
+                   MTCA.ITEM_CLS3,
+                   MTCA.ITEM_CLS4
+               FROM STOCMTCA MTCA
+               LEFT OUTER JOIN STOCMTCA CLS1
+               ON (MTCA.GATE_CD = CLS1.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS1.ITEM_CLS1
+               AND CLS1.ITEM_CLS2 = '*'
+               AND CLS1.ITEM_CLS3 = '*'
+               AND CLS1.ITEM_CLS4 = '*'
+               AND CLS1.DEL_FLAG = '0')
+               LEFT OUTER JOIN STOCMTCA CLS2
+               ON (MTCA.GATE_CD = CLS2.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS2.ITEM_CLS1
+               AND MTCA.ITEM_CLS2 = CLS2.ITEM_CLS2
+               AND CLS2.ITEM_CLS3 = '*'
+               AND CLS2.ITEM_CLS4 = '*'
+               AND CLS2.DEL_FLAG = '0')
+               LEFT OUTER JOIN STOCMTCA CLS3
+               ON (MTCA.GATE_CD = CLS3.GATE_CD
+               AND MTCA.ITEM_CLS1 = CLS3.ITEM_CLS1
+               AND MTCA.ITEM_CLS2 = CLS3.ITEM_CLS2
+               AND MTCA.ITEM_CLS3 = CLS3.ITEM_CLS3
+               AND CLS3.ITEM_CLS4 = '*'
+               AND CLS3.DEL_FLAG = '0')
+             WHERE MTCA.GATE_CD = #{ses.gateCd}
+               AND MTCA.DEL_FLAG = '0'
+               AND MTCA.ITEM_CLS1 = #{ITEM_CLS1}
+               AND MTCA.ITEM_CLS2 = #{ITEM_CLS2}
+               AND MTCA.ITEM_CLS3 = #{ITEM_CLS3}
+               AND MTCA.ITEM_CLS4 = '*'
+
+                UNION ALL
+
+            </if>
+
+            SELECT MTCA.GATE_CD,
+                   (CASE WHEN MTCA.ITEM_CLS_TYPE = 'C1' THEN MTCA.ITEM_CLS1
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C2' THEN MTCA.ITEM_CLS2
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C3' THEN MTCA.ITEM_CLS3
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C4' THEN MTCA.ITEM_CLS4
+                   END) AS TREE,
+                   (CASE WHEN MTCA.ITEM_CLS_TYPE = 'C1' THEN CLS1.ITEM_CLS_NM
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C2' THEN CLS1.ITEM_CLS_NM ||' > '||CLS2.ITEM_CLS_NM
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C3' THEN CLS1.ITEM_CLS_NM ||' > '||CLS2.ITEM_CLS_NM ||' > '||CLS3.ITEM_CLS_NM
+                         WHEN MTCA.ITEM_CLS_TYPE = 'C4' THEN CLS1.ITEM_CLS_NM ||' > '||CLS2.ITEM_CLS_NM ||' > '||CLS3.ITEM_CLS_NM ||' > '||CLS4.ITEM_CLS_NM
+                   END) AS ITEM_CLS_PATH_NM,
+                   MTCA.ITEM_CLS_NM,
+                   MTCA.ITEM_CLS1,
+                   MTCA.ITEM_CLS2,
+                   MTCA.ITEM_CLS3,
+                   MTCA.ITEM_CLS4
+              FROM STOCMTCA MTCA
+              LEFT OUTER JOIN STOCMTCA CLS1
+              ON (MTCA.GATE_CD = CLS1.GATE_CD
+              AND MTCA.ITEM_CLS1 = CLS1.ITEM_CLS1
+              AND CLS1.ITEM_CLS2 = '*'
+              AND CLS1.ITEM_CLS3 = '*'
+              AND CLS1.ITEM_CLS4 = '*'
+              AND CLS1.DEL_FLAG = '0')
+              LEFT OUTER JOIN STOCMTCA CLS2
+              ON (MTCA.GATE_CD = CLS2.GATE_CD
+              AND MTCA.ITEM_CLS1 = CLS2.ITEM_CLS1
+              AND MTCA.ITEM_CLS2 = CLS2.ITEM_CLS2
+              AND CLS2.ITEM_CLS3 = '*'
+              AND CLS2.ITEM_CLS4 = '*'
+              AND CLS2.DEL_FLAG = '0')
+              LEFT OUTER JOIN STOCMTCA CLS3
+              ON (MTCA.GATE_CD = CLS3.GATE_CD
+              AND MTCA.ITEM_CLS1 = CLS3.ITEM_CLS1
+              AND MTCA.ITEM_CLS2 = CLS3.ITEM_CLS2
+              AND MTCA.ITEM_CLS3 = CLS3.ITEM_CLS3
+              AND CLS3.ITEM_CLS4 = '*'
+              AND CLS3.DEL_FLAG = '0')
+              LEFT OUTER JOIN STOCMTCA CLS4
+              ON (MTCA.GATE_CD = CLS4.GATE_CD
+              AND MTCA.ITEM_CLS1 = CLS4.ITEM_CLS1
+              AND MTCA.ITEM_CLS2 = CLS4.ITEM_CLS2
+              AND MTCA.ITEM_CLS3 = CLS4.ITEM_CLS3
+              AND MTCA.ITEM_CLS4 = CLS4.ITEM_CLS4
+              AND MTCA.ITEM_CLS_TYPE = 'C4'
+              AND CLS4.DEL_FLAG = '0')
+             WHERE MTCA.GATE_CD = #{ses.gateCd}
+               AND MTCA.DEL_FLAG = '0'
+            <if test="BUSINESS_TYPE != null and BUSINESS_TYPE != ''">
+                <choose>
+                    <when test="BUSINESS_TYPE == '100'">
+                        AND MTCA.ITEM_CLS1 = 'S1'
+                    </when>
+                    <when test="BUSINESS_TYPE == '200'">
+                        AND MTCA.ITEM_CLS1 = 'S2'
+                    </when>
+                    <otherwise></otherwise>
+                </choose>
+            </if>
+            <if test="ITEM_CLS2 != null and ITEM_CLS2 != ''">
+                AND MTCA.ITEM_CLS2 = #{ITEM_CLS2}
+            </if>
+            <if test="ITEM_CLS3 != null and ITEM_CLS3 != ''">
+                AND MTCA.ITEM_CLS3 = #{ITEM_CLS3}
+            </if>
+            <if test="ITEM_CLS4 != null and ITEM_CLS4 != ''">
+                AND MTCA.ITEM_CLS4 = #{ITEM_CLS4}
+            </if>
+
+            <if test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+               AND MTCA.ITEM_CLS1 IN (SELECT ITEM_CLS1
+                                        FROM STOCMTCA
+                                       WHERE GATE_CD = #{ses.gateCd}
+                                         AND DEL_FLAG = '0'
+                                         AND ITEM_CLS_TYPE = 'C1'
+                                         AND ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>)
+                OR MTCA.ITEM_CLS2 IN (SELECT ITEM_CLS2
+                                        FROM STOCMTCA
+                                       WHERE GATE_CD = #{ses.gateCd}
+                                         AND DEL_FLAG = '0'
+                                         AND ITEM_CLS_TYPE = 'C2'
+                                         AND ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>)
+
+                OR MTCA.ITEM_CLS3 IN (SELECT ITEM_CLS3
+                                        FROM STOCMTCA
+                                       WHERE GATE_CD = #{ses.gateCd}
+                                         AND DEL_FLAG = '0'
+                                         AND ITEM_CLS_TYPE = 'C3'
+                                         AND ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>)
+                OR MTCA.ITEM_CLS4 IN (SELECT ITEM_CLS4
+                                        FROM STOCMTCA
+                                       WHERE GATE_CD = #{ses.gateCd}
+                                         AND DEL_FLAG = '0'
+                                         AND ITEM_CLS_TYPE = 'C4'
+                                         AND ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>)
+            </if>
+        ) A
+
+
+        ORDER BY TREE
+    </select>
+
+     <select id="doSearchCatalogTree22" parameterType="hashMap" resultType="java.util.Map">
+
+		SELECT
+			A.ID AS "tree"
+            ,REPLACE(A.ITEM_CLS1,'*','') AS ITEM_CLS1
+        <if test='_databaseId=="oracle"'>
+        	, <include refid="com.sql.nvl"/>(A.PARENTID, ' ') AS STONES_GRID_PAR
+        </if>
+        <if test='_databaseId=="mssql"'>
+        	, A.PARENTID AS STONES_GRID_PAR
+        </if>
+			, A.TEXT AS ITEM_CLS
+			, A.VALUE
+			-- , A.ICON
+			, 'false' AS STONES_GRID_EXP
+			<choose>
+				<when test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+					, 0 AS STONES_GRID_LV
+					, 'true' AS STONES_GRID_ISLEAF
+				</when>
+				<otherwise>
+					, (<include refid="com.sql.length"/>( A.ID ) / 2) - 1 AS STONES_GRID_LV
+					, CASE (
+						SELECT
+							COUNT(B.ID) AS LEAF_FLAG
+						FROM (
+							SELECT
+								CASE ITEM_CLS_TYPE
+									WHEN 'C4' THEN ITEM_CLS4
+									WHEN 'C3' THEN ITEM_CLS3
+									WHEN 'C2' THEN ITEM_CLS2 ELSE ITEM_CLS1
+								END AS ID,
+				                CASE  ITEM_CLS_TYPE
+									WHEN 'C4' THEN ITEM_CLS3
+		                       		WHEN 'C3' THEN ITEM_CLS2
+		                       		WHEN 'C2' THEN ITEM_CLS1 ELSE ''
+		                       	END AS PARENTID
+							FROM STOCMTCA
+								WHERE GATE_CD = #{ses.gateCd}
+								AND DEL_FLAG = '0'
+						) B
+						WHERE  B.PARENTID = A.ID
+					) WHEN 0 THEN 'true' ELSE 'false' END AS STONES_GRID_ISLEAF
+				</otherwise>
+			</choose>
+			FROM (
+				SELECT
+					CASE ITEM_CLS_TYPE
+						WHEN 'C4' THEN ITEM_CLS4
+						WHEN 'C3' THEN ITEM_CLS3
+						WHEN 'C2' THEN ITEM_CLS2 ELSE ITEM_CLS1
+					END AS ID,
+	                <choose>
+			           <when test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+			                ''
+			           </when>
+			           <otherwise>
+			               CASE  ITEM_CLS_TYPE
+	                       WHEN 'C4' THEN ITEM_CLS3
+	                       WHEN 'C3' THEN ITEM_CLS2
+	                       WHEN 'C2' THEN ITEM_CLS1 ELSE ''
+	                       END
+			           </otherwise>
+			        </choose>
+					AS PARENTID
+                     ,ITEM_CLS1
+					, ITEM_CLS_NM AS TEXT
+					, ITEM_CLS_TYPE AS VALUE
+					,'' AS ICON
+				FROM STOCMTCA
+					WHERE GATE_CD = #{ses.gateCd}
+					AND DEL_FLAG = '0'
+	              <if test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+					AND   ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>
+	              </if>
+				/*
+		 			ORDER BY
+					ID
+					, ITEM_CLS_TYPE
+		 		*/
+		) A
+    </select>
+
+    <select id="listClassItemStatus" parameterType="hashmap" resultType="hashMap">
+        SELECT DISTINCT CASE WHEN #{ITEM_CLS_NO} = '1' THEN ITEM_CLS1
+                    WHEN #{ITEM_CLS_NO} = '2' THEN ITEM_CLS2
+                    WHEN #{ITEM_CLS_NO} = '3' THEN ITEM_CLS3
+                    ELSE ITEM_CLS4 END AS "value"
+             , ITEM_CLS_NM AS "text"
+        FROM STOCMTCA
+        WHERE  GATE_CD = #{ses.gateCd}
+            AND DEL_FLAG = '0'
+        <if test="ITEM_CLS_NO == 1">
+             AND  ITEM_CLS_TYPE = 'C1'
+        </if>
+        <if test="ITEM_CLS_NO == 2">
+             AND ITEM_CLS_TYPE = 'C2'
+        </if>
+        <if test="ITEM_CLS_NO == 3">
+             AND  ITEM_CLS_TYPE = 'C3'
+        </if>
+        <if test="ITEM_CLS_NO == 4">
+             AND ITEM_CLS_TYPE = 'C4'
+        </if>
+        ORDER BY ITEM_CLS_NM
+     </select>
+
+     <select id="doGetParentId" parameterType="hashmap" resultType="hashMap">
+         SELECT DISTINCT  ITEM_CLS1
+              , ITEM_CLS2
+              , ITEM_CLS3
+              , ITEM_CLS4
+         FROM STOCMTCA
+         WHERE GATE_CD = #{ses.gateCd}
+          AND CASE ITEM_CLS_TYPE
+                            WHEN 'C4' THEN ITEM_CLS4
+                            WHEN 'C3' THEN ITEM_CLS3
+                            WHEN 'C2' THEN ITEM_CLS2 ELSE ITEM_CLS1
+                 END  = #{idNode}
+          AND ITEM_CLS_TYPE = #{idType}
+          AND DEL_FLAG = '0'
+
+    </select>
+
+     <select id="doSearchItemCatalog" parameterType="hashmap" resultType="hashMap">
+
+                SELECT   A.ITEM_CD
+                       , A.ITEM_DESC
+                       , A.ITEM_SPEC
+                       , A.UNIT_CD
+                       , A.MAKER AS MAKER
+                       , A.MAKER_NM
+                       , A.ITEM_CLS1_NM||DECODE(A.ITEM_CLS2_NM,'','',' > ')||
+                         A.ITEM_CLS2_NM||DECODE(A.ITEM_CLS3_NM,'','',' > ')||
+                         A.ITEM_CLS3_NM||DECODE(A.ITEM_CLS4_NM,'','',' > ')||
+                         A.ITEM_CLS4_NM AS ITEM_CLS_NM
+                       , A.ITEM_CLS1
+                       , A.ITEM_CLS1_NM
+                       , A.ITEM_CLS2
+                       , A.ITEM_CLS2_NM
+                       , A.ITEM_CLS3
+                       , A.ITEM_CLS3_NM
+                       , A.ITEM_CLS4
+                       , A.ITEM_CLS4_NM
+                       , A.MAKER_PART_NO
+                       , A.STOCK_ITEM_YN
+                       , A.OLD_ITEM_CD
+                       , A.ACC_ATTR
+                       , A.VAT_CD
+                       , A.ORDER_HALT_FLAG
+                       , A.AC_ITEM_CLS1_NM||DECODE(A.AC_ITEM_CLS2_NM,'','',' > ')||
+                         A.AC_ITEM_CLS2_NM||DECODE(A.AC_ITEM_CLS3_NM,'','',' > ')||
+                         A.AC_ITEM_CLS3_NM||DECODE(A.AC_ITEM_CLS4_NM,'','',' > ')||
+                         A.AC_ITEM_CLS4_NM AS ITEM_CLS_NM
+                       , A.AC_ITEM_CLS1
+                       , A.AC_ITEM_CLS2
+                       , A.AC_ITEM_CLS3
+                       , A.AC_ITEM_CLS4
+                       , A.BRAND_CD
+                       , A.BRAND_NM
+                       , A.VENDOR_CD
+                       ,(SELECT CASE WHEN #{ses.langCd} = 'EN' THEN <include refid="com.sql.nvl"/>(VENDOR_NM_ENG, VENDOR_NM)
+                                     ELSE VENDOR_NM
+                                END
+                         FROM STOCVNGL
+                         WHERE GATE_CD = A.GATE_CD
+                         AND  VENDOR_CD = A.VENDOR_CD
+                        ) AS VENDOR_NM
+                       , (SELECT CASE WHEN VNGL.REG_TYPE = '7' THEN 'Y'
+                                      ELSE 'N' END
+                            FROM STOCVNGL VNGL
+                           WHERE VNGL.GATE_CD = A.GATE_CD
+                             AND VNGL.VENDOR_CD = A.VENDOR_CD
+                             AND VNGL.DEL_FLAG = '0'
+                        ) AS OEM_YN
+                       , A.LIST_PRICE
+                       , A.UNIT_PRICE
+                       , A.SINC_PROFIT_RATE
+                       , A.MIN_ORDER_QT
+                       , A.SAFE_STOCK_QTY
+                       , A.ITEM_STOCK_QTY
+                       , A.EMART_ITEM_CD
+                       , A.EMART_UNIT_PRICE
+                       , A.EMART_PROFIT_RATE
+                       , A.ITEM_LEVEL
+                       ,(
+                          SELECT (CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END)
+                          FROM STOCVNGL GL
+                          WHERE EXISTS (SELECT '*'
+                                        FROM STOCECCT CT
+                                       WHERE CT.GATE_CD = GL.GATE_CD
+                                        AND CT.VENDOR_CD = GL.VENDOR_CD
+                                        AND EXISTS ( SELECT '*'
+                                                        FROM STOCECRL RL
+                                                       WHERE CT.GATE_CD = RL.GATE_CD
+                                                         AND CT.CONT_NUM = RL.CONT_NUM
+                                                         AND CT.CONT_CNT = RL.CONT_CNT
+                                                         AND RL.DEL_FLAG = '0'
+                                                         AND RL.FORM_NUM = (CASE WHEN A.BUSINESS_TYPE = '200' THEN 'FORM2017080300004'
+                                                                                 WHEN A.BUSINESS_TYPE = '100' THEN 'FORM2017080100001'
+                                                                                 ELSE '' END)
+                                                         )
+                                         AND CT.DEL_FLAG = '0'
+                                         AND CT.PROGRESS_CD = '4300' )
+                           AND GL.GATE_CD =  A.GATE_CD
+                           AND GL.VENDOR_CD =  A.VENDOR_CD
+                           AND GL.PROGRESS_CD = 'E'
+                           AND GL.DEL_FLAG = '0'
+                         ) AS CT_YN
+                       , A.INFO_YN
+                       , A.RETURN_YN
+                       , A.MOD_USER_ID
+                       , A.MOD_USER_NM
+                       , A.MOD_DATE
+                FROM (
+                        SELECT /*+ LEADING(MTGL) */
+                                   MTGL.GATE_CD
+                                 , MTGL.BUSINESS_TYPE
+                                 , MTGL.ITEM_CD
+                                 , MTGL.ITEM_DESC
+                                 , MTGL.ITEM_SPEC
+                                 , MTGL.UNIT_CD
+                                 , MTGL.MAKER AS MAKER
+                                 , (SELECT MKBR_NM
+                                      FROM STOCMKBR
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND BUSINESS_TYPE = MTGL.BUSINESS_TYPE
+                                       AND MKBR_CD = MTGL.MAKER
+                                       AND MKBR_TYPE = 'MK') AS MAKER_NM
+                                 , MTGL.ITEM_CLS1
+                                 , (SELECT ITEM_CLS_NM
+                                      FROM STOCMTCA
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                                       AND ITEM_CLS2 = '*'
+                                       AND ITEM_CLS3 = '*'
+                                       AND ITEM_CLS4 = '*'
+                                  ) AS ITEM_CLS1_NM
+                                 , MTGL.ITEM_CLS2
+                                 , (SELECT ITEM_CLS_NM
+                                      FROM STOCMTCA
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                                       AND ITEM_CLS3 = '*'
+                                       AND ITEM_CLS4 = '*'
+                                  ) AS ITEM_CLS2_NM
+                                 , MTGL.ITEM_CLS3
+                                 , (SELECT ITEM_CLS_NM
+                                      FROM STOCMTCA
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                                       AND ITEM_CLS3 = MTGL.ITEM_CLS3
+                                       AND ITEM_CLS4 = '*'
+                                 ) AS ITEM_CLS3_NM
+                                 , MTGL.ITEM_CLS4
+                                 , (SELECT ITEM_CLS_NM
+                                      FROM STOCMTCA
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                                       AND ITEM_CLS3 = MTGL.ITEM_CLS3
+                                       AND ITEM_CLS4 = MTGL.ITEM_CLS4
+                                 ) AS ITEM_CLS4_NM
+                                 , MTGL.MAKER_PART_NO
+                                 , MTGL.STOCK_ITEM_YN
+                                 , MTGL.OLD_ITEM_CD
+                                 , MTGL.ACC_ATTR
+                                 , MTGL.VAT_CD
+                                 , MTGL.ORDER_HALT_FLAG
+                                 , MTGL.AC_ITEM_CLS1
+                                 ,(SELECT ITEM_CLS_NM
+                                   FROM STOCACCA
+                                  WHERE GATE_CD = MTGL.GATE_CD
+                                    AND ITEM_CLS1 = MTGL.AC_ITEM_CLS1
+                                    AND ITEM_CLS2 = '*'
+                                    AND ITEM_CLS3 = '*'
+                                    AND ITEM_CLS4 = '*'
+                                    AND DEL_FLAG = '0') AS AC_ITEM_CLS1_NM
+                                 , MTGL.AC_ITEM_CLS2
+                                 ,(SELECT ITEM_CLS_NM
+                                     FROM STOCACCA
+                                    WHERE GATE_CD = MTGL.GATE_CD
+                                      AND ITEM_CLS1 = MTGL.AC_ITEM_CLS1
+                                      AND ITEM_CLS2 = MTGL.AC_ITEM_CLS2
+                                      AND ITEM_CLS3 = '*'
+                                      AND ITEM_CLS4 = '*'
+                                      AND DEL_FLAG = '0') AS AC_ITEM_CLS2_NM
+                                 , MTGL.AC_ITEM_CLS3
+                                ,(SELECT ITEM_CLS_NM
+                                   FROM STOCACCA
+                                  WHERE GATE_CD = MTGL.GATE_CD
+                                    AND ITEM_CLS1 = MTGL.AC_ITEM_CLS1
+                                    AND ITEM_CLS2 = MTGL.AC_ITEM_CLS2
+                                    AND ITEM_CLS3 = MTGL.AC_ITEM_CLS3
+                                    AND ITEM_CLS4 = '*'
+                                    AND DEL_FLAG = '0') AS AC_ITEM_CLS3_NM
+                                 , MTGL.AC_ITEM_CLS4
+                                ,(SELECT ITEM_CLS_NM
+                                   FROM STOCACCA
+                                  WHERE GATE_CD = MTGL.GATE_CD
+                                    AND ITEM_CLS1 = MTGL.AC_ITEM_CLS1
+                                    AND ITEM_CLS2 = MTGL.AC_ITEM_CLS2
+                                    AND ITEM_CLS3 = MTGL.AC_ITEM_CLS3
+                                    AND ITEM_CLS4 = MTGL.AC_ITEM_CLS4
+                                    AND ITEM_CLS4 != '*'
+                                    AND DEL_FLAG = '0') AS AC_ITEM_CLS4_NM
+                                 , MTGL.BRAND_CD
+                                 , (SELECT MKBR_NM
+                                      FROM STOCMKBR
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND BUSINESS_TYPE = MTGL.BUSINESS_TYPE
+                                       AND MKBR_CD = MTGL.BRAND_CD
+                                       AND MKBR_TYPE = 'BR') AS BRAND_NM
+                                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.VENDOR_CD,'1') = '1' THEN MTGL.VENDOR_CD ELSE INFO.VENDOR_CD END) AS VENDOR_CD
+                                 , MTGL.LIST_PRICE
+                                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.UNIT_PRICE,0) = 0 THEN MTGL.UNIT_PRICE ELSE INFO.UNIT_PRICE END) AS UNIT_PRICE
+                                 , (CASE WHEN (MTGL.LIST_PRICE IS NOT NULL AND MTGL.UNIT_PRICE IS NOT NULL) AND (MTGL.LIST_PRICE > 0 AND MTGL.UNIT_PRICE > 0)
+                                         THEN ROUND((100-((MTGL.LIST_PRICE/MTGL.UNIT_PRICE)*100)), 2)
+                                         ELSE 0 END) AS SINC_PROFIT_RATE
+                                 , MTGL.MIN_ORDER_QT
+                                 , MTGL.SAFE_STOCK_QTY
+                                 , GETSTOCQTY(MTGL.GATE_CD, '', '',MTGL.ITEM_CD) AS ITEM_STOCK_QTY
+                                 , MTGL.EMART_ITEM_CD
+                                 , MTGL.EMART_UNIT_PRICE
+                                 , (CASE WHEN (MTGL.UNIT_PRICE IS NOT NULL AND MTGL.EMART_UNIT_PRICE IS NOT NULL) AND (MTGL.UNIT_PRICE > 0 AND MTGL.EMART_UNIT_PRICE > 0)
+                                         THEN ROUND((100-((MTGL.UNIT_PRICE * 1.1) / MTGL.EMART_UNIT_PRICE)*100), 2)
+                                         ELSE 0 END) AS EMART_PROFIT_RATE
+                                 , MTGL.ITEM_LEVEL
+                                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.ITEM_CD,0) = 0 THEN 'N' ELSE 'Y' END) AS INFO_YN
+                                 , MTGL.RETURN_YN
+                                 , MTGL.SOLE_ITEM_YN
+                                 , MTGL.MOD_USER_ID
+                                 ,  (
+                                      SELECT CASE WHEN #{ses.langCd} = 'EN'
+                                                  THEN <include refid="com.sql.nvl"/>(USER_NM_ENG, <include refid="com.sql.nvl"/>(USER_NM, USER_ID))
+                                                  ELSE <include refid="com.sql.nvl"/>(USER_NM, USER_ID)
+                                             END AS USER_NM
+                                      FROM STOCUSER
+                                     WHERE GATE_CD = MTGL.GATE_CD
+                                       AND USER_ID = MTGL.MOD_USER_ID
+                                   ) AS MOD_USER_NM
+                                 , TO_CHAR( MTGL.MOD_DATE - (case when <include refid="com.sql.subStr"/>('GMT+09:00',4,1) = '+' THEN -(<include refid="com.sql.subStr"/>('GMT+09:00',5,2)/24) - <include refid="com.sql.subStr"/>('GMT+09:00',8,2)/(24*60)
+                                                                  when <include refid="com.sql.subStr"/>('GMT+09:00',4,1) = '-' THEN (<include refid="com.sql.subStr"/>('GMT+09:00',5,2)/24) + <include refid="com.sql.subStr"/>('GMT+09:00',8,2)/(24*60)
+                                                                  else null
+                                                             end)
+                                                          + (case when <include refid="com.sql.subStr"/>('GMT+09:00',4,1) = '+' THEN -(<include refid="com.sql.subStr"/>('GMT+09:00',5,2)/24) - <include refid="com.sql.subStr"/>('GMT+09:00',8,2)/(24*60)
+                                                                  when <include refid="com.sql.subStr"/>('GMT+09:00',4,1) = '-' THEN (<include refid="com.sql.subStr"/>('GMT+09:00',5,2)/24) + <include refid="com.sql.subStr"/>('GMT+09:00',8,2)/(24*60)
+                                                                  else null
+                                                             end)
+                                           ,'YYYY-MM-DD HH24:MI' )  AS MOD_DATE
+                        FROM (
+                                SELECT A.*
+                                FROM STOCMTGL A
+                                WHERE A.GATE_CD = #{ses.gateCd}
+                                AND  A.PROGRESS_CD = 'E'
+                                AND  A.DEL_FLAG = '0'
+
+				          <if test="BUSINESS_TYPE !='' and BUSINESS_TYPE !=null">
+				              AND A.BUSINESS_TYPE = #{BUSINESS_TYPE}
+				          </if>
+				          <if test="ITEM_CLS1 !='' and ITEM_CLS1 !=null">
+				              AND  A.ITEM_CLS1 = #{ITEM_CLS1}
+				          </if>
+				          <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+				              AND  A.ITEM_CLS2 = #{ITEM_CLS2}
+				          </if>
+				          <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+				              AND  A.ITEM_CLS3 = #{ITEM_CLS3}
+				          </if>
+				          <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+				              AND  A.ITEM_CLS4 = #{ITEM_CLS4}
+				          </if>
+				          <if test="ITEM_CD !='' and ITEM_CD !=null">
+				              AND  A.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+				          </if>
+				          <if test="STOCK_ITEM_YN !='' and STOCK_ITEM_YN !=null">
+				              AND  A.STOCK_ITEM_YN = #{STOCK_ITEM_YN}
+				          </if>
+				          <if test="MAKER_PART_NO !='' and MAKER_PART_NO !=null">
+				              AND  A.MAKER_PART_NO <include refid="com.sql.likeL"/> #{MAKER_PART_NO} <include refid="com.sql.likeR"/>
+				          </if>
+				          <if test="ORDER_HALT_FLAG !='' and ORDER_HALT_FLAG !=null">
+				              AND  A.ORDER_HALT_FLAG = #{ORDER_HALT_FLAG}
+				          </if>
+				          <if test="BRAND_CD !='' and BRAND_CD !=null">
+				              AND  A.BRAND_CD = #{BRAND_CD}
+				          </if>
+				          <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+				              AND  A.VENDOR_CD = #{VENDOR_CD}
+				          </if>
+				          <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+                              AND  (SELECT CASE WHEN #{ses.langCd} = 'EN' THEN <include refid="com.sql.nvl"/>(VENDOR_NM_ENG, VENDOR_NM)
+                                                                ELSE VENDOR_NM
+                                                            END
+                                                      FROM STOCVNGL
+                                                     WHERE GATE_CD = A.GATE_CD
+                                                       AND VENDOR_CD = A.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+				          </if>
+				          <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+				              AND  <include refid="com.sql.nvl"/>(A.ITEM_DESC, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(A.ITEM_SPEC, ' ') <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+				          </if>
+				          <if test="MAKER !='' and MAKER !=null">
+				              AND  A.MAKER IN ${MAKER}
+				          </if>
+				          <if test="PACKAGE_TYPE != '' and PACKAGE_TYPE == '200'">
+				              AND  A.PACKAGE_TYPE = '200'
+				          </if>
+				          <if test="SOLE_ITEM_YN != '' and SOLE_ITEM_YN != null">
+				              AND  A.SOLE_ITEM_YN = #{SOLE_ITEM_YN}
+				          </if>
+
+                                ORDER BY A.ITEM_DESC
+                              ) MTGL
+                             ,(
+                                SELECT INFO.GATE_CD
+                                      ,INFO.ITEM_CD
+                                      ,MAX(INFO.VENDOR_CD) AS VENDOR_CD
+                                      ,MAX(INFO.UNIT_PRC) AS UNIT_PRICE
+                               FROM STOCINFO INFO
+                               WHERE  INFO.GATE_CD = #{ses.gateCd}
+                               AND     INFO.BUYER_CD = #{ses.companyCd}
+                               AND     INFO.DEL_FLAG = '0'
+                               AND     <include refid="com.sql.sysdate"/> BETWEEN INFO.VALID_FROM_DATE AND INFO.VALID_TO_DATE
+                               GROUP BY INFO.GATE_CD, INFO.ITEM_CD
+                             ) INFO
+                        WHERE INFO.GATE_CD(+) = MTGL.GATE_CD
+                        AND  INFO.ITEM_CD(+) = MTGL.ITEM_CD
+                      ) A
+
+
+    </select>
+
+     <select id="doSearchItemCatalog_20170920_BACKUP" parameterType="hashmap" resultType="hashMap">
+
+     	SELECT A.* FROM (
+          SELECT   MTGL.ITEM_CD
+			     , MTGL.ITEM_DESC
+			     , MTGL.ITEM_SPEC
+			     , MTGL.UNIT_CD
+			     , MTGL.MAKER AS MAKER
+                 , (SELECT MKBR_NM
+				      FROM STOCMKBR
+				     WHERE GATE_CD = MTGL.GATE_CD
+				       AND BUSINESS_TYPE = MTGL.BUSINESS_TYPE
+				       AND MKBR_CD = MTGL.MAKER
+				       AND MKBR_TYPE = 'MK') AS MAKER_NM
+			     , <include refid="com.sql.dbo"/>GETITEMCLASSPATH(#{ses.gateCd}, MTGL.ITEM_CD) AS ITEM_CLS_NM
+			     , MTGL.ITEM_CLS1
+                 , (SELECT ITEM_CLS_NM
+                      FROM STOCMTCA
+                     WHERE GATE_CD = MTGL.GATE_CD
+                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                       AND ITEM_CLS2 = '*'
+                       AND ITEM_CLS3 = '*'
+                       AND ITEM_CLS4 = '*'
+                  ) AS ITEM_CLS1_NM
+			     , MTGL.ITEM_CLS2
+                 , (SELECT ITEM_CLS_NM
+                      FROM STOCMTCA
+                     WHERE GATE_CD = MTGL.GATE_CD
+                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                       AND ITEM_CLS3 = '*'
+                       AND ITEM_CLS4 = '*'
+                  ) AS ITEM_CLS2_NM
+			     , MTGL.ITEM_CLS3
+                 , (SELECT ITEM_CLS_NM
+                      FROM STOCMTCA
+                     WHERE GATE_CD = MTGL.GATE_CD
+                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                       AND ITEM_CLS3 = MTGL.ITEM_CLS3
+                       AND ITEM_CLS4 = '*'
+                 ) AS ITEM_CLS3_NM
+			     , MTGL.ITEM_CLS4
+                 , (SELECT ITEM_CLS_NM
+                      FROM STOCMTCA
+                     WHERE GATE_CD = MTGL.GATE_CD
+                       AND ITEM_CLS1 = MTGL.ITEM_CLS1
+                       AND ITEM_CLS2 = MTGL.ITEM_CLS2
+                       AND ITEM_CLS3 = MTGL.ITEM_CLS3
+                       AND ITEM_CLS4 = MTGL.ITEM_CLS4
+                 ) AS ITEM_CLS4_NM
+                 , MTGL.MAKER_PART_NO
+                 , MTGL.STOCK_ITEM_YN
+                 , MTGL.OLD_ITEM_CD
+                 , MTGL.ACC_ATTR
+                 , MTGL.VAT_CD
+                 , MTGL.ORDER_HALT_FLAG
+                 , <include refid="com.sql.dbo"/>GETACITEMCLASSPATH(#{ses.gateCd}, MTGL.ITEM_CD) AS AC_ITEM_CLS_NM
+                 , MTGL.AC_ITEM_CLS1
+                 , MTGL.AC_ITEM_CLS2
+                 , MTGL.AC_ITEM_CLS3
+                 , MTGL.AC_ITEM_CLS4
+                 , MTGL.BRAND_CD
+                 , (SELECT MKBR_NM
+                      FROM STOCMKBR
+                     WHERE GATE_CD = MTGL.GATE_CD
+                       AND BUSINESS_TYPE = MTGL.BUSINESS_TYPE
+                       AND MKBR_CD = MTGL.BRAND_CD
+                       AND MKBR_TYPE = 'BR') AS BRAND_NM
+                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.VENDOR_CD,'1') = '1' THEN MTGL.VENDOR_CD ELSE INFO.VENDOR_CD END) AS VENDOR_CD
+				 , <include refid="com.sql.dbo"/> GETVENDORNAME(MTGL.GATE_CD, (CASE WHEN <include refid="com.sql.nvl"/>(INFO.VENDOR_CD,'1') = '1' THEN MTGL.VENDOR_CD ELSE INFO.VENDOR_CD END), #{ses.langCd})  AS VENDOR_NM
+                 , MTGL.LIST_PRICE
+                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.UNIT_PRICE,0) = 0 THEN MTGL.UNIT_PRICE ELSE INFO.UNIT_PRICE END) AS UNIT_PRICE
+                 , (CASE WHEN (MTGL.LIST_PRICE IS NOT NULL AND MTGL.UNIT_PRICE IS NOT NULL) AND (MTGL.LIST_PRICE > 0 AND MTGL.UNIT_PRICE > 0)
+                         THEN ROUND((100-((MTGL.LIST_PRICE/MTGL.UNIT_PRICE)*100)), 2)
+                         ELSE 0 END) AS SINC_PROFIT_RATE
+                 , MTGL.MIN_ORDER_QT
+                 , MTGL.SAFE_STOCK_QTY
+                 , <include refid="com.sql.dbo"/>GETSTOCQTY(MTGL.GATE_CD, '', '',MTGL.ITEM_CD) AS ITEM_STOCK_QTY
+                 , MTGL.EMART_ITEM_CD
+                 , MTGL.EMART_UNIT_PRICE
+                 , (CASE WHEN (MTGL.UNIT_PRICE IS NOT NULL AND MTGL.EMART_UNIT_PRICE IS NOT NULL) AND (MTGL.UNIT_PRICE > 0 AND MTGL.EMART_UNIT_PRICE > 0)
+                         THEN ROUND((100-((MTGL.UNIT_PRICE * 1.1) / MTGL.EMART_UNIT_PRICE)*100), 2)
+                         ELSE 0 END) AS EMART_PROFIT_RATE
+                 , MTGL.ITEM_LEVEL
+                 , GETVENDORVALIDFLAG(MTGL.GATE_CD, MTGL.BUSINESS_TYPE, MTGL.VENDOR_CD) AS CT_YN
+                 , (CASE WHEN <include refid="com.sql.nvl"/>(INFO.ITEM_CD,0) = 0 THEN 'N' ELSE 'Y' END) AS INFO_YN
+                 , MTGL.RETURN_YN
+                 , MTGL.MOD_USER_ID
+                 , <include refid="com.sql.dbo"/>GETUSERNAME(MTGL.GATE_CD, MTGL.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+                 , <include refid="com.sql.toDateChar"/>(MTGL.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+	 FROM STOCMTGL MTGL LEFT OUTER JOIN (SELECT INFO.GATE_CD
+	                                            ,INFO.ITEM_CD
+	                                            ,MAX(INFO.VENDOR_CD) AS VENDOR_CD
+	                                            ,MAX(INFO.UNIT_PRC) AS UNIT_PRICE
+	                                     FROM STOCINFO INFO
+	                                     WHERE  INFO.GATE_CD = #{ses.gateCd}
+	                                     AND   INFO.BUYER_CD = #{ses.companyCd}
+	                                     AND   INFO.DEL_FLAG = '0'
+	                                     AND   <include refid="com.sql.sysdate"/> BETWEEN INFO.VALID_FROM_DATE AND INFO.VALID_TO_DATE
+	                                     GROUP BY INFO.GATE_CD, INFO.ITEM_CD) INFO
+	   ON (INFO.GATE_CD = MTGL.GATE_CD
+	   AND INFO.ITEM_CD = MTGL.ITEM_CD)
+
+			  WHERE MTGL.GATE_CD = #{ses.gateCd}
+			    AND MTGL.PROGRESS_CD = 'E'
+			    AND MTGL.DEL_FLAG = '0'
+
+          <if test="BUSINESS_TYPE !='' and BUSINESS_TYPE !=null">
+              AND MTGL.BUSINESS_TYPE = #{BUSINESS_TYPE}
+          </if>
+          <if test="ITEM_CLS1 !='' and ITEM_CLS1 !=null">
+              AND  MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+          </if>
+          <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+              AND  MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+          </if>
+          <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+              AND  MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+          </if>
+          <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+              AND  MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+          </if>
+          <if test="ITEM_CD !='' and ITEM_CD !=null">
+              AND  MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="STOCK_ITEM_YN !='' and STOCK_ITEM_YN !=null">
+              AND  MTGL.STOCK_ITEM_YN = #{STOCK_ITEM_YN}
+          </if>
+          <if test="MAKER_PART_NO !='' and MAKER_PART_NO !=null">
+              AND  MTGL.MAKER_PART_NO <include refid="com.sql.likeL"/> #{MAKER_PART_NO} <include refid="com.sql.likeR"/>
+
+          </if>
+          <if test="ORDER_HALT_FLAG !='' and ORDER_HALT_FLAG !=null">
+              AND  MTGL.ORDER_HALT_FLAG = #{ORDER_HALT_FLAG}
+          </if>
+          <if test="BRAND_CD !='' and BRAND_CD !=null">
+              AND  MTGL.BRAND_CD = #{BRAND_CD}
+          </if>
+          <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+              AND  MTGL.VENDOR_CD = #{VENDOR_CD}
+          </if>
+          <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+               AND  <include refid="com.sql.dbo"/> GETVENDORNAME(MTGL.GATE_CD, MTGL.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+              AND  <include refid="com.sql.nvl"/>(MTGL.ITEM_DESC, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(MTGL.ITEM_SPEC, ' ') <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="MAKER !='' and MAKER !=null">
+              AND  MTGL.MAKER IN ${MAKER}
+          </if>
+          <if test="PACKAGE_TYPE != '' and PACKAGE_TYPE == '200'">
+              AND  MTGL.PACKAGE_TYPE = '200'
+          </if>
+        ) A
+        ORDER BY A.ITEM_DESC
+
+    </select>
+
+	<select id="doShoppingSearchItemCatalog" parameterType="hashmap" resultType="hashMap">
+        SELECT    CART.ITEM_CD
+		        , MTGL.ITEM_DESC
+		        , MTGL.ITEM_SPEC
+		        , CART.CART_QT
+		        , MTGL.UNIT_CD
+		        , <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'CUR') AS CUR
+		        , <include refid="com.sql.dbo"/>getPriceByCur( <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'CUR')
+				, <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'UNIT_PRC') ) AS UNIT_PRC
+		        , <include refid="com.sql.dbo"/>getAmountByCur( <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'CUR')
+				,(CART.CART_QT * <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'UNIT_PRC'))) AS AMOUNT
+		        , MTGL.MAKER
+		        , CART.CART_SQ
+		        , <include refid="com.sql.dbo"/>GETGMTDATE (CART.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/> 'hh24:mi') AS REG_DATE
+		        --, ATCH.FILE_PATH <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> ATCH.FILE_NAME AS FILE_PATH
+                , ATCH.UUID
+                , ATCH.UUID_SQ
+		FROM STOCMTGL MTGL
+		  JOIN STOCCART CART ON (MTGL.GATE_CD = CART.GATE_CD AND MTGL.ITEM_CD = CART.ITEM_CD)
+		  LEFT JOIN STOCMTIM MTIM ON (CART.GATE_CD = MTIM.GATE_CD AND CART.ITEM_CD = MTIM.ITEM_CD AND MTIM.MAIN_IMAGE_FLAG = '1' AND MTIM.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCATCH ATCH ON (MTIM.GATE_CD = ATCH.GATE_CD AND MTIM.UUID = ATCH.UUID AND MTIM.UUID_SQ = ATCH.UUID_SQ AND ATCH.DEL_FLAG = '0')
+		WHERE   CART.GATE_CD = #{ses.gateCd}
+		AND    MTGL.PROGRESS_CD = 'E'
+		AND    CART.USER_ID =  #{ses.userId}
+		AND    CART.DEL_FLAG ='0'
+		AND    MTGL.DEL_FLAG = '0'
+        ORDER BY CART.REG_DATE DESC
+    </select>
+
+    <select id="checkInterestedItem" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(ITEM_CD)
+        FROM STOCMYCT
+        WHERE  GATE_CD = #{ses.gateCd}
+            AND USER_ID = #{ses.userId}
+            AND ITEM_CD = #{ITEM_CD}
+    </select>
+
+     <insert id="doInsertInterestedItem" parameterType="hashMap">
+        INSERT
+        INTO   STOCMYCT ( GATE_CD,
+               USER_ID,
+               ITEM_CD,
+               REG_DATE,
+               REG_USER_ID,
+               MOD_DATE,
+               MOD_USER_ID,
+               DEL_FLAG
+               )
+        VALUES  (#{ses.gateCd}
+             , #{ses.userId}
+             , #{ITEM_CD}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             )
+    </insert>
+
+    <update id="doUpdateInterestedItem" parameterType="hashMap">
+        UPDATE STOCMYCT
+        SET USER_ID =  #{ses.userId}
+           , DEL_FLAG = '0'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{ses.userId}
+           AND ITEM_CD =  #{ITEM_CD}
+    </update>
+
+    <select id="doSearchCatalogTemplate" parameterType="hashmap" resultType="hashMap">
+         SELECT  MTTH.TPL_NUM
+             , MTTH.TPL_NM AS TPL_NM
+             , (SELECT COUNT(MTTD.TPL_SQ)
+                FROM STOCMTTD MTTD JOIN STOCMTGL MTGL
+                    ON MTGL.ITEM_CD = MTTD.ITEM_CD AND MTGL.GATE_CD = MTTD.GATE_CD
+                WHERE MTTD.GATE_CD = MTTH.GATE_CD
+                  AND MTTD.TPL_NUM = MTTH.TPL_NUM
+                  AND MTTD.DEL_FLAG='0'
+                  AND MTGL.DEL_FLAG='0'
+                  AND MTGL.PROGRESS_CD = 'E'
+                ) AS ITEM_COUNT
+        FROM STOCMTTH MTTH
+        WHERE MTTH.DEL_FLAG = '0'
+             AND MTTH.USER_ID = #{ses.userId}
+             AND MTTH.GATE_CD = #{ses.gateCd}
+             <if test="TPL_NM !='' and TPL_NM !=null">
+             AND TPL_NM <include refid="com.sql.likeL"/> #{TPL_NM} <include refid="com.sql.likeR"/>
+             </if>
+        ORDER BY TPL_NM
+    </select>
+
+    <insert id="insertCatalogTemplateGeneral"  parameterType="hashmap">
+
+        INSERT INTO STOCMTTH (
+            REG_DATE
+          , REG_USER_ID
+          , MOD_DATE
+          , MOD_USER_ID
+          , GATE_CD
+          , TPL_NUM
+          , TPL_NM
+          , USER_ID
+          , DEL_FLAG
+         )
+        VALUES (
+            <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , #{ses.gateCd}
+          , #{TPL_NUM}
+          , #{TPL_NM}
+          , #{ses.userId}
+          , '0'
+           )
+
+    </insert>
+
+    <update id="updateCatalogTemplateGeneral"  parameterType="hashmap">
+
+        UPDATE  STOCMTTH
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , TPL_NM  = #{TPL_NM}
+         ,  DEL_FLAG = '0'
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND USER_ID = #{ses.userId}
+            AND TPL_NUM = #{TPL_NUM}
+    </update>
+
+
+    <insert id="insertCatalogTemplateItem" parameterType="hashmap">
+        INSERT INTO STOCMTTD (
+            REG_DATE
+          , REG_USER_ID
+          , MOD_DATE
+          , MOD_USER_ID
+          , GATE_CD
+          , TPL_NUM
+          , TPL_SQ
+          , ITEM_CD
+          , ITEM_QT
+          , DEL_FLAG
+         )
+        VALUES (
+            <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , #{ses.gateCd}
+          , #{TPL_NUM}
+          , (SELECT <include refid="com.sql.nvl"/> (MAX(MTTD.TPL_SQ), 0) + 1
+             FROM STOCMTTD MTTD
+             WHERE 1 = 1
+               AND MTTD.GATE_CD = #{ses.gateCd}
+               AND MTTD.TPL_NUM = #{TPL_NUM})
+          , #{ITEM_CD}
+          , CASE WHEN #{QUANTITY} = '' THEN NULL ELSE #{QUANTITY} END
+          , '0'
+           )
+
+     </insert>
+
+     <update id="updateCatalogTemplateItem" parameterType="hashmap">
+
+        UPDATE  STOCMTTD
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , ITEM_QT  = CASE WHEN #{QUANTITY} = '' THEN NULL ELSE #{QUANTITY} END
+         , DEL_FLAG = '0'
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND ITEM_CD = #{ITEM_CD}
+           AND TPL_NUM = #{TPL_NUM}
+     </update>
+
+     <select id="checkTemplateItem" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(GATE_CD)
+          FROM STOCMTTD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ITEM_CD = #{ITEM_CD}
+           AND TPL_NUM = #{TPL_NUM}
+    </select>
+
+    <select id="checkCatalogTemplateManagement" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(GATE_CD)
+          FROM STOCMTTH
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TPL_NUM = #{TPL_NUM}
+    </select>
+
+    <select id="doSearchCatalogTemplateManagement" parameterType="hashmap" resultType="hashMap">
+        SELECT  MTTH.TPL_NUM
+             , MAX(MTTH.TPL_NM) AS TPL_NM
+             , COUNT ( MTTD.TPL_SQ) AS ITEM_COUNT
+        FROM STOCMTTH  MTTH
+                    LEFT JOIN STOCMTTD MTTD  ON MTTH.GATE_CD = MTTD.GATE_CD
+                                                AND MTTH.TPL_NUM = MTTD.TPL_NUM
+                                                AND MTTD.DEL_FLAG = '0'
+                    LEFT JOIN STOCMTGL MTGL ON MTGL.ITEM_CD  = MTTD.ITEM_CD
+                                                    AND MTGL.GATE_CD = MTTD.GATE_CD
+                                                    AND MTGL.PROGRESS_CD = 'E'
+                                                    AND MTGL.DEL_FLAG = '0'
+        WHERE MTTH.DEL_FLAG = '0'
+             AND MTTH.USER_ID = #{ses.userId}
+             AND MTTH.GATE_CD = #{ses.gateCd}
+             <if test="TPL_NM !='' and TPL_NM !=null">
+                    AND   MTTH.TPL_NM <include refid="com.sql.likeL"/> #{TPL_NM} <include refid="com.sql.likeR"/>
+            </if>
+        GROUP BY  MTTH.TPL_NUM
+        ORDER BY  TPL_NM
+
+    </select>
+
+     <select id="doSearchItemCatalogTemplateManagement" parameterType="hashmap" resultType="hashMap">
+         SELECT MTTD.ITEM_CD
+              , MTTD.GATE_CD
+              <!--, MTGL.PROGRESS_CD-->
+              <!--, MTGL.ITEM_CLS1-->
+              <!--, MTGL.ITEM_CLS2-->
+              <!--, MTGL.ITEM_CLS3-->
+              <!--, MTGL.ITEM_CLS4-->
+              , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1') AS ITEM_CLS_NM1
+              , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2') AS ITEM_CLS_NM2
+              , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3') AS ITEM_CLS_NM3
+              , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM4
+              , MTGL.ITEM_DESC
+              <!--, MTGL.ITEM_KIND_CD-->
+              , MTGL.UNIT_CD
+              , MTGL.ITEM_SPEC
+              , MTGL.MAKER
+              , MTTD.TPL_NUM
+              , MTTD.ITEM_QT
+         FROM STOCMTTH  MTTH
+                     JOIN STOCMTTD MTTD  ON MTTH.GATE_CD = MTTD.GATE_CD
+                                                AND MTTH.TPL_NUM = MTTD.TPL_NUM
+                     JOIN STOCMTGL MTGL ON MTGL.ITEM_CD  = MTTD.ITEM_CD
+                                                    AND MTGL.GATE_CD = MTTD.GATE_CD
+        WHERE MTTH.DEL_FLAG = '0' AND MTTD.DEL_FLAG = '0' AND MTGL.DEL_FLAG = '0'
+          AND MTTH.USER_ID = #{ses.userId}
+          AND MTGL.PROGRESS_CD = 'E'
+          AND MTTH.GATE_CD = #{ses.gateCd}
+          AND MTTD.TPL_NUM = #{TPL_NUM}
+
+
+    </select>
+
+    <select id="checkItemCatalogTemplateManagement" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(GATE_CD)
+          FROM STOCMTTD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ITEM_CD = #{ITEM_CD}
+           AND TPL_NUM = #{TPL_NUM}
+    </select>
+
+    <insert id="insertItemCatalogTemplateManagement" parameterType="hashmap">
+        INSERT INTO STOCMTTD (
+            REG_DATE
+          , REG_USER_ID
+          , MOD_DATE
+          , MOD_USER_ID
+          , GATE_CD
+          , TPL_NUM
+          , TPL_SQ
+          , ITEM_CD
+          , ITEM_QT
+          , DEL_FLAG
+        ) VALUES (
+            <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , <include refid="com.sql.sysdate"/>
+          , #{ses.userId}
+          , #{ses.gateCd}
+          , #{TPL_NUM}
+          , (SELECT <include refid="com.sql.nvl"/>(MAX(MTTD.TPL_SQ), 0) + 1
+             FROM STOCMTTD MTTD
+             WHERE 1 = 1
+               AND MTTD.GATE_CD = #{ses.gateCd}
+               AND MTTD.TPL_NUM = #{TPL_NUM})
+          , #{ITEM_CD}
+          , CASE WHEN #{ITEM_QT} = '' THEN NULL ELSE #{ITEM_QT} END
+          , '0'
+        )
+
+     </insert>
+
+     <update id="updateItemCatalogTemplateManagement" parameterType="hashmap">
+
+        UPDATE  STOCMTTD
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , ITEM_QT  = CASE WHEN #{ITEM_QT} = '' THEN NULL ELSE #{ITEM_QT} END
+         , DEL_FLAG = '0'
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND ITEM_CD = #{ITEM_CD}
+            AND TPL_NUM = #{TPL_NUM}
+     </update>
+
+     <update id="deleteCatalogTemplateManagement" parameterType="hashmap">
+         UPDATE  STOCMTTH
+         SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '1'
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{ses.userId}
+           AND TPL_NUM = #{TPL_NUM}
+
+    </update>
+
+    <update id="deleteItemCatalogTmpMgtByMTTH" parameterType="hashmap">
+        UPDATE STOCMTTD SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '1'
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND TPL_NUM = #{TPL_NUM}
+    </update>
+
+    <update id="deleteItemCatalogTemplateManagement" parameterType="hashmap">
+        UPDATE STOCMTTD SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '1'
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND ITEM_CD = #{ITEM_CD}
+           AND TPL_NUM = #{TPL_NUM}
+    </update>
+
+    <select id="doSearchCatalog" parameterType="hashmap" resultType="hashMap">
+          SELECT      MTGL.ITEM_CD
+			        , MTGL.ITEM_DESC
+			        , MTGL.ITEM_SPEC
+			        , MTGL.UNIT_CD
+			        , <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'CUR') CUR
+			        , <include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'UNIT_PRICE') UNIT_PRICE
+			        , MTGL.LEADTIME
+			        , MTGL.MAKER
+			        , ATCH.FILE_PATH <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/> ATCH.FILE_NM AS FILE_PATH
+			        , ATCH.UUID
+			        , ATCH.UUID_SQ
+			FROM  STOCMTGL MTGL
+		  LEFT JOIN STOCMTIM MTIM ON
+			    (   MTGL.GATE_CD = MTIM.GATE_CD
+			    AND MTGL.ITEM_CD = MTIM.ITEM_CD
+			    AND MTIM.MAIN_IMAGE_FLAG = '1'
+			    AND MTIM.DEL_FLAG = '0')
+    LEFT OUTER JOIN STOCATCH ATCH ON (
+	                MTIM.GATE_CD = ATCH.GATE_CD
+			    AND MTIM.UUID = ATCH.UUID
+			    AND MTIM.UUID_SQ = ATCH.UUID_SQ
+			    AND ATCH.DEL_FLAG = '0')
+			  WHERE MTGL.GATE_CD = #{ses.gateCd}
+			    AND MTGL.PROGRESS_CD = 'E'
+			    AND MTGL.DEL_FLAG = '0'
+
+          <if test="ITEM_CLS1 !='' and ITEM_CLS1 !=null">
+              AND  MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+          </if>
+          <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+              AND  MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+          </if>
+          <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+              AND  MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+          </if>
+          <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+              AND  MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+          </if>
+          <if test="ITEM_CD !='' and ITEM_CD !=null">
+              AND  MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="ITEM_SPEC !='' and ITEM_SPEC !=null">
+               AND  MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+              AND  MTGL.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+          </if>
+          <if test="MAKER !='' and MAKER !=null">
+              AND  MAKER <include refid="com.sql.likeL"/> #{MAKER} <include refid="com.sql.likeR"/>
+          </if>
+          <if test='FROM_PRICE_RANGE != "" and FROM_PRICE_RANGE != null and FROM_PRICE_RANGE != "0"  and TO_PRICE_RANGE != "" and TO_PRICE_RANGE != null and TO_PRICE_RANGE != "0"'>
+              AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETUNITPRICEINFO(MTGL.GATE_CD, #{ses.companyCd}, MTGL.ITEM_CD, 'UNIT_PRICE'), 0)
+                        BETWEEN #{FROM_PRICE_RANGE} AND #{TO_PRICE_RANGE}
+          </if>
+
+    </select>
+
+    <select id="checkExistCatalog" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(GATE_CD)
+          FROM STOCMYCT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{ses.userId}
+           AND ITEM_CD = #{ITEM_CD}
+    </select>
+
+    <update id="copyNewCatalog">
+            INSERT INTO STOCMYCT (
+                GATE_CD,
+                USER_ID,
+                ITEM_CD,
+                REG_DATE,
+                REG_USER_ID,
+                MOD_DATE,
+                MOD_USER_ID,
+                DEL_FLAG
+            )
+            VALUES(
+                #{ses.gateCd},
+                #{ses.userId},
+                #{ITEM_CD},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                '0'
+            )
+    </update>
+
+    <update id="updateOldCatalog">
+            UPDATE STOCMYCT
+               SET MOD_DATE   = <include refid="com.sql.sysdate"/>,
+                  MOD_USER_ID = #{ses.userId},
+                  DEL_FLAG    = '0'
+             WHERE GATE_CD = #{ses.gateCd}
+	           AND USER_ID = #{ses.userId}
+              <if test="ITEM_CD != '' ">
+               AND ITEM_CD  = #{ITEM_CD}
+              </if>
+    </update>
+
+    <select id="checkExistInBasket" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(GATE_CD)
+          FROM STOCCART
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{ses.userId}
+<!--            AND ITEM_CD = #{ITEM_CD} -->
+<!--            AND PLANT_CD = #{PLANT_CD} -->
+           AND CART_SQ = #{CART_SQ}
+    </select>
+
+    <insert id="pickToBasket">
+            INSERT INTO STOCCART (
+                GATE_CD,
+                CART_SQ,
+                REG_DATE,
+                REG_USER_ID,
+                MOD_DATE,
+                MOD_USER_ID,
+                USER_ID,
+                ITEM_CD,
+                BUYER_REQ_CD,
+                CART_QT,
+                DEL_FLAG
+                ,CART_RMK
+                ,DUE_DATE
+                ,UNIT_PRC
+                ,DELY_TO_NM
+                ,PLANT_CD
+                ,EXEC_NUM
+                ,EXEC_SQ
+                ,VENDOR_CD
+            )
+            VALUES(
+                #{ses.gateCd},
+                #{DOC_CART},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                #{ses.userId},
+                #{ITEM_CD},
+                #{ses.companyCd},
+                 CASE WHEN #{CART_QT} = '' THEN NULL ELSE #{CART_QT} END,
+                 '0'
+                ,#{CART_RMK}
+                ,#{DUE_DATE}
+                ,#{UNIT_PRC}
+                ,#{DELY_TO_NM}
+                ,#{PLANT_CD}
+                ,#{EXEC_NUM}
+                ,#{EXEC_SQ}
+                ,#{VENDOR_CD}
+            )
+    </insert>
+
+    <update id="updateBasket">
+        UPDATE STOCCART
+           SET MOD_DATE    = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID = #{ses.userId},
+               CART_QT     = CASE WHEN #{CART_QT} = '' THEN NULL ELSE #{CART_QT} END,
+               DEL_FLAG    = '0'
+
+               ,CART_RMK = #{CART_RMK}
+               ,DUE_DATE = #{DUE_DATE}
+               ,UNIT_PRC = #{UNIT_PRC}
+               ,DELY_TO_NM = #{DELY_TO_NM}
+               ,PLANT_CD = #{PLANT_CD}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CART_SQ = #{CART_SQ}
+           AND USER_ID = #{ses.userId}
+          <if test="ITEM_CD != '' ">
+           AND ITEM_CD = #{ITEM_CD}
+          </if>
+    </update>
+
+     <insert id="doPickToBasketItemCatalogPopup" parameterType="hashmap">
+            INSERT INTO STOCCART (
+                GATE_CD,
+                CART_SQ,
+                REG_DATE,
+                REG_USER_ID,
+                MOD_DATE,
+                MOD_USER_ID,
+                USER_ID,
+                ITEM_CD,
+                BUYER_REQ_CD,
+                CART_QT,
+                DEL_FLAG,
+                PLANT_CD,
+                UNIT_PRC,
+                EXEC_NUM,
+                EXEC_SQ,
+                VENDOR_CD
+            )
+            SELECT
+                #{ses.gateCd},
+                #{DOC_CART},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                <include refid="com.sql.sysdate"/>,
+                #{ses.userId},
+                #{ses.userId},
+                #{ITEM_CD},
+                #{ses.companyCd},
+                CASE WHEN #{ITEM_QT} = '' THEN NULL ELSE #{ITEM_QT} END,
+                '0'
+                ,#{PLANT_CD}
+                ,#{UNIT_PRC}
+                ,#{EXEC_NUM}
+                ,#{EXEC_SQ}
+                ,#{VENDOR_CD}
+            <include refid="com.sql.dual"/>
+         	WHERE NOT EXISTS
+	            (SELECT 'X'
+	             FROM STOCCART C
+	             WHERE C.GATE_CD = #{ses.gateCd}
+	               AND C.USER_ID = #{ses.userId}
+	               AND C.ITEM_CD = #{ITEM_CD}
+	               AND C.VENDOR_CD = #{VENDOR_CD}
+	               AND C.DEL_FLAG = '0'
+	               AND C.PLANT_CD = #{PLANT_CD}
+	            )
+    </insert>
+
+    <update id="deleteItemInBasket">
+        UPDATE STOCCART
+          SET MOD_DATE    = <include refid="com.sql.sysdate"/>,
+              MOD_USER_ID = #{ses.userId},
+              DEL_FLAG    = '1'
+        WHERE GATE_CD = #{ses.gateCd}
+          AND CART_SQ = #{CART_SQ}
+    </update>
+
+
+     <select id="doSearchMyCatalogTree" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			A.ID
+			, A.PARENTID AS STONES_GRID_PAR
+			, A.TEXT
+			, A.VALUE
+			-- , A.ICON
+			, 'false' AS STONES_GRID_EXP
+			<choose>
+				<when test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+					, 0 AS STONES_GRID_LV
+					, 'true' AS STONES_GRID_ISLEAF
+				</when>
+				<otherwise>
+					, (<include refid="com.sql.length"/>( A.ID ) / 2) - 1 AS STONES_GRID_LV
+					, CASE (
+						SELECT
+							COUNT(B.ID) AS LEAF_FLAG
+						FROM (
+							SELECT
+								CASE ITEM_CLS_TYPE
+									WHEN 'C4' THEN ITEM_CLS4
+									WHEN 'C3' THEN ITEM_CLS3
+									WHEN 'C2' THEN ITEM_CLS2 ELSE ITEM_CLS1
+								END AS ID,
+				                CASE  ITEM_CLS_TYPE
+									WHEN 'C4' THEN ITEM_CLS3
+		                       		WHEN 'C3' THEN ITEM_CLS2
+		                       		WHEN 'C2' THEN ITEM_CLS1 ELSE '*'
+		                       	END AS PARENTID
+							FROM STOCMTCA
+								WHERE GATE_CD = #{ses.gateCd}
+								AND DEL_FLAG = '0'
+						) B
+						WHERE  B.PARENTID = A.ID
+					) WHEN 0 THEN 'true' ELSE 'false' END AS STONES_GRID_ISLEAF
+				</otherwise>
+			</choose>
+			FROM (
+				SELECT
+					DISTINCT CASE MTCA.ITEM_CLS_TYPE
+						WHEN 'C4' THEN MTCA.ITEM_CLS4
+						WHEN 'C3' THEN MTCA.ITEM_CLS3
+						WHEN 'C2' THEN MTCA.ITEM_CLS2 ELSE MTCA.ITEM_CLS1
+					END AS ID,
+	                <choose>
+			           <when test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+			                ''
+			           </when>
+			           <otherwise>
+			               CASE  MTCA.ITEM_CLS_TYPE
+	                       WHEN 'C4' THEN MTCA.ITEM_CLS3
+	                       WHEN 'C3' THEN MTCA.ITEM_CLS2
+	                       WHEN 'C2' THEN MTCA.ITEM_CLS1 ELSE '*'
+	                       END
+			           </otherwise>
+			        </choose>
+					AS PARENTID
+					, ITEM_CLS_NM AS TEXT
+					, ITEM_CLS_TYPE AS VALUE
+					,'' AS ICON
+				FROM STOCMTCA MTCA
+			JOIN STOCMTGL MTGL ON  MTCA.GATE_CD = MTGL.GATE_CD
+                                            AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+                                            AND( MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2 OR MTCA.ITEM_CLS2= '*')
+                                            AND( MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3 OR MTCA.ITEM_CLS3= '*')
+                                            AND( MTCA.ITEM_CLS4 = MTGL.ITEM_CLS4 OR MTCA.ITEM_CLS4= '*')
+                    JOIN STOCMYCT MYCT   ON MTGL.GATE_CD = MYCT.GATE_CD
+                                        AND MTGL.ITEM_CD = MYCT.ITEM_CD
+                                        AND MYCT.DEL_FLAG = '0'
+                    JOIN STOCINFO INFO
+                     ON  MTGL.GATE_CD = INFO.GATE_CD
+                     AND MTGL.ITEM_CD = INFO.ITEM_CD
+                     AND INFO.BUYER_CD = #{ses.companyCd}
+                     AND <include refid="com.sql.sysdate"/> BETWEEN VALID_FROM_DATE AND VALID_TO_DATE
+                     AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+	        WHERE MYCT.GATE_CD = #{ses.gateCd}
+	             AND MYCT.USER_ID = #{ses.userId}
+	             AND MTCA.DEL_FLAG = '0'
+	             AND MTGL.DEL_FLAG = '0'
+	             AND MYCT.DEL_FLAG = '0'
+	             AND MTGL.PROGRESS_CD = 'E'
+	              <if test="ITEM_TYPE !='' and ITEM_TYPE !=null">
+					AND   ITEM_CLS_NM <include refid="com.sql.likeL"/> #{ITEM_CLS_NM} <include refid="com.sql.likeR"/>
+	              </if>
+				ORDER BY
+					ID
+					, ITEM_CLS_TYPE
+		) A
+    </select>
+
+	<update id="doDeleteMyCatalog" parameterType="hashMap">
+        UPDATE STOCMYCT
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{ses.userId}
+           AND ITEM_CD =  #{ITEM_CD}
+    </update>
+
+    <select id="doSearchMyCatalogItemCatalog" parameterType="hashmap" resultType="hashMap">
+
+	<if test="VENDOR_NM !='' and VENDOR_NM !=null">
+		SELECT A.* FROM (
+    </if>
+
+	    SELECT MTGL.ITEM_CD
+	         , MTGL.GATE_CD
+		     ,INFO.CUR
+		     ,INFO.UNIT_PRC
+		     ,INFO.EXEC_NUM
+		     ,INFO.EXEC_SQ
+		     ,INFO.VENDOR_CD
+		     ,<include refid="com.sql.dbo"/> GETVENDORNAME(INFO.GATE_CD,INFO.VENDOR_CD,  #{ses.langCd} )  VENDOR_NM
+	         ,(SELECT USER_NM FROM STOCVNCP WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = INFO.VENDOR_CD AND DEL_FLAG = '0' AND ROWNUM = 1) CTRL_USER_NM
+	         ,<include refid="com.sql.dbo"/>getDecTel((SELECT TEL_NUM FROM STOCVNCP WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = INFO.VENDOR_CD AND DEL_FLAG = '0' AND ROWNUM = 1))  CTRL_USER_TEL
+	         , MTGL.LEADTIME
+	         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1') AS ITEM_CLS_NM1
+	         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2') AS ITEM_CLS_NM2
+	         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3') AS ITEM_CLS_NM3
+	         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM4
+	         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1')
+	         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2')
+	         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3')
+	         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM
+	         , MTGL.ITEM_DESC
+	         , MTGL.UNIT_CD
+	         , MTGL.ITEM_SPEC
+	         , MTGL.MAKER
+	         , ATCH.UUID
+	         , ATCH.UUID_SQ
+	         , MTGL.ITEM_CLS1
+	         , MTGL.ITEM_CLS2
+	         , MTGL.ITEM_CLS3
+	         , MTGL.ITEM_CLS4
+			 , <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') AS VARIABLE_ITEM_FLAG
+	    FROM STOCMTGL  MTGL
+	              JOIN STOCMYCT MYCT ON  MTGL.GATE_CD = MYCT.GATE_CD AND MTGL.ITEM_CD = MYCT.ITEM_CD
+	              LEFT JOIN STOCMTIM MTIM ON
+	                   (   MTGL.GATE_CD = MTIM.GATE_CD
+	                       AND MTGL.ITEM_CD = MTIM.ITEM_CD
+	                       AND MTIM.MAIN_IMAGE_FLAG = '1'
+	                       AND MTIM.DEL_FLAG = '0'
+	                   )
+	              LEFT JOIN STOCATCH ATCH ON (
+	                 MTIM.GATE_CD = ATCH.GATE_CD
+	             AND MTIM.UUID = ATCH.UUID
+	             AND MTIM.UUID_SQ = ATCH.UUID_SQ
+	                   AND ATCH.DEL_FLAG = '0')
+				 JOIN STOCINFO INFO
+				         ON MTGL.GATE_CD = INFO.GATE_CD
+				         AND MTGL.ITEM_CD = INFO.ITEM_CD
+						 AND INFO.BUYER_CD = #{ses.companyCd}
+				<![CDATA[
+						 AND INFO.VALID_FROM_DATE <= <include refid="com.sql.sysdate"/>
+                     	 AND INFO.VALID_TO_DATE >= <include refid="com.sql.sysdate"/>
+ 				]]>
+						 AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+					    AND INFO.DEL_FLAG = '0'
+
+	    WHERE MYCT.GATE_CD = #{ses.gateCd}
+	      AND MTGL.DEL_FLAG = '0'
+	      AND MYCT.DEL_FLAG = '0'
+	      AND MYCT.USER_ID = #{ses.userId}
+	      AND MTGL.PROGRESS_CD = 'E'
+	      AND <include refid="com.sql.nvl"/>(MTGL.ORDER_HALT_FLAG, '0') = '0'
+	      AND <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') = '0'
+
+	      <if test="ITEM_CLS1 !='' and ITEM_CLS1 != null">
+	          AND  MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+	      </if>
+	      <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+	          AND  MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+	      </if>
+	      <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+	          AND  MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+	      </if>
+	      <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+	          AND  MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+	      </if>
+	      <if test="ITEM_CD !='' and ITEM_CD !=null">
+	         AND   MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+	      </if>
+	      <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+	         AND   <include refid="com.sql.dbo"/> GETVENDORNAME(INFO.GATE_CD,INFO.VENDOR_CD,  #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+	      </if>
+	      <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+	         AND   MTGL.ITEM_DESC <include refid="com.sql.stringMerge"/> MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+	      </if>
+	      <if test="MAKER !='' and MAKER !=null">
+	          AND  MTGL.MAKER <include refid="com.sql.likeL"/> #{MAKER} <include refid="com.sql.likeR"/>
+	      </if>
+
+          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'ISP'">
+              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+							  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+							  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+							  AND MTCA.ITEM_CLS4 = '*'
+							  AND MTCA.DEL_FLAG = '0'
+							  AND MTCA.PRICE_CHANGABLE_FLAG = '1')
+          </if>
+
+          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'NORMAL'">
+              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+							  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+							  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+							  AND MTCA.ITEM_CLS4 = '*'
+							  AND MTCA.DEL_FLAG = '0'
+							  AND <include refid="com.sql.nvl"/>(MTCA.PRICE_CHANGABLE_FLAG, '0') = '0')
+          </if>
+
+	       <if test="SCREEN_OPEN_TYPE !='RFQ'">
+			UNION ALL
+
+			    SELECT MTGL.ITEM_CD
+			         , MTGL.GATE_CD
+				     ,'' CUR
+				     ,null UNIT_PRC
+				     ,'' EXEC_NUM
+				     ,null EXEC_SQ
+				     ,'' VENDOR_CD
+				     ,'' VENDOR_NM
+				     ,'' CTRL_USER_NM
+				     ,'' CTRL_USER_TEL
+			         , MTGL.LEADTIME
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1') AS ITEM_CLS_NM1
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2') AS ITEM_CLS_NM2
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3') AS ITEM_CLS_NM3
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM4
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM
+			         , MTGL.ITEM_DESC
+			         , MTGL.UNIT_CD
+			         , MTGL.ITEM_SPEC
+			         , MTGL.MAKER
+			         , ATCH.UUID
+			         , ATCH.UUID_SQ
+			        , MTGL.ITEM_CLS1
+			        , MTGL.ITEM_CLS2
+			        , MTGL.ITEM_CLS3
+			        , MTGL.ITEM_CLS4
+					, <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') AS VARIABLE_ITEM_FLAG
+			    FROM STOCMTGL  MTGL
+			              JOIN STOCMYCT MYCT ON  MTGL.GATE_CD = MYCT.GATE_CD AND MTGL.ITEM_CD = MYCT.ITEM_CD
+			              LEFT JOIN STOCMTIM MTIM ON
+			                   (   MTGL.GATE_CD = MTIM.GATE_CD
+			                       AND MTGL.ITEM_CD = MTIM.ITEM_CD
+			                       AND MTIM.MAIN_IMAGE_FLAG = '1'
+			                       AND MTIM.DEL_FLAG = '0'
+			                   )
+			              LEFT JOIN STOCATCH ATCH ON (
+			                 MTIM.GATE_CD = ATCH.GATE_CD
+			             AND MTIM.UUID = ATCH.UUID
+			             AND MTIM.UUID_SQ = ATCH.UUID_SQ
+			                   AND ATCH.DEL_FLAG = '0')
+
+			    WHERE MYCT.GATE_CD = #{ses.gateCd}
+			      AND MTGL.DEL_FLAG = '0'
+			      AND MYCT.DEL_FLAG = '0'
+			      AND MYCT.USER_ID = #{ses.userId}
+			      AND MTGL.PROGRESS_CD = 'E'
+			      AND <include refid="com.sql.nvl"/>(MTGL.ORDER_HALT_FLAG, '0') = '0'
+			      AND <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') = '1'
+				  AND NOT EXISTS (
+						SELECT '1' FROM STOCINFO INFO
+						         WHERE  MTGL.GATE_CD = INFO.GATE_CD
+						         AND MTGL.ITEM_CD = INFO.ITEM_CD
+								 AND INFO.BUYER_CD = #{ses.companyCd}
+								 AND <include refid="com.sql.sysdate"/> BETWEEN VALID_FROM_DATE AND VALID_TO_DATE
+								 AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+							     AND INFO.DEL_FLAG = '0'
+				  )
+
+			      <if test="ITEM_CLS1 !='' and ITEM_CLS1 != null">
+			          AND  MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+			      </if>
+			      <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+			          AND  MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+			      </if>
+			      <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+			          AND  MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+			      </if>
+			      <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+			          AND  MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+			      </if>
+			      <if test="ITEM_CD !='' and ITEM_CD !=null">
+			         AND   MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="ITEM_SPEC !='' and ITEM_SPEC !=null">
+			         AND   MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+			         AND   MTGL.ITEM_DESC <include refid="com.sql.stringMerge"/> MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="MAKER !='' and MAKER !=null">
+			          AND  MTGL.MAKER <include refid="com.sql.likeL"/> #{MAKER} <include refid="com.sql.likeR"/>
+			      </if>
+		          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'ISP'">
+		              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+		              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+		              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+									  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+									  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+									  AND MTCA.ITEM_CLS4 = '*'
+									  AND MTCA.DEL_FLAG = '0'
+									  AND MTCA.PRICE_CHANGABLE_FLAG = '1')
+		          </if>
+
+		          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'NORMAL'">
+		              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+		              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+		              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+									  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+									  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+									  AND MTCA.ITEM_CLS4 = '*'
+									  AND MTCA.DEL_FLAG = '0'
+									  AND <include refid="com.sql.nvl"/>(MTCA.PRICE_CHANGABLE_FLAG, '0') = '0')
+		          </if>
+
+		  </if>
+
+	       <if test="SCREEN_OPEN_TYPE =='RFQ'">
+			UNION ALL
+
+			    SELECT MTGL.ITEM_CD
+			         , MTGL.GATE_CD
+				     ,'' CUR
+				     ,null UNIT_PRC
+				     ,'' EXEC_NUM
+				     ,null EXEC_SQ
+				     ,'' VENDOR_CD
+				     ,'' VENDOR_NM
+				     ,'' CTRL_USER_NM
+				     ,'' CTRL_USER_TEL
+			         , MTGL.LEADTIME
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1') AS ITEM_CLS_NM1
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2') AS ITEM_CLS_NM2
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3') AS ITEM_CLS_NM3
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM4
+			         , <include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3')
+			         <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM
+			         , MTGL.ITEM_DESC
+			         , MTGL.UNIT_CD
+			         , MTGL.ITEM_SPEC
+			         , MTGL.MAKER
+			         , ATCH.UUID
+			         , ATCH.UUID_SQ
+			        , MTGL.ITEM_CLS1
+			        , MTGL.ITEM_CLS2
+			        , MTGL.ITEM_CLS3
+			        , MTGL.ITEM_CLS4
+					, <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') AS VARIABLE_ITEM_FLAG
+			    FROM STOCMTGL  MTGL
+			              JOIN STOCMYCT MYCT ON  MTGL.GATE_CD = MYCT.GATE_CD AND MTGL.ITEM_CD = MYCT.ITEM_CD
+			              LEFT JOIN STOCMTIM MTIM ON
+			                   (   MTGL.GATE_CD = MTIM.GATE_CD
+			                       AND MTGL.ITEM_CD = MTIM.ITEM_CD
+			                       AND MTIM.MAIN_IMAGE_FLAG = '1'
+			                       AND MTIM.DEL_FLAG = '0'
+			                   )
+			              LEFT JOIN STOCATCH ATCH ON (
+			                 MTIM.GATE_CD = ATCH.GATE_CD
+			             AND MTIM.UUID = ATCH.UUID
+			             AND MTIM.UUID_SQ = ATCH.UUID_SQ
+			                   AND ATCH.DEL_FLAG = '0')
+
+			    WHERE MYCT.GATE_CD = #{ses.gateCd}
+			      AND MTGL.DEL_FLAG = '0'
+			      AND MYCT.DEL_FLAG = '0'
+			      AND MYCT.USER_ID = #{ses.userId}
+			      AND MTGL.PROGRESS_CD = 'E'
+			      AND <include refid="com.sql.nvl"/>(MTGL.ORDER_HALT_FLAG, '0') = '0'
+			      AND <include refid="com.sql.nvl"/>(MTGL.PRICE_CHANGE_FLAG, '0') = '0'
+				  AND NOT EXISTS (
+						SELECT '1' FROM STOCINFO INFO
+						         WHERE  MTGL.GATE_CD = INFO.GATE_CD
+						         AND MTGL.ITEM_CD = INFO.ITEM_CD
+								 AND INFO.BUYER_CD = #{ses.companyCd}
+								 AND <include refid="com.sql.sysdate"/> BETWEEN VALID_FROM_DATE AND VALID_TO_DATE
+								 AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+							    AND INFO.DEL_FLAG = '0'
+				  )
+
+			      <if test="ITEM_CLS1 !='' and ITEM_CLS1 != null">
+			          AND  MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+			      </if>
+			      <if test="ITEM_CLS2 !='' and ITEM_CLS2 !=null">
+			          AND  MTGL.ITEM_CLS2 = #{ITEM_CLS2}
+			      </if>
+			      <if test="ITEM_CLS3 !='' and ITEM_CLS3 !=null">
+			          AND  MTGL.ITEM_CLS3 = #{ITEM_CLS3}
+			      </if>
+			      <if test="ITEM_CLS4 !='' and ITEM_CLS4 !=null">
+			          AND  MTGL.ITEM_CLS4 = #{ITEM_CLS4}
+			      </if>
+			      <if test="ITEM_CD !='' and ITEM_CD !=null">
+			         AND   MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="ITEM_SPEC !='' and ITEM_SPEC !=null">
+			         AND   MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+			         AND   MTGL.ITEM_DESC <include refid="com.sql.stringMerge"/> MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+			      </if>
+			      <if test="MAKER !='' and MAKER !=null">
+			          AND  MTGL.MAKER <include refid="com.sql.likeL"/> #{MAKER} <include refid="com.sql.likeR"/>
+			      </if>
+		          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'ISP'">
+		              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+		              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+		              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+									  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+									  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+									  AND MTCA.ITEM_CLS4 = '*'
+									  AND MTCA.DEL_FLAG = '0'
+									  AND MTCA.PRICE_CHANGABLE_FLAG = '1')
+		          </if>
+
+		          <if test="PR_TYPE !='' and PR_TYPE !=null and PR_TYPE == 'NORMAL'">
+		              AND  EXISTS (SELECT 'X' FROM STOCMTCA MTCA
+		              				WHERE MTCA.GATE_CD = MTGL.GATE_CD
+		              				  AND MTCA.ITEM_CLS1 = MTGL.ITEM_CLS1
+									  AND MTCA.ITEM_CLS2 = MTGL.ITEM_CLS2
+									  AND MTCA.ITEM_CLS3 = MTGL.ITEM_CLS3
+									  AND MTCA.ITEM_CLS4 = '*'
+									  AND MTCA.DEL_FLAG = '0'
+									  AND <include refid="com.sql.nvl"/>(MTCA.PRICE_CHANGABLE_FLAG, '0') = '0')
+		          </if>
+
+		  </if>
+
+		ORDER BY ITEM_DESC, VENDOR_NM
+	<if test="VENDOR_NM !='' and VENDOR_NM !=null">
+     	) A
+     	WHERE 1 = 1
+     	AND  A.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+    </if>
+
+	</select>
+
+	<select id="selectInfoData" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			*
+		FROM STOCINFO
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM = #{EXEC_NUM}
+		AND EXEC_SQ = #{EXEC_SQ}
+		AND DEL_FLAG = '0'
+	</select>
+
+
+</mapper>

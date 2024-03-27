@@ -1,0 +1,2 @@
+var realGrid2Lic = 'upVcPE+wPOmtLjqyBIh9RkM/nBOseBrflwxYpzGZyYm9cY8amGDkiMnVeQKUHJDjW2y71jtk+wvkzrCVI4Np9JqAVyeTJLmq0Dxem7A5Spc71nvXAFJVpk5cMRrEDazL';
+var realPivotLic = 'upVcPE+wPOlpAyL7N9uhT0M/nBOseBrflwxYpzGZyYm9cY8amGDkiMnVeQKUHJDjW2y71jtk+wvkzrCVI4Np9JqAVyeTJLmq0Dxem7A5SpdX23tqFaoYR1pxHr/hQA8e/vmqLAFpOvs=';

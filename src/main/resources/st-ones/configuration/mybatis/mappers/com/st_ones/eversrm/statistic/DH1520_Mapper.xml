@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1520_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT ST.VENDOR_TYPE                                                AS VENDOR_TYPE
+			  ,SUM(ST.PUR_AMT)                                               AS PUR_AMT
+			  ,0                                                             AS PUR_RATE
+			  ,SUM(ST.CM_PART_AMT)                                           AS CM_PART_AMT
+			  ,SUM(ST.CM_RAW_AMT)                                            AS CM_RAW_AMT
+			  ,SUM(ST.PUR_AMT) - (SUM(ST.CM_PART_AMT) + SUM(ST.CM_PART_AMT)) AS PURE_PUR_AMT
+			  ,0                                                             AS PURE_PUR_RATE
+		  FROM (SELECT DD.TEXT1 AS VENDOR_TYPE
+					  ,PU.WRBTR AS PUR_AMT
+					  ,0        AS CM_PART_AMT
+					  ,0        AS CM_RAW_AMT
+		  		  FROM STOCSTPU PU
+				  LEFT OUTER JOIN STOCVNGL VN
+				    ON (VN.GATE_CD   = #{ses.gateCd}
+				    AND VN.VENDOR_CD = PU.LIFNR
+				    <if test="DEAL_SQ_CD != '' and DEAL_SQ_CD != null">
+				    AND VN.DEAL_SQ_CD = #{DEAL_SQ_CD}
+				    </if>
+				    )
+				  LEFT OUTER JOIN STOCCODD DD
+		    		ON (DD.GATE_CD   = #{ses.gateCd}
+				    AND DD.CODE_TYPE = 'M185'
+				    AND DD.LANG_CD   = #{ses.langCd}
+				    AND DD.CODE      = VN.DEAL_SQ_CD
+				    AND DD.DEL_FLAG  = '0')
+				 WHERE SPMON BETWEEN <include refid="com.sql.subStr"/>(#{FROM_DATE}, 1, 6) AND <include refid="com.sql.subStr"/>(#{TO_DATE}, 1, 6)
+				 
+				UNION ALL
+				
+				SELECT DD.TEXT1                                              AS VENDOR_TYPE
+					  ,0                                                     AS PUR_AMT
+					  ,(CASE WHEN SA.VTWEG = '99' AND SA.VRKME NOT IN ('KG','BN') THEN SA.NETWR ELSE 0 END) AS CM_PART_AMT
+					  ,(CASE WHEN SA.VTWEG = '99' AND SA.VRKME     IN ('KG','BN') THEN SA.NETWR ELSE 0 END) AS CM_RAW_AMT
+		  		  FROM STOCSTSA SA
+				  LEFT OUTER JOIN STOCVNGL VN
+				    ON (VN.GATE_CD   = #{ses.gateCd}
+				    AND VN.VENDOR_CD = SA.KUNRG
+				    <if test="DEAL_SQ_CD != '' and DEAL_SQ_CD != null">
+				    AND VN.DEAL_SQ_CD = #{DEAL_SQ_CD}
+				    </if>
+				    )
+				  LEFT OUTER JOIN STOCCODD DD
+		    		ON (DD.GATE_CD   = #{ses.gateCd}
+				    AND DD.CODE_TYPE = 'M185'
+				    AND DD.LANG_CD   = #{ses.langCd}
+				    AND DD.CODE      = VN.DEAL_SQ_CD
+				    AND DD.DEL_FLAG  = '0')
+				 WHERE SA.FKDAT BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+		       ) ST
+		 GROUP BY ST.VENDOR_TYPE
+
+    </select>
+
+</mapper>

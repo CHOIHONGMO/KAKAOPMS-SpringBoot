@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1690_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT HD.ITEM_DIV
+	    	  ,HD.MAT_GROUP
+			  ,(CASE WHEN HD.INVEST_DIV = '7' THEN ''
+			  		 ELSE <include refid="com.sql.dbo"/>GETGMTDATE(HD.GR_REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+			     END)                  AS GR_REQ_DATE
+			  ,HD.INVEST_DIV
+			  ,HD.PROD_COUNTRY_CD      AS PROD_COUNTRY_CD
+			  ,(CASE WHEN HD.INVEST_DIV = '7' THEN ''
+			  		 ELSE <include refid="com.sql.dbo"/>GETGMTDATE(MAX(HD.INVEST_RECEIPT_DATE), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+			     END)                  AS INVEST_RECEIPT_DATE
+			  ,(CASE WHEN HD.INVEST_DIV = '7' THEN ''
+			  		 ELSE <include refid="com.sql.dbo"/>GETGMTDATE(MAX(HD.RECEIPT_DATE), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+			     END)                  AS RECEIPT_DATE
+			  ,MAX(HD.RMK)             AS RMK
+			  ,MAX(HD.GW_EXEC_TEXT)    AS GW_EXEC_TEXT
+			  ,MAX(HD.GW_EXEC_URL)     AS GW_EXEC_URL
+			  ,SUM(<include refid="com.sql.nvl"/>(DT.TARGET_PRC, 0)) AS TARGET_PRC
+			  ,SUM(<include refid="com.sql.nvl"/>(DT.INVEST_PRC, 0)) AS INVEST_PRC
+			  ,SUM(<include refid="com.sql.nvl"/>(DT.UNIT_PRC, 0)) AS UNIT_PRC
+			  ,SUM(<include refid="com.sql.nvl"/>(DT.CONFIRM_UNIT_PRC, 0)) AS CONFIRM_UNIT_PRC
+			  ,(CASE WHEN SUM(<include refid="com.sql.nvl"/>(DT.TARGET_PRC, 0)) = 0 THEN 0
+			  		 ELSE SUM(<include refid="com.sql.nvl"/>(DT.CONFIRM_UNIT_PRC, 0)) / SUM(<include refid="com.sql.nvl"/>(DT.TARGET_PRC, 0)) * 100
+			  	 END)                  AS TARGET_RATIO
+			  ,(CASE WHEN SUM(<include refid="com.sql.nvl"/>(DT.INVEST_PRC, 0)) = 0 THEN 0
+			  		 ELSE SUM(<include refid="com.sql.nvl"/>(DT.CONFIRM_UNIT_PRC, 0)) / SUM(<include refid="com.sql.nvl"/>(DT.INVEST_PRC, 0)) * 100
+			  	 END)                  AS INVEST_RATIO
+			  ,''                      AS SUMMARY_FLAG
+		  FROM STOCGPHD HD
+		  LEFT OUTER JOIN STOCGPDT DT
+		    ON (DT.GATE_CD      = HD.GATE_CD
+		   AND DT.ITEM_DIV     = HD.ITEM_DIV
+		   AND DT.MAT_GROUP    = HD.MAT_GROUP
+		   AND DT.GR_REQ_DATE  = HD.GR_REQ_DATE
+		   AND DT.INVEST_DIV   = HD.INVEST_DIV
+		   AND DT.DEL_FLAG     = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		<if test="ITEM_DIV != '' and ITEM_DIV != null">
+		   AND HD.ITEM_DIV = #{ITEM_DIV}
+		</if>
+		<if test="GR_FROM_DATE != '' and GR_FROM_DATE != null and GR_TO_DATE != '' and GR_TO_DATE != null">
+		   AND HD.GR_REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{GR_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{GR_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+		   AND HD.ITEM_DIV != '7'
+		</if>
+		<if test="MAT_GROUP != '' and MAT_GROUP != null">
+		   AND HD.MAT_GROUP <include refid="com.sql.likeL"/> #{MAT_GROUP} <include refid="com.sql.likeR"/> 
+		</if>
+		<if test="INVEST_DIV != '' and INVEST_DIV != null">
+		   AND HD.INVEST_DIV = #{INVEST_DIV}
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		   AND DT.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/> 
+		</if>
+		<if test="PROD_COUNTRY_CD != '' and PROD_COUNTRY_CD != null">
+		   AND HD.PROD_COUNTRY_CD = #{PROD_COUNTRY_CD}
+		</if>
+		   AND HD.DEL_FLAG     = '0'
+		 GROUP BY HD.GATE_CD, HD.ITEM_DIV, HD.MAT_GROUP, HD.PROD_COUNTRY_CD, HD.GR_REQ_DATE, HD.INVEST_DIV
+		 ORDER BY HD.ITEM_DIV, HD.MAT_GROUP, HD.PROD_COUNTRY_CD, HD.INVEST_DIV, HD.GR_REQ_DATE
+
+    </select>
+
+	<insert id="doSaveHD" parameterType="hashmap">
+	
+		 MERGE STOCGPHD AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{ITEM_DIV} AS ITEM_DIV, #{MAT_GROUP} AS MAT_GROUP, (CASE WHEN #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END) AS GR_REQ_DATE, #{INVEST_DIV} AS INVEST_DIV) AS B
+			ON (A.GATE_CD     = B.GATE_CD
+		   AND A.ITEM_DIV    = B.ITEM_DIV
+		   AND A.MAT_GROUP   = B.MAT_GROUP
+		   AND A.GR_REQ_DATE = B.GR_REQ_DATE
+		   AND A.INVEST_DIV  = B.INVEST_DIV)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , PROD_COUNTRY_CD = #{PROD_COUNTRY_CD}
+			 , INVEST_RECEIPT_DATE = (CASE WHEN #{INVEST_RECEIPT_DATE} = '' THEN null ELSE #{INVEST_RECEIPT_DATE} END)
+			 , RECEIPT_DATE = (CASE WHEN #{RECEIPT_DATE} = '' THEN null ELSE #{RECEIPT_DATE} END)
+			 , RMK = #{RMK}
+			 , GW_EXEC_TEXT = #{GW_EXEC_TEXT}
+			 , GW_EXEC_URL = #{GW_EXEC_URL}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , ITEM_DIV
+			 , MAT_GROUP
+			 , GR_REQ_DATE
+			 , INVEST_DIV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , PROD_COUNTRY_CD
+			 , INVEST_RECEIPT_DATE
+			 , RECEIPT_DATE
+			 , RMK
+			 , GW_EXEC_TEXT
+			 , GW_EXEC_URL
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{ITEM_DIV}
+			 , #{MAT_GROUP}
+			 , (CASE WHEN #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+			 , #{INVEST_DIV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{PROD_COUNTRY_CD}
+			 , (CASE WHEN #{INVEST_RECEIPT_DATE} = '' THEN null ELSE #{INVEST_RECEIPT_DATE} END)
+			 , (CASE WHEN #{RECEIPT_DATE} = '' THEN null ELSE #{RECEIPT_DATE} END)
+			 , #{RMK}
+			 , #{GW_EXEC_TEXT}
+			 , #{GW_EXEC_URL}
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<delete id="doDeleteHD" parameterType="hashmap">
+
+		UPDATE STOCGPHD
+		   SET DEL_FLAG    = '1'
+			 , MOD_DATE    = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND ITEM_DIV    = #{ITEM_DIV}
+		   AND MAT_GROUP   = #{MAT_GROUP}
+		   AND GR_REQ_DATE = (CASE WHEN #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+		   AND INVEST_DIV  = #{INVEST_DIV}
+
+	</delete>
+
+	<delete id="doDeleteDT" parameterType="hashmap">
+
+		UPDATE STOCGPDT
+		   SET DEL_FLAG    = '1'
+			 , MOD_DATE    = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND ITEM_DIV    = #{ITEM_DIV}
+		   AND MAT_GROUP   = #{MAT_GROUP}
+		   AND GR_REQ_DATE = (CASE WHEN #{GR_REQ_DATE} = '' THEN '1900-01-01' ELSE #{GR_REQ_DATE} END)
+		   AND INVEST_DIV  = #{INVEST_DIV}
+		   AND DEL_FLAG    = '0'
+
+	</delete>
+
+</mapper>

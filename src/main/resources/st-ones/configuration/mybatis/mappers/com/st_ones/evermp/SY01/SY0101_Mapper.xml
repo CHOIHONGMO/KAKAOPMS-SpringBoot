@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.SY01.SY0101_Mapper">
+    <select id="sy01001_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT
+			 OGDP.GATE_CD
+			,OGDP.BUYER_CD
+			,OGDP.PLANT_CD
+			,OGDP.DIVISION_CD
+			,OGDP.DEPT_CD
+			,OGDP.PART_CD
+
+            ,OGDP.DEPT_NM
+            ,OGDP.ACC_CODE
+            ,OGDP.MANAGE_ID
+            ,OGDP.DEPT_IRS_NUM
+            ,OGDP.DEPT_CEO_NM
+            ,OGDP.ADDR
+            ,OGDP.DEPT_CEO_BUSINESS_TYPE
+            ,OGDP.DEPT_CEO_INDUSTRY_TYPE
+            ,OGDP.INDEPT
+            ,OGDP.PARENT_DEPT_CD
+            ,(CASE WHEN OGDP.LVL = '1' THEN <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(OGDP.GATE_CD, OGDP.BUYER_CD, 'CUST_NM'),<include refid="com.sql.dbo"/>getBuyerName(OGDP.GATE_CD, OGDP.BUYER_CD,#{ses.langCd}))
+            	   ELSE (SELECT A.DEPT_NM FROM STOCOGDP A
+            	   		 WHERE A.GATE_CD = OGDP.GATE_CD
+            	   		 AND A.BUYER_CD = OGDP.BUYER_CD
+            	   		 AND A.PLANT_CD = OGDP.PLANT_CD
+
+						 AND CASE WHEN #{DEPT_TYPE} = '100' THEN DIVISION_CD
+						      WHEN #{DEPT_TYPE} = '200' THEN DIVISION_CD
+						      WHEN #{DEPT_TYPE} = '300' THEN DEPT_CD
+						 END = OGDP.PARENT_DEPT_CD
+
+						 AND CASE WHEN #{DEPT_TYPE} = '100' THEN '000'
+						      WHEN #{DEPT_TYPE} = '200' THEN '100'
+						      WHEN #{DEPT_TYPE} = '300' THEN '200'
+						 END = A.DEPT_TYPE
+
+					    <if test="DIVISION_CD != '' and DIVISION_CD != null">
+					        AND A.DIVISION_CD = #{DIVISION_CD}
+					    </if>
+             ) END) AS PARENT_DEPT_NM
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(OGDP.DEL_FLAG, '0') = '0' THEN '1' ELSE '0' END) AS DEL_FLAG
+            ,OGDP.APPROVE_USE_FLAG
+            ,OGDP.DEPT_TYPE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(OGDP.GATE_CD, OGDP.TEAM_LEADER_USER_ID, #{ses.langCd}) AS TEAM_LEADER_USER_NM
+            ,OGDP.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+            ,OGDP.SEQ
+
+            ,'Y' HIDDEN_DEPT_CD
+        FROM STOCOGDP OGDP
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+        AND OGDP.BUYER_CD  = #{CUST_CD}
+        AND OGDP.PLANT_CD  = #{PLANT_CD}
+        AND OGDP.DEPT_TYPE = #{DEPT_TYPE}
+        AND OGDP.DEL_FLAG  = '0'
+
+    <if test="PARENT_DEPT_CD != '' and PARENT_DEPT_CD != null">
+        AND OGDP.PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+    </if>
+    <if test="DEPT_NM != '' and DEPT_NM != null">
+        AND UPPER(OGDP.DEPT_NM) <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>
+    </if>
+
+        ORDER BY TO_NUMBER(OGDP.SEQ), OGDP.LVL, OGDP.INDEPT, OGDP.DEPT_NM
+
+    </select>
+
+	<select id="sy01001_doSelect_deptTree" parameterType="hashMap" resultType="java.util.Map">
+
+        SELECT DISTINCT
+        B.tree AS "tree"
+        , B.DEPT_NM
+        , B.DEPT_NM AS ITEM_CLS_NM
+        , B.ITEM_CLS1
+        , B.ITEM_CLS2
+        , B.ITEM_CLS3
+        , B.ITEM_CLS4
+        , B.ITEM_CLS_PATH_NM
+        , B.LVL
+        , B.INDEPT
+        , B.DEPT_CD
+        , B.UP_DEPT_CD
+        , B.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+        , B.ACC_CODE
+        , <include refid="com.sql.nvl"/>(B.PARENTS_YN,'') AS PARENTS_YN
+        , B.CUST_CD
+        , B.PLANT_NM
+        , B.DIVISION_NM
+        , B.PART_NM
+        , B.SEQ
+        FROM
+        (
+        SELECT
+        (CASE WHEN A.LVL=0 THEN A.DEPT_CD
+        WHEN A.LVL=1 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2
+        WHEN A.LVL=2 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3
+        WHEN A.LVL=3 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3 <include refid="com.sql.stringMerge"/> A.ITEM_CLS4
+        ELSE              A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3 <include refid="com.sql.stringMerge"/> A.ITEM_CLS4 END) AS tree
+        , A.DEPT_NM
+        , A.ITEM_CLS1
+        , A.ITEM_CLS2
+        , A.ITEM_CLS3
+        , A.ITEM_CLS4
+        , (CASE WHEN A.LVL=0 THEN A.V_PLANT_NM
+        WHEN A.LVL=1 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM
+        WHEN A.LVL=2 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM
+        WHEN A.LVL=3 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_PART_NM
+        ELSE              A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_PART_NM END) AS ITEM_CLS_PATH_NM
+        , A.LVL
+        , A.INDEPT
+        , A.SEQ
+        , A.DEPT_CD
+        , A.PARENT_DEPT_CD AS UP_DEPT_CD
+        , A.TEAM_LEADER_USER_ID
+        , A.ACC_CODE
+        , A.PARENTS_YN
+        , A.BUYER_CD AS CUST_CD
+        , V_PLANT_NM AS PLANT_NM
+        , V_DIVISION_NM AS DIVISION_NM
+        , V_PART_NM  AS PART_NM
+        FROM(
+        SELECT
+        OGDP.GATE_CD
+        , OGDP.BUYER_CD
+        , (CASE OGDP.DEPT_TYPE WHEN '100' THEN DIVISION_CD
+        WHEN '200' THEN DEPT_CD
+        WHEN '300' THEN PART_CD END) AS DEPT_CD
+        , OGDP.DEPT_NM
+        , OGDP.PLANT_CD AS ITEM_CLS1		-- 사업장
+        , OGDP.DIVISION_CD AS ITEM_CLS2		-- 사업부
+        , OGDP.DEPT_CD  AS ITEM_CLS3		-- 부서
+        , OGDP.PART_CD  AS ITEM_CLS4		-- 파트(영업장)
+        , OGDP.PARENT_DEPT_CD
+        , OGDP.LVL
+        , OGDP.INDEPT
+        , OGDP.SEQ
+        , OGDP.TEAM_LEADER_USER_ID
+        , OGDP.ACC_CODE
+        ,(CASE WHEN OGDP.DEPT_TYPE = '200' THEN ''
+        ELSE 'N' END) AS PARENTS_YN	-- 최하위 부서여부
+        ,<include refid="com.sql.dbo"/>getPlantName(OGDP.GATE_CD,OGDP.BUYER_CD,OGDP.PLANT_CD,#{ses.langCd}) AS V_PLANT_NM
+        ,<include refid="com.sql.dbo"/>getDivisionNm(OGDP.GATE_CD,OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,#{ses.langCd}) AS V_DIVISION_NM
+        ,<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd},OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,OGDP.DEPT_CD,#{ses.langCd}) AS V_DEPT_NM
+        ,<include refid="com.sql.dbo"/>getPartNm(#{ses.gateCd},OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,OGDP.DEPT_CD,OGDP.PART_CD,#{ses.langCd}) AS V_PART_NM
+        FROM STOCOGDP OGDP
+        WHERE OGDP.GATE_CD  = #{ses.gateCd}
+        AND OGDP.BUYER_CD = #{CUST_CD}
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND OGDP.PLANT_CD = #{PLANT_CD}
+        </if>
+        AND OGDP.DEL_FLAG = '0'
+        AND (OGDP.DEPT_TYPE IN ('100', '200') OR OGDP.LVL IN (1, 2))	-- 예산은 사업부 하위의 부서 단위로 관리
+
+        UNION ALL
+
+        SELECT
+        CUPL.GATE_CD
+        , CUPL.CUST_CD  AS BUYER_CD
+        , CUPL.PLANT_CD AS DEPT_CD
+        , CUPL.PLANT_NM AS DEPT_NM
+        , CUPL.PLANT_CD AS ITEM_CLS1
+        , '*' AS ITEM_CLS2
+        , '*' AS ITEM_CLS3
+        , '*' AS ITEM_CLS4
+        , ''  AS PARENT_DEPT_CD
+        , 0   AS LVL
+        , ''  AS INDEPT
+        , ''  AS SEQ
+        , ''  AS TEAM_LEADER_USER_ID
+        , ''  AS ACC_CODE
+        , 'N' AS PARENTS_YN	-- 최하위 부서여부
+        , CUPL.PLANT_NM AS V_PLANT_NM
+        , ''  AS V_DIVISION_NM
+        , ''  AS V_DEPT_NM
+        , ''  AS V_PART_NM
+        FROM STOCCUPL CUPL
+        JOIN STOCCUST CUST
+        ON (CUPL.GATE_CD  = CUST.GATE_CD
+        AND CUPL.CUST_CD  = CUST.CUST_CD
+        AND CUST.DEL_FLAG = '0')
+        WHERE CUPL.GATE_CD  = #{ses.gateCd}
+        AND CUPL.CUST_CD  = #{CUST_CD}
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND CUPL.PLANT_CD = #{PLANT_CD}
+        </if>
+        AND CUPL.DEL_FLAG = '0'
+        ) A
+        ) B
+        WHERE 1=1
+        ORDER BY tree asc
+
+    </select>
+
+    <select id="existsOPDP" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT
+           COUNT(A.DEPT_CD) AS CNT
+        FROM STOCOGDP A
+        WHERE A.GATE_CD  = #{ses.gateCd}
+          AND A.BUYER_CD = #{CUST_CD}
+          AND A.PLANT_CD = #{PLANT_CD}
+          AND A.DIVISION_CD = #{DIVISION_CD}
+          AND A.DEPT_CD  = #{DEPT_CD}
+          AND A.PART_CD  = #{PART_CD}
+          AND A.DEL_FLAG = '0'
+    </select>
+
+    <select id="sy01001_doSearch_parent" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+            OGDP.DEPT_CD
+            ,OGDP.DEPT_CD AS HIDDEN_DEPT_CD
+            ,OGDP.DEPT_NM
+            ,OGDP.ACC_CODE
+            ,OGDP.MANAGE_ID
+            ,OGDP.INDEPT
+            ,OGDP.PARENT_DEPT_CD
+            ,(CASE WHEN OGDP.PARENT_DEPT_CD = '1000' THEN (SELECT A.BUYER_NM FROM STOCOGCM A WHERE A.GATE_CD = OGDP.GATE_CD AND A.BUYER_CD = OGDP.PARENT_DEPT_CD)
+            ELSE (SELECT A.DEPT_NM FROM STOCOGDP A WHERE A.GATE_CD = OGDP.GATE_CD AND A.BUYER_CD = OGDP.BUYER_CD AND A.DEPT_CD = OGDP.PARENT_DEPT_CD) END) AS PARENT_DEPT_NM
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(OGDP.DEL_FLAG, '0') = '0' THEN '1' ELSE '0' END) AS DEL_FLAG
+            ,OGDP.APPROVE_USE_FLAG
+            ,OGDP.DEPT_TYPE
+            ,OGDP.SEQ
+        FROM STOCOGDP OGDP
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+        AND OGDP.BUYER_CD = #{ses.companyCd}
+        AND OGDP.DEPT_TYPE = #{DEPT_TYPE}
+        AND OGDP.DEL_FLAG = '0'
+
+        <if test="PARENT_DEPT_CD != '' and PARENT_DEPT_CD != null">
+            AND OGDP.PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>
+
+            <if test="STEP2 != '' and STEP2 != null">
+                OR OGDP.DEPT_CD IN (SELECT OGDP.PARENT_DEPT_CD FROM STOCOGDP OGDP
+                WHERE OGDP.GATE_CD =  #{ses.gateCd}
+                AND OGDP.BUYER_CD = #{ses.companyCd} AND OGDP.DEPT_TYPE ='300' AND OGDP.DEL_FLAG = '0'
+                AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+            </if>
+            <if test="STEP1 != '' and STEP1 != null">
+                OR OGDP.DEPT_CD IN (SELECT T.PARENT_DEPT_CD FROM STOCOGDP T WHERE T.GATE_CD =  #{ses.gateCd}
+                                        AND T.BUYER_CD = #{ses.companyCd} AND T.DEPT_TYPE = '200' AND T.DEL_FLAG = '0'
+                                        AND T.DEPT_CD IN (SELECT OGDP.PARENT_DEPT_CD FROM STOCOGDP OGDP WHERE OGDP.GATE_CD = #{ses.gateCd}
+                                                                                    AND OGDP.BUYER_CD = #{ses.companyCd}
+                                                                                    AND OGDP.DEPT_TYPE ='300' AND OGDP.DEL_FLAG = '0'
+                                                                                    AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+                )
+                OR OGDP.DEPT_CD IN (SELECT T.PARENT_DEPT_CD FROM STOCOGDP T WHERE T.GATE_CD =  #{ses.gateCd}
+                AND T.BUYER_CD = #{ses.companyCd} AND T.DEPT_TYPE = '200' AND T.DEL_FLAG = '0'
+                AND T.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+            </if>
+        </if>
+
+        ORDER BY OGDP.LVL, OGDP.INDEPT, OGDP.DEPT_NM
+
+    </select>
+
+
+    <select id="sy01001_doSelect_DP" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+            DEPT_CD
+            ,BSWM_CD
+            ,GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            ,<include refid="com.sql.toDateChar"/>(MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_INFO
+        FROM STOCDPBW
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{ses.companyCd}
+        AND DEPT_CD =#{DEPT_CD}
+        AND DEL_FLAG='0'
+    </select>
+
+    <update id="sy01001_updateDEPTData" parameterType="hashmap">
+
+        UPDATE STOCOGDP SET
+        MOD_DATE = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID = #{ses.userId}
+        ,ACC_CODE = #{ACC_CODE}
+        ,TEAM_LEADER_USER_ID = #{TEAM_LEADER_USER_ID}
+
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{ses.companyCd}
+        AND DEPT_CD = #{DEPT_CD}
+
+    </update>
+
+    <insert id="sy01001_mergeData" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCOGDP<include refid="com.sql.mergeAs"/>OGDP
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS BUYER_CD
+                    , #{PLANT_CD} AS PLANT_CD
+                    , #{DIVISION_CD} AS DIVISION_CD
+                    , #{DEPT_CD} AS DEPT_CD
+                    , #{PART_CD} AS PART_CD
+                    <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+        ON (OGDP.GATE_CD = B.GATE_CD
+          AND OGDP.BUYER_CD = B.BUYER_CD
+          AND OGDP.PLANT_CD = B.PLANT_CD
+          AND OGDP.DIVISION_CD = B.DIVISION_CD
+          AND OGDP.DEPT_CD = B.DEPT_CD
+          AND OGDP.PART_CD = B.PART_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = (CASE WHEN #{DEL_FLAG} = '1' THEN '0' ELSE '1' END)
+            ,DEPT_NM = #{DEPT_NM}
+            ,DEPT_NM_ENG = #{DEPT_NM}
+            ,PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+            ,DEPT_TYPE = #{DEPT_TYPE}
+            ,ACC_CODE = #{ACC_CODE}
+            ,INDEPT = #{INDEPT}
+            ,LVL =#{LVL}
+            ,SEQ =#{SEQ}
+            ,TEAM_LEADER_USER_ID = #{TEAM_LEADER_USER_ID}
+            ,DEPT_IRS_NUM = #{DEPT_IRS_NUM}
+            ,DEPT_CEO_NM = #{DEPT_CEO_NM}
+            ,ADDR = #{ADDR}
+            ,DEPT_CEO_BUSINESS_TYPE = #{DEPT_CEO_BUSINESS_TYPE}
+            ,DEPT_CEO_INDUSTRY_TYPE = #{DEPT_CEO_INDUSTRY_TYPE}
+            ,MANAGE_ID = #{MANAGE_ID}
+            ,APPROVE_USE_FLAG = #{APPROVE_USE_FLAG}
+        WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,BUYER_CD
+            ,PLANT_CD
+            ,DIVISION_CD
+            ,DEPT_CD
+            ,PART_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,DEPT_NM
+            ,DEPT_NM_ENG
+            ,PARENT_DEPT_CD
+            ,DEPT_TYPE
+            ,ACC_CODE
+            ,INDEPT
+            ,LVL
+            ,TEAM_LEADER_USER_ID
+            ,DIVISION_YN
+            ,SEQ
+            ,DEPT_IRS_NUM
+            ,DEPT_CEO_NM
+            ,ADDR
+            ,DEPT_CEO_BUSINESS_TYPE
+            ,DEPT_CEO_INDUSTRY_TYPE
+            ,MANAGE_ID
+            ,APPROVE_USE_FLAG
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{PLANT_CD}
+
+            ,#{DIVISION_CD}
+            ,#{DEPT_CD}
+            ,#{PART_CD}
+
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,(CASE WHEN #{DEL_FLAG} = '1' THEN '0' ELSE '1' END)
+            ,#{DEPT_NM}
+            ,#{DEPT_NM}
+            ,#{PARENT_DEPT_CD}
+            ,#{DEPT_TYPE}
+            ,#{ACC_CODE}
+            ,#{INDEPT}
+            ,#{LVL}
+            ,#{TEAM_LEADER_USER_ID}
+            ,#{DIVISION_YN}
+            ,<include refid="com.sql.nvl"/>(#{SEQ},0)
+            ,#{DEPT_IRS_NUM}
+            ,#{DEPT_CEO_NM}
+            ,#{ADDR}
+            ,#{DEPT_CEO_BUSINESS_TYPE}
+            ,#{DEPT_CEO_INDUSTRY_TYPE}
+            ,#{MANAGE_ID}
+            ,#{APPROVE_USE_FLAG}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <insert id="sy01001_doSave_DP" parameterType="hashmap">
+
+        MERGE INTO STOCDPBW DP
+        USING DUAL
+        ON (DP.GATE_CD = #{ses.gateCd}
+        AND DP.BUYER_CD = #{ses.companyCd}
+        AND DP.DEPT_CD = #{DEPT_CD}
+        AND DP.BSWM_CD =#{BSWM_CD})
+        WHEN MATCHED THEN
+        UPDATE SET
+        MOD_DATE = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID = #{ses.userId}
+        ,DEL_FLAG ='0'
+        ,BWVM_RMK =#{BWVM_RMK}
+        WHEN NOT MATCHED THEN
+        INSERT (
+        GATE_CD
+        ,BUYER_CD
+        ,DEPT_CD
+        ,BSWM_CD
+        ,REG_DATE
+        ,REG_USER_ID
+        ,MOD_DATE
+        ,MOD_USER_ID
+        ,DEL_FLAG
+        ,BWVM_RMK
+        ) VALUES (
+        #{ses.gateCd}
+        ,#{ses.companyCd}
+        ,#{DEPT_CD}
+        ,#{BSWM_CD}
+        ,<include refid="com.sql.sysdate"/>
+        ,#{ses.userId}
+        ,<include refid="com.sql.sysdate"/>
+        ,#{ses.userId}
+        ,'0'
+        ,#{BWVM_RMK}
+        )
+    </insert>
+
+    <update id="sy01001_doDelete_DP" parameterType="hashMap">
+
+        UPDATE STOCDPBW SET
+            DEL_FLAG = '1'
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{ses.companyCd}
+        AND DEPT_CD = #{DEPT_CD}
+        AND BSWM_CD =#{BSWM_CD}
+    </update>
+
+    <update id="sy0101_updateDEPTData" parameterType="hashmap">
+
+        UPDATE STOCOGDP SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , ACC_CODE = #{ACC_CODE}
+            , TEAM_LEADER_USER_ID =#{TEAM_LEADER_USER_ID}
+            , INDEPT =#{INDEPT}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{CUST_CD}
+        AND DEPT_CD = #{DEPT_CD}
+    </update>
+
+    <select id="sy01002_doSelect_deptTree" parameterType="hashMap" resultType="java.util.Map">
+
+	    SELECT DISTINCT
+	        B.tree AS "tree"
+	        , B.DEPT_NM
+	        , B.DEPT_NM AS ITEM_CLS_NM
+	        , B.ITEM_CLS1
+	        , B.ITEM_CLS2
+	        , B.ITEM_CLS3
+	        , B.LVL
+	        , B.INDEPT
+	        , B.DEPT_CD
+	        , B.UP_DEPT_CD
+	        , B.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+	        , B.ACC_CODE
+	        , <include refid="com.sql.nvl"/>(B.PARENTS_YN,'') AS PARENTS_YN
+	        , B.CUST_CD
+	        , B.PLANT_NM
+	        , B.DIVISION_NM
+	        , B.SEQ
+	        , C.CNT
+			, C.ACCOUNT_CD
+			, (
+		   		   SELECT ACCOUNT_NM
+				   FROM STOCCUAC S
+				   WHERE GATE_CD 		= #{ses.gateCd}
+				   AND  S.CUST_CD 		= B.CUST_CD
+				   AND  S.ACCOUNT_CD	= C.ACCOUNT_CD
+			   ) AS ACCOUNT_NM
+	    FROM
+	    (
+	     SELECT
+	         (CASE WHEN A.LVL=0 THEN A.DEPT_CD
+	               WHEN A.LVL=1 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2
+	               ELSE A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3 END) AS tree
+	         , A.DEPT_NM
+	         , A.ITEM_CLS1 AS ITEM_CLS1
+	         , A.ITEM_CLS2 AS ITEM_CLS2
+	         , A.ITEM_CLS3 AS ITEM_CLS3
+	         , A.LVL
+	         , A.INDEPT
+	         , A.SEQ
+	         , A.DEPT_CD
+	         , A.PARENT_DEPT_CD AS UP_DEPT_CD
+	         , A.TEAM_LEADER_USER_ID
+	         , A.ACC_CODE
+	         , A.PARENTS_YN
+	         , A.BUYER_CD AS CUST_CD
+	         , getPlantName(A.GATE_CD, A.BUYER_CD, A.ITEM_CLS1, #{ses.langCd}) AS PLANT_NM
+	         , getDivisionNm(A.GATE_CD, A.BUYER_CD, A.ITEM_CLS1,A.ITEM_CLS2, #{ses.langCd}) AS DIVISION_NM
+
+	     FROM(
+	         SELECT
+	               OGDP.GATE_CD
+	             , OGDP.BUYER_CD
+	             , (CASE OGDP.DEPT_TYPE WHEN '100' THEN DIVISION_CD
+							   WHEN '200' THEN DEPT_CD END) AS DEPT_CD
+	             , OGDP.DEPT_NM
+	             , OGDP.PLANT_CD AS ITEM_CLS1		-- 사업장
+				, OGDP.DIVISION_CD AS ITEM_CLS2		-- 사업부
+				, OGDP.DEPT_CD  AS ITEM_CLS3		-- 부서
+	             , OGDP.PARENT_DEPT_CD
+	             , OGDP.LVL
+	             , OGDP.INDEPT
+	             , OGDP.SEQ
+	             , OGDP.TEAM_LEADER_USER_ID
+	             , OGDP.ACC_CODE
+	             ,(CASE WHEN OGDP.DEPT_TYPE = '200' THEN ''
+	             	   ELSE 'N' END) AS PARENTS_YN	-- 최하위 부서여부
+	          FROM STOCOGDP OGDP
+	         WHERE OGDP.GATE_CD  = #{ses.gateCd}
+	           AND OGDP.BUYER_CD = #{CUST_CD}
+	           AND OGDP.DEL_FLAG = '0'
+	  AND OGDP.LVL IN(0,1,2)
+	UNION ALL
+	SELECT  CUPL.GATE_CD AS GAE_CD
+	       ,CUPL.CUST_CD AS BUYER_CD
+	       ,CUPL.PLANT_CD AS DEPT_CD
+		   ,CUPL.PLANT_NM AS DEPT_NM
+	       ,CUPL.PLANT_CD AS ITEM_CLS1
+	       ,'*' AS ITEM_CLS2
+	       ,'*' AS ITEM_CLS3
+		   ,'' AS PARENT_DEPT_CD
+			, 0 AS LVL
+			, ''  AS INDEPT
+			, ''  AS SEQ
+			, ''  AS TEAM_LEADER_USER_ID
+			, ''  AS ACC_CODE
+			, 'N' AS PARENTS_YN	-- 최하위 부서여부
+	  FROM STOCCUPL CUPL
+	  JOIN STOCCUST CUST
+	  ON (CUPL.GATE_CD  = CUST.GATE_CD	  AND CUPL.CUST_CD  = CUST.CUST_CD  AND CUST.DEL_FLAG = '0')
+	WHERE CUPL.GATE_CD  = #{ses.gateCd}
+	  AND CUPL.CUST_CD= #{CUST_CD}
+	  AND CUPL.DEL_FLAG = '0'
+	     )A
+	    )B JOIN (
+				SELECT BD.CUST_CD
+				      ,BD.PLANT_CD
+				      ,BD.DIVISION_CD
+				      ,BD.DEPT_CD
+				      ,COUNT(ACCOUNT_CD) AS CNT
+				      ,DECODE(COUNT(ACCOUNT_CD),1,MAX(ACCOUNT_CD),NULL) AS ACCOUNT_CD
+				FROM STOCCUBD BD
+				WHERE BD.CUST_CD 	= #{CUST_CD}
+				AND  YEAR_MONTH	= <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd'), 1, 6)
+				AND  BD.DEL_FLAG	= '0'
+				AND  <include refid="com.sql.nvl"/>(BD.BLOCK_FLAG, '0')	= '0'
+				GROUP BY BD.CUST_CD ,BD.PLANT_CD ,BD.DIVISION_CD ,BD.DEPT_CD
+			) C
+			ON (
+					(ITEM_CLS1=C.PLANT_CD AND ITEM_CLS2=C.DIVISION_CD AND ITEM_CLS3=C.DEPT_CD)
+					OR
+					(ITEM_CLS1=C.PLANT_CD AND ITEM_CLS2='*' AND ITEM_CLS3='*')
+					OR
+					(ITEM_CLS1=C.PLANT_CD AND ITEM_CLS2=C.DIVISION_CD AND ITEM_CLS3='*')
+				)
+	    WHERE 1=1
+	    <if test="PLANT_CD != '' and PLANT_CD != null">
+	   		 AND ITEM_CLS1 = #{PLANT_CD}
+	    </if>
+	     <if test="DIVISION_CD != '' and DIVISION_CD != null">
+	   		 AND ITEM_CLS2 IN ('*',#{DIVISION_CD})
+	    </if>
+	     <if test="DEPT_CD != '' and DEPT_CD != null">
+	   		 AND ITEM_CLS3 IN ('*',#{DEPT_CD})
+	    </if>
+	    ORDER BY tree asc
+
+	</select>
+	<select id="findPlant" parameterType="hashMap" resultType="java.util.Map">
+   SELECT A.PLANT_CD AS "value"
+		 ,A.PLANT_NM AS "text"
+	 FROM (
+		SELECT OGPL.PLANT_CD,
+	           CASE WHEN #{ses.langCd} = 'KO' THEN OGPL.PLANT_NM ELSE OGPL.PLANT_NM_ENG END AS PLANT_NM
+		FROM STOCOGPL OGPL
+		JOIN STOCOGCM OGCM
+	   	   ON (OGPL.GATE_CD  = OGCM.GATE_CD
+	   	   AND OGPL.BUYER_CD = OGCM.BUYER_CD
+	   	   AND OGCM.DEL_FLAG = '0'
+	   	   AND OGCM.USE_FLAG = '1')
+	   WHERE OGPL.GATE_CD  = #{ses.gateCd}
+		 AND OGPL.BUYER_CD = #{CUST_CD}
+		 AND OGPL.DEL_FLAG = '0'
+    UNION ALL
+	   SELECT CUPL.PLANT_CD,
+	     	  CUPL.PLANT_NM
+	   FROM STOCCUPL CUPL
+       JOIN STOCCUST CUST
+	      ON (CUPL.GATE_CD  = CUST.GATE_CD
+	      AND CUPL.CUST_CD  = CUST.CUST_CD
+	      AND CUST.DEL_FLAG = '0')
+	   WHERE CUPL.GATE_CD  = #{ses.gateCd}
+		 AND CUPL.CUST_CD  = #{CUST_CD}
+		 AND CUPL.DEL_FLAG = '0'
+	  ) A
+	WHERE 1 = 1
+	 </select>
+</mapper>

@@ -1,0 +1,2414 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.MY03.MY03_Mapper">
+
+	<!-- MY03_010 : 소싱리드타임 (조회조건은 6개월을 초과할 수 없습니다) -->
+	<select id="my03010_validDateDiff" parameterType="hashMap" resultType="String">
+		<if test="_databaseId == 'mssql'">
+	    	SELECT CASE WHEN (#{CMS_MAPPING_END_DATE} > DATEADD(mm, 6, #{CMS_MAPPING_START_DATE})) THEN '0'
+	                ELSE '1'
+	           END VALID_STATUS
+	    </if>
+		<if test="_databaseId == 'oracle'">
+			SELECT CASE WHEN (#{CMS_MAPPING_END_DATE} > ADD_MONTHS(#{CMS_MAPPING_START_DATE}, 6)) THEN '0'
+							   ELSE '1'
+						 END VALID_STATUS
+			FROM DUAL
+
+		</if>
+	</select>
+
+	<select id="my03010_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+		      ABC.GATE_CD
+			, ABC.BUYER_CODE
+			, ABC.BUYER_NAME
+			, ABC.PLANT_CD
+			, ABC.PLANT_NM
+			, ABC.ITEM_REQ_NO
+			, ABC.CUST_ITEM_CD
+			, ABC.ITEM_CODE
+			, ABC.ITEM_DESC
+			, ABC.ITEM_SPEC
+            ,(CASE WHEN ABC.MAKER_NM IS NULL THEN <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) ELSE MAKER_NM END) AS MAKER_NM
+            ,(CASE WHEN ABC.MODEL_NM IS NULL THEN MTGL.MAKER_PART_NO ELSE ABC.MODEL_NM END) AS MODEL_NM
+            ,(CASE WHEN ABC.CMS_BRAND_NM IS NULL THEN <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) ELSE ABC.CMS_BRAND_NM END) AS CMS_BRAND_NM
+            ,(CASE WHEN ABC.ORIGIN_NM IS NULL THEN <include refid="com.sql.dbo"/>getComCode(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, 0, #{ses.langCd}) ELSE ABC.ORIGIN_NM END) AS ORIGIN_NM
+			, ABC.UNIT_MEASURE
+			, ABC.SG_CTRL_USER_ID
+			, ABC.SG_CTRL_USER_NAME
+			, ABC.VENDOR_CODE
+			, ABC.VENDOR_NAME
+			, ABC.CMS_MAPPING_DATE
+			, ABC.ADD_DATE
+			, ABC.ITEM_REQ_SEQ
+			, ABC.LT_DAYS
+		FROM (
+			SELECT
+			      NWRQ.GATE_CD
+				, NWRQ.ITEM_REQ_NO
+				, NWRQ.ITEM_REQ_SEQ
+				, NWRQ.CUST_CD AS BUYER_CODE
+				, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCUSTNAME(NWRQ.GATE_CD, NWRQ.CUST_CD), <include refid="com.sql.dbo"/>GETBUYERNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, #{ses.langCd})) AS BUYER_NAME
+				, NWRQ.PLANT_CD
+				,<include refid="com.sql.dbo"/>GETPLANTNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, NWRQ.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				, NWRQ.CUST_ITEM_CD AS CUST_ITEM_CD
+				, NWRQ.ITEM_CD AS ITEM_CODE
+				, NWRQ.ITEM_DESC
+				, NWRQ.ITEM_SPEC
+                , CASE WHEN NWRQ.CMS_MAKER_NM IS NULL THEN NWRQ.MAKER_NM
+		               ELSE NWRQ.CMS_MAKER_NM
+		          END AS MAKER_NM
+                , NWRQ.MODEL_NM
+                , <include refid="com.sql.dbo"/>GETMKBRNAME(NWRQ.GATE_CD, 'BR', (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> MTGL.BRAND_CD FROM STOCMTGL MTGL WHERE MTGL.GATE_CD = NWRQ.GATE_CD AND MTGL.ITEM_CD = NWRQ.ITEM_CD <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>)) AS CMS_BRAND_NM
+                , CASE WHEN <include refid="com.sql.dbo"/>getComCode(NWRQ.GATE_CD, 'M004', NWRQ.CMS_ORIGIN_CD, 0, #{ses.langCd}) IS NULL THEN NWRQ.ORIGIN_NM
+		               ELSE <include refid="com.sql.dbo"/>getComCode(NWRQ.GATE_CD, 'M004', NWRQ.CMS_ORIGIN_CD, 0, #{ses.langCd})
+		          END AS ORIGIN_NM
+				, NWRQ.UNIT_CD AS UNIT_MEASURE
+				, NWRQ.SG_CTRL_USER_ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME(NWRQ.GATE_CD, NWRQ.SG_CTRL_USER_ID, #{ses.langCd}) AS SG_CTRL_USER_NAME
+				, INFO.VENDOR_CD AS VENDOR_CODE
+				, <include refid="com.sql.dbo"/>GETVENDORNAME (NWRQ.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NAME
+				, <include refid="com.sql.dbo"/>getGmtDate(NWRQ.CMS_MAPPING_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/> ' hh24:mi') AS CMS_MAPPING_DATE
+				, <include refid="com.sql.dbo"/>getGmtDate(INFO.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/> ' hh24:mi') AS ADD_DATE
+				, <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.CMS_MAPPING_DATE, INFO.REG_DATE) AS LT_DAYS
+			 FROM STOUNWRQ NWRQ
+			 JOIN STOYINFO INFO
+				  ON (NWRQ.GATE_CD  = INFO.GATE_CD
+				  AND NWRQ.CONT_NO  = INFO.CONT_NO
+				  AND NWRQ.CONT_SEQ = INFO.CONT_SEQ
+				  AND INFO.DEL_FLAG = '0')
+			WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+			  AND NWRQ.PROGRESS_CD IN ('500', '550', '560') -- 고객사 합의, 상품등록대기, 상품등록완료
+			  AND NWRQ.DEL_FLAG = '0'
+
+			<if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+			  AND NWRQ.SG_CTRL_USER_ID = #{SG_CTRL_USER_ID}
+			</if>
+			<if test="BUYER_CODE != '' and BUYER_CODE != null">
+			  AND NWRQ.CUST_CD <include refid="com.sql.likeL"/> #{BUYER_CODE} <include refid="com.sql.likeR"/>
+			</if>
+		    <if test="BUYER_NAME != '' and BUYER_NAME != null">
+	    		AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCUSTNAME(NWRQ.GATE_CD, NWRQ.CUST_CD), <include refid="com.sql.dbo"/>GETBUYERNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> #{BUYER_NAME} <include refid="com.sql.likeR"/>
+	    	</if>
+
+		  ) ABC
+		  LEFT JOIN STOCMTGL MTGL
+	           ON (ABC.GATE_CD = MTGL.GATE_CD
+	           AND ABC.ITEM_CODE = MTGL.ITEM_CD)
+		 WHERE 1 = 1
+		 ORDER BY BUYER_CODE, ITEM_REQ_NO, ITEM_CODE
+
+	</select>
+
+	<!-- MY03_020 : 품목생성 리드타임 -->
+	<select id="my03020_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		      ABC.GATE_CD
+			, ABC.BUYER_CODE
+			, ABC.BUYER_NAME
+			, ABC.PLANT_CD
+			, ABC.PLANT_NM
+			, ABC.ITEM_REQ_NO
+			, ABC.CUST_ITEM_CD
+			, ABC.ITEM_CODE
+			, ABC.ITEM_DESC
+			, ABC.ITEM_SPEC
+            ,(CASE WHEN ABC.MAKER_NM IS NULL THEN <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) ELSE MAKER_NM END) AS MAKER_NM
+            ,(CASE WHEN ABC.MODEL_NM IS NULL THEN MTGL.MAKER_PART_NO ELSE ABC.MODEL_NM END) AS MODEL_NM
+            ,(CASE WHEN ABC.CMS_BRAND_NM IS NULL THEN <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) ELSE ABC.CMS_BRAND_NM END) AS CMS_BRAND_NM
+            ,(CASE WHEN ABC.ORIGIN_NM IS NULL THEN <include refid="com.sql.dbo"/>getComCode(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, 0, #{ses.langCd}) ELSE ABC.ORIGIN_NM END) AS ORIGIN_NM
+			, ABC.UNIT_MEASURE
+			, ABC.CMS_CTRL_USER_ID
+			, ABC.CMS_CTRL_USER_NAME
+			, ABC.CMS_MAPPING_DATE
+			, ABC.REQUEST_DATE
+			, ABC.ITEM_REQ_SEQ
+			, ABC.LT_DATE
+		FROM (
+			SELECT
+			      NWRQ.GATE_CD
+				, NWRQ.CUST_CD AS BUYER_CODE
+				,<include refid="com.sql.dbo"/>GETBUYERNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, #{ses.langCd}) AS BUYER_NAME
+				, NWRQ.PLANT_CD
+				,<include refid="com.sql.dbo"/>GETPLANTNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, NWRQ.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				, NWRQ.ITEM_REQ_NO
+				, NWRQ.ITEM_REQ_SEQ
+				, NWRQ.CUST_ITEM_CD AS CUST_ITEM_CD
+				, NWRQ.ITEM_CD AS ITEM_CODE
+				, NWRQ.ITEM_DESC
+				, NWRQ.ITEM_SPEC
+				, CASE WHEN NWRQ.CMS_MAKER_NM IS NULL THEN NWRQ.MAKER_NM
+		               ELSE NWRQ.CMS_MAKER_NM
+		          END AS MAKER_NM
+                , NWRQ.MODEL_NM
+                , <include refid="com.sql.dbo"/>GETMKBRNAME(NWRQ.GATE_CD, 'BR', (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> MTGL.BRAND_CD FROM STOCMTGL MTGL WHERE MTGL.GATE_CD = NWRQ.GATE_CD AND MTGL.ITEM_CD = NWRQ.ITEM_CD <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>)) AS CMS_BRAND_NM
+                , CASE WHEN <include refid="com.sql.dbo"/>getComCode(NWRQ.GATE_CD, 'M004', NWRQ.CMS_ORIGIN_CD, 0, #{ses.langCd}) IS NULL THEN NWRQ.ORIGIN_NM
+		               ELSE <include refid="com.sql.dbo"/>getComCode(NWRQ.GATE_CD, 'M004', NWRQ.CMS_ORIGIN_CD, 0, #{ses.langCd})
+		          END AS ORIGIN_NM
+				, NWRQ.UNIT_CD AS UNIT_MEASURE
+				, NWRQ.CMS_CTRL_USER_ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME (NWRQ.GATE_CD, NWRQ.CMS_CTRL_USER_ID, #{ses.langCd}) AS CMS_CTRL_USER_NAME
+				, <include refid="com.sql.dbo"/>GETGMTDATE(NWRQ.REQUEST_DATE,#{ses.userGmt},#{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/> ' hh24:mi') as REQUEST_DATE
+				, <include refid="com.sql.dbo"/>GETGMTDATE(NWRQ.CMS_MAPPING_DATE,#{ses.userGmt},#{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/> ' hh24:mi') as CMS_MAPPING_DATE
+				, <include refid="com.sql.dbo"/>fn_GetWorkingDays(<include refid="com.sql.toDate"/> NWRQ.REQUEST_DATE), <include refid="com.sql.toDate"/>NWRQ.CMS_MAPPING_DATE)) AS LT_DATE
+			 FROM STOUNWRQ NWRQ
+			WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+			  AND NWRQ.CMS_MAPPING_DATE IS NOT NULL
+			  AND NWRQ.DEL_FLAG = '0'
+
+			<if test="REQUEST_START_DATE != '' and REQUEST_START_DATE != null and REQUEST_END_DATE != '' and REQUEST_END_DATE != null">
+		      AND NWRQ.REQUEST_DATE BETWEEN #{REQUEST_START_DATE} AND #{REQUEST_END_DATE}
+		    </if>
+			<if test="BUYER_CODE != '' and BUYER_CODE != null">
+			  AND NWRQ.CUST_CD <include refid="com.sql.likeL"/> #{BUYER_CODE} <include refid="com.sql.likeR"/>
+			</if>
+	    	<if test="BUYER_NAME != '' and BUYER_NAME != null">
+	    	  AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETCUSTNAME(NWRQ.GATE_CD, NWRQ.CUST_CD), <include refid="com.sql.dbo"/>GETBUYERNAME(NWRQ.GATE_CD, NWRQ.CUST_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> #{BUYER_NAME} <include refid="com.sql.likeR"/>
+	    	</if>
+		    <if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+			  AND NWRQ.SG_CTRL_USER_ID = #{SG_CTRL_USER_ID}
+			</if>
+	      ) ABC LEFT JOIN STOCMTGL MTGL
+           ON (ABC.GATE_CD = MTGL.GATE_CD
+           AND ABC.ITEM_CODE = MTGL.ITEM_CD)
+	     WHERE 1 = 1
+	     ORDER BY REQUEST_DATE, ITEM_REQ_NO, ITEM_REQ_SEQ, BUYER_NAME
+
+	</select>
+
+	<!-- MY03_030 : 납품리드타임 -->
+	<select  id="my03030_doSearch" parameterType="hashMap" resultType="hashMap">
+         SELECT
+               POHD.CPO_NO
+			 , PODT.CPO_SEQ
+			 ,<include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') AS CPO_DATE
+			 , POHD.CUST_CD AS BUYER_CODE
+			 ,<include refid="com.sql.dbo"/>GETCUSTNAME(POHD.GATE_CD, POHD.CUST_CD) AS BUYER_NAME
+			 , POHD.PLANT_CD
+			 ,<include refid="com.sql.dbo"/>GETPLANTNAME(POHD.GATE_CD, POHD.CUST_CD, POHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			 ,<include refid="com.sql.toDateChar"/>(ITBL.DELY_APP_DATE, 'yyyyMMdd') AS DELY_APP_DATE
+			 , PODT.CUST_ITEM_CD AS CUST_ITEM_CD
+			 , PODT.ITEM_CD AS ITEM_CODE
+			 , PODT.ITEM_DESC
+			 , PODT.ITEM_SPEC
+			 , PODT.MAKER_NM
+             , PODT.MAKER_PART_NO
+             , PODT.BRAND_NM
+             , <include refid="com.sql.dbo"/>getComCode(PODT.GATE_CD, 'M004', PODT.ORIGIN_CD, 0, #{ses.langCd}) AS ORIGIN_NM
+			 , PODT.UNIT_CD AS UNIT_MEASURE
+			 , MTGL.SG_CTRL_USER_ID
+			 , PODT.AM_USER_ID AS MANAGE_ID
+			 , <include refid="com.sql.dbo"/>GETUSERNAME(PODT.GATE_CD, PODT.AM_USER_ID, #{ses.langCd}) AS MANAGE_NM
+			 , YPOH.VENDOR_CD AS VENDOR_CODE
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME (YPOH.GATE_CD, YPOH.VENDOR_CD, #{ses.langCd}) AS VENDOR_NAME
+			 , <include refid="com.sql.toDateChar"/>(ITBL.DELY_COMPLETE_DATE, 'yyyyMMdd') AS DELY_COMPLETE_DATE
+			 , <include refid="com.sql.toDateChar"/>(GTBL.GR_DATE, 'yyyyMMdd') AS GR_DATE
+			 , <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') AS ORDER_DATE
+			 , <include refid="com.sql.toDateChar"/>(YPOD.REG_DATE, 'yyyyMMdd') AS YPO_REG_DATE -- 발주일자
+			 , <include refid="com.sql.toDateChar"/>(ITBL.DELY_APP_DATE, 'yyyyMMdd') AS H_DELY_APP_DATE
+             , <include refid="com.sql.toDateChar"/>(ITBL.DELY_COMPLETE_DATE, 'yyyyMMdd') AS H_DELY_COMPLETE_DATE
+             , <include refid="com.sql.toDateChar"/>(GTBL.GR_DATE, 'yyyyMMdd') AS H_GR_DATE
+             , <include refid="com.sql.dbo"/>fn_GetWorkingDays(<include refid="com.sql.toDate"/><include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd')), <include refid="com.sql.toDate"/>(CASE WHEN ITBL.DELY_COMPLETE_DATE IS NULL THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LEAD_TIME
+          FROM STOUPOHD POHD
+          JOIN STOUPODT PODT
+               ON (PODT.GATE_CD  = POHD.GATE_CD
+               AND PODT.CPO_NO   = POHD.CPO_NO
+               AND PODT.CUST_CD  = POHD.CUST_CD
+               AND PODT.DEL_FLAG = '0')
+	      JOIN STOYPODT YPOD
+	           ON (PODT.GATE_CD = YPOD.GATE_CD
+	           AND PODT.CPO_NO  = YPOD.CPO_NO
+	           AND PODT.CPO_SEQ = YPOD.CPO_SEQ
+	           AND YPOD.DEL_FLAG = '0')
+          JOIN STOYPOHD YPOH
+               ON (YPOD.GATE_CD  = YPOH.GATE_CD
+               AND YPOD.PO_NO    = YPOH.PO_NO
+               AND YPOH.DEL_FLAG = '0')
+          JOIN STOCMTGL MTGL
+               ON (PODT.GATE_CD  = MTGL.GATE_CD
+               AND PODT.ITEM_CD  = MTGL.ITEM_CD)
+          JOIN STOCCUST CUST
+               ON (POHD.GATE_CD  = CUST.GATE_CD
+               AND POHD.CUST_CD  = CUST.CUST_CD)
+          OUTER APPLY (
+               SELECT MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+                    , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+                 FROM STOYIVDT IVDT
+                 JOIN STOYIVHD IVHD
+                      ON (IVDT.GATE_CD  = IVHD.GATE_CD
+                      AND IVDT.IV_NO    = IVHD.IV_NO
+                      AND IVHD.DEL_FLAG = '0')
+                WHERE IVDT.GATE_CD  = PODT.GATE_CD
+                  AND IVDT.CPO_NO   = PODT.CPO_NO
+                  AND IVDT.CPO_SEQ  = PODT.CPO_SEQ
+                  AND IVDT.DEL_FLAG = '0'
+               ) ITBL
+          OUTER APPLY (
+               SELECT MIN(GRDT.GR_DATE) AS GR_DATE
+                 FROM STOCGRDT GRDT
+                WHERE GRDT.GATE_CD  = PODT.GATE_CD
+                  AND GRDT.CPO_NO   = PODT.CPO_NO
+                  AND GRDT.CPO_SEQ  = PODT.CPO_SEQ
+                  AND GRDT.DEL_FLAG = '0'
+               ) GTBL
+		 WHERE POHD.GATE_CD  = #{ses.gateCd}
+           AND POHD.DEL_FLAG = '0'
+           AND (CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END) BETWEEN #{CPO_FROM_DATE} AND #{CPO_TO_DATE}
+
+		<if test="VENDOR_CODE !='' and VENDOR_CODE != null">
+		   AND YPOH.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CODE} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="VENDOR_NAME !='' and VENDOR_NAME != null">
+		   AND <include refid="com.sql.dbo"/>GETVENDORNAME(YPOH.GATE_CD,YPOH.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NAME} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="BUYER_CODE != '' and BUYER_CODE != null">
+		  AND POHD.CUST_CD <include refid="com.sql.likeL"/> #{BUYER_CODE} <include refid="com.sql.likeR"/>
+		</if>
+    	<if test="BUYER_NAME != '' and BUYER_NAME != null">
+    	   AND <include refid="com.sql.dbo"/>GETCUSTNAME(POHD.GATE_CD, POHD.CUST_CD) <include refid="com.sql.likeL"/> #{BUYER_NAME} <include refid="com.sql.likeR"/>
+    	</if>
+        <if test="ITEM_CODE != '' and ITEM_CODE !=null">
+			<if test="ITEM_CNT == 1">
+				AND PODT.ITEM_CD IN ${ITEM_CD}
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND PODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			</if>
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC !=null">
+           AND ( ${ITEM_NM}
+             OR  ${ITEM_SP} )
+        </if>
+        <if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID !=null">
+           AND MTGL.SG_CTRL_USER_ID = #{SG_CTRL_USER_ID}
+        </if>
+        <if test="AM_USER_ID != '' and AM_USER_ID !=null">
+           AND PODT.AM_USER_ID = #{AM_USER_ID}
+        </if>
+
+        ORDER BY POHD.CPO_DATE
+    </select>
+
+    <!-- MY03_040 : 납기준수율 -->
+    <select id="my03040_validDateDiff" parameterType="hashMap" resultType="String">
+		<if test="_databaseId == 'mssql'">
+		    SELECT CASE WHEN (#{CPO_TO_DATE} > DATEADD(mm, 12, #{CPO_FROM_DATE})) THEN '0'
+	                ELSE '1'
+	           END VALID_STATUS
+	    </if>
+		<if test="_databaseId == 'oracle'">
+			SELECT CASE WHEN (#{CPO_TO_DATE} > ADD_MONTHS(#{CPO_FROM_DATE}, 12)) THEN '0'
+							   ELSE '1'
+						 END VALID_STATUS
+			  FROM DUAL
+		</if>
+	</select>
+
+    <select id="my03040_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT A.*
+			 , CASE WHEN <include refid="com.sql.nvl"/>(A.DELY_COMPLETE_DATE, A.GR_DATE) IS NULL THEN '0'
+			        ELSE CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(A.DELY_COMPLETE_DATE, A.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > A.STD_DUE_DATE THEN '0'
+				              ELSE '1'
+				         END
+			   END AS STD_FLAG
+			 , CASE WHEN <include refid="com.sql.nvl"/>(A.DELY_COMPLETE_DATE, A.GR_DATE) IS NULL THEN '0'
+			        ELSE CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(A.DELY_COMPLETE_DATE, A.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > A.HOPE_DUE_DATE THEN '0'
+				              ELSE '1'
+				         END
+			   END AS HOPE_FLAG
+		  FROM (
+			SELECT
+			      POHD.CPO_NO
+				, PODT.CPO_SEQ
+				, POHD.CUST_CD AS BUYER_CODE
+				, <include refid="com.sql.dbo"/>GETCUSTNAME(POHD.GATE_CD, POHD.CUST_CD) AS BUYER_NAME
+				, POHD.PLANT_CD
+			 	, <include refid="com.sql.dbo"/>GETPLANTNAME(POHD.GATE_CD, POHD.CUST_CD, POHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				, <include refid="com.sql.dbo"/>GETGMTDATE(CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END
+											, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CPO_DATE
+				, <include refid="com.sql.toDateChar"/>(YPOD.REG_DATE, 'yyyyMMdd') AS YPO_REG_DATE -- 발주일자
+				, <include refid="com.sql.dbo"/>GETGMTDATE(ITBL.DELY_APP_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DELY_APP_DATE
+				, <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0))
+											, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS STD_DUE_DATE
+				, <include refid="com.sql.dbo"/>GETGMTDATE(PODT.HOPE_DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS HOPE_DUE_DATE
+				, <include refid="com.sql.dbo"/>GETGMTDATE(ITBL.DELY_COMPLETE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DELY_COMPLETE_DATE
+				, <include refid="com.sql.dbo"/>GETGMTDATE(GTBL.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS GR_DATE
+				, PODT.CUST_ITEM_CD AS CUST_ITEM_CD
+				, PODT.ITEM_CD AS ITEM_CODE
+				, PODT.ITEM_DESC
+				, PODT.ITEM_SPEC
+				, PODT.MAKER_NM
+		        , PODT.MAKER_PART_NO
+		        , PODT.BRAND_NM
+		        , <include refid="com.sql.dbo"/>getComCode(PODT.GATE_CD, 'M004', PODT.ORIGIN_CD, 0, #{ses.langCd}) AS ORIGIN_NM
+				, PODT.UNIT_CD AS UNIT_MEASURE
+				, MTGL.SG_CTRL_USER_ID
+				, PODT.AM_USER_ID AS MANAGE_ID
+			 	, <include refid="com.sql.dbo"/>GETUSERNAME(PODT.GATE_CD, PODT.AM_USER_ID, #{ses.langCd}) AS MANAGE_NM
+				, YPOH.VENDOR_CD AS VENDOR_CODE
+				, <include refid="com.sql.dbo"/>GETVENDORNAME(YPOH.GATE_CD, YPOH.VENDOR_CD, #{ses.langCd}) AS VENDOR_NAME
+				, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0) AS LEAD_TIME
+			 FROM STOUPOHD POHD
+	         JOIN STOUPODT PODT
+	              ON (PODT.GATE_CD  = POHD.GATE_CD
+	              AND PODT.CPO_NO   = POHD.CPO_NO
+	              AND PODT.CUST_CD  = POHD.CUST_CD
+	              AND PODT.DEL_FLAG = '0')
+		     JOIN STOYPODT YPOD
+		          ON (PODT.GATE_CD = YPOD.GATE_CD
+		          AND PODT.CPO_NO  = YPOD.CPO_NO
+		          AND PODT.CPO_SEQ = YPOD.CPO_SEQ
+		          AND YPOD.DEL_FLAG = '0')
+	         JOIN STOYPOHD YPOH
+	              ON (YPOD.GATE_CD  = YPOH.GATE_CD
+	              AND YPOD.PO_NO    = YPOH.PO_NO
+	              AND YPOH.DEL_FLAG = '0')
+	         JOIN STOCMTGL MTGL
+	              ON (PODT.GATE_CD  = MTGL.GATE_CD
+	              AND PODT.ITEM_CD  = MTGL.ITEM_CD)
+	         JOIN STOCCUST CUST
+	              ON (POHD.GATE_CD  = CUST.GATE_CD
+	              AND POHD.CUST_CD  = CUST.CUST_CD)
+	         OUTER APPLY (
+	              SELECT MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+	                   , MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+	                FROM STOYIVDT IVDT
+	                JOIN STOYIVHD IVHD
+	                     ON (IVDT.GATE_CD  = IVHD.GATE_CD
+	                     AND IVDT.IV_NO    = IVHD.IV_NO
+	                     AND IVHD.DEL_FLAG = '0')
+	               WHERE IVDT.GATE_CD  = PODT.GATE_CD
+	                 AND IVDT.CPO_NO   = PODT.CPO_NO
+	                 AND IVDT.CPO_SEQ  = PODT.CPO_SEQ
+	                 AND IVDT.DEL_FLAG = '0'
+	              ) ITBL
+	         OUTER APPLY (
+	              SELECT MIN(GRDT.GR_DATE) AS GR_DATE
+	                FROM STOCGRDT GRDT
+	               WHERE GRDT.GATE_CD  = PODT.GATE_CD
+	                 AND GRDT.CPO_NO   = PODT.CPO_NO
+	                 AND GRDT.CPO_SEQ  = PODT.CPO_SEQ
+	                 AND GRDT.DEL_FLAG = '0'
+	              ) GTBL
+			WHERE POHD.GATE_CD  = #{ses.gateCd}
+			  AND POHD.DEL_FLAG = '0'
+
+			<if test="CPO_FROM_DATE != '' and CPO_FROM_DATE != null and CPO_TO_DATE != '' and CPO_TO_DATE != null">
+			  AND CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END BETWEEN #{CPO_FROM_DATE} AND #{CPO_TO_DATE}
+			</if>
+			<if test="VENDOR_CODE !='' and VENDOR_CODE != null">
+			  AND YPOH.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CODE} <include refid="com.sql.likeR"/>
+	        </if>
+			<if test="VENDOR_NAME !='' and VENDOR_NAME != null">
+			  AND <include refid="com.sql.dbo"/>GETVENDORNAME(YPOH.GATE_CD,YPOH.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NAME} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="BUYER_CODE != '' and BUYER_CODE != null">
+			  AND POHD.CUST_CD <include refid="com.sql.likeL"/> #{BUYER_CODE} <include refid="com.sql.likeR"/>
+			</if>
+	    	<if test="BUYER_NAME != '' and BUYER_NAME != null">
+	    	  AND <include refid="com.sql.dbo"/>GETCUSTNAME(POHD.GATE_CD, POHD.CUST_CD) <include refid="com.sql.likeL"/> #{BUYER_NAME} <include refid="com.sql.likeR"/>
+	    	</if>
+			<if test="ITEM_CODE != '' and ITEM_CODE != null">
+				<if test="ITEM_CNT == 1">
+					AND PODT.ITEM_CD IN ${ITEM_CD}
+				</if>
+				<if test="ITEM_CNT == 0">
+					AND PODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+				</if>
+			</if>
+			<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			   AND ( ${ITEM_NM}
+                 OR  ${ITEM_SP} )
+			</if>
+			<if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+			   AND MTGL.SG_CTRL_USER_ID = #{SG_CTRL_USER_ID}
+			</if>
+			<if test="AM_USER_ID != '' and AM_USER_ID !=null">
+	           AND PODT.AM_USER_ID = #{AM_USER_ID}
+	        </if>
+		  ) A
+		  ORDER BY A.CPO_DATE
+
+	</select>
+
+	<select id="my03050_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT AA.CUST_CD
+			, CUST_NM
+			, <include refid="com.sql.nvl"/>(CPO_ITEM_AMT, 0) AS S_CPO_ITEM_AMT
+			, REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(CPO_ITEM_AMT, 0)), '.00', '') AS CPO_ITEM_AMT
+			, <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) AS S_GR_ITEM_AMT
+			, REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0)), '.00', '') AS GR_ITEM_AMT
+			, <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) AS PO_GR_ITEM_AMT
+			, <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0)  AS PROFIT_AMT
+			, CASE WHEN <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0) = 0 THEN 0 ELSE ROUND((<include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0) - <include refid="com.sql.nvl"/>(PO_GR_ITEM_AMT, 0)) / <include refid="com.sql.nvl"/>(GR_ITEM_AMT, 0)*100,1) END AS PROFIT_RATE
+			, <include refid="com.sql.nvl"/>(CPO_CNT, 0) AS CPO_CNT
+			, <include refid="com.sql.nvl"/>(GR_NOCLOSE_AMT, 0) AS GR_NOCLOSE_AMT
+			, <include refid="com.sql.nvl"/>(ITEM_CNT, 0) AS ITEM_CNT
+			, <include refid="com.sql.nvl"/>(VENDOR_CNT, 0) AS VENDOR_CNT
+			, <include refid="com.sql.nvl"/>(A_AVG_LT_DAY, 0) AS A_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(B_AVG_LT_DAY, 0) AS B_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(C.AVG_LT_DAY, 0) AS C_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(D.AVG_LT_DAY, 0) AS D_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(STD_DELY_RATE, 0) AS STD_DELY_RATE
+			, <include refid="com.sql.nvl"/>(VOC_CNT, 0) AS VOC_CNT
+			, AM_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(AA.GATE_CD, AM_USER_ID, #{ses.langCd}) AS AM_USER_NM
+		FROM (
+				SELECT UPOHD.GATE_CD
+					, UPOHD.CUST_CD
+					, <include refid="com.sql.dbo"/>GETCUSTNAME(UPOHD.GATE_CD, UPOHD.CUST_CD) AS CUST_NM
+					, SUM(UPODT.CPO_ITEM_AMT) AS CPO_ITEM_AMT
+					, SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+					, SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+					, SUM(APAR.GR_ITEM_AMT) - SUM(APAR.PO_GR_ITEM_AMT) AS PROFIT_AMT
+					, COUNT(UPODT.CPO_NO) AS CPO_CNT
+					, SUM(GR_NOCLOSE_AMT) AS GR_NOCLOSE_AMT
+					, COUNT(DISTINCT UPODT.ITEM_CD) AS ITEM_CNT
+					, COUNT(DISTINCT UPODT.VENDOR_CD) AS VENDOR_CNT
+					, MAX(A.AVG_LT_DAY) AS A_AVG_LT_DAY
+					, MAX(B.AVG_LT_DAY) AS B_AVG_LT_DAY
+					, MAX(E.STD_DELY_RATE) AS STD_DELY_RATE
+					, MAX(F.VOC_CNT) AS VOC_CNT
+					, MAX(UPODT.AM_USER_ID) AS AM_USER_ID
+				FROM STOUPOHD UPOHD
+				JOIN STOUPODT UPODT
+					ON UPOHD.GATE_CD = UPODT.GATE_CD
+					AND UPOHD.CUST_CD = UPODT.CUST_CD
+					AND UPOHD.CPO_NO = UPODT.CPO_NO
+				LEFT JOIN (
+							SELECT GRDT.GATE_CD
+								, GRDT.CUST_CD
+								, GRDT.CPO_NO
+								, GRDT.CPO_SEQ
+								, SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+								, SUM(APAR.PO_GR_ITEM_AMT) AS PO_GR_ITEM_AMT
+								, CASE WHEN MAX(GRDT.CLOSING_NO) IS NULL THEN SUM(GRDT.GR_ITEM_AMT) ELSE 0 END AS GR_NOCLOSE_AMT
+								, MAX(GRDT.CLOSING_NO) AS CLOSE_YN
+							FROM STOCGRDT GRDT
+							LEFT JOIN STOCAPAR APAR
+								ON  GRDT.GATE_CD = APAR.GATE_CD
+								AND GRDT.GR_NO = APAR.GR_NO
+								AND GRDT.GR_SEQ = APAR.GR_SEQ
+								AND APAR.DEL_FLAG = '0'
+								AND APAR.CLOSING_TYPE = 'AR'
+							WHERE GRDT.GATE_CD = #{ses.gateCd}
+							AND GRDT.DEL_FLAG = '0'
+							GROUP BY GRDT.GATE_CD, GRDT.CUST_CD, GRDT.CPO_NO, GRDT.CPO_SEQ
+							) APAR
+				ON  UPODT.GATE_CD = APAR.GATE_CD
+				AND UPODT.CUST_CD = APAR.CUST_CD
+				AND UPODT.CPO_NO = APAR.CPO_NO
+				AND UPODT.CPO_SEQ = APAR.CPO_SEQ
+				LEFT JOIN (
+							SELECT GATE_CD
+								, CUST_CD
+								, ROUND(SUM(TO_NUMBER( LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+							FROM (
+									SELECT NWRQ.GATE_CD
+										, NWRQ.CUST_CD
+										, NWRQ.CMS_MAPPING_DATE
+										, INFO.REG_DATE
+										, <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.CMS_MAPPING_DATE, INFO.REG_DATE) AS LT_DAYS
+									FROM STOUNWRQ NWRQ
+									JOIN STOYINFO INFO
+									ON  NWRQ.GATE_CD  = INFO.GATE_CD
+									AND NWRQ.CONT_NO  = INFO.CONT_NO
+									AND NWRQ.CONT_SEQ = INFO.CONT_SEQ
+									AND INFO.DEL_FLAG = '0'
+
+									WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+									AND NWRQ.DEL_FLAG = '0'
+									AND NWRQ.PROGRESS_CD = '500' -- 소싱완료
+									AND NWRQ.CONT_NO IS NOT NULL
+									<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+										AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									</if>
+								) A
+							WHERE A.LT_DAYS > 0
+							GROUP BY A.GATE_CD , A.CUST_CD
+							) A
+				ON  UPODT.GATE_CD = A.GATE_CD
+				AND UPODT.CUST_CD = A.CUST_CD
+				LEFT JOIN (
+							SELECT GATE_CD
+								, CUST_CD
+								, ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+							FROM (
+									SELECT NWRQ.GATE_CD
+										, NWRQ.CUST_CD
+										, NWRQ.CMS_MAPPING_DATE
+										, NWRQ.REQUEST_DATE
+										, <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.REQUEST_DATE, NWRQ.CMS_MAPPING_DATE) AS LT_DAYS
+									FROM STOUNWRQ NWRQ
+
+									WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+									AND NWRQ.DEL_FLAG = '0'
+									AND NWRQ.CMS_MAPPING_DATE IS NOT NULL
+							    	<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+										AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									</if>
+								) B
+							WHERE B.LT_DAYS > 0
+							GROUP BY B.GATE_CD , B.CUST_CD
+							) B
+				ON UPODT.GATE_CD = B.GATE_CD
+				AND UPODT.CUST_CD = B.CUST_CD
+				LEFT JOIN (
+						SELECT GATE_CD
+							, CUST_CD
+							, SUM(Y_STD_FLAG) AS Y_STD_FLAG
+							, SUM(N_STD_FLAG) AS N_STD_FLAG
+							, ROUND(TO_NUMBER(SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 1) AS STD_DELY_RATE
+						FROM (
+								SELECT GATE_CD
+									, CUST_CD
+									, CASE WHEN STD_FLAG = '1' THEN COUNT(STD_FLAG) ELSE 0 END Y_STD_FLAG
+									, CASE WHEN STD_FLAG = '0' THEN COUNT(STD_FLAG) ELSE 0 END N_STD_FLAG
+								FROM (
+										SELECT POHD.GATE_CD
+											, POHD.CUST_CD
+											, CASE WHEN <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), '') = '' THEN '0'
+											  ELSE
+												   CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+												   THEN '0'
+												   ELSE '1'
+												   END
+											 END AS STD_FLAG
+										FROM STOUPOHD POHD
+										JOIN STOUPODT PODT
+										ON  PODT.GATE_CD  = POHD.GATE_CD
+										AND PODT.CPO_NO   = POHD.CPO_NO
+										AND PODT.CUST_CD  = POHD.CUST_CD
+										AND PODT.DEL_FLAG = '0'
+										LEFT JOIN (
+													SELECT IVDT.GATE_CD
+														, IVDT.CPO_NO
+														, IVDT.CPO_SEQ
+														, MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+														, MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+														, MIN(GRDT.GR_DATE) AS GR_DATE
+													FROM STOYIVDT IVDT
+													JOIN STOYIVHD IVHD
+													ON  IVDT.GATE_CD  = IVHD.GATE_CD
+													AND IVDT.IV_NO = IVHD.IV_NO
+													AND IVHD.DEL_FLAG = '0'
+													AND IVDT.DEL_FLAG = '0'
+													LEFT JOIN STOCGRDT GRDT
+													ON  IVDT.GATE_CD  = GRDT.GATE_CD
+													AND IVDT.IV_NO = GRDT.IV_NO
+													AND IVDT.IV_SEQ = GRDT.IV_SEQ
+													AND GRDT.DEL_FLAG = '0'
+
+													WHERE IVHD.GATE_CD = #{ses.gateCd}
+													GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+												  ) ITBL
+										ON  ITBL.GATE_CD = PODT.GATE_CD
+										AND ITBL.CPO_NO = PODT.CPO_NO
+										AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+
+										WHERE POHD.GATE_CD  = #{ses.gateCd}
+										AND POHD.DEL_FLAG = '0'
+										AND PODT.PROGRESS_CD NOT IN ('10', '20', '35')
+								    	<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+											AND (CASE WHEN POHD.IF_CPO_NO IS NULL THEN <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE , 'yyyyMMdd') ELSE <include refid="com.sql.toDateChar"/>(POHD.CUST_CPO_DATE , 'yyyyMMdd') END) BETWEEN #{START_DATE} AND #{END_DATE}
+										</if>
+									) E
+								GROUP BY E.GATE_CD, E.CUST_CD, E.STD_FLAG
+								) E
+						GROUP BY E.GATE_CD, E.CUST_CD
+						) E
+				ON  UPODT.GATE_CD = E.GATE_CD
+				AND UPODT.CUST_CD = E.CUST_CD
+				LEFT JOIN (
+							SELECT VOCM.GATE_CD
+								, VOCM.REQ_COM_CD AS CUST_CD
+								,COUNT (VOCM.REQ_COM_CD) AS VOC_CNT
+							FROM STOCVOCM VOCM
+							WHERE VOCM.GATE_CD  = #{ses.gateCd}
+							AND VOCM.DEL_FLAG = '0'
+							<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND <include refid="com.sql.toDateChar"/>(VOCM.REQ_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+							AND VOCM.VOC_TYPE IN (
+													SELECT CODE
+													FROM STOCCODD
+													WHERE GATE_CD = #{ses.gateCd}
+													AND DEL_FLAG = '0'
+													AND CODE_TYPE = 'MP053'
+													AND TEXT1 = 'C'
+													)
+							AND VOCM.REQ_COM_TYPE = '100'
+							GROUP BY VOCM.GATE_CD, VOCM.REQ_COM_CD
+						) F
+				ON  UPODT.GATE_CD = F.GATE_CD
+				AND UPODT.CUST_CD = F.CUST_CD
+
+				WHERE UPOHD.GATE_CD = #{ses.gateCd}
+				AND UPOHD.DEL_FLAG = '0'
+				AND UPODT.DEL_FLAG = '0'
+				AND UPODT.PROGRESS_CD NOT IN ('10', '20', '35')
+				AND UPOHD.CUST_CD NOT IN (
+											SELECT CODE
+											FROM STOCCODD
+											WHERE GATE_CD = #{ses.gateCd}
+											AND DEL_FLAG = '0'
+											AND CODE_TYPE = 'MP077'
+											)
+				<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+					AND <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+				</if>
+				<if test="CUST_CD != '' and CUST_CD != ''">
+					AND UPOHD.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="CUST_NM != '' and CUST_NM != ''">
+					AND <include refid="com.sql.dbo"/>GETCUSTNAME(UPOHD.GATE_CD, UPOHD.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="MANAGE_ID != '' and MANAGE_ID != ''">
+					AND UPODT.AM_USER_ID = #{MANAGE_ID}
+				</if>
+				GROUP BY UPOHD.GATE_CD, UPOHD.CUST_CD
+		) AA
+		LEFT JOIN (
+					SELECT GATE_CD
+						, CUST_CD
+						, ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+					FROM (
+							SELECT POHD.GATE_CD
+								, POHD.CUST_CD
+								, <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, <include refid="com.sql.toDate"/>(CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+							FROM STOUPOHD POHD
+							JOIN STOUPODT PODT
+							ON  PODT.GATE_CD  = POHD.GATE_CD
+							AND PODT.CPO_NO   = POHD.CPO_NO
+							AND PODT.CUST_CD  = POHD.CUST_CD
+							AND PODT.DEL_FLAG = '0'
+							LEFT JOIN (
+										SELECT IVDT.GATE_CD
+											, IVDT.CPO_NO
+											, IVDT.CPO_SEQ
+											, MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+											, MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+										FROM STOYIVDT IVDT
+										JOIN STOYIVHD IVHD
+										ON  IVDT.GATE_CD  = IVHD.GATE_CD
+										AND IVDT.IV_NO = IVHD.IV_NO
+										AND IVHD.DEL_FLAG = '0'
+										AND IVDT.DEL_FLAG = '0'
+
+										WHERE IVHD.GATE_CD = #{ses.gateCd}
+										GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+									  ) ITBL
+							ON  ITBL.GATE_CD = PODT.GATE_CD
+							AND ITBL.CPO_NO = PODT.CPO_NO
+							AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+
+							WHERE POHD.GATE_CD  = #{ses.gateCd}
+							AND POHD.DEL_FLAG = '0'
+							AND PODT.PROGRESS_CD NOT IN ('10', '20', '35')
+							<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND (CASE WHEN POHD.IF_CPO_NO IS NULL THEN <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE, 'yyyyMMdd') ELSE <include refid="com.sql.toDateChar"/>(POHD.CUST_CPO_DATE, 'yyyyMMdd') END) BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+						) C
+					WHERE C.LT_DAYS > 0
+					GROUP BY C.GATE_CD , C.CUST_CD
+					) C
+		ON  AA.GATE_CD = C.GATE_CD
+		AND AA.CUST_CD = C.CUST_CD
+		LEFT JOIN (
+						SELECT GATE_CD
+							, CUST_CD
+							, ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+						FROM (
+								SELECT POHD.GATE_CD
+									, POHD.CUST_CD
+									, <include refid="com.sql.dbo"/>fn_GetWorkingDays(ITBL.GR_DATE, <include refid="com.sql.toDate"/>(CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+								FROM STOUPOHD POHD
+								JOIN STOUPODT PODT
+								ON  PODT.GATE_CD  = POHD.GATE_CD
+								AND PODT.CPO_NO   = POHD.CPO_NO
+								AND PODT.CUST_CD  = POHD.CUST_CD
+								AND PODT.DEL_FLAG = '0'
+								LEFT JOIN (
+											SELECT IVDT.GATE_CD
+												, IVDT.CPO_NO
+												, IVDT.CPO_SEQ
+												, MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+												, MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+												, MIN(GRDT.GR_DATE) AS GR_DATE
+											FROM STOYIVDT IVDT
+											JOIN STOYIVHD IVHD
+											ON  IVDT.GATE_CD  = IVHD.GATE_CD
+											AND IVDT.IV_NO = IVHD.IV_NO
+											AND IVHD.DEL_FLAG = '0'
+											AND IVDT.DEL_FLAG = '0'
+											LEFT JOIN STOCGRDT GRDT
+											ON  IVDT.GATE_CD  = GRDT.GATE_CD
+											AND IVDT.IV_NO = GRDT.IV_NO
+											AND IVDT.IV_SEQ = GRDT.IV_SEQ
+											AND GRDT.DEL_FLAG = '0'
+
+											WHERE IVHD.GATE_CD = #{ses.gateCd}
+											GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+										  ) ITBL
+								ON  ITBL.GATE_CD = PODT.GATE_CD
+								AND ITBL.CPO_NO = PODT.CPO_NO
+								AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+
+								WHERE POHD.GATE_CD  = #{ses.gateCd}
+								AND POHD.DEL_FLAG = '0'
+								AND PODT.PROGRESS_CD NOT IN ('10', '20', '35')
+								<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+									AND (CASE WHEN POHD.IF_CPO_NO IS NULL THEN <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE, 'yyyyMMdd') ELSE <include refid="com.sql.toDateChar"/>(POHD.CUST_CPO_DATE, 'yyyyMMdd') END) BETWEEN #{START_DATE} AND #{END_DATE}
+								</if>
+							) D
+						WHERE D.LT_DAYS > 0
+						GROUP BY D.GATE_CD , D.CUST_CD
+						) D
+		ON  AA.GATE_CD = D.GATE_CD
+		AND AA.CUST_CD = D.CUST_CD
+	</select>
+
+	<select id="my03060_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT AA.VENDOR_CD
+			, VENDOR_NM
+			, <include refid="com.sql.nvl"/>(CPO_ITEM_AMT, 0) AS CPO_ITEM_AMT
+			, REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PO_ITEM_AMT, 0)), '.00', '') AS PO_ITEM_AMT
+			, <include refid="com.sql.nvl"/>(PO_ITEM_AMT, 0) AS S_PO_ITEM_AMT
+			, <include refid="com.sql.nvl"/>(CPO_CNT, 0) AS CPO_CNT
+			, <include refid="com.sql.nvl"/>(ITEM_CNT, 0) AS ITEM_CNT
+			, <include refid="com.sql.nvl"/>(RQ_CNT, 0) AS RQ_CNT
+			, <include refid="com.sql.nvl"/>(IV.IV_CNT, 0) AS IV_CNT
+
+			, <include refid="com.sql.nvl"/>(A_AVG_LT_DAY, 0) AS A_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(C.AVG_LT_DAY, 0) AS C_AVG_LT_DAY
+			, <include refid="com.sql.nvl"/>(E.STD_DELY_RATE, 0) AS STD_DELY_RATE
+			, <include refid="com.sql.nvl"/>(VOC_CNT, 0) AS VOC_CNT
+			, AM_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(AA.GATE_CD, AM_USER_ID, #{ses.langCd}) AS AM_USER_NM
+		FROM (
+				SELECT UPOHD.GATE_CD
+					, UPODT.VENDOR_CD
+					, <include refid="com.sql.dbo"/>GETCOMPANYNAME(UPOHD.GATE_CD, UPODT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+					, SUM(UPODT.CPO_ITEM_AMT) AS CPO_ITEM_AMT
+					, SUM(YPODT.PO_ITEM_AMT) AS PO_ITEM_AMT
+					, COUNT(UPODT.CPO_NO) AS CPO_CNT
+					, COUNT(DISTINCT UPODT.ITEM_CD) AS ITEM_CNT
+					, MAX(RQ_CNT) AS RQ_CNT
+
+					, MAX(A.AVG_LT_DAY) AS A_AVG_LT_DAY
+					, MAX(F.VOC_CNT) AS VOC_CNT
+					, MAX(UPODT.AM_USER_ID) AS AM_USER_ID
+				FROM STOUPOHD UPOHD
+				JOIN STOUPODT UPODT
+				ON UPOHD.GATE_CD = UPODT.GATE_CD
+				AND UPOHD.CUST_CD = UPODT.CUST_CD
+				AND UPOHD.CPO_NO = UPODT.CPO_NO
+				LEFT JOIN STOYPODT YPODT
+				ON UPODT.GATE_CD = YPODT.GATE_CD
+				AND UPODT.CPO_NO = YPODT.CPO_NO
+				AND UPODT.CPO_SEQ = YPODT.CPO_SEQ
+				AND YPODT.DEL_FLAG = '0'
+				LEFT JOIN (
+							SELECT VENDOR_CD
+								, COUNT(RFQ_NUM) AS RQ_CNT
+							FROM (
+									SELECT VENDOR_CD
+										, RFQ_NUM
+									FROM (
+											SELECT <include refid="com.sql.dbo"/>getRfqProgressCd(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) AS PROGRESS_CD
+												, RQVN.VENDOR_CD
+												, RQHD.RFQ_NUM
+												, RQHD.RFQ_CNT
+												, RQHD.RFQ_SUBJECT
+												, RQHD.REG_DATE
+
+												,(CASE WHEN (SELECT COUNT(*)
+															 FROM STOCCNHD H
+															 LEFT JOIN STOCCNDT C
+															 ON  H.GATE_CD = C.GATE_CD
+															 AND H.EXEC_NUM = C.EXEC_NUM
+															 LEFT JOIN STOCQTDT Q
+															 ON  C.GATE_CD = Q.GATE_CD
+															 AND C.QTA_NUM = Q.QTA_NUM
+															 AND C.QTA_SQ = Q.QTA_SQ
+															 AND C.VENDOR_CD = Q.VENDOR_CD
+
+															 WHERE H.GATE_CD = RQHD.GATE_CD
+															 AND H.DEL_FLAG = '0'
+															 AND H.SIGN_STATUS = 'E'
+															 AND C.RFQ_NUM = RQHD.RFQ_NUM
+															 AND C.RFQ_CNT = RQHD.RFQ_CNT
+															 AND C.VENDOR_CD = RQVN.VENDOR_CD
+															 AND C.DEL_FLAG = '0'
+															 AND Q.SETTLE_FLAG = '1'
+															 AND Q.DEL_FLAG = '0')  >  0
+												  THEN '1'
+												  ELSE '0' END) AS SETTLE_FLAG
+											FROM STOCRQHD RQHD
+											JOIN (	SELECT RQVN.GATE_CD
+														, RQVN.RFQ_NUM
+														, RQVN.RFQ_CNT
+														, MAX(RQVN.VENDOR_CD) AS VENDOR_CD
+													FROM STOCRQVN RQVN
+													WHERE RQVN.GATE_CD = #{ses.gateCd}
+													AND RQVN.DEL_FLAG = '0'
+													GROUP BY RQVN.GATE_CD, RQVN.RFQ_NUM, RQVN.RFQ_CNT
+												 ) RQVN
+											ON  RQHD.GATE_CD = RQVN.GATE_CD
+											AND RQHD.RFQ_NUM = RQVN.RFQ_NUM
+											AND RQHD.RFQ_CNT = RQVN.RFQ_CNT
+
+											WHERE RQHD.GATE_CD = #{ses.gateCd}
+											AND RQHD.DEL_FLAG = '0'
+									    	<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+												AND <include refid="com.sql.toDateChar"/>(RQHD.RFQ_CLOSE_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+											</if>
+									) A
+									WHERE A.PROGRESS_CD IN ('200','300','390','600','450','100')
+									AND A.SETTLE_FLAG = '0'
+									AND (CASE WHEN ((A.PROGRESS_CD  >=  '300' AND A.SETTLE_FLAG = '0') OR A.PROGRESS_CD = '390') THEN '300' ELSE A.PROGRESS_CD END) IN ('200', '300')
+									GROUP BY A.VENDOR_CD, A.RFQ_NUM
+							) AA
+							GROUP BY AA.VENDOR_CD
+						) RQ
+				ON  UPODT.VENDOR_CD = RQ.VENDOR_CD
+				LEFT JOIN (
+							SELECT GATE_CD
+								, VENDOR_CD
+								, ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+							FROM (
+									SELECT NWRQ.GATE_CD
+										, INFO.VENDOR_CD
+										, NWRQ.CMS_MAPPING_DATE
+										, INFO.REG_DATE
+										, <include refid="com.sql.dbo"/>fn_GetWorkingDays(NWRQ.CMS_MAPPING_DATE, INFO.REG_DATE) AS LT_DAYS
+									FROM STOUNWRQ NWRQ
+									JOIN STOYINFO INFO
+									ON  NWRQ.GATE_CD  = INFO.GATE_CD
+									AND NWRQ.CONT_NO  = INFO.CONT_NO
+									AND NWRQ.CONT_SEQ = INFO.CONT_SEQ
+									AND INFO.DEL_FLAG = '0'
+
+									WHERE NWRQ.GATE_CD  = #{ses.gateCd}
+									AND NWRQ.DEL_FLAG = '0'
+									AND NWRQ.PROGRESS_CD = '500' -- 소싱완료
+									AND NWRQ.CONT_NO IS NOT NULL
+							    	<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+										AND <include refid="com.sql.toDateChar"/>(NWRQ.REQUEST_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+									</if>
+								) A
+							WHERE A.LT_DAYS > 0
+							GROUP BY A.GATE_CD , A.VENDOR_CD
+							) A
+				ON  UPODT.GATE_CD = A.GATE_CD
+				AND UPODT.VENDOR_CD = A.VENDOR_CD
+				LEFT JOIN (
+							SELECT VOCM.GATE_CD
+								, VOCM.REQ_COM_CD AS VENDOR_CD
+								,COUNT (VOCM.REQ_COM_CD) AS VOC_CNT
+							FROM STOCVOCM VOCM
+							WHERE VOCM.GATE_CD  = #{ses.gateCd}
+							AND VOCM.DEL_FLAG = '0'
+							<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND <include refid="com.sql.toDateChar"/>(VOCM.REQ_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+							AND VOCM.VOC_TYPE IN (
+													SELECT CODE
+													FROM STOCCODD
+													WHERE GATE_CD = #{ses.gateCd}
+													AND DEL_FLAG = '0'
+													AND CODE_TYPE = 'MP053'
+													AND TEXT1 = 'C'
+													)
+							AND VOCM.REQ_COM_TYPE = '200'
+							GROUP BY VOCM.GATE_CD, VOCM.REQ_COM_CD
+						) F
+				ON  UPODT.GATE_CD = F.GATE_CD
+				AND UPODT.VENDOR_CD = F.VENDOR_CD
+
+				WHERE UPOHD.GATE_CD = #{ses.gateCd}
+				AND UPOHD.DEL_FLAG = '0'
+				AND UPODT.DEL_FLAG = '0'
+				AND UPODT.PROGRESS_CD NOT IN ('10', '20', '35')
+				AND YPODT.PROGRESS_CD NOT IN ('10', '20', '35')
+				<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+					AND <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+				</if>
+				<if test="VENDOR_CD != '' and VENDOR_CD != ''">
+					AND UPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="VENDOR_NM != '' and VENDOR_NM != ''">
+					AND <include refid="com.sql.dbo"/>GETCOMPANYNAME(UPOHD.GATE_CD, UPODT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="MANAGE_ID != '' and MANAGE_ID != ''">
+					AND UPODT.AM_USER_ID = #{MANAGE_ID}
+				</if>
+				GROUP BY UPOHD.GATE_CD, UPODT.VENDOR_CD
+		) AA
+		LEFT JOIN (
+					SELECT VENDOR_CD
+						, SUM(IV_CNT) AS IV_CNT
+					FROM (
+							SELECT YPODT.VENDOR_CD
+								, COUNT(YPODT.VENDOR_CD) AS IV_CNT
+							FROM STOYPODT YPODT
+							JOIN STOYPOHD YPOHD
+							ON YPOHD.GATE_CD = YPODT.GATE_CD
+							AND YPOHD.PO_NO = YPODT.PO_NO
+							AND YPOHD.SIGN_STATUS = 'E'
+							AND YPOHD.DEL_FLAG = '0'
+
+							WHERE YPOHD.GATE_CD = #{ses.gateCd}
+							AND YPODT.DEL_FLAG = '0'
+							AND YPODT.PROGRESS_CD  >=  '40'
+							AND YPODT.DEAL_CD IN ('200','400')
+							AND YPODT.DELY_REJECT_DATE IS NULL
+							AND YPODT.FORCE_CLOSE_DATE IS NULL
+							AND (YPODT.CPO_QTY - <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0)) > 0
+							<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+							AND NOT EXISTS (
+											SELECT 'X' FROM STOUPODT
+											WHERE GATE_CD = YPODT.GATE_CD
+											AND CPO_NO = YPODT.CPO_NO
+											AND CPO_SEQ = YPODT.CPO_SEQ
+											AND DEL_FLAG = '1')
+							AND 0 = (
+									SELECT COUNT(*) FROM STOUPODT
+									WHERE GATE_CD  = YPODT.GATE_CD
+									AND CPO_NO   = YPODT.CPO_NO
+									AND CPO_SEQ  = YPODT.CPO_SEQ
+									AND PROGRESS_CD = 'ZZ'
+									AND DEL_FLAG = '0')
+							GROUP BY YPODT.VENDOR_CD
+
+							UNION ALL
+
+							SELECT YIVHD.VENDOR_CD
+								, COUNT(YIVHD.VENDOR_CD) AS IV_CNT
+							FROM STOYIVDT YIVDT
+							JOIN STOYIVHD YIVHD
+							ON  YIVDT.GATE_CD  = YIVHD.GATE_CD
+							AND YIVDT.IV_NO	= YIVHD.IV_NO
+							AND YIVHD.DEL_FLAG = '0'
+							JOIN STOYPODT YPODT
+							ON  YIVDT.GATE_CD  = YPODT.GATE_CD
+							AND YIVDT.PO_NO	= YPODT.PO_NO
+							AND YIVDT.PO_SEQ   = YPODT.PO_SEQ
+							AND YPODT.DEAL_CD IN ('200','400')
+							AND YPODT.DEL_FLAG = '0'
+							JOIN STOYPOHD YPOHD
+							ON  YPODT.GATE_CD  = YPOHD.GATE_CD
+							AND YPODT.PO_NO	= YPOHD.PO_NO
+							AND YPOHD.SIGN_STATUS = 'E'
+							AND YPOHD.DEL_FLAG = '0'
+
+							WHERE YIVDT.GATE_CD = #{ses.gateCd}
+							AND YIVDT.DEL_FLAG = '0'
+							AND <include refid="com.sql.nvl"/>(YIVDT.DELY_COMPLETE_FLAG, '0') = '0'
+							<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+							GROUP BY YIVHD.VENDOR_CD
+					) A
+					GROUP BY VENDOR_CD
+				) IV
+		ON  AA.VENDOR_CD = IV.VENDOR_CD
+		LEFT JOIN (
+					SELECT GATE_CD
+						, VENDOR_CD
+						, ROUND(SUM(TO_NUMBER(LT_DAYS)) / COUNT(LT_DAYS), 1) AS AVG_LT_DAY
+					FROM (
+							SELECT POHD.GATE_CD
+								, PODT.VENDOR_CD
+								, <include refid="com.sql.dbo"/>fn_GetWorkingDays(POHD.CPO_DATE, <include refid="com.sql.toDate"/>(CASE WHEN <include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, '') = '' THEN ITBL.DELY_APP_DATE ELSE ITBL.DELY_COMPLETE_DATE END))) AS LT_DAYS
+							FROM STOUPOHD POHD
+							JOIN STOUPODT PODT
+							ON  PODT.GATE_CD  = POHD.GATE_CD
+							AND PODT.CPO_NO   = POHD.CPO_NO
+							AND PODT.CUST_CD  = POHD.CUST_CD
+							AND PODT.DEL_FLAG = '0'
+							LEFT JOIN (
+										SELECT IVDT.GATE_CD
+											, IVDT.CPO_NO
+											, IVDT.CPO_SEQ
+											, MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+											, MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+										FROM STOYIVDT IVDT
+										JOIN STOYIVHD IVHD
+										ON  IVDT.GATE_CD  = IVHD.GATE_CD
+										AND IVDT.IV_NO = IVHD.IV_NO
+										AND IVHD.DEL_FLAG = '0'
+										AND IVDT.DEL_FLAG = '0'
+
+										WHERE IVHD.GATE_CD = #{ses.gateCd}
+										GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+									  ) ITBL
+							ON  ITBL.GATE_CD = PODT.GATE_CD
+							AND ITBL.CPO_NO = PODT.CPO_NO
+							AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+
+							WHERE POHD.GATE_CD  = #{ses.gateCd}
+							AND POHD.DEL_FLAG = '0'
+							AND PODT.PROGRESS_CD NOT IN ('10', '20', '35')
+							<if test="CPO_START_DATE != '' and CPO_END_DATE != ''">
+								AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{CPO_START_DATE} AND #{CPO_END_DATE}
+							</if>
+					    	<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+								AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+							</if>
+						) C
+					WHERE C.LT_DAYS > 0
+					GROUP BY C.GATE_CD , C.VENDOR_CD
+					) C
+		ON  AA.GATE_CD = C.GATE_CD
+		AND AA.VENDOR_CD = C.VENDOR_CD
+		LEFT JOIN (
+				SELECT GATE_CD
+					, VENDOR_CD
+					, SUM(Y_STD_FLAG) AS Y_STD_FLAG
+					, SUM(N_STD_FLAG) AS N_STD_FLAG
+					, ROUND(TO_NUMBER(SUM(Y_STD_FLAG)) / (SUM(Y_STD_FLAG) + SUM(N_STD_FLAG)) * 100, 1) AS STD_DELY_RATE
+				FROM (
+						SELECT GATE_CD
+							, VENDOR_CD
+							, CASE WHEN STD_FLAG = '1' THEN COUNT(STD_FLAG) ELSE 0 END Y_STD_FLAG
+							, CASE WHEN STD_FLAG = '0' THEN COUNT(STD_FLAG) ELSE 0 END N_STD_FLAG
+						FROM (
+								SELECT POHD.GATE_CD
+									, PODT.VENDOR_CD
+									, CASE WHEN <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), '') = '' THEN '0'
+									  ELSE
+										   CASE WHEN <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.nvl"/>(ITBL.DELY_COMPLETE_DATE, ITBL.GR_DATE), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) > <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+										   THEN '0'
+										   ELSE '1'
+										   END
+									 END AS STD_FLAG
+								FROM STOUPOHD POHD
+								JOIN STOUPODT PODT
+								ON  PODT.GATE_CD  = POHD.GATE_CD
+								AND PODT.CPO_NO   = POHD.CPO_NO
+								AND PODT.CUST_CD  = POHD.CUST_CD
+								AND PODT.DEL_FLAG = '0'
+								LEFT JOIN (
+											SELECT IVDT.GATE_CD
+												, IVDT.CPO_NO
+												, IVDT.CPO_SEQ
+												, MIN(IVDT.DELY_COMPLETE_DATE) AS DELY_COMPLETE_DATE
+												, MIN(IVHD.DELY_APP_DATE) AS DELY_APP_DATE
+												, MIN(GRDT.GR_DATE) AS GR_DATE
+											FROM STOYIVDT IVDT
+											JOIN STOYIVHD IVHD
+											ON  IVDT.GATE_CD  = IVHD.GATE_CD
+											AND IVDT.IV_NO = IVHD.IV_NO
+											AND IVHD.DEL_FLAG = '0'
+											AND IVDT.DEL_FLAG = '0'
+											LEFT JOIN STOCGRDT GRDT
+											ON  IVDT.GATE_CD  = GRDT.GATE_CD
+											AND IVDT.IV_NO = GRDT.IV_NO
+											AND IVDT.IV_SEQ = GRDT.IV_SEQ
+											AND GRDT.DEL_FLAG = '0'
+
+											WHERE IVHD.GATE_CD = #{ses.gateCd}
+											GROUP BY IVDT.GATE_CD, IVDT.CPO_NO, IVDT.CPO_SEQ
+										  ) ITBL
+								ON  ITBL.GATE_CD = PODT.GATE_CD
+								AND ITBL.CPO_NO = PODT.CPO_NO
+								AND ITBL.CPO_SEQ = PODT.CPO_SEQ
+
+								WHERE POHD.GATE_CD  = #{ses.gateCd}
+								AND POHD.DEL_FLAG = '0'
+								AND PODT.PROGRESS_CD NOT IN ('10', '20', '35')
+								<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+									AND <include refid="com.sql.toDateChar"/>((CASE WHEN POHD.IF_CPO_NO IS NULL THEN POHD.CPO_DATE ELSE POHD.CUST_CPO_DATE END), 'yyyyMMdd') BETWEEN #{START_DATE} AND #{END_DATE}
+								</if>
+							) E
+						GROUP BY E.GATE_CD, E.VENDOR_CD, E.STD_FLAG
+						) E
+				GROUP BY E.GATE_CD, E.VENDOR_CD
+				) E
+		ON  AA.GATE_CD = E.GATE_CD
+		AND AA.VENDOR_CD = E.VENDOR_CD
+	  ORDER BY AA.PO_ITEM_AMT DESC
+	</select>
+
+	<select id="my03070_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		 A.ITEM_CD
+		,A.CUST_ITEM_CD
+		,A.ITEM_DESC
+		,MAX(B.STD_FLAG) AS STD_FLAG
+		,MAX(B.STD_TYPE) AS STD_TYPE
+		,A.ITEM_SPEC
+		,getCustName(A.GATE_CD, A.CUST_CD) AS CUST_NM
+		,A.UNIT_CD
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '01' THEN A.CLOSE_QTY ELSE 0 END) QTY01
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '01' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT01
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '02' THEN A.CLOSE_QTY ELSE 0 END) QTY02
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '02' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT02
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '03' THEN A.CLOSE_QTY ELSE 0 END) QTY03
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '03' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT03
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '04' THEN A.CLOSE_QTY ELSE 0 END) QTY04
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '04' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT04
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '05' THEN A.CLOSE_QTY ELSE 0 END) QTY05
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '05' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT05
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '06' THEN A.CLOSE_QTY ELSE 0 END) QTY06
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '06' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT06
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '07' THEN A.CLOSE_QTY ELSE 0 END) QTY07
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '07' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT07
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '08' THEN A.CLOSE_QTY ELSE 0 END) QTY08
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '08' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT08
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '09' THEN A.CLOSE_QTY ELSE 0 END) QTY09
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '09' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT09
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '10' THEN A.CLOSE_QTY ELSE 0 END) QTY10
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '10' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT10
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '11' THEN A.CLOSE_QTY ELSE 0 END) QTY11
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '11' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT11
+
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '12' THEN A.CLOSE_QTY ELSE 0 END) QTY12
+		,SUM(CASE WHEN TO_CHAR(A.CLOSE_DATE,'MM') = '12' THEN <include refid="com.sql.nvl"/>(A.GR_ITEM_AMT,0)+<include refid="com.sql.nvl"/>(GR_ITEM_TAX_AMT,0) ELSE 0 END) AMT12
+		FROM STOCAPAR A
+   LEFT JOIN STOCMTGL B
+	   	   ON  A.GATE_CD  = B.GATE_CD
+	       AND A.ITEM_CD  = B.ITEM_CD
+	       AND B.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.CLOSING_TYPE = 'AP'
+		AND A.DEL_FLAG = '0'
+		AND TO_CHAR(A.CLOSE_DATE,'YYYY') = #{YEAR}
+
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND A.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND getCustName(A.GATE_CD, A.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="STD_FLAG != null and STD_FLAG != ''">
+			AND B.STD_FLAG = #{STD_FLAG}
+		</if>
+		<if test="STD_TYPE != null and STD_TYPE != ''">
+			AND B.STD_TYPE = #{STD_TYPE}
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		    AND A.ITEM_CD IN
+		  <foreach item="item" index="index" collection="ITEM_CD_LIST" open="(" separator="," close=")">
+		    #{item}
+		  </foreach>
+		</if>
+
+
+		GROUP BY
+		 A.GATE_CD
+		,A.ITEM_CD
+		,A.CUST_ITEM_CD
+		,A.ITEM_DESC
+		,A.ITEM_SPEC
+		,A.CUST_CD
+		,A.UNIT_CD
+		ORDER BY A.CUST_CD ,A.ITEM_CD
+
+
+
+
+	</select>
+
+	<select id="my03080_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT A.JOB_DATE
+			, MAX(A.COMPANY_CD) AS COMPANY_CD
+			, MAX(<include refid="com.sql.dbo"/>getCompanyName(A.GATE_CD, A.COMPANY_CD, #{ses.langCd})) AS COMPANY_NM
+			, MAX(<include refid="com.sql.nvl"/>(A.DEPT_CD, '')) AS DEPT_CD
+			, MAX(<include refid="com.sql.nvl"/>(A.DEPT_NM, <include refid="com.sql.dbo"/>getDeptName(A.GATE_CD, A.COMPANY_CD, A.DEPT_CD, #{ses.langCd}))) AS DEPT_NM
+			, A.USER_ID AS USER_ID
+			, MAX(A.USER_NM) AS USER_NM
+			, MAX(<include refid="com.sql.dbo"/>GETCOMCODE(A.GATE_CD, 'M006', A.USER_TYPE, '0', #{ses.langCd})) AS USER_TYPE
+			, MAX(A.IP_ADDR) AS IP_ADDR
+		FROM (
+			SELECT ULOG.GATE_CD
+				, <include refid="com.sql.toDateChar"/>(ULOG.JOB_DATE, 'YYYY-MM-DD') AS JOB_DATE
+				, CASE WHEN ULOG.USER_TYPE = 'C'
+				  THEN (SELECT Z.COMPANY_CD FROM STOCUSER Z WHERE Z.GATE_CD = ULOG.GATE_CD AND Z.USER_ID = ULOG.USER_ID)
+				  ELSE (SELECT ZZ.COMPANY_CD FROM STOCCVUR ZZ WHERE ZZ.GATE_CD = ULOG.GATE_CD AND ZZ.USER_ID = ULOG.USER_ID)
+				  END AS COMPANY_CD
+				, ULOG.USER_ID  AS USER_ID
+				, CASE WHEN ULOG.USER_TYPE = 'C'
+				  THEN (SELECT  U.USER_NM FROM STOCUSER U WHERE U.GATE_CD = ULOG.GATE_CD AND U.USER_ID = ULOG.USER_ID)
+				  ELSE (SELECT  U.USER_NM FROM STOCCVUR U WHERE U.GATE_CD = ULOG.GATE_CD AND U.USER_ID =  ULOG.USER_ID )
+				  END AS USER_NM
+				, CASE WHEN ULOG.USER_TYPE = 'C'
+				  THEN (SELECT Z.DEPT_CD FROM STOCUSER Z WHERE Z.GATE_CD = ULOG.GATE_CD AND Z.USER_ID = ULOG.USER_ID)
+				  ELSE (SELECT ZZ.DEPT_CD FROM STOCCVUR ZZ WHERE ZZ.GATE_CD = ULOG.GATE_CD AND ZZ.USER_ID = ULOG.USER_ID)
+				  END AS DEPT_CD
+				, CASE WHEN ULOG.USER_TYPE = 'C'
+				  THEN (SELECT Z.DEPT_NM FROM STOCUSER Z WHERE Z.GATE_CD = ULOG.GATE_CD AND Z.USER_ID = ULOG.USER_ID)
+				  ELSE (SELECT ZZ.DEPT_NM FROM STOCCVUR ZZ WHERE ZZ.GATE_CD = ULOG.GATE_CD AND ZZ.USER_ID = ULOG.USER_ID)
+				  END AS DEPT_NM
+				, CASE WHEN ULOG.USER_TYPE = 'N' THEN '' ELSE ULOG.USER_TYPE END AS USER_TYPE
+				, ULOG.IP_ADDR
+			FROM STOCULOG ULOG
+			WHERE ULOG.GATE_CD = #{ses.gateCd}
+			AND ULOG.JOB_TYPE IN ('I')
+			AND <include refid="com.sql.toDateChar"/>(ULOG.JOB_DATE, 'yyyyMMdd') BETWEEN #{JOB_DATE_FROM} AND #{JOB_DATE_TO}
+			<if test="USER_TYPE != '' and USER_TYPE != null">
+				AND ULOG.USER_TYPE = #{USER_TYPE}
+			</if>
+		)A
+		WHERE 1=1
+		<if test="COMPANY_CD != '' and COMPANY_CD != null">
+			AND A.COMPANY_CD <include refid="com.sql.likeL"/> #{COMPANY_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="COMPANY_NM != '' and COMPANY_NM != null">
+			AND <include refid="com.sql.dbo"/>getCompanyName(A.GATE_CD, A.COMPANY_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{COMPANY_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+		GROUP BY A.JOB_DATE, A.USER_ID
+		ORDER BY A.JOB_DATE DESC, MAX(A.COMPANY_CD)
+
+	</select>
+
+	<select id="my03090_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+				*
+		FROM(
+			SELECT
+				  AA.RELAT_YN
+			    , AA.GATE_CD
+				, <include refid="com.sql.nvl"/>(SA.YEAR, (CASE WHEN (#{YEAR} = '' OR #{YEAR} = NULL) THEN #{THIS_YEAR} ELSE #{YEAR} END)) AS YEAR
+				, AA.CUST_CD
+				, AA.CUST_NM
+				, AA.PLANT_CD
+				, AA.RESULT_DEAL_CD
+				, AA.RESULT_ITEM_TYPE
+				, AA.PLANT_NM
+				, <include refid="com.sql.nvl"/>(SA.MANAGE_ID, #{MANAGE_ID}) AS MANAGE_ID
+				, SA.PROGRESS_CD
+				, <include refid="com.sql.nvl"/>(SA.MONTH_1_SALE_PLAN_AMT, 0) AS MONTH_1_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_2_SALE_PLAN_AMT, 0) AS MONTH_2_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_3_SALE_PLAN_AMT, 0) AS MONTH_3_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_4_SALE_PLAN_AMT, 0) AS MONTH_4_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_5_SALE_PLAN_AMT, 0) AS MONTH_5_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_6_SALE_PLAN_AMT, 0) AS MONTH_6_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_7_SALE_PLAN_AMT, 0) AS MONTH_7_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_8_SALE_PLAN_AMT, 0) AS MONTH_8_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_9_SALE_PLAN_AMT, 0) AS MONTH_9_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_10_SALE_PLAN_AMT, 0) AS MONTH_10_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_11_SALE_PLAN_AMT, 0) AS MONTH_11_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_12_SALE_PLAN_AMT, 0) AS MONTH_12_SALE_PLAN_AMT
+				, <include refid="com.sql.nvl"/>(SA.MONTH_1_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_2_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_3_SALE_PLAN_AMT, 0)
+					+ <include refid="com.sql.nvl"/>(SA.MONTH_4_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_5_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_6_SALE_PLAN_AMT, 0)
+					+ <include refid="com.sql.nvl"/>(SA.MONTH_7_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_8_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_9_SALE_PLAN_AMT, 0)
+					+ <include refid="com.sql.nvl"/>(SA.MONTH_10_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_11_SALE_PLAN_AMT, 0) + <include refid="com.sql.nvl"/>(SA.MONTH_12_SALE_PLAN_AMT, 0) AS MONTH_TOT_SALE_PLAN_AMT
+			FROM(
+				SELECT
+				      CUST.RELAT_YN
+					, CUST.CUST_CD
+					, CUST.NEW_COMPANY_FLAG
+					, CUST.GATE_CD
+					, CUST.CUST_NM
+					, CUPL.PLANT_CD
+					, C.RESULT_DEAL_CD
+					, C.RESULT_ITEM_TYPE
+					, GETPLANTNAME(CUPL.GATE_CD, CUPL.CUST_CD, CUPL.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				FROM STOCCUPL CUPL
+				JOIN STOCCUST CUST
+				    ON (CUPL.GATE_CD = CUST.GATE_CD
+				    AND CUPL.CUST_CD = CUST.CUST_CD
+				    AND CUST.DEL_FLAG = '0' )
+				CROSS JOIN(
+							SELECT
+								A.CODE AS RESULT_DEAL_CD
+							   ,B.CODE AS RESULT_ITEM_TYPE
+							FROM STOCCODD A
+							CROSS JOIN (
+									SELECT
+										CODE
+									   ,CODE_DESC
+									FROM STOCCODD B
+									WHERE GATE_CD = '100'
+									  AND DEL_FLAG = '0'
+									  AND CODE_TYPE = 'MP125'
+									  AND LANG_CD = 'KO'
+									ORDER BY SORT_SQ, UPPER(CODE)
+
+							) B
+							WHERE A.GATE_CD = '100'
+							  AND A.DEL_FLAG = '0'
+							  AND A.CODE_TYPE = 'MP124'
+							  AND A.LANG_CD = 'KO'
+							ORDER BY A.SORT_SQ, UPPER(A.CODE)
+				 )  C
+
+			)AA
+			LEFT OUTER JOIN STOCSAPL SA
+				ON (AA.GATE_CD = SA.GATE_CD
+				AND AA.CUST_CD = SA.CUST_CD
+				AND AA.PLANT_CD = SA.PLANT_CD
+				AND AA.RESULT_DEAL_CD = SA.RESULT_DEAL_CD
+				AND AA.RESULT_ITEM_TYPE = SA.RESULT_ITEM_TYPE
+				<if test="YEAR != '' and YEAR != null">
+					AND SA.YEAR = #{YEAR}
+				</if>
+			)
+
+			WHERE AA.GATE_CD = #{ses.gateCd}
+			AND <include refid="com.sql.nvl"/>(AA.NEW_COMPANY_FLAG, 0) = '0'
+			<if test="CUST_CD != '' and CUST_CD != null">
+				AND AA.CUST_CD = #{CUST_CD}
+			</if>
+			<if test="CUST_NM != '' and CUST_NM != null">
+				AND AA.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PLANT_CD != '' and PLANT_CD != null">
+				AND AA.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PLANT_NM != '' and PLANT_NM != null">
+				AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, AA.CUST_CD, AA.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RELAT_YN != '' and RELAT_YN != null">
+				AND AA.RELAT_YN = #{RELAT_YN}
+			</if>
+			<if test="MANAGE_ID != '' and MANAGE_ID != null">
+				AND SA.MANAGE_ID = #{MANAGE_ID}
+			</if>
+			<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+				AND SA.PROGRESS_CD IN
+				<foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+
+			UNION ALL
+			SELECT
+				   AA.RELAT_YN
+			    , AA.GATE_CD
+				, <include refid="com.sql.nvl"/>(AA.YEAR, (CASE WHEN (#{YEAR} = '' OR #{YEAR} = NULL) THEN #{THIS_YEAR} ELSE #{YEAR} END)) AS YEAR
+				, AA.CUST_CD
+				, AA.CUST_NM
+				, AA.PLANT_CD
+				, AA.RESULT_DEAL_CD
+				, AA.RESULT_ITEM_TYPE
+				, AA.PLANT_NM
+				, <include refid="com.sql.nvl"/>(SA.MANAGE_ID, #{MANAGE_ID}) AS MANAGE_ID
+				, SA.PROGRESS_CD
+				,<include refid="com.sql.nvl"/>(SA.MONTH_1_SALE_PLAN_AMT, 0) AS MONTH_1_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_2_SALE_PLAN_AMT, 0) AS MONTH_2_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_3_SALE_PLAN_AMT, 0) AS MONTH_3_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_4_SALE_PLAN_AMT, 0) AS MONTH_4_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_5_SALE_PLAN_AMT, 0) AS MONTH_5_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_6_SALE_PLAN_AMT, 0) AS MONTH_6_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_7_SALE_PLAN_AMT, 0) AS MONTH_7_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_8_SALE_PLAN_AMT, 0) AS MONTH_8_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_9_SALE_PLAN_AMT, 0) AS MONTH_9_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_10_SALE_PLAN_AMT, 0) AS MONTH_10_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_11_SALE_PLAN_AMT, 0) AS MONTH_11_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_12_SALE_PLAN_AMT, 0) AS MONTH_12_SALE_PLAN_AMT
+				,<include refid="com.sql.nvl"/>(SA.MONTH_1_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_2_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_3_SALE_PLAN_AMT, 0)
+					+  <include refid="com.sql.nvl"/>(SA.MONTH_4_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_5_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_6_SALE_PLAN_AMT, 0)
+					+  <include refid="com.sql.nvl"/>(SA.MONTH_7_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_8_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_9_SALE_PLAN_AMT, 0)
+					+  <include refid="com.sql.nvl"/>(SA.MONTH_10_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_11_SALE_PLAN_AMT, 0) +  <include refid="com.sql.nvl"/>(SA.MONTH_12_SALE_PLAN_AMT, 0) AS MONTH_TOT_SALE_PLAN_AMT
+			FROM(
+				SELECT
+					 '신규' AS RELAT_YN
+					,SA.YEAR
+					,SA.GATE_CD
+					,SA.CUST_CD AS CUST_CD
+					,SA.CUST_NM AS CUST_NM
+					,SA.PLANT_CD
+					,SA.PLANT_NM AS PLANT_NM
+					,C.RESULT_DEAL_CD AS RESULT_DEAL_CD
+					,C.RESULT_ITEM_TYPE AS RESULT_ITEM_TYPE
+				FROM (SELECT #{ses.gateCd} AS GATE_CD, '신규' AS RELAT_YN, 'NEW' AS CUST_CD, 'NEW' AS CUST_NM <include refid="com.sql.dual"/>) CUST
+				JOIN STOCSAPL SA
+					ON (CUST.GATE_CD = SA.GATE_CD
+					AND CUST.CUST_CD = SA.CUST_CD
+					AND SA.CUST_CD = 'NEW'
+					<if test="YEAR != '' and YEAR != null">
+						AND SA.YEAR = #{YEAR}
+					</if>
+				 )
+				CROSS JOIN(
+							SELECT
+								A.CODE AS RESULT_DEAL_CD
+							   ,B.CODE AS RESULT_ITEM_TYPE
+							FROM STOCCODD A
+							CROSS JOIN (
+									SELECT
+										CODE
+									   ,CODE_DESC
+									FROM STOCCODD B
+									WHERE GATE_CD = '100'
+									  AND DEL_FLAG = '0'
+									  AND CODE_TYPE = 'MP125'
+									  AND LANG_CD = 'KO'
+									ORDER BY SORT_SQ, UPPER(CODE)
+
+							) B
+							WHERE A.GATE_CD = '100'
+							  AND A.DEL_FLAG = '0'
+							  AND A.CODE_TYPE = 'MP124'
+							  AND A.LANG_CD = 'KO'
+							ORDER BY A.SORT_SQ, UPPER(A.CODE)
+				  )  C
+				 GROUP BY SA.YEAR
+					     ,SA.GATE_CD
+					     ,SA.CUST_CD
+					     ,SA.CUST_NM
+					     ,SA.PLANT_CD
+					     ,SA.PLANT_NM
+					     ,C.RESULT_DEAL_CD
+					     ,C.RESULT_ITEM_TYPE
+			)AA
+			LEFT OUTER JOIN STOCSAPL SA
+			ON (AA.GATE_CD = SA.GATE_CD
+			AND AA.CUST_CD = SA.CUST_CD
+			AND AA.PLANT_CD = SA.PLANT_CD
+			AND AA.YEAR = SA.YEAR
+			AND AA.RESULT_DEAL_CD = SA.RESULT_DEAL_CD
+			AND AA.RESULT_ITEM_TYPE = SA.RESULT_ITEM_TYPE
+			<if test="YEAR != '' and YEAR != null">
+				AND SA.YEAR = #{YEAR}
+			</if>)
+			WHERE AA.GATE_CD = #{ses.gateCd}
+			<if test="CUST_CD != '' and CUST_CD != null">
+				AND AA.CUST_CD = #{CUST_CD}
+			</if>
+			<if test="CUST_NM != '' and CUST_NM != null">
+				AND AA.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PLANT_CD != '' and PLANT_CD != null">
+				AND AA.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PLANT_NM != '' and PLANT_NM != null">
+				AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, AA.CUST_CD, AA.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test='RELAT_YN == "신규"'>
+				AND AA.RELAT_YN = #{RELAT_YN}
+			</if>
+			<if test="MANAGE_ID != '' and MANAGE_ID != null">
+				AND SA.MANAGE_ID = #{MANAGE_ID}
+			</if>
+			<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+				AND SA.PROGRESS_CD IN
+				<foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+		 )
+		 ORDER BY CUST_CD ,PLANT_CD,RESULT_DEAL_CD,RESULT_ITEM_TYPE
+	</select>
+
+	<insert id="my03090_doMerge" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCSAPL<include refid="com.sql.mergeAs"/>SAPL
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+        			, #{YEAR} AS YEAR
+        			, #{CUST_CD} AS CUST_CD
+        			, #{PLANT_CD} AS PLANT_CD
+        			, #{RESULT_DEAL_CD} AS RESULT_DEAL_CD
+        			, #{RESULT_ITEM_TYPE} AS RESULT_ITEM_TYPE
+        		 <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+         ON (SAPL.GATE_CD  = B.GATE_CD
+         AND SAPL.YEAR 	   = B.YEAR
+         AND SAPL.CUST_CD  = B.CUST_CD
+         AND SAPL.PLANT_CD = B.PLANT_CD
+         AND SAPL.RESULT_ITEM_TYPE = B.RESULT_ITEM_TYPE
+         AND SAPL.RESULT_DEAL_CD = B.RESULT_DEAL_CD
+
+         )
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID 			= #{ses.userId}
+            ,MANAGE_ID 				= #{MANAGE_ID}
+            ,MONTH_1_SALE_PLAN_AMT  = #{MONTH_1_SALE_PLAN_AMT}
+            ,MONTH_2_SALE_PLAN_AMT  = #{MONTH_2_SALE_PLAN_AMT}
+            ,MONTH_3_SALE_PLAN_AMT  = #{MONTH_3_SALE_PLAN_AMT}
+            ,MONTH_4_SALE_PLAN_AMT  = #{MONTH_4_SALE_PLAN_AMT}
+            ,MONTH_5_SALE_PLAN_AMT  = #{MONTH_5_SALE_PLAN_AMT}
+            ,MONTH_6_SALE_PLAN_AMT  = #{MONTH_6_SALE_PLAN_AMT}
+            ,MONTH_7_SALE_PLAN_AMT  = #{MONTH_7_SALE_PLAN_AMT}
+            ,MONTH_8_SALE_PLAN_AMT  = #{MONTH_8_SALE_PLAN_AMT}
+            ,MONTH_9_SALE_PLAN_AMT  = #{MONTH_9_SALE_PLAN_AMT}
+            ,MONTH_10_SALE_PLAN_AMT = #{MONTH_10_SALE_PLAN_AMT}
+            ,MONTH_11_SALE_PLAN_AMT = #{MONTH_11_SALE_PLAN_AMT}
+            ,MONTH_12_SALE_PLAN_AMT = #{MONTH_12_SALE_PLAN_AMT}
+            ,PROGRESS_CD 			= #{PROGRESS_CD}
+            ,CONFIRM_DATE 			= <choose><when test='PROGRESS_CD == "E"'><include refid="com.sql.sysdate"/></when><otherwise>NULL</otherwise></choose>
+            ,CONFIRM_USER_ID 		= <choose><when test='PROGRESS_CD == "E"'>#{ses.userId}</when><otherwise>NULL</otherwise></choose>
+        WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,YEAR
+			,CUST_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,MANAGE_ID
+			,MONTH_1_SALE_PLAN_AMT
+			,MONTH_2_SALE_PLAN_AMT
+			,MONTH_3_SALE_PLAN_AMT
+			,MONTH_4_SALE_PLAN_AMT
+			,MONTH_5_SALE_PLAN_AMT
+			,MONTH_6_SALE_PLAN_AMT
+			,MONTH_7_SALE_PLAN_AMT
+			,MONTH_8_SALE_PLAN_AMT
+			,MONTH_9_SALE_PLAN_AMT
+			,MONTH_10_SALE_PLAN_AMT
+			,MONTH_11_SALE_PLAN_AMT
+			,MONTH_12_SALE_PLAN_AMT
+			,PROGRESS_CD
+			,CONFIRM_DATE
+			,CONFIRM_USER_ID
+			,PLANT_CD
+			,RESULT_ITEM_TYPE
+			,RESULT_DEAL_CD
+			,CUST_NM
+			,PLANT_NM
+        ) VALUES (
+			 #{ses.gateCd}
+			,#{YEAR}
+			,#{CUST_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{MANAGE_ID}
+			,#{MONTH_1_SALE_PLAN_AMT}
+			,#{MONTH_2_SALE_PLAN_AMT}
+			,#{MONTH_3_SALE_PLAN_AMT}
+			,#{MONTH_4_SALE_PLAN_AMT}
+			,#{MONTH_5_SALE_PLAN_AMT}
+			,#{MONTH_6_SALE_PLAN_AMT}
+			,#{MONTH_7_SALE_PLAN_AMT}
+			,#{MONTH_8_SALE_PLAN_AMT}
+			,#{MONTH_9_SALE_PLAN_AMT}
+			,#{MONTH_10_SALE_PLAN_AMT}
+			,#{MONTH_11_SALE_PLAN_AMT}
+			,#{MONTH_12_SALE_PLAN_AMT}
+			,#{PROGRESS_CD}
+			,<choose><when test='PROGRESS_CD == "E"'><include refid="com.sql.sysdate"/></when><otherwise>NULL</otherwise></choose>
+			,<choose><when test='PROGRESS_CD == "E"'>#{ses.userId}</when><otherwise>NULL</otherwise></choose>
+       		,#{PLANT_CD}
+       		,#{RESULT_ITEM_TYPE}
+       		,#{RESULT_DEAL_CD}
+       		,#{CUST_NM}
+       		,#{PLANT_NM}
+        <include refid="com.sql.mergeEnd"/>
+
+	</insert>
+
+	<select id="my03091_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  B.RELAT_YN
+			, B.CUST_CD
+			, B.CUST_NM
+			, B.PLANT_CD
+			, B.PLANT_NM
+			, B.BEFORE_CPO_AMT
+			, B.AFTER_CPO_AMT
+			, B.BEFORE_PO_AMT
+			, B.AFTER_PO_AMT
+			, B.BEFORE_PROFIT_AMT
+			, B.AFTER_PROFIT_AMT
+			, <include refid="com.sql.nvl"/>(B.BEFORE_PROFIT_AMT / DECODE( B.BEFORE_PO_AMT , 0, NULL, B.BEFORE_PO_AMT) ,0 )*100 AS BEFORE_PROFIT_RATE
+			, <include refid="com.sql.nvl"/>(B.AFTER_PROFIT_AMT / DECODE( B.BEFORE_PO_AMT , 0, NULL, B.BEFORE_PO_AMT ) ,0 )*100 AS AFTER_PROFIT_RATE
+			, B.SUM_SALE_PLAN_AMT
+			, B.SUM_SALE_PLAN_RATE
+			<if test='SCR_ID == "MY03096"'>
+			,RESULT_DEAL_CD
+			,RESULT_ITEM_TYPE
+			</if>
+		FROM
+		(
+			SELECT
+				 A.RELAT_YN
+				,A.CUST_CD
+				,A.CUST_NM
+				,A.PLANT_CD
+				,A.PLANT_NM
+				,<include refid="com.sql.nvl"/>(A.BEFORE_CPO_AMT,0) AS BEFORE_CPO_AMT
+				,<include refid="com.sql.nvl"/>(A.AFTER_CPO_AMT,0) AS AFTER_CPO_AMT
+				,<include refid="com.sql.nvl"/>(A.BEFORE_PO_AMT,0) AS BEFORE_PO_AMT
+				,<include refid="com.sql.nvl"/>(A.AFTER_PO_AMT,0) AS AFTER_PO_AMT
+				,<include refid="com.sql.nvl"/>(A.BEFORE_CPO_AMT,0) - <include refid="com.sql.nvl"/>(A.BEFORE_PO_AMT,0) AS BEFORE_PROFIT_AMT
+				,<include refid="com.sql.nvl"/>(A.AFTER_CPO_AMT,0) - <include refid="com.sql.nvl"/>(A.AFTER_PO_AMT,0) AS AFTER_PROFIT_AMT
+				,A.SUM_SALE_PLAN_AMT
+				,ROUND(<include refid="com.sql.nvl"/>(A.AFTER_CPO_AMT/DECODE( A.SUM_SALE_PLAN_AMT, 0, NULL, A.SUM_SALE_PLAN_AMT), 0)* 100, 1) AS SUM_SALE_PLAN_RATE
+				<if test='SCR_ID == "MY03096"'>
+				,RESULT_DEAL_CD
+				,RESULT_ITEM_TYPE
+				</if>
+			FROM
+				(
+				SELECT
+					 CUST.RELAT_YN
+					,CUST.CUST_CD
+					,CUST.CUST_NM
+					,CUPL.PLANT_CD
+					,CUPL.PLANT_NM
+					,BEFORE_CPO_AMT
+					,AFTER_CPO_AMT
+					,BEFORE_PO_AMT
+					,AFTER_PO_AMT
+					,SUM_SALE_PLAN_AMT
+					<if test='SCR_ID == "MY03096"'>
+					,RESULT_DEAL_CD
+					,RESULT_ITEM_TYPE
+					</if>
+				FROM STOCCUPL CUPL
+				JOIN STOCCUST CUST
+					ON (CUPL.GATE_CD  = CUST.GATE_CD
+					AND CUPL.CUST_CD  = CUST.CUST_CD
+					AND CUST.DEL_FLAG = '0' )
+				LEFT OUTER JOIN (
+						SELECT
+							 APAR.CUST_CD
+							,APAR.PLANT_CD
+							,APAR.CLOSING_YEAR_MONTH
+							,APAR.GATE_CD
+							,SUM(CASE WHEN APAR.CLOSING_TYPE = 'AP' THEN APAR.GR_ITEM_AMT ELSE 0 END) AS BEFORE_CPO_AMT
+							,SUM(CASE WHEN APAR.CLOSING_TYPE = 'AP' AND APAR.AP_TAX_NUM IS NOT NULL THEN APAR.GR_ITEM_AMT ELSE 0 END) AS AFTER_CPO_AMT
+							,SUM(CASE WHEN APAR.CLOSING_TYPE = 'AR' THEN APAR.PO_GR_ITEM_AMT ELSE 0 END) AS BEFORE_PO_AMT
+							,SUM(CASE WHEN APAR.CLOSING_TYPE = 'AR' AND APAR.AR_TAX_NUM IS NOT NULL THEN APAR.PO_GR_ITEM_AMT ELSE 0 END) AS AFTER_PO_AMT
+							<if test='SCR_ID == "MY03096"'>
+							,APAR.RESULT_DEAL_CD
+							,APAR.RESULT_ITEM_GUBUN AS RESULT_ITEM_TYPE
+							</if>
+						FROM STOCAPAR APAR
+						WHERE 1=1
+					    AND APAR.DEL_FLAG = '0'
+						AND TO_DATE(APAR.CLOSING_YEAR_MONTH ,'YYYYMM') <![CDATA[>=]]> TO_DATE(#{MYEAR_FROM}||#{MONTH_FROM} ,'YYYYMM')
+						AND TO_DATE(APAR.CLOSING_YEAR_MONTH ,'YYYYMM') <![CDATA[<=]]> TO_DATE(#{MYEAR_TO}||#{MONTH_TO} ,'YYYYMM')
+					    <if test="CUST_CD != '' and CUST_CD != null">
+							AND APAR.CUST_CD = #{CUST_CD}
+						</if>
+						<if test="CUST_NM != '' and CUST_NM != null">
+							AND <include refid="com.sql.dbo"/>GETCUSTNAME(#{ses.gateCd}, APAR.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+						</if>
+						<if test="PLANT_CD != '' and PLANT_CD != null">
+							AND APAR.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+						</if>
+						<if test="PLANT_NM != '' and PLANT_NM != null">
+							AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, APAR.CUST_CD, APAR.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+						</if>
+					    GROUP BY APAR.CUST_CD
+								,APAR.PLANT_CD
+								,APAR.CLOSING_YEAR_MONTH
+								,APAR.GATE_CD
+								<if test='SCR_ID == "MY03096"'>
+								,RESULT_DEAL_CD
+								,RESULT_ITEM_GUBUN
+								</if>
+				    ) APAR
+					ON (APAR.GATE_CD  = CUPL.GATE_CD
+					AND APAR.CUST_CD  = CUPL.CUST_CD
+					AND APAR.PLANT_CD = CUPL.PLANT_CD)
+				LEFT OUTER JOIN
+					(
+						SELECT
+						       SUM(SUM_AMT) AS SUM_SALE_PLAN_AMT
+							  , CUST_CD
+							  , PLANT_CD
+					    FROM
+					    	(
+							 <foreach item="list" collection="colList" separator="UNION ALL">
+							 SELECT
+								SUM(
+									<foreach item="VAL"  index="key" collection="list.P_MM" separator="+">
+										<include refid="com.sql.nvl"/>(MONTH_${VAL}_SALE_PLAN_AMT, 0)
+									</foreach>
+						            ) AS SUM_AMT
+						        , CUST_CD
+								, PLANT_CD
+							FROM STOCSAPL SA
+							WHERE YEAR = '${list.P_YYYY}'
+								 <if test="CUST_CD != '' and CUST_CD != null">
+									 AND CUST_CD = #{CUST_CD}
+								 </if>
+								 <if test="CUST_NM != '' and CUST_NM != null">
+									 AND <include refid="com.sql.dbo"/>GETCUSTNAME(#{ses.gateCd}, CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+								 </if>
+								 <if test="PLANT_CD != '' and PLANT_CD != null">
+									 AND PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+								 </if>
+								 <if test="PLANT_NM != '' and PLANT_NM != null">
+									 AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, CUST_CD, PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+								 </if>
+							GROUP BY  CUST_CD
+									, PLANT_CD
+
+							 </foreach>
+						   )AA
+							GROUP BY  CUST_CD
+							        , PLANT_CD
+					)SAPL
+						ON  CUPL.CUST_CD   = SAPL.CUST_CD
+					   AND CUPL.PLANT_CD  = SAPL.PLANT_CD
+					WHERE CUPL.DEL_FLAG = '0'
+					<if test="CUST_CD != '' and CUST_CD != null">
+						AND CUST.CUST_CD = #{CUST_CD}
+					</if>
+					<if test="CUST_NM != '' and CUST_NM != null">
+						AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_CD != '' and PLANT_CD != null">
+						AND CUPL.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_NM != '' and PLANT_NM != null">
+						AND CUPL.PLANT_NM <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+					</if>
+
+				)A
+		)B
+		WHERE 1=1
+		AND (SUM_SALE_PLAN_AMT !=0 OR (BEFORE_PO_AMT !=0 OR AFTER_PO_AMT  !=0 OR BEFORE_CPO_AMT!=0  OR AFTER_CPO_AMT!=0) )
+		<if test="RELAT_YN != '' and RELAT_YN != null">
+			AND B.RELAT_YN = #{RELAT_YN}
+		</if>
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND B.CUST_CD = #{CUST_CD}
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND B.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+			AND B.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_NM != '' and PLANT_NM != null">
+			AND B.PLANT_NM <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY B.CUST_NM, B.RELAT_YN
+	</select>
+
+	<select id="my03095_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT C.CUST_CD, C.CUST_NM, C.RELAT_YN
+			, C.BEFORE_CPO_AMT -- 마감전 매출금액
+			, C.BEFORE_PO_AMT -- 마감전 매입금액
+			, C.BEFORE_PROFIT_AMT -- 마감전 이익금액
+			, C.BEFORE_PROFIT_RATE -- 마감전 이익율
+			, 0 <foreach item="tabJoinInfo" collection="tabJoinList">
+				+ <include refid="com.sql.nvl"/>(${tabJoinInfo.P_TABLE_AS}.SALE_PLAN_AMT, 0)
+			   </foreach> AS SUM_SALE_PLAN_AMT
+			, (CASE WHEN
+						0 <foreach item="tabJoinInfo" collection="tabJoinList">
+							+ <include refid="com.sql.nvl"/>(${tabJoinInfo.P_TABLE_AS}.SALE_PLAN_AMT, 0)
+						  </foreach> <![CDATA[>]]> 0
+				   THEN ROUND(C.BEFORE_CPO_AMT / (
+							0 <foreach item="tabJoinInfo" collection="tabJoinList">
+								+ <include refid="com.sql.nvl"/>(${tabJoinInfo.P_TABLE_AS}.SALE_PLAN_AMT, 0)
+							  </foreach>
+						) * 100, 1)
+				   ELSE 0 END) AS SUM_SALE_PLAN_RATE
+		FROM (
+			SELECT B.RELAT_YN
+				, B.CUST_CD, B.CUST_NM
+				, SUM(B.BEFORE_CPO_AMT) AS BEFORE_CPO_AMT -- 마감전 매출금액
+				, SUM(B.BEFORE_PO_AMT) AS BEFORE_PO_AMT -- 마감전 매입금액
+				, SUM(B.BEFORE_PROFIT_AMT) AS BEFORE_PROFIT_AMT -- 마감전 이익금액
+				, (CASE WHEN SUM(B.BEFORE_PROFIT_AMT) <![CDATA[>]]> 0 AND SUM(B.BEFORE_CPO_AMT) <![CDATA[>]]> 0
+						THEN ROUND((SUM(B.BEFORE_PROFIT_AMT) / SUM(B.BEFORE_CPO_AMT)) * 100, 1)
+					   	ELSE 0 END) AS BEFORE_PROFIT_RATE
+				,B.GATE_CD, B.CPO_YEAR
+			FROM (
+				SELECT A.RELAT_YN
+					, A.CUST_CD
+					, A.CUST_NM
+                	, A.CPO_ITEM_AMT AS BEFORE_CPO_AMT
+                	, A.PO_ITEM_AMT AS BEFORE_PO_AMT
+                	, A.CPO_ITEM_AMT - A.PO_ITEM_AMT AS BEFORE_PROFIT_AMT
+                	, A.GATE_CD
+					, A.CPO_YEAR
+				FROM (
+					SELECT UPOHD.GATE_CD
+						, CUST.RELAT_YN -- 관계사여부
+						, UPOHD.CUST_CD, CUST.CUST_NM
+						, <include refid="com.sql.nvl"/>(UPODT.CPO_ITEM_AMT, 0) AS CPO_ITEM_AMT -- 매출금액
+						, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0) AS PO_ITEM_AMT -- 매입금액
+						<if test="_databaseId == 'oracle'">
+						,  <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE , 'YYYY') AS CPO_YEAR
+						</if>
+						<if test="_databaseId == 'mssql'">
+						, CONVERT(CHAR(4), UPOHD.CPO_DATE , 112) AS CPO_YEAR
+						</if>
+					FROM STOUPODT UPODT <include refid="com.sql.noLock"/>
+					JOIN STOUPOHD UPOHD <include refid="com.sql.noLock"/>
+						ON (UPODT.GATE_CD = UPOHD.GATE_CD
+					   	AND UPODT.CUST_CD = UPOHD.CUST_CD
+					   	AND UPODT.CPO_NO = UPOHD.CPO_NO
+					   	AND UPOHD.SIGN_STATUS IN ('P', 'E') -- 결재중, 결재승인
+					   	AND UPOHD.DEL_FLAG = '0')
+					LEFT JOIN STOYPODT YPODT <include refid="com.sql.noLock"/>
+						ON (UPODT.GATE_CD = YPODT.GATE_CD
+					   	AND UPODT.CUST_CD = YPODT.CUST_CD
+					   	AND UPODT.CPO_NO = YPODT.CPO_NO
+					   	AND UPODT.CPO_SEQ = YPODT.CPO_SEQ
+					   	AND YPODT.PROGRESS_CD <![CDATA[>=]]> '30' -- 주문생성
+					   	AND YPODT.DEL_FLAG = '0')
+					LEFT JOIN STOYPOHD YPOHD <include refid="com.sql.noLock"/>
+						ON (YPODT.GATE_CD = YPOHD.GATE_CD
+					   	AND YPODT.PO_NO = YPOHD.PO_NO
+					   	AND YPOHD.SIGN_STATUS = 'E' -- 결재완료
+					   	AND YPOHD.DEL_FLAG = '0')
+					LEFT JOIN (	SELECT YIVDT.GATE_CD
+									, YIVDT.CPO_NO
+									, YIVDT.CPO_SEQ
+								FROM STOYIVDT YIVDT <include refid="com.sql.noLock"/>
+								WHERE YIVDT.GATE_CD = #{ses.gateCd}
+								AND YIVDT.DEL_FLAG = '0'
+								GROUP BY YIVDT.GATE_CD, YIVDT.CPO_NO, YIVDT.CPO_SEQ
+								) YIVDT
+						ON (YPODT.GATE_CD = YIVDT.GATE_CD
+					   	AND YPODT.CPO_NO = YIVDT.CPO_NO
+					   	AND YPODT.CPO_SEQ = YIVDT.CPO_SEQ)
+					LEFT JOIN (	SELECT GRDT.GATE_CD
+									, GRDT.CPO_NO
+									, GRDT.CPO_SEQ
+									, GRDT.CLOSING_NO
+									, SUM(GRDT.GR_ITEM_AMT) AS GR_ITEM_AMT
+									, SUM(GRDT.PO_ITEM_AMT) AS PO_ITEM_AMT
+								FROM STOCGRDT GRDT <include refid="com.sql.noLock"/>
+								WHERE GRDT.GATE_CD = #{ses.gateCd}
+								AND GRDT.DEL_FLAG = '0'
+						    	AND GRDT.CLOSING_NO IS NOT NULL
+								GROUP BY GRDT.GATE_CD, GRDT.CPO_NO, GRDT.CPO_SEQ , GRDT.CLOSING_NO
+								) GRDT
+					   ON (GRDT.GATE_CD = YIVDT.GATE_CD
+					   AND GRDT.CPO_NO = YIVDT.CPO_NO
+					   AND GRDT.CPO_SEQ = YIVDT.CPO_SEQ)
+					LEFT JOIN STOCCUST CUST
+					   	ON (UPOHD.GATE_CD = CUST.GATE_CD
+					   	AND UPOHD.CUST_CD = CUST.CUST_CD)
+					WHERE UPODT.GATE_CD = #{ses.gateCd}
+					AND UPODT.DEL_FLAG = '0'
+					<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+						AND UPOHD.CPO_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+					</if>
+					<if test="RELAT_YN != '' and RELAT_YN != null">
+						AND CUST.RELAT_YN = #{RELAT_YN}
+					</if>
+					<if test="CUST_CD != '' and CUST_CD != null">
+						AND UPOHD.CUST_CD = #{CUST_CD}
+					</if>
+					<if test="CUST_NM != '' and CUST_NM != null">
+						AND UPPER(CUST.CUST_NM) <include refid="com.sql.likeL"/> UPPER(#{CUST_NM}) <include refid="com.sql.likeR"/>
+					</if>
+					   AND ((CASE WHEN GRDT.CLOSING_NO IS NULL THEN UPODT.PROGRESS_CD ELSE '70' END) IN ('40','50','60','65','70')
+						 OR (CASE WHEN GRDT.CLOSING_NO IS NULL THEN YPODT.PROGRESS_CD ELSE '70' END) IN ('40','50','60','65','70'))
+				) A
+			) B
+			GROUP BY B.GATE_CD, B.CUST_CD, B.CUST_NM, B.RELAT_YN, B.CPO_YEAR
+		) C
+		<foreach item="tabJoinInfo" collection="tabJoinList">
+		  LEFT OUTER JOIN (SELECT 0
+							<foreach item="colData" collection="tabJoinInfo.colList">
+								 + <include refid="com.sql.nvl"/>(A.MONTH_${colData.P_MONTH}_SALE_PLAN_AMT, 0)
+							</foreach> AS SALE_PLAN_AMT
+								 , A.GATE_CD, A.YEAR, A.CUST_CD, A.DEL_FLAG
+							 FROM STOCSAPL A
+							WHERE A.GATE_CD = #{ses.gateCd}
+							  AND A.YEAR = #{tabJoinInfo.P_YEAR}
+							  AND A.DEL_FLAG = '0') ${tabJoinInfo.P_TABLE_AS}
+			ON (C.GATE_CD = ${tabJoinInfo.P_TABLE_AS}.GATE_CD
+			AND C.CPO_YEAR = ${tabJoinInfo.P_TABLE_AS}.YEAR
+			AND C.CUST_CD = ${tabJoinInfo.P_TABLE_AS}.CUST_CD
+			AND ${tabJoinInfo.P_TABLE_AS}.DEL_FLAG = '0')
+		</foreach>
+		  ORDER BY C.BEFORE_CPO_AMT DESC
+	</select>
+
+	<select id="my03092_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT C.SCORE_RANK
+			, C.RELAT_YN
+			, C.CUST_CD
+			, C.CUST_NM
+			, C.ITEM_CD
+			, C.ITEM_DESC
+			, C.ITEM_SPEC
+			, <include refid="com.sql.dbo"/>GETMKBRNAME(C.GATE_CD, 'MK', C.MAKER_CD) AS MAKER_NM
+			, C.MAKER_PART_NO
+			, C.CPO_AMT -- 마감 매출금액
+			, C.PO_AMT -- 마감 매입금액
+			, C.PROFIT_AMT -- 마감 이익금액
+			, C.PROFIT_RATE -- 마감 이익율
+			, C.PLANT_CD
+			, C.PLANT_NM
+		FROM (
+			SELECT RANK() OVER(PARTITION BY B.CUST_CD ORDER BY SUM(B.CPO_AMT) DESC) AS SCORE_RANK
+				, B.RELAT_YN, B.CUST_CD, B.CUST_NM, B.ITEM_CD
+			    , B.ITEM_DESC
+				, B.ITEM_SPEC
+				, B.MAKER_CD
+				, B.MAKER_PART_NO
+				, SUM(B.CPO_AMT) AS CPO_AMT -- 마감 매출금액
+				, SUM(B.PO_AMT) AS PO_AMT -- 마감 매입금액
+				, SUM(B.PROFIT_AMT) AS PROFIT_AMT -- 마감 이익금액
+				, (CASE WHEN SUM(B.PROFIT_AMT) <![CDATA[>]]> 0 AND SUM(B.CPO_AMT) <![CDATA[>]]> 0
+				 	   THEN ROUND((SUM(B.PROFIT_AMT) / SUM(B.CPO_AMT)) * 100, 1)
+				 	   ELSE 0 END) AS PROFIT_RATE
+				,B.GATE_CD
+				,B.PLANT_CD
+				,B.PLANT_NM
+			FROM (
+				SELECT
+					  A.GATE_CD
+					, A.CUST_CD
+					, A.CUST_NM
+					, A.RELAT_YN
+					, A.ITEM_CD
+				    , A.ITEM_DESC
+					, A.ITEM_SPEC
+					, A.MAKER_CD
+					, A.MAKER_PART_NO
+				    , A.GR_ITEM_AMT AS CPO_AMT
+				    , A.PO_GR_ITEM_AMT AS PO_AMT
+					, A.GR_ITEM_AMT - A.PO_GR_ITEM_AMT AS PROFIT_AMT
+					, A.PLANT_CD
+					, A.PLANT_NM
+				FROM (
+					SELECT APAR.GATE_CD
+						, APAR.ITEM_CD
+					    , APAR.ITEM_DESC
+					    , APAR.ITEM_SPEC
+					    , APAR.MAKER_CD
+					    , APAR.MAKER_PART_NO
+				    	, CUST.RELAT_YN -- 관계사여부
+				    	, APAR.CUST_CD
+				    	, CUST.CUST_NM
+				    	, CASE WHEN APAR.CLOSING_TYPE = 'AP' AND APAR.AP_TAX_NUM IS NOT NULL THEN APAR.GR_ITEM_AMT ELSE 0 END AS GR_ITEM_AMT
+				    	, CASE WHEN APAR.CLOSING_TYPE = 'AR' AND APAR.AR_TAX_NUM IS NOT NULL THEN APAR.PO_GR_ITEM_AMT ELSE 0 END AS PO_GR_ITEM_AMT
+				    	, CUPL.PLANT_CD
+				    	, CUPL.PLANT_NM
+					FROM STOCAPAR APAR
+					JOIN STOCCUPL CUPL
+					ON (APAR.GATE_CD = CUPL.GATE_CD
+					AND APAR.CUST_CD = CUPL.CUST_CD
+					AND APAR.PLANT_CD = CUPL.PLANT_CD
+					AND CUPL.DEL_FLAG = '0')
+					LEFT JOIN STOCCUST CUST
+						ON (APAR.GATE_CD = CUST.GATE_CD
+					   	AND APAR.CUST_CD = CUST.CUST_CD
+					   	AND CUST.DEL_FLAG = '0')
+					WHERE APAR.GATE_CD = #{ses.gateCd}
+					AND APAR.DEL_FLAG = '0'
+					<if test="START_DATE != '' and START_DATE != null and END_DATE != '' and END_DATE != null">
+						AND APAR.CLOSING_YEAR_MONTH + '01' BETWEEN #{START_DATE} AND #{END_DATE}
+					</if>
+					<if test="FROM_DATE != '' and FROM_DATE != null">
+						AND APAR.CLOSE_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/> -- 00 00 00
+					</if>
+					<if test="TO_DATE != '' and TO_DATE != null">
+						AND APAR.CLOSE_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/> -- 23:23:59
+					</if>
+					<if test="RELAT_YN != '' and RELAT_YN != null">
+						AND CUST.RELAT_YN = #{RELAT_YN}
+					</if>
+					<if test="CUST_CD != '' and CUST_CD != null">
+						AND APAR.CUST_CD = #{CUST_CD}
+					</if>
+					<if test="CUST_NM != '' and CUST_NM != null">
+						AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_CD != '' and PLANT_CD != null">
+						AND CUPL.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_NM != '' and PLANT_NM != null">
+						AND CUPL.PLANT_NM <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+					</if>
+				  ) A
+			  ) B
+			 GROUP BY B.GATE_CD, B.CUST_CD, B.CUST_NM, B.ITEM_CD, B.RELAT_YN, B.ITEM_DESC, B.ITEM_SPEC, B.MAKER_CD, B.MAKER_PART_NO, B.PLANT_CD, B.PLANT_NM
+		  ) C
+		 ORDER BY C.CUST_NM,C.PLANT_NM, C.SCORE_RANK
+
+	</select>
+
+	<select id="my03093_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  D.SCORE_RANK
+			, D.PROFIT_RATE, D.PROFIT_AMT
+			, D.CUST_CD, D.CUST_NM
+			, D.PLANT_CD, D.PLANT_NM
+			, D.VENDOR_CD, D.VENDOR_NM
+			, D.ITEM_CD, D.ITEM_DESC, D.ITEM_SPEC
+			, D.CPO_QTY -- 주문수량
+		    , D.PO_QTY
+			, D.UNIT_CD
+			, D.NOW_SALE_UNIT_PRC -- 현 매출단가
+			, D.AVG_CPO_UNIT_PRC -- 매출평균단가
+			, D.CPO_AMT -- 매출금액
+			, D.NOW_BUY_UNIT_PRC -- 현 매입단가
+			, D.AVG_PO_UNIT_PRC -- 매입평균단가
+			, D.PO_AMT -- 매입금액
+		FROM (
+			SELECT
+				  C.CUST_CD, C.CUST_NM, C.PLANT_CD, C.PLANT_NM
+				, C.VENDOR_CD, C.VENDOR_NM
+				, C.ITEM_CD, C.ITEM_DESC, C.ITEM_SPEC, C.UNIT_CD
+				, C.CPO_QTY
+			    , C.PO_QTY
+				, C.NOW_SALE_UNIT_PRC
+				, C.AVG_CPO_UNIT_PRC
+				, C.CPO_AMT
+				, C.NOW_BUY_UNIT_PRC
+				, C.AVG_PO_UNIT_PRC
+				, C.PO_AMT
+				, C.PROFIT_AMT -- 이익금액
+				, C.PROFIT_RATE -- 매출이익율
+		<if test="SORT_SEL != '' and SORT_SEL != null">
+			<choose>
+				<when test='SORT_SEL == "R"'>
+					, RANK() OVER(ORDER BY C.PROFIT_RATE DESC) AS SCORE_RANK
+				</when>
+				<otherwise>
+					, RANK() OVER(ORDER BY C.PROFIT_AMT DESC) AS SCORE_RANK
+				</otherwise>
+			</choose>
+		</if>
+			FROM (
+				SELECT
+					  B.CUST_CD, B.CUST_NM, B.PLANT_CD, B.PLANT_NM
+					, B.VENDOR_CD, B.VENDOR_NM
+					, B.ITEM_CD, B.ITEM_DESC, B.ITEM_SPEC, B.UNIT_CD, B.GATE_CD
+					, SUM(B.CPO_QTY) AS CPO_QTY -- 주문수량
+				    , SUM(B.PO_QTY) AS PO_QTY
+					, MAX(B.NOW_SALE_UNIT_PRC) AS NOW_SALE_UNIT_PRC -- 현 매출단가
+					, MAX(B.NOW_BUY_UNIT_PRC) AS NOW_BUY_UNIT_PRC -- 현 매입단가
+					,(CASE WHEN SUM(B.CPO_AMT) <![CDATA[>]]> 0 AND SUM(B.CPO_QTY) <![CDATA[>]]> 0
+					 	   THEN ROUND(SUM(B.CPO_AMT) / SUM(B.CPO_QTY), 1)
+						   ELSE 0 END) AS AVG_CPO_UNIT_PRC -- 매출평균단가
+					, SUM(B.CPO_AMT) AS CPO_AMT -- 마감 매출금액
+					,(CASE WHEN SUM(B.PO_AMT) <![CDATA[>]]> 0 AND SUM(B.PO_QTY) <![CDATA[>]]> 0
+						   THEN ROUND(SUM(B.PO_AMT) / SUM(B.PO_QTY), 1)
+						   ELSE 0 END) AS AVG_PO_UNIT_PRC -- 매입평균단가
+					, SUM(B.PO_AMT) AS PO_AMT -- 마감 매입금액
+					, SUM(B.PROFIT_AMT) AS PROFIT_AMT -- 마감 이익금액
+					,(CASE WHEN SUM(B.PROFIT_AMT) <![CDATA[>]]> 0 AND SUM(B.PO_AMT) <![CDATA[>]]> 0
+						   THEN ROUND((SUM(B.PROFIT_AMT) / SUM(B.PO_AMT)) * 100, 1)
+						   ELSE 0 END) AS PROFIT_RATE
+				FROM (
+					SELECT
+						  A.GATE_CD, A.CUST_CD, A.CUST_NM
+						, A.PLANT_CD, A.PLANT_NM
+						, A.VENDOR_CD, A.VENDOR_NM
+						, A.ITEM_CD, A.ITEM_DESC, A.ITEM_SPEC, A.UNIT_CD
+						, A.NOW_SALE_UNIT_PRC, A.NOW_BUY_UNIT_PRC
+						, A.AR_GR_QTY AS CPO_QTY
+					    , A.AP_GR_QTY AS PO_QTY
+					    , A.GR_ITEM_AMT AS CPO_AMT
+					    , A.PO_GR_ITEM_AMT AS PO_AMT
+						, A.GR_ITEM_AMT - A.PO_GR_ITEM_AMT AS PROFIT_AMT
+					FROM (
+						SELECT
+							  APAR.GATE_CD
+							, APAR.CUST_CD
+							, CUST.CUST_NM
+							, APAR.PLANT_CD
+							, <include refid="com.sql.dbo"/>GETPLANTNAME(APAR.GATE_CD, APAR.CUST_CD, APAR.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+							, APAR.VENDOR_CD
+							, VNGL.VENDOR_NM
+							, APAR.ITEM_CD
+							, APAR.ITEM_DESC
+							, APAR.ITEM_SPEC
+							, <include refid="com.sql.dbo"/>getComCode(APAR.GATE_CD, 'M037', APAR.UNIT_CD, 0, #{ses.langCd}) AS UNIT_CD
+							, <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>fn_getSalesUnitPrice(UPODT.GATE_CD, UPODT.APPLY_COM, <include refid="com.sql.nvl"/>(UPODT.APPLY_PLANT, APAR.PLANT_CD), UPODT.CONT_NO, UPODT.CONT_SEQ), 0) AS NOW_SALE_UNIT_PRC
+							, <include refid="com.sql.nvl"/>(
+									(SELECT INFO.CONT_UNIT_PRICE FROM STOYINFO INFO
+									  WHERE INFO.GATE_CD   = UPODT.GATE_CD
+									    AND INFO.APPLY_COM = UPODT.APPLY_COM
+									    AND INFO.ITEM_CD   = UPODT.ITEM_CD
+									    AND INFO.VENDOR_CD = UPODT.VENDOR_CD
+									    AND <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/>(VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd')), 0) AS NOW_BUY_UNIT_PRC
+							, CASE WHEN APAR.CLOSING_TYPE = 'AP' AND APAR.AP_TAX_NUM IS NOT NULL THEN APAR.GR_ITEM_AMT ELSE 0 END AS GR_ITEM_AMT
+				    		, CASE WHEN APAR.CLOSING_TYPE = 'AR' AND APAR.AR_TAX_NUM IS NOT NULL THEN APAR.PO_GR_ITEM_AMT ELSE 0 END AS PO_GR_ITEM_AMT
+							, CASE WHEN APAR.CLOSING_TYPE = 'AP' THEN <include refid="com.sql.nvl"/>(APAR.CLOSE_QTY, 0) ELSE 0 END AS AR_GR_QTY
+							, CASE WHEN APAR.CLOSING_TYPE = 'AR' THEN <include refid="com.sql.nvl"/>(APAR.CLOSE_QTY, 0) ELSE 0 END AS AP_GR_QTY
+						FROM STOCAPAR APAR
+						LEFT JOIN STOUPODT UPODT
+						    ON (UPODT.GATE_CD = APAR.GATE_CD
+						    AND UPODT.CPO_NO = APAR.CPO_NO
+						    AND UPODT.CPO_SEQ = APAR.CPO_SEQ)
+						LEFT JOIN STOCCUST CUST
+						   	ON (APAR.GATE_CD = CUST.GATE_CD
+						   	AND APAR.CUST_CD = CUST.CUST_CD)
+						LEFT JOIN STOCVNGL VNGL
+							ON (APAR.GATE_CD = VNGL.GATE_CD
+						   	AND APAR.VENDOR_CD = VNGL.VENDOR_CD)
+						WHERE APAR.GATE_CD = #{ses.gateCd}
+						AND APAR.DEL_FLAG = '0'
+
+					<if test="DATE_FROM != '' and DATE_FROM != null">
+						AND APAR.CLOSE_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+					</if>
+					<if test="DATE_TO != '' and DATE_TO != null">
+						AND APAR.CLOSE_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateFrom"/>
+					</if>
+					<if test="ITEM_CD != '' and ITEM_CD != null">
+						AND UPPER(APAR.ITEM_CD) <include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>
+					</if>
+					<if test="ITEM_DESC != '' and ITEM_DESC != null">
+						AND UPPER(APAR.ITEM_DESC) <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+					</if>
+					<if test="CUST_CD != '' and CUST_CD != null">
+						AND UPPER(UPODT.CUST_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+					</if>
+					<if test="CUST_NM != '' and CUST_NM != null">
+						AND UPPER(CUST.CUST_NM) <include refid="com.sql.likeL"/> UPPER(#{CUST_NM}) <include refid="com.sql.likeR"/>
+					</if>
+					<if test="VENDOR_CD != '' and VENDOR_CD != null">
+						AND UPPER(UPODT.VENDOR_CD) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_CD}) <include refid="com.sql.likeR"/>
+					</if>
+					<if test="VENDOR_NM != '' and VENDOR_NM != null">
+						AND UPPER(VNGL.VENDOR_NM) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_NM}) <include refid="com.sql.likeR"/>
+					</if>
+					  ) A
+				  ) B
+				 GROUP BY B.GATE_CD, B.CUST_CD, B.CUST_NM, B.PLANT_CD, B.PLANT_NM
+				 		, B.VENDOR_CD, B.VENDOR_NM, B.ITEM_CD, B.ITEM_DESC, B.ITEM_SPEC, B.UNIT_CD
+			  ) C
+			 WHERE 1 = 1
+		  ) D
+		 ORDER BY D.SCORE_RANK
+
+	</select>
+
+	<select id="my03094_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  C.CUST_CD
+			, C.CUST_NM
+			, C.RELAT_YN
+			, SAPL.MANAGE_NM
+			, C.CPO_YEAR
+		<foreach item="tabJoinInfo" collection="tabJoinList">
+			,<include refid="com.sql.nvl"/>(SAPL.MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT, 0) AS MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT
+			, C.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+			,(CASE WHEN (<include refid="com.sql.nvl"/>(SAPL.MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT, 0) <![CDATA[>]]> 0 AND <include refid="com.sql.nvl"/>(C.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT, 0) <![CDATA[>]]> 0)
+				   THEN ROUND(C.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT / (<include refid="com.sql.nvl"/>(SAPL.MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT, 0)) * 100, 1)
+				   ELSE 0 END) AS MONTH_${tabJoinInfo.P_MONTH}_PLAN_RATE
+			, C.MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT
+			,(CASE WHEN C.MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT <![CDATA[>]]> 0 AND C.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT <![CDATA[>]]> 0
+				   THEN ROUND(C.MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT / C.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT * 100, 1)
+				   ELSE 0 END) AS MONTH_${tabJoinInfo.P_MONTH}_PROFIT_RATE
+		</foreach>
+			,<include refid="com.sql.nvl"/>(SAPL.SUM_SALE_PLAN_AMT, 0) AS SUM_SALE_PLAN_AMT
+			, C.SUM_CPO_ITEM_AMT
+			,(CASE WHEN (<include refid="com.sql.nvl"/>(SAPL.SUM_SALE_PLAN_AMT, 0) <![CDATA[>]]> 0 AND <include refid="com.sql.nvl"/>(C.SUM_CPO_ITEM_AMT, 0) <![CDATA[>]]> 0)
+				   THEN ROUND(C.SUM_CPO_ITEM_AMT / (<include refid="com.sql.nvl"/>(SAPL.SUM_SALE_PLAN_AMT, 0)) * 100, 1)
+				   ELSE 0 END) AS AVG_SALE_PLAN_RATE
+			, C.SUM_PROFIT_AMT
+			,(CASE WHEN C.SUM_PROFIT_AMT <![CDATA[>]]> 0 AND C.SUM_CPO_ITEM_AMT <![CDATA[>]]> 0
+				   THEN ROUND((C.SUM_PROFIT_AMT / C.SUM_CPO_ITEM_AMT) * 100, 1)
+				   ELSE 0 END) AS AVG_PROFIT_RATE
+		FROM (
+		    SELECT
+		    	  B.GATE_CD
+				, B.RELAT_YN
+				, B.CPO_YEAR
+				, B.CUST_CD
+				, B.CUST_NM
+				<foreach item="tabJoinInfo" collection="tabJoinList">
+					,<include refid="com.sql.nvl"/>(SUM(B.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT), 0) AS MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+					,<include refid="com.sql.nvl"/>(SUM(B.MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT), 0) AS MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT
+				</foreach>
+				,<include refid="com.sql.nvl"/>(SUM(B.SUM_CPO_ITEM_AMT), 0) AS SUM_CPO_ITEM_AMT
+				,<include refid="com.sql.nvl"/>(SUM(B.SUM_PROFIT_AMT), 0) AS SUM_PROFIT_AMT
+			FROM (
+					SELECT
+						  B.GATE_CD
+						, CASE WHEN B.NEW_COMPANY_FLAG = '1' THEN '신규' ELSE MAX(B.RELAT_YN) END AS RELAT_YN
+						, B.CPO_YEAR
+						, CASE WHEN B.NEW_COMPANY_FLAG = '1' THEN 'NEW' ELSE MAX(B.CUST_CD) END AS CUST_CD
+						, CASE WHEN B.NEW_COMPANY_FLAG = '1' THEN '신규고객사' ELSE MAX(B.CUST_NM)END AS CUST_NM
+						<foreach item="tabJoinInfo" collection="tabJoinList">
+							,<include refid="com.sql.nvl"/>(SUM(B.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT), 0) AS MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+							,<include refid="com.sql.nvl"/>(SUM(B.MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT), 0) AS MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT
+						</foreach>
+						,<include refid="com.sql.nvl"/>(SUM(B.SUM_CPO_ITEM_AMT), 0) AS SUM_CPO_ITEM_AMT
+						,<include refid="com.sql.nvl"/>(SUM(B.SUM_PROFIT_AMT), 0) AS SUM_PROFIT_AMT
+					FROM (
+							SELECT
+								  A.GATE_CD, A.RELAT_YN, A.CPO_YEAR
+								, A.CUST_CD, A.CUST_NM
+								, A.NEW_COMPANY_FLAG
+								<foreach item="tabJoinInfo" collection="tabJoinList">
+								, A.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+								, (A.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT - A.MONTH_${tabJoinInfo.P_MONTH}_PO_ITEM_AMT) AS MONTH_${tabJoinInfo.P_MONTH}_PROFIT_AMT
+								</foreach>
+								, 0 <foreach item="tabJoinInfo" collection="tabJoinList">
+									+ A.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+									</foreach> AS SUM_CPO_ITEM_AMT
+								, 0 <foreach item="tabJoinInfo" collection="tabJoinList">
+									+ (A.MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT - A.MONTH_${tabJoinInfo.P_MONTH}_PO_ITEM_AMT)
+									</foreach> AS SUM_PROFIT_AMT
+							FROM (
+									SELECT
+										  APAR.GATE_CD
+										, CUST.RELAT_YN -- 관계사여부
+										, APAR.CUST_CD
+										, CUST.CUST_NM
+									<foreach item="tabJoinInfo" collection="tabJoinList">
+										,(CASE WHEN <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) = #{tabJoinInfo.C_MONTH} THEN CASE WHEN APAR.CLOSING_TYPE = 'AR' THEN APAR.GR_ITEM_AMT ELSE 0 END ELSE 0 END) AS MONTH_${tabJoinInfo.P_MONTH}_CPO_ITEM_AMT
+										,(CASE WHEN <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) = #{tabJoinInfo.C_MONTH} THEN CASE WHEN APAR.CLOSING_TYPE = 'AP' THEN APAR.PO_GR_ITEM_AMT ELSE 0 END ELSE 0 END) AS MONTH_${tabJoinInfo.P_MONTH}_PO_ITEM_AMT
+									</foreach>
+										,<include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) AS CPO_YEAR
+										, CUST.NEW_COMPANY_FLAG
+									 FROM STOCAPAR APAR
+									 LEFT JOIN STOCCUST CUST
+										  ON (APAR.GATE_CD = CUST.GATE_CD
+										  AND APAR.CUST_CD = CUST.CUST_CD)
+									WHERE APAR.GATE_CD  = #{ses.gateCd}
+									  AND APAR.DEL_FLAG = '0'
+								<if test="CPO_YEAR != '' and CPO_YEAR != null">
+									  AND APAR.CLOSING_YEAR_MONTH BETWEEN #{CPO_YEAR}||'01' AND #{CPO_YEAR}||'12'
+								</if>
+							) A
+					) B
+					GROUP BY B.GATE_CD, B.CUST_CD, B.CUST_NM, B.RELAT_YN, B.CPO_YEAR, B.NEW_COMPANY_FLAG
+			) B
+			GROUP BY B.GATE_CD, B.CUST_CD, B.CUST_NM, B.RELAT_YN, B.CPO_YEAR
+		) C
+		LEFT OUTER JOIN (SELECT
+							  A.GATE_CD, A.YEAR, A.CUST_CD, A.DEL_FLAG
+							, A.MANAGE_ID, <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.MANAGE_ID, #{ses.langCd}) AS MANAGE_NM
+						<foreach item="tabJoinInfo" collection="tabJoinList">
+							, <include refid="com.sql.nvl"/>(SUM(A.MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT), 0) AS MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT
+						</foreach>
+							, 0 <foreach item="tabJoinInfo" collection="tabJoinList">
+							  + <include refid="com.sql.nvl"/>(SUM(A.MONTH_${tabJoinInfo.P_MONTH}_SALE_PLAN_AMT), 0)
+						</foreach> AS SUM_SALE_PLAN_AMT
+						 FROM STOCSAPL A
+						WHERE A.GATE_CD  = #{ses.gateCd}
+						  AND A.YEAR     = #{CPO_YEAR}
+						  AND A.DEL_FLAG = '0'
+						  GROUP BY  A.GATE_CD
+									, A.YEAR
+									, A.CUST_CD
+									, A.DEL_FLAG
+									, A.MANAGE_ID	  ) SAPL
+			ON (C.GATE_CD  = SAPL.GATE_CD
+			AND C.CPO_YEAR = SAPL.YEAR
+			AND C.CUST_CD  = SAPL.CUST_CD
+			AND SAPL.DEL_FLAG = '0')
+		ORDER BY RELAT_YN DESC, SUM_CPO_ITEM_AMT DESC
+	</select>
+
+	<select id="getYearList" parameterType="hashMap" resultType="hashMap">
+
+		<if test="_databaseId == 'mssql'">
+			SELECT A.P_YEAR, A.P_MONTH
+			  FROM (
+				SELECT CONVERT(nvarchar(4), DATEADD(D, NUMBER, #{START_DATE}), 112) AS P_YEAR
+						  ,CONVERT(INT, REPLACE(CONVERT(nvarchar(6), DATEADD(D, NUMBER, #{START_DATE}), 112), CONVERT(nvarchar(4), DATEADD(D, NUMBER, #{START_DATE}), 112), '')) AS P_MONTH
+				  FROM MASTER..SPT_VALUES WHERE TYPE = 'P' AND NUMBER <![CDATA[<=]]> DATEDIFF(D, #{START_DATE}, #{END_DATE})
+		  		) A
+			 GROUP BY A.P_YEAR, A.P_MONTH
+			 ORDER BY A.P_YEAR, A.P_MONTH
+		</if>
+		<if test="_databaseId == 'oracle'">
+			SELECT A.P_YEAR, A.P_MONTH
+			  FROM (
+				SELECT TO_CHAR(TO_DATE(#{START_DATE}) + LEVEL - 1, 'YYYY') AS P_YEAR
+						  ,REPLACE(REPLACE(TO_CHAR(TO_DATE(#{START_DATE}) + LEVEL, 'YYYYMM'), TO_CHAR(TO_DATE(#{START_DATE}) + LEVEL, 'YYYY')), '0', '') AS P_MONTH
+				  FROM DUAL
+				 CONNECT BY LEVEL <![CDATA[<=]]> (TO_DATE(#{END_DATE}) - TO_DATE(#{START_DATE}))
+		  		) A
+			 GROUP BY A.P_YEAR, A.P_MONTH
+			 ORDER BY A.P_YEAR, A.P_MONTH
+		</if>
+
+	</select>
+
+	<select id="getCustList" parameterType="hashMap" resultType="hashMap">
+		SELECT UPOHD.CUST_CD
+		     , CUST.CUST_NM
+		FROM STOUPODT UPODT <include refid="com.sql.noLock"/>
+		JOIN STOUPOHD UPOHD <include refid="com.sql.noLock"/>
+			ON (UPODT.GATE_CD = UPOHD.GATE_CD
+		   	AND UPODT.CUST_CD = UPOHD.CUST_CD
+		   	AND UPODT.CPO_NO = UPOHD.CPO_NO
+		   	AND UPOHD.SIGN_STATUS IN ('P', 'E') -- 결재중, 결재승인
+		   	AND UPOHD.DEL_FLAG = '0')
+		LEFT JOIN STOYPODT YPODT <include refid="com.sql.noLock"/>
+			ON (UPODT.GATE_CD = YPODT.GATE_CD
+		   	AND UPODT.CUST_CD = YPODT.CUST_CD
+		   	AND UPODT.CPO_NO = YPODT.CPO_NO
+		   	AND UPODT.CPO_SEQ = YPODT.CPO_SEQ
+		   	AND YPODT.PROGRESS_CD <![CDATA[>=]]> '30' -- 주문생성
+		   	AND YPODT.DEL_FLAG = '0')
+		LEFT JOIN STOYPOHD YPOHD <include refid="com.sql.noLock"/>
+			ON (YPODT.GATE_CD = YPOHD.GATE_CD
+		   	AND YPODT.PO_NO = YPOHD.PO_NO
+		   	AND YPOHD.SIGN_STATUS = 'E' -- 결재완료
+		   	AND YPOHD.DEL_FLAG = '0')
+		LEFT JOIN STOYIVDT YIVDT <include refid="com.sql.noLock"/>
+			ON (YPODT.GATE_CD = YIVDT.GATE_CD
+		   	AND YPODT.PO_NO = YIVDT.PO_NO
+		   	AND YPODT.PO_SEQ = YIVDT.PO_SEQ
+		   	AND YIVDT.DEL_FLAG = '0')
+		LEFT JOIN STOYIVHD YIVHD <include refid="com.sql.noLock"/>
+		   	ON (YIVDT.GATE_CD = YIVHD.GATE_CD
+		   	AND YIVDT.IV_NO = YIVHD.IV_NO
+		   	AND YIVHD.DEL_FLAG = '0')
+		LEFT JOIN STOCGRDT GRDT <include refid="com.sql.noLock"/>
+			ON (GRDT.GATE_CD = YIVDT.GATE_CD
+		   	AND GRDT.IV_NO = YIVDT.IV_NO
+		   	AND GRDT.IV_SEQ = YIVDT.IV_SEQ
+		   	AND GRDT.DEL_FLAG = '0')
+		LEFT JOIN STOCCUST CUST
+			ON (UPOHD.GATE_CD = CUST.GATE_CD
+		   	AND UPOHD.CUST_CD = CUST.CUST_CD)
+		WHERE UPODT.GATE_CD = #{ses.gateCd}
+		AND UPODT.DEL_FLAG = '0'
+		AND <include refid="com.sql.nvl"/>(CUST.NEW_COMPANY_FLAG, 0) = '0'
+		<if test="CPO_YEAR != '' and CPO_YEAR != null">
+			AND UPOHD.CPO_DATE BETWEEN <include refid="com.sql.toDate"/>#{CPO_YEAR} + '0101'<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{CPO_YEAR} + '1231'<include refid="com.sql.dateTo"/>
+		</if>
+		 GROUP BY UPOHD.CUST_CD, CUST.CUST_NM
+		UNION ALL
+		SELECT 'NEW' AS CUST_CD, '신규고객사' AS CUST_NM
+	</select>
+	<select id="newSaplSeq" parameterType="hashMap" resultType="object">
+		SELECT 'NEW'||STOCSAPL_SEQ.NEXTVAL
+		FROM DUAL
+	</select>
+	<select id="comboResultSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			A.CODE AS RESULT_DEAL_CD
+		   ,B.CODE AS RESULT_ITEM_TYPE
+		FROM STOCCODD A
+		CROSS JOIN (
+				SELECT
+					CODE
+				   ,CODE_DESC
+				FROM STOCCODD B
+				WHERE GATE_CD = '100'
+				  AND DEL_FLAG = '0'
+				  AND CODE_TYPE = 'MP125'
+				  AND LANG_CD = 'KO'
+				ORDER BY SORT_SQ, UPPER(CODE)
+
+		) B
+		WHERE A.GATE_CD = '100'
+		  AND A.DEL_FLAG = '0'
+		  AND A.CODE_TYPE = 'MP124'
+		  AND A.LANG_CD = 'KO'
+		ORDER BY A.SORT_SQ, UPPER(A.CODE)
+	</select>
+</mapper>

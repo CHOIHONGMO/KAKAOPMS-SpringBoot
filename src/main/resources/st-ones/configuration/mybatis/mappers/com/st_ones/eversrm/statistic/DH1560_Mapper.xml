@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1560_Mapper">
+
+	<insert id="doSaveHD" parameterType="hashmap">
+	
+		 MERGE STOCIMHD AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{MAT_GROUP} AS MAT_GROUP, #{PLANT_CD} AS PLANT_CD, #{ITEM_CLS1} AS ITEM_CLS1, #{ITEM_CLS2} AS ITEM_CLS2,
+		 			   #{ITEM_CLS3} AS ITEM_CLS3, #{ITEM_CD} AS ITEM_CD, #{MOLD_REV} AS MOLD_REV) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.MAT_GROUP = B.MAT_GROUP
+		   AND A.PLANT_CD  = B.PLANT_CD
+		   AND A.ITEM_CLS1 = B.ITEM_CLS1
+		   AND A.ITEM_CLS2 = B.ITEM_CLS2
+		   AND A.ITEM_CLS3 = B.ITEM_CLS3
+		   AND A.ITEM_CD   = B.ITEM_CD
+		   AND A.MOLD_REV  = B.MOLD_REV)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , MAT_GROUP
+			 , PLANT_CD
+			 , ITEM_CLS1
+			 , ITEM_CLS2
+			 , ITEM_CLS3
+			 , ITEM_CD
+			 , MOLD_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{MAT_GROUP}
+			 , #{PLANT_CD}
+			 , #{ITEM_CLS1}
+			 , #{ITEM_CLS2}
+			 , #{ITEM_CLS3}
+			 , #{ITEM_CD}
+			 , #{MOLD_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<delete id="doDeleteHD" parameterType="hashmap">
+
+		UPDATE STOCIMHD
+		   SET DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND MAT_GROUP = #{MAT_GROUP}
+		   AND PLANT_CD  = #{PLANT_CD}
+		   AND ITEM_CLS1 = #{ITEM_CLS1}
+		   AND ITEM_CLS2 = #{ITEM_CLS2}
+		   AND ITEM_CLS3 = #{ITEM_CLS3}
+		   AND ITEM_CD   = #{ITEM_CD}
+		   AND MOLD_REV  = #{MOLD_REV}
+
+	</delete>
+
+    <select id="doSearchDT" parameterType="hashmap" resultType="hashmap">
+
+		SELECT DT.MAT_GROUP
+			  ,DT.PLANT_CD
+			  ,DT.ITEM_CLS1
+			  ,DT.ITEM_CLS2
+			  ,<include refid="com.sql.dbo"/>GETITEMCLASS(DT.GATE_CD, DT.ITEM_CLS2, '2') AS ITEM_CLS2_IMG
+			  ,DT.ITEM_CLS3
+			  ,<include refid="com.sql.dbo"/>GETITEMCLASS(DT.GATE_CD, DT.ITEM_CLS3, '3') AS ITEM_CLS3_IMG
+			  ,DT.ITEM_CD
+			  ,DT.MOLD_REV
+			  ,DT.MOLD_DIV1
+			  ,DT.MOLD_DIV2
+			  ,DT.PROCESS_CD
+			  ,DT.PROCESS_DESC
+			  ,DT.PROCESS_SQ
+			  ,DT.PROCESS_CVT
+			  ,DT.BID_CASTING_PRC
+			  ,DT.BID_STEEL_PRC
+			  ,DT.BID_PART_PRC
+			  ,DT.BID_LASER_PRC
+			  ,DT.BID_HEATING_PRC
+			  ,DT.BID_MAT_OTHER_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.BID_CASTING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_STEEL_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PART_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_LASER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_HEATING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_MAT_OTHER_PRC ,0) AS BID_MAT_AMT
+			  ,DT.BID_PLAN_PRC
+			  ,DT.BID_NCDATA_PRC
+			  ,DT.BID_PROCESS_PRC
+			  ,DT.BID_FINISHING_PRC
+			  ,DT.BID_PROCESS_OTHER_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.BID_PLAN_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_NCDATA_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PROCESS_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_FINISHING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PROCESS_OTHER_PRC ,0) AS BID_PROCESS_AMT
+			  ,DT.BID_OTHER_PRC
+			  ,DT.BID_ECO_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.BID_CASTING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_STEEL_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PART_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_LASER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_HEATING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_MAT_OTHER_PRC ,0) +
+			   <include refid="com.sql.nvl"/>(DT.BID_PLAN_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_NCDATA_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PROCESS_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_FINISHING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_PROCESS_OTHER_PRC ,0) +
+			   <include refid="com.sql.nvl"/>(DT.BID_OTHER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.BID_ECO_PRC ,0) AS BID_SUM_AMT
+			  ,DT.EXE_CASTING_PRC
+			  ,DT.EXE_STEEL_PRC
+			  ,DT.EXE_PART_PRC
+			  ,DT.EXE_LASER_PRC
+			  ,DT.EXE_HEATING_PRC
+			  ,DT.EXE_MAT_OTHER_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.EXE_CASTING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_STEEL_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PART_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_LASER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_HEATING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_MAT_OTHER_PRC ,0) AS EXE_MAT_AMT
+			  ,DT.EXE_PLAN_PRC
+			  ,DT.EXE_NCDATA_PRC
+			  ,DT.EXE_PROCESS_PRC
+			  ,DT.EXE_FINISHING_PRC
+			  ,DT.EXE_PROCESS_OTHER_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.EXE_PLAN_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_NCDATA_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PROCESS_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_FINISHING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PROCESS_OTHER_PRC ,0) AS EXE_PROCESS_AMT
+			  ,DT.EXE_OTHER_PRC
+			  ,DT.EXE_ECO_PRC
+			  ,<include refid="com.sql.nvl"/>(DT.EXE_CASTING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_STEEL_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PART_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_LASER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_HEATING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_MAT_OTHER_PRC ,0) +
+			   <include refid="com.sql.nvl"/>(DT.EXE_PLAN_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_NCDATA_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PROCESS_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_FINISHING_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_PROCESS_OTHER_PRC ,0) +
+			   <include refid="com.sql.nvl"/>(DT.EXE_OTHER_PRC ,0) + <include refid="com.sql.nvl"/>(DT.EXE_ECO_PRC ,0) AS EXE_SUM_AMT
+			  ,DT.RMK
+			  ,DT.PRODUCTION_DIV
+		  FROM STOCIMHD HD
+		  JOIN STOCIMDT DT
+		    ON (DT.GATE_CD   = HD.GATE_CD
+		   AND DT.MAT_GROUP = HD.MAT_GROUP
+		   AND DT.PLANT_CD  = HD.PLANT_CD
+		   AND DT.ITEM_CLS1 = HD.ITEM_CLS1
+		   AND DT.ITEM_CLS2 = HD.ITEM_CLS2
+		   AND DT.ITEM_CLS3 = HD.ITEM_CLS3
+		   AND DT.ITEM_CD   = HD.ITEM_CD
+		   AND DT.MOLD_REV  = (SELECT MAX(MOLD_REV)
+		   						  FROM STOCIMDT
+		   						 WHERE GATE_CD          = DT.GATE_CD
+		   						   AND MAT_GROUP        = DT.MAT_GROUP
+		   						   AND PLANT_CD         = DT.PLANT_CD
+		   						   AND ITEM_CLS1        = DT.ITEM_CLS1
+		   						   AND ITEM_CLS2        = DT.ITEM_CLS2
+		   						   AND ITEM_CLS3        = DT.ITEM_CLS3
+		   						   AND ITEM_CD          = DT.ITEM_CD
+								<if test="MOLD_REV != '' and MOLD_REV != null">
+ 								<![CDATA[
+ 		   						   AND MOLD_REV <= #{MOLD_REV}
+								]]>
+								</if>
+		   						   AND MOLD_DIV1        = DT.MOLD_DIV1
+		   						   AND MOLD_DIV2        = DT.MOLD_DIV2
+		   						   AND PROCESS_CD       = DT.PROCESS_CD
+		   						   AND PROCESS_SQ       = DT.PROCESS_SQ
+		   						   AND DEL_FLAG = '0')
+		   AND DT.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		<if test="MAT_GROUP != '' and MAT_GROUP != null">
+		   AND HD.MAT_GROUP = #{MAT_GROUP}
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+		   AND HD.PLANT_CD = #{PLANT_CD}
+		</if>
+		<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+		   AND HD.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+		   AND HD.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+		   AND HD.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		   AND HD.ITEM_CD = #{ITEM_CD}
+		</if>
+		<if test="MOLD_DIV1 != '' and MOLD_DIV1 != null">
+ 		   AND DT.MOLD_DIV1 = #{MOLD_DIV1}
+		</if>
+		<if test="MOLD_DIV2 != '' and MOLD_DIV2 != null">
+ 		   AND DT.MOLD_DIV2 = #{MOLD_DIV2}
+		</if>
+		<if test="PROCESS_CD != '' and PROCESS_CD != null">
+ 		   AND DT.PROCESS_CD = #{PROCESS_CD}
+		</if>
+		<if test="PRODUCTION_DIV != '' and PRODUCTION_DIV != null">
+		   AND DT.PRODUCTION_DIV = #{PRODUCTION_DIV}
+		</if>
+		   AND HD.DEL_FLAG   = '0'
+		   AND HD.MOLD_REV   = (SELECT MAX(MOLD_REV)
+		   						  FROM STOCIMHD
+		   						 WHERE GATE_CD          = HD.GATE_CD
+		   						   AND MAT_GROUP        = HD.MAT_GROUP
+		   						   AND PLANT_CD         = HD.PLANT_CD
+		   						   AND ITEM_CLS1        = HD.ITEM_CLS1
+		   						   AND ITEM_CLS2        = HD.ITEM_CLS2
+		   						   AND ITEM_CLS3        = HD.ITEM_CLS3
+		   						   AND ITEM_CD          = HD.ITEM_CD
+								<if test="EQUIP_REV != '' and EQUIP_REV != null">
+ 								<![CDATA[
+ 		   						   AND EQUIP_REV <= #{EQUIP_REV}
+								]]>
+								</if>
+		   						   AND DEL_FLAG         = '0')
+		   
+		 ORDER BY DT.MAT_GROUP, DT.PLANT_CD, DT.ITEM_CLS1, DT.ITEM_CLS2, DT.ITEM_CLS3, DT.ITEM_CD, DT.MOLD_DIV1, DT.MOLD_DIV2, DT.PROCESS_CD, DT.PROCESS_SQ, DT.MOLD_REV
+
+    </select>
+
+	<insert id="doSaveDT" parameterType="hashmap">
+	
+		 MERGE STOCIMDT AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{MAT_GROUP} AS MAT_GROUP, #{PLANT_CD} AS PLANT_CD, #{ITEM_CLS1} AS ITEM_CLS1, #{ITEM_CLS2} AS ITEM_CLS2,
+		 			   #{ITEM_CLS3} AS ITEM_CLS3, #{ITEM_CD} AS ITEM_CD, #{MOLD_REV} AS MOLD_REV, #{MOLD_DIV1} AS MOLD_DIV1, #{MOLD_DIV2} AS MOLD_DIV2, 
+		 			   #{PROCESS_CD} AS PROCESS_CD, #{PROCESS_SQ} AS PROCESS_SQ) AS B
+
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.MAT_GROUP        = B.MAT_GROUP
+		   AND A.PLANT_CD         = B.PLANT_CD
+		   AND A.ITEM_CLS1        = B.ITEM_CLS1
+		   AND A.ITEM_CLS2        = B.ITEM_CLS2
+		   AND A.ITEM_CLS3        = B.ITEM_CLS3
+		   AND A.ITEM_CD          = B.ITEM_CD
+		   AND A.MOLD_REV         = B.MOLD_REV
+		   AND A.MOLD_DIV1        = B.MOLD_DIV1
+		   AND A.MOLD_DIV2        = B.MOLD_DIV2
+		   AND A.PROCESS_CD       = B.PROCESS_CD
+		   AND A.PROCESS_SQ       = B.PROCESS_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '0'
+			 , PROCESS_DESC = #{PROCESS_DESC}
+			 , PROCESS_CVT = #{PROCESS_CVT}
+			 , BID_CASTING_PRC       = CAST(#{BID_CASTING_PRC} AS NUMERIC(18,2))
+			 , BID_STEEL_PRC         = CAST(#{BID_STEEL_PRC} AS NUMERIC(18,2))
+			 , BID_PART_PRC          = CAST(#{BID_PART_PRC} AS NUMERIC(18,2))
+			 , BID_LASER_PRC         = CAST(#{BID_LASER_PRC} AS NUMERIC(18,2))
+			 , BID_HEATING_PRC       = CAST(#{BID_HEATING_PRC} AS NUMERIC(18,2))
+			 , BID_MAT_OTHER_PRC     = CAST(#{BID_MAT_OTHER_PRC} AS NUMERIC(18,2))
+			 , BID_PLAN_PRC          = CAST(#{BID_PLAN_PRC} AS NUMERIC(18,2))
+			 , BID_NCDATA_PRC        = CAST(#{BID_NCDATA_PRC} AS NUMERIC(18,2))
+			 , BID_PROCESS_PRC       = CAST(#{BID_PROCESS_PRC} AS NUMERIC(18,2))
+			 , BID_FINISHING_PRC     = CAST(#{BID_FINISHING_PRC} AS NUMERIC(18,2))
+			 , BID_PROCESS_OTHER_PRC = CAST(#{BID_PROCESS_OTHER_PRC} AS NUMERIC(18,2))
+			 , BID_OTHER_PRC         = CAST(#{BID_OTHER_PRC} AS NUMERIC(18,2))
+			 , BID_ECO_PRC           = CAST(#{BID_ECO_PRC} AS NUMERIC(18,2))
+			 , EXE_CASTING_PRC       = CAST(#{EXE_CASTING_PRC} AS NUMERIC(18,2))
+			 , EXE_STEEL_PRC         = CAST(#{EXE_STEEL_PRC} AS NUMERIC(18,2))
+			 , EXE_PART_PRC          = CAST(#{EXE_PART_PRC} AS NUMERIC(18,2))
+			 , EXE_LASER_PRC         = CAST(#{EXE_LASER_PRC} AS NUMERIC(18,2))
+			 , EXE_HEATING_PRC       = CAST(#{EXE_HEATING_PRC} AS NUMERIC(18,2))
+			 , EXE_MAT_OTHER_PRC     = CAST(#{EXE_MAT_OTHER_PRC} AS NUMERIC(18,2))
+			 , EXE_PLAN_PRC          = CAST(#{EXE_PLAN_PRC} AS NUMERIC(18,2))
+			 , EXE_NCDATA_PRC        = CAST(#{EXE_NCDATA_PRC} AS NUMERIC(18,2))
+			 , EXE_PROCESS_PRC       = CAST(#{EXE_PROCESS_PRC} AS NUMERIC(18,2))
+			 , EXE_FINISHING_PRC     = CAST(#{EXE_FINISHING_PRC} AS NUMERIC(18,2))
+			 , EXE_PROCESS_OTHER_PRC = CAST(#{EXE_PROCESS_OTHER_PRC} AS NUMERIC(18,2))
+			 , EXE_OTHER_PRC         = CAST(#{EXE_OTHER_PRC} AS NUMERIC(18,2))
+			 , EXE_ECO_PRC           = CAST(#{EXE_ECO_PRC} AS NUMERIC(18,2))
+			 , RMK = #{RMK}
+			 , PRODUCTION_DIV = #{PRODUCTION_DIV}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , MAT_GROUP
+			 , PLANT_CD
+			 , ITEM_CLS1
+			 , ITEM_CLS2
+			 , ITEM_CLS3
+			 , ITEM_CD
+			 , MOLD_REV
+			 , MOLD_DIV1
+			 , MOLD_DIV2
+			 , PROCESS_CD
+			 , PROCESS_SQ
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , PROCESS_DESC
+			 , PROCESS_CVT
+			 , BID_CASTING_PRC
+			 , BID_STEEL_PRC
+			 , BID_PART_PRC
+			 , BID_LASER_PRC
+			 , BID_HEATING_PRC
+			 , BID_MAT_OTHER_PRC
+			 , BID_PLAN_PRC
+			 , BID_NCDATA_PRC
+			 , BID_PROCESS_PRC
+			 , BID_FINISHING_PRC
+			 , BID_PROCESS_OTHER_PRC
+			 , BID_OTHER_PRC
+			 , BID_ECO_PRC
+			 , EXE_CASTING_PRC
+			 , EXE_STEEL_PRC
+			 , EXE_PART_PRC
+			 , EXE_LASER_PRC
+			 , EXE_HEATING_PRC
+			 , EXE_MAT_OTHER_PRC
+			 , EXE_PLAN_PRC
+			 , EXE_NCDATA_PRC
+			 , EXE_PROCESS_PRC
+			 , EXE_FINISHING_PRC
+			 , EXE_PROCESS_OTHER_PRC
+			 , EXE_OTHER_PRC
+			 , EXE_ECO_PRC
+			 , RMK
+			 , PRODUCTION_DIV
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{MAT_GROUP}
+			 , #{PLANT_CD}
+			 , #{ITEM_CLS1}
+			 , #{ITEM_CLS2}
+			 , #{ITEM_CLS3}
+			 , #{ITEM_CD}
+			 , #{MOLD_REV}
+			 , #{MOLD_DIV1}
+			 , #{MOLD_DIV2}
+			 , #{PROCESS_CD}
+			 , #{PROCESS_SQ}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{PROCESS_DESC}
+			 , #{PROCESS_CVT}
+			 , CAST(#{BID_CASTING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_STEEL_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_PART_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_LASER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_HEATING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_MAT_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_PLAN_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_NCDATA_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_PROCESS_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_FINISHING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_PROCESS_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_ECO_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_CASTING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_STEEL_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_PART_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_LASER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_HEATING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_MAT_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_PLAN_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_NCDATA_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_PROCESS_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_FINISHING_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_PROCESS_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_OTHER_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_ECO_PRC} AS NUMERIC(18,2))
+			 , #{RMK}
+			 , #{PRODUCTION_DIV}
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<delete id="doDeleteDT" parameterType="hashmap">
+
+		UPDATE STOCIMDT
+		   SET DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD    = #{ses.gateCd}
+		   AND MAT_GROUP  = #{MAT_GROUP}
+		   AND PLANT_CD   = #{PLANT_CD}
+		   AND ITEM_CLS1  = #{ITEM_CLS1}
+		   AND ITEM_CLS2  = #{ITEM_CLS2}
+		   AND ITEM_CLS3  = #{ITEM_CLS3}
+		   AND ITEM_CD    = #{ITEM_CD}
+		   AND MOLD_REV   = #{MOLD_REV}
+		   AND MOLD_DIV1  = #{MOLD_DIV1}
+		   AND MOLD_DIV2  = #{MOLD_DIV2}
+		   AND PROCESS_CD = #{PROCESS_CD}
+		   AND PROCESS_SQ = #{PROCESS_SQ}
+
+	</delete>
+	
+</mapper>

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.docNo.BSYD_Mapper">
+
+    <update id="setDocNum" parameterType="hashmap">
+<!--     Don't use in service? -->
+        UPDATE STOCDNCT SET
+            CURRENT_NUM = #{currentNo},
+            CURRENT_VAL = #{currentVal},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND DOC_TYPE = #{docType}
+
+    </update>
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+            GATE_CD,
+            DOC_TYPE,
+            PREFIX_STRING,
+            YEAR_FLAG,
+            MONTH_FLAG,
+            DAY_FLAG,
+            YEAR_TYPE,
+            CURRENT_VAL,
+            CURRENT_NUM,
+            USE_FLAG,
+            MOD_USER_ID,
+            <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd})  AS MOD_USER_NM,
+            <include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)  AS MOD_DATE,
+            'U' AS DB_FLAG
+          FROM STOCDNCT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DEL_FLAG = '0'
+
+        <if test="DOC_TYPE != '' and DOC_TYPE != null">
+            AND DOC_TYPE = #{DOC_TYPE}
+        </if>
+
+        <if test="PREFIX_STRING != '' and PREFIX_STRING != null">
+            AND PREFIX_STRING <include refid="com.sql.likeL"/> #{PREFIX_STRING} <include refid="com.sql.likeR"/>
+        </if>
+
+    </select>
+
+    <select id="checkDocType" parameterType="hashMap" resultType="int">
+
+        SELECT COUNT(DOC_TYPE) AS CNT FROM STOCDNCT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DOC_TYPE = #{DOC_TYPE}
+
+    </select>
+
+    <insert id="doInsert" parameterType="hashMap">
+
+        INSERT INTO ${TABLE_NM}(
+            GATE_CD,
+            DOC_TYPE,
+            PREFIX_STRING,
+            CURRENT_NUM,
+            YEAR_FLAG,
+            MONTH_FLAG,
+            DAY_FLAG,
+            YEAR_TYPE,
+            CURRENT_VAL,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            START_NUM,
+            END_NUM2,
+            DEL_FLAG,
+            USE_FLAG
+        ) VALUES (
+            #{ses.gateCd},
+            #{DOC_TYPE},
+            #{PREFIX_STRING},
+            <if test='_databaseId == "oracle"'>
+	            (#{PREFIX_STRING}
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{YEAR_FLAG} = '1' THEN (CASE WHEN #{YEAR_TYPE} = '4' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYY') ELSE TO_CHAR(<include refid="com.sql.sysdate"/>, 'YY') END) ELSE '' END)
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{MONTH_FLAG} = '1' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'MM') ELSE '' END)
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{DAY_FLAG} = '1' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'DD') ELSE '' END)
+	              <include refid="com.sql.stringMerge"/>#{CURRENT_VAL}),
+            </if>
+            <if test='_databaseId=="mssql"'>
+				(
+				CASE WHEN #{PREFIX_STRING} IS NULL THEN '' ELSE #{PREFIX_STRING} END
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{YEAR_FLAG} = '1' THEN (CASE WHEN #{YEAR_TYPE} = '4' THEN <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(SYSDATETIME(), 'yyyyMMdd'), 1, 4) ELSE <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(SYSDATETIME(), 'yyyyMMdd'), 3, 2) END) ELSE '' END)
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{MONTH_FLAG} = '1' THEN <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(SYSDATETIME(), 'yyyyMMdd'), 5, 2) ELSE '' END)
+	              <include refid="com.sql.stringMerge"/>(CASE WHEN #{DAY_FLAG} = '1' THEN <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(SYSDATETIME(), 'yyyyMMdd'), 7, 2) ELSE '' END)
+	              <include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(#{CURRENT_VAL},'')),
+			</if>
+            #{YEAR_FLAG},
+            #{MONTH_FLAG},
+            #{DAY_FLAG},
+            #{YEAR_TYPE},
+            #{CURRENT_VAL},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <if test='_databaseId == "oracle"'>
+				TO_NUMBER(#{CURRENT_VAL}),
+			</if>
+            <if test='_databaseId=="mssql"'>
+				CONVERT(INTEGER, #{CURRENT_VAL}),
+			</if>
+            <include refid="com.sql.lpad"/>('9', <include refid="com.sql.length"/>(#{CURRENT_VAL}), '9'),
+            '0',
+            #{USE_FLAG}
+        )
+
+    </insert>
+
+    <update id="updateDocNo" parameterType="hashMap">
+<!--     Don't use in service? -->
+        UPDATE STOCDNCT SET
+            CURRENT_NUM = #{CURRENT_NUM},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+          AND DOC_TYPE = #{DOC_TYPE}
+
+    </update>
+
+    <update id="doUpdate" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+            PREFIX_STRING = #{PREFIX_STRING},
+            CURRENT_NUM = #{CURRENT_NUM},
+            YEAR_FLAG = #{YEAR_FLAG},
+            MONTH_FLAG = #{MONTH_FLAG},
+            DAY_FLAG = #{DAY_FLAG},
+            YEAR_TYPE = #{YEAR_TYPE},
+            CURRENT_VAL = #{CURRENT_VAL},
+            END_NUM2 = <include refid="com.sql.lpad"/>('9', <include refid="com.sql.length"/>(#{CURRENT_VAL}), '9'),
+            USE_FLAG = #{USE_FLAG},
+            DEL_FLAG = '0',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND DOC_TYPE = #{DOC_TYPE}
+
+    </update>
+
+    <update id="doDelete" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND DOC_TYPE = #{DOC_TYPE}
+
+    </update>
+
+</mapper>

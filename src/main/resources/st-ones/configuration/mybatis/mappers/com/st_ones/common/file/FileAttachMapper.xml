@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:36 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.common.file.FileAttachMapper">
+
+	<resultMap id="result"  type="hashMap">
+		<result column="FILE_CONTENTS" property="FILE_CONTENTS" jdbcType="BLOB" javaType="[B" ></result>
+	</resultMap>
+
+
+	<insert id="insertFileInfo" parameterType="hashMap">
+
+        <selectKey keyProperty="fileSeq" resultType="int" order="BEFORE">
+            SELECT <include refid="com.sql.nvl"/>(MAX(FILE_SQ) + 1, 0) FILESQ FROM STOCATCH
+            WHERE GATE_CD = #{ses.gateCd} AND UUID = #{UUID}
+        </selectKey>
+
+        INSERT INTO STOCATCH (
+            GATE_CD, UUID, UUID_SQ,
+            FILE_SQ, FILE_NM, FILE_PATH,
+            FILE_SIZE, FILE_EXTENSION, REAL_FILE_NM,
+            BIZ_TYPE, REG_DATE,
+            REG_USER_ID, MOD_DATE,
+            MOD_USER_ID, DEL_FLAG,
+			ENC_FLAG,HASH_NUM
+        ) VALUES (
+            #{ses.gateCd}, #{UUID}, #{UUID_SQ},
+            #{fileSeq}, #{fileName}, #{FILE_PATH},
+		    <include refid="com.sql.toNumber"/>#{FILE_SIZE}<include refid="com.sql.asNumber"/>, #{EXTENSION}, #{REAL_FILE_NM},
+            #{BIZ_TYPE}, <include refid="com.sql.sysdate"/>,
+            #{ses.userId}, <include refid="com.sql.sysdate"/>,
+			#{ses.userId}, '0',
+			#{ENC_FLAG},#{HASH_NUM}
+        )
+    </insert>
+
+    <sql id="getFileInfoCommon">
+		 SELECT
+			  UUID
+		    , UUID_SQ
+		    , <include refid="com.sql.stringMergeStart"/>UUID<include refid="com.sql.stringMerge"/>'_'<include refid="com.sql.stringMerge"/>UUID_SQ<include refid="com.sql.stringMergeEnd"/> AS "fileId"	-- fineUploader
+			, <include refid="com.sql.stringMergeStart"/>UUID<include refid="com.sql.stringMerge"/>'_'<include refid="com.sql.stringMerge"/>UUID_SQ<include refid="com.sql.stringMergeEnd"/> AS file_uuid   -- fineUploader
+		    , FILE_NM
+		    , FILE_NM
+		    , FILE_PATH
+		    , MAX(FILE_SIZE) AS "size"		-- fineUploader
+		    , MAX(FILE_SIZE) AS FILE_SIZE
+		    , MAX(FILE_SQ) AS FILE_SQ
+		    , FILE_EXTENSION
+		    , REAL_FILE_NM
+		    , REAL_FILE_NM AS "name"		-- fineUploader
+		    , FILE_COUNT
+		    , BIZ_TYPE
+		    , DEL_FLAG
+			, ENC_FLAG
+		 FROM (
+				SELECT
+		            UUID UUID,
+		            UUID_SQ,
+		            FILE_NM,
+		            FILE_PATH,
+					<include refid="com.sql.toVarchar"/>FILE_SIZE<include refid="com.sql.asVarchar"/> AS FILE_SIZE,
+		            FILE_SQ,
+		            FILE_EXTENSION,
+		            REAL_FILE_NM,
+		            (SELECT COUNT(*) FROM STOCATCH
+			          WHERE GATE_CD = GATE_CD
+			            AND UUID = #{UUID}
+			            AND DEL_FLAG = '0') AS FILE_COUNT,
+		            BIZ_TYPE,
+      				DEL_FLAG,
+					ENC_FLAG
+		         FROM STOCATCH
+		        WHERE GATE_CD = CASE WHEN #{ses.gateCd} IS NULL OR #{ses.gateCd} = '' THEN '100' ELSE #{ses.gateCd} END
+		          AND UUID = #{UUID}
+		          AND DEL_FLAG = '0'
+		  ) T
+		 WHERE 1 = 1
+    </sql>
+
+    <select id="getFileInfoOne" parameterType="hashMap" resultType="hashMap">
+
+		 SELECT
+			  UUID
+		    , UUID_SQ
+		    , FILE_NM
+		    , FILE_PATH
+		    ,  FILE_SIZE
+		    ,  FILE_SQ
+		    , FILE_EXTENSION
+		    , REAL_FILE_NM
+		    , FILE_COUNT
+		    , BIZ_TYPE
+		    , DEL_FLAG
+			, ENC_FLAG
+		 FROM (
+		 		( SELECT
+		            UUID UUID,
+		            UUID_SQ,
+		            FILE_NM,
+		            FILE_PATH,
+					<include refid="com.sql.toVarchar"/>FILE_SIZE<include refid="com.sql.asVarchar"/> AS FILE_SIZE,
+		            FILE_SQ,
+		            FILE_EXTENSION,
+		            REAL_FILE_NM,
+		            (SELECT COUNT(*) FROM STOCATCH
+			          WHERE GATE_CD = GATE_CD
+			            AND UUID = #{UUID}
+			            AND DEL_FLAG = '0') AS FILE_COUNT,
+		            BIZ_TYPE,
+      				DEL_FLAG,
+					ENC_FLAG
+		        FROM STOCATCH
+		        WHERE GATE_CD = CASE WHEN #{ses.gateCd} IS NULL THEN #{ses.gateCd} ELSE #{ses.gateCd} END
+		          AND UUID = #{UUID}
+		          AND DEL_FLAG = '0')
+		        ) T
+		     WHERE 1 = 1
+	          AND T.DEL_FLAG = '0'
+	          AND UPPER(T.FILE_EXTENSION) = UPPER('xls')
+	         <include refid="com.sql.otop1"/>
+    </select>
+
+
+    <select id="getFileInfos" resultType="hashMap">
+       <include refid="getFileInfoCommon"/>
+          AND T.DEL_FLAG = 0
+		  GROUP BY UUID, UUID_SQ, FILE_NM, FILE_PATH,
+			       FILE_EXTENSION, REAL_FILE_NM, FILE_COUNT,
+			       BIZ_TYPE, DEL_FLAG, ENC_FLAG
+        ORDER BY MAX(T.FILE_SQ) ASC
+    </select>
+
+    <select id="getFileCount" resultType="int">
+         SELECT COUNT(*)
+           FROM STOCATCH
+          WHERE GATE_CD = #{ses.gateCd}
+            AND UUID = #{UUID}
+            AND DEL_FLAG = 0
+    </select>
+
+    <select id="getFileInfo" parameterType="hashMap" resultType="hashMap">
+       <include refid="getFileInfoCommon"/>
+          AND T.UUID_SQ = #{UUID_SQ}
+          AND T.DEL_FLAG = 0
+         GROUP BY UUID, UUID_SQ, FILE_NM, FILE_PATH,
+			      FILE_EXTENSION, REAL_FILE_NM, FILE_COUNT,
+			      BIZ_TYPE, DEL_FLAG, ENC_FLAG
+        ORDER BY MAX(T.FILE_SQ) ASC
+    </select>
+
+    <update id="deleteFile">
+        UPDATE STOCATCH SET
+           DEL_FLAG = '1',
+           MOD_USER_ID = #{ses.userId},
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND UUID = #{UUID}
+           AND UUID_SQ = #{UUID_SQ}
+    </update>
+
+    <update id="setBinaryFileInfo" parameterType="hashMap">
+    	UPDATE STOCFILE SET FILE_CONTENTS = #{BINARY_FILE_INFO, typeHandler=org.apache.ibatis.type.ByteArrayTypeHandler}
+    	  WHERE GATE_CD = #{ses.gateCd}
+           AND UUID = #{UUID}
+           AND UUID_SQ = #{UUID_SQ}
+    </update>
+
+	<select id="getBinaryFileInfo" parameterType="hashmap" resultMap="result">
+    	SELECT FILE_CONTENTS
+    	FROM STOCFILE
+    	  WHERE GATE_CD = #{ses.gateCd}
+           AND UUID = #{UUID}
+           AND UUID_SQ = #{UUID_SQ}
+	</select>
+
+
+
+</mapper>

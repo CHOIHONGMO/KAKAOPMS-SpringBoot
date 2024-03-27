@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.itemIF.ITEMIF_Mapper">
+	
+	<!-- 신규품목 등록요청건 조회 -->
+    <select id="getNewItemList" resultType="hashmap">
+    	SELECT
+			  PRHD.HOUSE_CODE
+			, PRHD.COMPANY_CODE
+			, PRHD.DIVISION_CODE
+			, PRHD.PR_NO
+			, PRHD.PR_COUNT
+			, PRDT.PR_SEQ
+			, PRHD.ADD_USER_ID
+			, PRHD.ADD_DATE
+			, PRHD.ADD_TIME
+			, PRHD.CHANGE_USER_ID
+			, PRHD.CHANGE_DATE
+			, PRHD.CHANGE_TIME
+			, PRHD.PROCEEDING_FLAG
+			, PRHD.SIGN_STATUS
+			, PRHD.STATUS AS HD_STATUS
+			, PRDT.STATUS AS DT_STATUS
+			, PRHD.SUBJECT
+			, PRHD.TEL_NO
+			, PRHD.PR_USER_EMAIL
+			, PRHD.PR_USER_MOBILE_NO
+			, PRHD.PR_DEPT_CODE
+			, PRHD.PR_PART_CODE
+			, PRHD.PR_TOT_AMT
+			, PRHD.REMARK AS HD_REMARK
+			, PRHD.RETURN_HOPE_DAY
+			, PRHD.MOVE_FLAG
+			, PRHD.MRO_PR_NO	-- MRO의 신규상품 요청번호
+			, PRHD.IF_FLAG
+			, PRHD.PLANT_CODE
+			, PRDT.DESCRIPTION_LOC
+			, PRDT.SPECIFICATION
+			, PRDT.MAKER_CODE
+			, PRDT.MAKER_NAME
+			, <include refid="com.sql.nvl"/>((SELECT MAX(CODE) FROM STOCCODD		-- 대(DGNS)/DEA(AS-IS MRO), 봉(DGNS)/BOG(AS-IS MRO) 2개 이상인 경우 DGNS의 한글을 가져옴
+				    WHERE GATE_CD   = #{ses.gateCd}
+				      AND CODE_TYPE = 'M037'
+				      AND LANG_CD   = #{ses.langCd}
+				      AND trim(UPPER(TEXT1)) = (SELECT trim(UPPER(COMM_CD_NM)) FROM COMADM.SYS_COMM_CD${dgnsDbLink}
+						  						 WHERE COMM_TYPE_CD = 'PUA0012'
+						  					       AND COMM_CD = PRDT.UNIT_MEASURE)
+				  	  AND DEL_FLAG  = '0'), PRDT.UNIT_MEASURE) AS UNIT_MEASURE
+			, PRDT.UNIT_PRICE
+			, PRDT.PROCEEDING_FLAG
+			, PRDT.REMARK AS DT_REMARK
+			, PRDT.MODEL_NAME
+			, PRDT.MODEL_NO
+			, PRDT.MRP_QTY
+			, PRDT.ORIGIN_COUNTRY
+			, PRDT.LINK_URL
+			, PRDT.QTA_DATE
+			, PRDT.CMS_FLAG
+			, PRDT.GREEN_FLAG
+			, PRDT.ITEM_NO
+			, PRDT.ORDER_GUBUN
+		 FROM ICOYPRHD_IF PRHD
+		 JOIN ICOYPRDT_IF PRDT
+			  ON (PRHD.HOUSE_CODE    = PRDT.HOUSE_CODE
+			  AND PRHD.COMPANY_CODE  = PRDT.COMPANY_CODE
+			  AND PRHD.DIVISION_CODE = PRDT.DIVISION_CODE
+			  AND PRHD.PR_NO         = PRDT.PR_NO
+			  AND PRHD.PR_COUNT      = PRDT.PR_COUNT)
+		WHERE PRHD.HOUSE_CODE = #{ses.gateCd}
+		  AND PRHD.IF_FLAG    = '0'
+    </select>
+
+    <insert id="setNewItemNWRQ" parameterType="hashmap">
+    	MERGE<include refid="com.sql.mergeInto"/>STOUNWRQ<include refid="com.sql.mergeAs"/>NWRQ
+        USING (SELECT #{ses.gateCd}    AS GATE_CD
+	                , #{COMPANY_CODE}  AS CUST_CD
+	                , #{DIVISION_CODE} AS PLANT_CD
+	                , #{PR_NO}		   AS PR_NO
+	                , #{PR_SEQ}		   AS PR_SEQ
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (NWRQ.GATE_CD  = B.GATE_CD
+	         AND NWRQ.CUST_CD  = B.CUST_CD
+	         AND NWRQ.PLANT_CD = B.PLANT_CD
+	         AND NWRQ.CPO_NO   = B.PR_NO
+	         AND NWRQ.CPO_SEQ  = B.PR_SEQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{DT_STATUS} = 'D' THEN '1'
+            				  ELSE (CASE WHEN #{HD_STATUS} = 'D' THEN '1' ELSE '0' END)
+            			 END)
+			,ITEM_DESC = <include refid="com.sql.nvl"/>(#{DESCRIPTION_LOC}, ITEM_DESC)
+			,ITEM_SPEC = <include refid="com.sql.nvl"/>(#{SPECIFICATION}, ITEM_SPEC)
+			,MAKER_NM = <include refid="com.sql.nvl"/>(#{MAKER_NAME}, MAKER_NM)
+			,MODEL_NM = <include refid="com.sql.nvl"/>(#{MODEL_NAME}, MODEL_NM)
+			,ORIGIN_NM = <include refid="com.sql.nvl"/>(#{ORIGIN_COUNTRY}, ORIGIN_NM)
+			,UNIT_CD = <include refid="com.sql.nvl"/>(#{UNIT_MEASURE}, UNIT_CD)
+			,EST_PO_QT = <include refid="com.sql.nvl"/>(#{MRP_QTY}, EST_PO_QT)
+			,HOPE_UNIT_PRICE = <include refid="com.sql.nvl"/>(#{UNIT_PRICE}, HOPE_UNIT_PRICE)
+			,RFQ_REQ_TXT = <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(#{HD_REMARK}, #{DT_REMARK}), RFQ_REQ_TXT)
+			,REQ_TXT = <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(#{HD_REMARK}, #{DT_REMARK}), REQ_TXT)
+			,REPLY_REQ_DATE = <include refid="com.sql.nvl"/>(#{RETURN_HOPE_DAY}, REPLY_REQ_DATE)
+			,REFER_URL = <include refid="com.sql.nvl"/>(#{LINK_URL}, REFER_URL)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,CUST_CD
+			,ITEM_REQ_NO
+			,ITEM_REQ_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,PLANT_CD
+			,PROGRESS_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,MAKER_NM
+			,BRAND_NM
+			,MODEL_NM
+			,ORIGIN_NM
+			,UNIT_CD
+			,EST_PO_QT
+			,HOPE_UNIT_PRICE
+			,CUR
+			,REQUEST_USER_ID
+			,REQUEST_DATE
+			,REQ_DIVISION_CD
+			,REQ_DEPT_CD
+			,REQ_PART_CD
+			,RFQ_REQ_TXT
+			,REQ_TXT
+			,REPLY_REQ_DATE
+			,REFER_URL
+			,CPO_NO
+			,CPO_SEQ
+			,OPERATOR_FLAG
+			,MANUAL_CONT_FLAG
+			,MRO_PR_NO
+        ) VALUES (
+             #{ses.gateCd}
+			,#{COMPANY_CODE}
+			,#{ITEM_REQ_NO}
+			,<include refid="com.sql.nvl"/>((SELECT MAX(ITEM_REQ_SEQ)+1 FROM STOUNWRQ WHERE GATE_CD=#{ses.gateCd} AND ITEM_REQ_NO=#{ITEM_REQ_NO}), 1) --ITEM_REQ_SEQ
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{DT_STATUS} = 'D' THEN '1'
+   				   ELSE (CASE WHEN #{HD_STATUS} = 'D' THEN '1' ELSE '0' END)
+   			  END)			--DEL_FLAG
+			,#{DIVISION_CODE}
+			,'100' 			--PROGRESS_CD(신규품목요청)
+			,#{DESCRIPTION_LOC}
+			,#{SPECIFICATION}
+			,#{MAKER_NAME}
+			,NULL  			--BRAND_NM
+			,<include refid="com.sql.nvl"/>(#{MODEL_NAME}, #{MODEL_NO})
+			,#{ORIGIN_COUNTRY}
+			,#{UNIT_MEASURE}
+			,#{MRP_QTY}
+			,#{UNIT_PRICE}
+			,'KRW' 			--CUR
+			,#{ADD_USER_ID} --REQUEST_USER_ID
+			,(CASE WHEN #{ADD_DATE} IS NULL THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END) 			--REQUEST_DATE
+			,(SELECT DIVISION_CD FROM STOCCVUR WHERE GATE_CD=#{ses.gateCd} AND USER_ID=#{ADD_USER_ID}) --REQ_DIVISION_CD
+			,#{PR_DEPT_CODE}
+			,#{PR_PART_CODE}
+			,<include refid="com.sql.nvl"/>(#{HD_REMARK}, #{DT_REMARK})
+			,<include refid="com.sql.nvl"/>(#{HD_REMARK}, #{DT_REMARK})
+			,#{RETURN_HOPE_DAY}
+			,#{LINK_URL}
+			,#{PR_NO}
+			,#{PR_SEQ}
+			,'0'   			--OPERATOR_FLAG
+			,'0'   			--MANUAL_CONT_FLAG
+			,#{ITEM_REQ_NO}	--신규상품요청번호(MRO SITE)
+        <include refid="com.sql.mergeEnd"/>
+        
+    </insert>
+	
+	<!-- ICOMCMGL_IF: 인터페이스 결과 Update (0: 고객요청, 1: 접수) -->
+    <update id="doUpdateIfResultPRHD_IF" parameterType="hashMap">
+		
+		UPDATE ICOYPRHD_IF
+  		   SET IF_FLAG = '1'
+  		     , MRO_PR_NO = #{ITEM_REQ_NO}
+  		 WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PR_NO    = #{PR_NO}
+		   AND PR_COUNT = #{PR_COUNT}	--DEFAULT: 1
+    </update>
+    
+    <!-- ICOMCMGL_IF: 인터페이스 결과 Update (0: 고객요청, 1: 접수) -->
+    <update id="doUpdateIfResultPRDT_IF" parameterType="hashMap">
+		
+		UPDATE ICOYPRDT_IF
+  		   SET IF_FLAG = '1'
+  		     , MRO_PR_NO = #{ITEM_REQ_NO}
+  		 WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PR_NO  = #{PR_NO}
+		   AND PR_COUNT = #{PR_COUNT}	--DEFAULT: 1
+		   AND PR_SEQ = #{PR_SEQ}
+    </update>
+    
+    <!-- 고객사 견적서 합의결과 변경 -->
+    <select id="getItemConfirmList" resultType="hashmap">
+    	SELECT
+			  PRHD.HOUSE_CODE
+			, PRHD.COMPANY_CODE
+			, PRHD.DIVISION_CODE
+			, PRHD.PR_NO
+			, PRHD.PR_COUNT
+			, PRDT.PR_SEQ
+			, PRHD.MRO_PR_NO
+			, RQDT.RFQ_NUM
+			, RQDT.RFQ_CNT
+			, RQDT.RFQ_SQ
+		 FROM ICOYPRHD_IF PRHD
+		 JOIN ICOYPRDT_IF PRDT
+			  ON (PRHD.HOUSE_CODE    = PRDT.HOUSE_CODE
+			  AND PRHD.COMPANY_CODE  = PRDT.COMPANY_CODE
+			  AND PRHD.DIVISION_CODE = PRDT.DIVISION_CODE
+			  AND PRHD.PR_NO         = PRDT.PR_NO
+			  AND PRHD.PR_COUNT      = PRDT.PR_COUNT)
+		 LEFT JOIN STOUNWRQ NWRQ
+		 	  ON (PRDT.PR_NO    = NWRQ.CPO_NO
+		 	  AND PRDT.PR_SEQ   = NWRQ.CPO_SEQ
+		 	  AND NWRQ.DEL_FLAG = '0')
+		 LEFT JOIN STOCRQDT RQDT
+		 	  ON (NWRQ.ITEM_REQ_NO  = RQDT.ITEM_REQ_NO
+		 	  AND NWRQ.ITEM_REQ_SEQ = RQDT.ITEM_REQ_SEQ
+		 	  AND RQDT.PROGRESS_CD  = '550'	-- 고객합의요청
+		 	  AND RQDT.DEL_FLAG = '0')
+		WHERE PRHD.HOUSE_CODE = #{ses.gateCd}
+		  AND PRHD.IF_FLAG    = '4'	-- DGNS에서 고객사 견적합의
+    </select>
+    
+    <!-- STOCRQDT: 고객사 견적서 합의 결과 Update (600 : 계약완료) -->
+    <update id="doUpdateItemConfirmRQDT" parameterType="hashMap">
+		
+		UPDATE STOCRQDT
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , PROGRESS_CD = '600'	--600(계약완료)
+  		 WHERE GATE_CD = #{ses.gateCd}
+		   AND RFQ_NUM = #{RFQ_NUM}
+           AND RFQ_CNT = #{RFQ_CNT}
+           AND RFQ_SQ  = #{RFQ_SQ}
+    </update>
+    
+    <!-- STOCRQHD: 고객사 견적서 합의 결과 Update (600 : 계약완료) : 전체품목이 계약완료(600)인 경우에 RQHD도 계약완료처리(600) -->
+    <update id="doUpdateItemConfirmRQHD" parameterType="hashMap">
+		
+		UPDATE STOCRQHD A
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , PROGRESS_CD = (CASE WHEN (SELECT COUNT(*) FROM STOCRQDT
+             							  WHERE GATE_CD  = A.GATE_CD
+             							    AND RFQ_NUM  = A.RFQ_NUM
+             							    AND RFQ_CNT  = A.RFQ_CNT
+             							    AND DEL_FLAG = '0') = (SELECT COUNT(*) FROM STOCRQDT
+						             							    WHERE GATE_CD  = A.GATE_CD
+						             							      AND RFQ_NUM  = A.RFQ_NUM
+						             							      AND RFQ_CNT  = A.RFQ_CNT
+						             							      AND PROGRESS_CD = '600'	-- 계약완료
+						             							      AND DEL_FLAG = '0') THEN '600' ELSE PROGRESS_CD END)
+  		 WHERE GATE_CD = #{ses.gateCd}
+		   AND RFQ_NUM = #{RFQ_NUM}
+           AND RFQ_CNT = #{RFQ_CNT}
+    </update>
+    
+    <!-- STOUNWRQ: 고객사 견적서 합의 결과 Update (4: 고객요청, 5: 접수) -->
+    <update id="doUpdateItemConfirmNWRQ" parameterType="hashMap">
+		
+		UPDATE STOUNWRQ
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , PROGRESS_CD = '500'	--500(고객사합의)
+  		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND CPO_NO    = #{PR_NO}
+		   AND CPO_SEQ   = #{PR_SEQ}
+		   AND MRO_PR_NO = #{MRO_PR_NO}
+    </update>
+    
+    <!-- ICOYPRHD_IF: 인터페이스 결과 Update (4: 고객요청, 5: 접수) -->
+    <update id="doUpdateItemConfirmPRHD_IF" parameterType="hashMap">
+		
+		UPDATE ICOYPRHD_IF
+  		   SET IF_FLAG = '5'
+  		     , PROCEEDING_FLAG = 'RE'
+  		     , STATUS = 'R'
+  		     , RFQ_SIGN_DATE = TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYYMMDD')
+  		     , RFQ_SIGN_TIME = TO_CHAR(<include refid="com.sql.sysdate"/>, 'HH24MISS')
+  		 WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PR_NO    = #{PR_NO}
+		   AND PR_COUNT = #{PR_COUNT}
+    </update>
+    
+    <!-- ICOYPRDT_IF: 인터페이스 결과 Update (4: 고객요청, 5: 접수) -->
+    <update id="doUpdateItemConfirmPRDT_IF" parameterType="hashMap">
+		
+		UPDATE ICOYPRDT_IF
+  		   SET IF_FLAG = '5'
+  		     , PROCEEDING_FLAG = 'RE'
+  		     , STATUS  = 'R'
+  		 WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PR_NO    = #{PR_NO}
+		   AND PR_COUNT = #{PR_COUNT}
+		   AND PR_SEQ   = #{PR_SEQ}
+    </update>
+    
+</mapper>

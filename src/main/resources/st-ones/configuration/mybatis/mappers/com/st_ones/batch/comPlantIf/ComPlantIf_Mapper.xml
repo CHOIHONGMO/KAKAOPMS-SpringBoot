@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.comPlantIf.ComPlantIf_Mapper">
+
+    <select id="getComPlantList" parameterType="hashMap" resultType="hashmap">
+		
+		SELECT
+			  COMPANY_CODE
+			, DIVISION_CODE
+			, SEQ
+			, NAME_LOC
+			, NAME_ENG
+			, COMPANY_TYPE
+			, LANGUAGE
+			, COUNTRY
+			, CITY_CODE
+			, CUR
+			, ADDRESS_LOC
+			, ADDRESS_ENG
+			, ZIP_CODE
+			, PHONE_NO
+			, DUNS_NO
+			, HOMEPAGE
+			, FOUNDATION_DATE
+			, GROUP_COMPANY_CODE
+			, GROUP_COMPANY_NAME
+			, CREDIT_RATING
+			, CEO_NAME
+			, CEO_NAME_ENG
+			, IRS_NO
+			, COMPANY_REG_NO
+			, TRADE_REG_NO
+			, INDUSTRY_TYPE
+			, BUSINESS_TYPE
+			, CONV_CODE
+			, STATUS
+			, ADD_DATE
+			, ADD_TIME
+			, ADD_USER_ID
+			, CHANGE_DATE
+			, CHANGE_TIME
+			, CHANGE_USER_ID
+			, TRADE_AGENCY_NO
+			, TRADE_AGENCY_NAME
+			, INDUSTRY_TYPE_TEXT
+			, FAX_NO
+			, SHIPPER_TYPE
+			, CLOSING_DATE
+			, GR_PERSON
+			, GR_PERSON_TEL_NO
+			, ACCOUNT_PERSON
+			, ACCOUNT_PERSON_TEL_NO
+			, PAY_TO_LOCATION
+			, PAY_TERMS
+			, DEPOSIT_PLAN_DATE
+			, BUYER_JOJIK_CODE
+			, REAL_DIVISION_YN
+			, PRICE_MANAGE_DIVISION
+			, FOREIGN_FLAG
+			, ACCOUNT_CODE_SEPARATE
+			, CEO_REG_NO
+			, EDI_ID
+			, EDI_QUALIFIER
+			, INS_COM_CODE
+			, AUTO_INV_CREATE_FLAG
+			, ORG_NAME_LOC
+			, ORG_NAME_ENG
+			, IRS_ATTCH_NO
+			, ACCOUNT_UNIT_CODE
+			, REMARK
+			, ADDRESS_LOC2
+			, DELY_METHOD
+			, FIRST_EMAIL
+			, REGID
+			, MAIN_DIVISION_FLAG
+			, AREA_CODE
+			, INGAM
+			, SGIC_CERT_NO
+			, SGIC_SEND_ID
+			, SGIC_SEND_TYPE
+		 FROM ICOMCMGL_IF
+		WHERE HOUSE_CODE = #{ses.gateCd}
+		  AND IF_FLAG    = '0'	-- DGNS 전송
+		ORDER BY SEQ
+    </select>
+	
+	<!-- 고객사 사업장(STOCCUPL) 등록 -->
+    <insert id="setComPlantCUPL" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUPL<include refid="com.sql.mergeAs"/>CUPL
+        USING (SELECT #{ses.gateCd}    AS GATE_CD
+	                , #{COMPANY_CODE}  AS CUST_CD
+	                , #{DIVISION_CODE} AS PLANT_CD
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (CUPL.GATE_CD  = B.GATE_CD
+	         AND CUPL.CUST_CD  = B.CUST_CD
+	         AND CUPL.PLANT_CD = B.PLANT_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,PLANT_NM = <include refid="com.sql.nvl"/>(#{NAME_LOC}, PLANT_NM)
+            ,ZIP_CD = <include refid="com.sql.nvl"/>(#{ZIP_CODE}, ZIP_CD)
+            ,ADDR1 = <include refid="com.sql.nvl"/>(#{ADDRESS_LOC}, ADDR1)
+            ,ADDR2 = <include refid="com.sql.nvl"/>(#{ADDRESS_LOC2}, ADDR2)
+            ,FOUNDATION_DATE = <include refid="com.sql.nvl"/>(#{FOUNDATION_DATE}, FOUNDATION_DATE)
+            ,CEO_USER_NM = <include refid="com.sql.nvl"/>(#{CEO_NAME}, CEO_USER_NM)
+            ,IRS_NUM = <include refid="com.sql.nvl"/>(#{IRS_NO}, IRS_NUM)
+            ,COMPANY_REG_NUM = <include refid="com.sql.nvl"/>(#{COMPANY_REG_NO}, COMPANY_REG_NUM)
+            ,BUSINESS_TYPE = <include refid="com.sql.nvl"/>(#{BUSINESS_TYPE}, BUSINESS_TYPE)
+            ,INDUSTRY_TYPE = <include refid="com.sql.nvl"/>(#{INDUSTRY_TYPE_TEXT}, INDUSTRY_TYPE)
+            ,TEL_NUM = <include refid="com.sql.nvl"/>(#{PHONE_NO}, TEL_NUM)
+            ,FAX_NUM = <include refid="com.sql.nvl"/>(#{FAX_NO}, FAX_NUM)
+            ,EMAIL = <include refid="com.sql.nvl"/>(#{FIRST_EMAIL}, EMAIL)
+            ,ACC_PERSON = <include refid="com.sql.nvl"/>(#{ACCOUNT_PERSON}, ACC_PERSON)
+            ,ACC_PERSON_TEL_NUM = <include refid="com.sql.nvl"/>(#{ACCOUNT_PERSON_TEL_NO}, ACC_PERSON_TEL_NUM)
+            ,PAY_CONDITION = <include refid="com.sql.nvl"/>(#{PAY_TERMS}, PAY_CONDITION)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,CUST_CD
+			,PLANT_CD
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,PLANT_NM
+			,COM_NM
+			,IRS_NUM
+			,COMPANY_REG_NUM
+			,CEO_USER_NM
+			,FOUNDATION_DATE
+			,ZIP_CD
+			,ADDR1
+			,ADDR2
+			,BUSINESS_TYPE
+			,INDUSTRY_TYPE
+			,IRS_SUB_NUM
+			,IRS_SUB_NM
+			,MNG_ID
+			,SORT_SQ
+			,TEL_NUM
+			,FAX_NUM
+			,EMAIL
+			,PAY_CONDITION
+			,PAY_DAY
+			,ATTACH_FILE_NUM
+			,GR_PERSON
+			,GR_PERSON_TEL_NUM
+			,GR_PERSON_EMAIL
+			,ACC_PERSON
+			,ACC_PERSON_TEL_NUM
+			,ACC_PERSON_EMAIL
+			,USE_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+			,#{COMPANY_CODE}
+			,#{DIVISION_CODE}
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END) --DEL_FLAG
+			,#{NAME_LOC}
+			,#{NAME_LOC}
+			,#{IRS_NUM}
+			,#{COMPANY_REG_NO}
+			,#{CEO_NAME}
+			,#{FOUNDATION_DATE}
+			,#{ZIP_CODE}
+			,#{ADDRESS_LOC}
+			,#{ADDRESS_LOC2}
+			,#{BUSINESS_TYPE}
+			,#{INDUSTRY_TYPE_TEXT}
+			,''  --IRS_SUB_NUM
+			,''  --IRS_SUB_NM
+			,''  --MNG_ID
+			,''  --SORT_SQ
+			,#{PHONE_NO}
+			,#{FAX_NO}
+			,#{FIRST_EMAIL}
+			,#{PAY_TERMS}
+			,''  --PAY_DAY
+			,''  --ATTACH_FILE_NUM
+			,''  --GR_PERSON
+			,''  --GR_PERSON_TEL_NUM
+			,''  --GR_PERSON_EMAIL
+			,#{ACCOUNT_PERSON}
+			,#{ACCOUNT_PERSON_TEL_NO}
+			,''  --ACC_PERSON_EMAIL
+			,'1' --USE_FLAG
+		<include refid="com.sql.mergeEnd"/>
+    </insert>
+    
+    <!-- 사업장 청구지(STOCCUBL) 없는 경우에만 기본청구지 등록 -->
+    <insert id="setComPlantCUBL" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUBL<include refid="com.sql.mergeAs"/>CUBL
+        USING (SELECT #{ses.gateCd}    AS GATE_CD
+	                , #{COMPANY_CODE}  AS CUST_CD
+	                , #{DIVISION_CODE} AS PLANT_CD
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (CUBL.GATE_CD  = B.GATE_CD
+	         AND CUBL.CUST_CD  = B.CUST_CD
+	         AND CUBL.PLANT_CD = B.PLANT_CD)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,PLANT_CD
+            ,CUBL_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,ACC_CD
+            ,CUBL_NM
+            ,CUBL_ZIP_CD
+            ,CUBL_ADDR1
+            ,CUBL_ADDR2
+            ,COMPANY_NM
+            ,IRS_NUM
+            ,CEO_USER_NM
+            ,BUSINESS_TYPE
+            ,INDUSTRY_TYPE
+            ,IRS_SUB_NUM
+            ,IRS_SUB_ADDR
+            ,CUBL_BANK_NM
+            ,CUBL_ACCOUNT_NUM
+            ,CUBL_ACCOUNT_NM
+            ,CUBL_USER_NM
+            ,CUBL_USER_TEL_NUM
+            ,CUBL_USER_FAX_NUM
+            ,CUBL_USER_CELL_NUM
+            ,CUBL_USER_EMAIL
+            ,MNG_ID
+            ,IRS_SUB_ZIP_CD
+        ) VALUES (
+             #{ses.gateCd}
+			,#{COMPANY_CODE}
+			,#{DIVISION_CODE}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(CUBL_SQ)+1, 1) FROM STOCCUBL WHERE GATE_CD = #{ses.gateCd}) -- CUBL_SQ
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END) --DEL_FLAG
+			,'1' --USE_FLAG
+			,''  --ACC_CD
+			,#{NAME_LOC}
+			,#{ZIP_CODE}
+			,#{ADDRESS_LOC}
+			,#{ADDRESS_LOC2}
+			,#{NAME_LOC}
+			,#{IRS_NUM}
+			,#{CEO_NAME}
+			,#{BUSINESS_TYPE}
+			,#{INDUSTRY_TYPE_TEXT}
+			,''  --IRS_SUB_NUM
+			,''  --IRS_SUB_ADDR
+			,''  --CUBL_BANK_NM
+			,''  --CUBL_ACCOUNT_NUM
+			,''  --CUBL_ACCOUNT_NM
+			,#{ACCOUNT_PERSON}			--CUBL_USER_NM
+			,#{ACCOUNT_PERSON_TEL_NO}	--CUBL_USER_TEL_NUM
+			,#{FAX_NO}					--CUBL_USER_FAX_NUM
+			,#{PHONE_NO}				--CUBL_USER_CELL_NUM
+			,#{FIRST_EMAIL}				--CUBL_USER_EMAIL
+			,''  --MNG_ID
+			,''  --IRS_SUB_ZIP_CD
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+	
+	<!-- 운영사 사업장(STOCOGPL) 등록 -->
+    <insert id="setComPlantOGPL" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCOGPL<include refid="com.sql.mergeAs"/>OGPL
+        USING (SELECT #{ses.gateCd}    AS GATE_CD
+	                , #{ses.manageCd}  AS BUYER_CD
+	                , #{DIVISION_CODE} AS PLANT_CD
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (OGPL.GATE_CD  = B.GATE_CD
+	         AND OGPL.BUYER_CD = B.BUYER_CD
+	         AND OGPL.PLANT_CD = B.PLANT_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,PLANT_NM = <include refid="com.sql.nvl"/>(#{NAME_LOC}, PLANT_NM)
+            ,ZIP_CD = <include refid="com.sql.nvl"/>(#{ZIP_CODE}, ZIP_CD)
+            ,ADDR = CASE WHEN #{ADDRESS_LOC} IS NULL AND #{ADDRESS_LOC2} IS NULL THEN ADDR ELSE #{ADDRESS_LOC} <include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/> #{ADDRESS_LOC2} END
+            ,CEO_USER_NM = <include refid="com.sql.nvl"/>(#{CEO_NAME}, CEO_USER_NM)
+            ,IRS_NUM = <include refid="com.sql.nvl"/>(#{IRS_NO}, IRS_NUM)
+            ,COMPANY_REG_NUM = <include refid="com.sql.nvl"/>(#{COMPANY_REG_NO}, COMPANY_REG_NUM)
+            ,BUSINESS_TYPE = <include refid="com.sql.nvl"/>(#{BUSINESS_TYPE}, BUSINESS_TYPE)
+            ,INDUSTRY_TYPE = <include refid="com.sql.nvl"/>(#{INDUSTRY_TYPE_TEXT}, INDUSTRY_TYPE)
+            ,TEL_NUM = <include refid="com.sql.nvl"/>(#{PHONE_NO}, TEL_NUM)
+            ,FAX_NUM = <include refid="com.sql.nvl"/>(#{FAX_NO}, FAX_NUM)
+            ,EMAIL = <include refid="com.sql.nvl"/>(#{FIRST_EMAIL}, EMAIL)
+        WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,BUYER_CD
+			,PLANT_CD
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,PLANT_NM
+			,PLANT_NM_ENG
+			,COUNTRY_CD
+			,CITY_NM
+			,ADDR
+			,ADDR_ENG
+			,ZIP_CD
+			,TEL_NUM
+			,FAX_NUM
+			,IRS_NUM
+			,CEO_USER_NM
+			,CEO_USER_NM_ENG
+			,INDUSTRY_TYPE
+			,BUSINESS_TYPE
+			,COMPANY_REG_NUM
+			,DUNS_NUM
+			,BUYER_NM
+			,BUYER_NM_ENG
+			,ATT_FILE_NUM
+			,PLANT_TYPE
+			,PLANT_STATUS_CD
+			,REGION_CD
+			,EMAIL
+			,MAPPING_PLANT_CD
+			,ZIP_CD_5
+        ) VALUES (
+			 #{ses.gateCd}
+			,#{ses.manageCd}
+			,#{DIVISION_CODE}
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END) --DEL_FLAG
+			,#{NAME_LOC}
+			,#{NAME_LOC}
+			,'KR'
+			,''
+			,#{ADDRESS_LOC}<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/>#{ADDRESS_LOC2}
+			,''
+			,#{ZIP_CODE}
+			,#{PHONE_NO}
+			,#{FAX_NO}
+			,#{IRS_NUM}
+			,#{CEO_NAME}
+			,#{CEO_NAME}
+			,#{INDUSTRY_TYPE_TEXT}
+			,#{BUSINESS_TYPE}
+			,#{COMPANY_REG_NO}
+			,''
+			,<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, #{ses.manageCd}, #{ses.langCd})
+			,''
+			,''
+			,''
+			,''
+			,''
+			,#{FIRST_EMAIL}
+			,''
+			,''
+		<include refid="com.sql.mergeEnd"/>
+    </insert>
+    
+	<!-- ICOMCMGL_IF: 인터페이스 결과 Update (0: 고객요청, 1: 접수) -->
+    <update id="doUpdateIfResultPlant" parameterType="hashMap">
+		
+		UPDATE ICOMCMGL_IF
+  		   SET IF_FLAG = '1'	-- MRO 접수
+  		 WHERE HOUSE_CODE    = #{ses.gateCd}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND SEQ = #{SEQ}
+    </update>
+    
+</mapper>

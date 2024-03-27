@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.realtimeIf.RealtimeIF_Mapper">
+
+	<insert id="insertRealMail" parameterType="hashmap">
+
+		INSERT INTO COMADM.CI920MS${dgnsDbLink} (
+			  GUBUN
+			, IDX
+			, EMAIL_TITLE
+			, EMAIL_TO
+			, EMAIL_TO_NAME
+			, EMAIL_FROM
+			, EMAIL_FROM_NAME
+			, EMAIL_BODY
+		)
+		VALUES (
+			  'DM_MRO'				--GUBUN
+			, #{MAIL_SQ}			--IDX
+			, #{SUBJECT}			--EMAIL_TITLE
+			, trim(#{RECV_EMAIL})	--EMAIL_TO
+			, #{RECV_USER_NM}		--EMAIL_TO_NAME
+			, #{SEND_EMAIL}			--EMAIL_FROM
+			, #{SEND_USER_NM}		--EMAIL_FROM_NAME
+			, #{CONTENTS_TEMPLATE} 	--EMAIL_BODY
+		)
+	</insert>
+
+	<!-- TBL_SUBMIT_QUEUE : DGNS SMS 발송 마스터 -->
+	<!-- everSmsService.java : DGNS SMS 실제 발송 테이블 등록 -->
+	<select id="insertRealSms" statementType="CALLABLE" parameterType="hashmap" resultType="java.util.HashMap">
+
+		call COMADM.PKG_COMSMSLMSMNG.SP_INSERT${smsDbLink}
+	        (
+                  'DAEMYUNG7184'                       -- 서비스ID(DAEMYUNG7184).
+                , '00'                                 -- 메세지구분 00:SMS, 01:url SMS, 10:LMS, 30:long message + url
+                , 'I'                                  -- 예약전송여부 I : 즉시발송, R : 예약발송
+                , TO_CHAR(SYSDATE,'YYYYMMDDHH24MMSS')  -- 전송시간
+                , REGEXP_REPLACE(#{RECV_TEL_NUM} , '[[:punct:]]')           -- 메세지 받는 사람의 전화번호(공백, ''-'' 없이 입력, 텍스트형식 숫자만입력)
+                , REGEXP_REPLACE(#{SEND_TEL_NUM} , '[[:punct:]]')          -- 메세지 보내는 사람의 전화번호(공백, '-' 없이 입력, 텍스트형식 숫자만입력)
+                , #{CONTENTS}                          -- 메세지 내용
+                , '대명소노시즌'                            -- 메세지 타이틀.
+                , 'SM136266'                           -- 분리 과금용 ID.
+                , ''                                   -- 사용자지정필드1 >> 캠패인_ID[CS004]
+                , ''                                   -- 사용자지정필드2 >> 회원번호
+                , #{SMS_SQ}                            -- 사용자지정필드3 >> 사원번호
+                , ''                                   -- 사용자지정필드4 >>
+                , ''                                   -- 사용자지정필드5 >>
+                , ''                                   -- 사용자지정필드6 >>
+                ,#{O_RESULT, mode=OUT ,  jdbcType=VARCHAR}
+	            ,#{O_MSG, mode=OUT    ,  jdbcType=VARCHAR}
+	        )
+	</select>
+
+    <!-- PUA_MTRL_CD : DGNS 품목 마스터 상품코드 가져오기 -->
+    <!-- IM0301_Service.java : 품목 신규 등록시 DGNS 품목코드 및 I/F ID 가져오기 -->
+    <select id="getDgnsItemCd" parameterType="hashmap" resultType="hashmap">
+		SELECT getMkBrName(#{ses.gateCd}, 'MK', #{MAKER_CD}) AS MK_NM
+			 , TO_CHAR(BOFADM.SEQ_PUA_MTRL_CD_01.NEXTVAL${dgnsDbLink}) AS DGNS_ITEM_ID
+		FROM DUAL
+	</select>
+
+    <select id="getDgnsItemCd2" parameterType="hashmap" resultType="string">
+		SELECT #{ITEM_CLS3_CUST}||LPAD(DECODE(MAX(MTRL_SEQ), NULL, 1, MAX(MTRL_SEQ) + 1),4,0) AS DGNS_ITEM_CD
+		  FROM BOFADM.PUA_MTRL_CD${dgnsDbLink}
+		 WHERE LCLAS_CD || MCLAS_CD || SCLAS_CD = #{ITEM_CLS3_CUST}
+	</select>
+
+	<!-- PUA_MTRL_CD : DGNS 품목 마스터 상품코드 등록 -->
+	<!-- IM0301_Service.java : 품목 등록 후 DGNS 품목 등록하기 => 첫번째 -->
+    <insert id="insPuaMtrlCd" parameterType="hashmap">
+
+		INSERT INTO BOFADM.PUA_MTRL_CD${dgnsDbLink} (
+		       MTRL_ID,
+		       MTRL_NO,
+		       LCLAS_CD,
+		       MCLAS_CD,
+		       SCLAS_CD,
+		       MTRL_SEQ,
+		       MTRL_NM,
+		       MTRL_STND_NM,
+		       MTRL_SYN_NM,
+		       ASSET_YN,
+		       USE_YN,
+		       UNIT_CD,
+		       TAXA_CD,
+		       ORGN_NM,
+		       CRT_DT,
+		       CRT_ID,
+		       CRT_IP,
+		       ISN_MTRL_NO
+		)
+		SELECT
+		       #{DGNS_ITEM_ID},	--자재키
+		       #{DGNS_ITEM_CD},	--자재코드
+		       (SELECT SUBSTR(#{ITEM_CLS3_CUST},1,2) FROM DUAL),   	--대분류
+		       (SELECT SUBSTR(#{ITEM_CLS3_CUST},3,2) FROM DUAL), 	--중분류
+		       (SELECT SUBSTR(#{ITEM_CLS3_CUST},5,2) FROM DUAL),  	--소분류
+		       (SELECT DECODE(MAX(MTRL_SEQ), NULL, 1, MAX(MTRL_SEQ) + 1)
+				  FROM BOFADM.PUA_MTRL_CD${dgnsDbLink}
+		         WHERE LCLAS_CD || MCLAS_CD || SCLAS_CD = #{ITEM_CLS3_CUST}),   --순번
+		       #{ITEM_DESC}, 	--자재명(한글)
+		       #{ITEM_SPEC}, 	--규격
+		       #{ITEM_SPEC}, 	--ISN규격
+		       'N',				--자산등록여부
+		       '0', 			--사용여부 (초기 등록시 '미사용'으로 등록 => 단가 등록시 '사용'으로 변경함)
+              (SELECT COMM_CD FROM COMADM.SYS_COMM_CD${dgnsDbLink}
+				WHERE COMM_TYPE_CD = 'PUA0012'
+       			  AND trim(UPPER(COMM_CD_NM)) = (SELECT trim(UPPER(TEXT1)) FROM STOCCODD
+		       			      				  	  WHERE CODE_TYPE = 'M037'
+		       			      					 	AND CODE    = #{UNIT_CD}
+		       			      					 	AND LANG_CD = #{ses.langCd})),	--수불단위(공통코드:O0013)
+		       CASE #{VAT_CD} WHEN 'T1' THEN '1' -- 과세
+		       				  WHEN 'E1' THEN '2' -- 면세
+		       				  WHEN 'Z1' THEN '3' -- 영세
+		       				  WHEN 'N1' THEN '4' -- 매입세불공제
+		       END,			   	--세금구분
+		       #{ORGN_NM},		--원산지
+		       <include refid="com.sql.sysdate"/>,	--최종수정일자
+		       'ISN',			--최종수정사번
+		       'ISN',			--최종수정IP
+		       #{DGNS_ITEM_CD}
+		  FROM DUAL
+	</insert>
+
+	<!-- PUA_MTRL_STND : DGNS 품목 상세 마스터 등록하기 => 두번째 -->
+    <insert id="insPuaMtrlSpec" parameterType="hashmap">
+
+		INSERT INTO BOFADM.PUA_MTRL_STND${dgnsDbLink} (
+		       MTRL_ID,
+		       MTRL_MODEL_NM,
+		       MTRL_CAPACITY,
+		       MTRL_SIZE,
+		       MTRL_COLOR,
+		       MTRL_QUALITY,
+		       MTRL_ETC,
+		       MTRL_PRODUCER,
+		       MTRL_STANDARD,
+		       CRT_DT,
+		       CRT_ID,
+		       CRT_IP,
+		       CRT_MAC,
+		       UPD_DT,
+		       UPD_ID,
+		       UPD_IP,
+		       UPD_MAC
+		)
+		SELECT
+		       #{DGNS_ITEM_ID},	--자재키
+		       #{MAKER_PART_NO},--모델명
+		       #{MTRL_CAPACITY},--용량(중량)
+		       #{MTRL_SIZE}, 	--사이즈(규격)
+		       #{MTRL_COLOR}, 	--색상
+		       #{MTRL_QUALITY},	--재질
+		       #{MTRL_ETC}, 	--추가정보
+		       #{MK_NM},   		--제조사/브랜드
+		       'N',  		 	--표준화여부
+		       <include refid="com.sql.sysdate"/>,	--등록일자
+		       'ISN',         	--등록자사번
+		       'ISN',			--등록IP
+		       '',				--CRT_MAC
+		       <include refid="com.sql.sysdate"/>,	--최종수정일자
+		       'ISN',         	--최종수정사번
+		       'ISN',			--최종수정IP
+		       ''				--UPD_MAC
+		  FROM DUAL
+	</insert>
+
+	<!-- 고객사 상품정보 변경 : DGNS 상품정보 변경 -->
+	<update id="updatePuaMtrlCd" parameterType="hashMap">
+
+        UPDATE BOFADM.PUA_MTRL_CD${dgnsDbLink}
+           SET UPD_DT = <include refid="com.sql.sysdate"/>
+             , CRT_ID = <include refid="com.sql.nvl"/>(CRT_ID, 'ISN')
+             , CRT_IP = <include refid="com.sql.nvl"/>(CRT_IP, 'ISN')
+		<if test="ITEM_DESC != '' and ITEM_DESC != null ">
+             , MTRL_NM = #{ITEM_DESC}		--상품명
+		</if>
+		<if test="ITEM_SPEC != '' and ITEM_SPEC != null ">
+             , MTRL_STND_NM = #{ITEM_SPEC}	--규격
+		</if>
+		<if test="ITEM_SPEC != '' and ITEM_SPEC != null ">
+             , MTRL_SYN_NM = #{ITEM_SPEC}	--유사어
+		</if>
+		<choose>
+			<when test="ORGN_CD != '' and ORGN_CD != null ">
+             , ORGN_NM = (SELECT CODE_DESC FROM STOCCODD
+             			   WHERE CODE_TYPE = 'M004'
+             			     AND CODE    = #{ORGN_CD}
+             			     AND LANG_CD = #{ses.langCd})	--원산지명
+			</when>
+			<otherwise>
+				<if test="ORGN_CD != '' and ORGN_CD != null ">
+             , ORGN_NM = #{ORGN_NM}			--원산지명
+				</if>
+			</otherwise>
+		</choose>
+		<if test="UNIT_CD != '' and UNIT_CD != null ">
+             , UNIT_CD = (SELECT COMM_CD FROM COMADM.SYS_COMM_CD${dgnsDbLink}
+             			   WHERE COMM_TYPE_CD = 'PUA0012'
+             			     AND trim(UPPER(COMM_CD_NM)) = (SELECT trim(UPPER(TEXT1)) FROM STOCCODD
+			             			      					 WHERE CODE_TYPE = 'M037'
+			             			      					   AND CODE    = #{UNIT_CD}
+			             			      					   AND LANG_CD = #{ses.langCd}))	--단위
+		</if>
+		<if test="VAT_CD != '' and VAT_CD != null ">
+			 , TAXA_CD = (CASE #{VAT_CD} WHEN 'T1' THEN '1' -- 과세
+					       				 WHEN 'E1' THEN '2' -- 면세
+					       				 WHEN 'Z1' THEN '3' -- 영세
+					       				 WHEN 'N1' THEN '4' -- 매입세불공제
+					      END)
+		</if>
+         WHERE MTRL_NO = #{CUST_ITEM_CD}
+            OR ISN_MTRL_NO = #{CUST_ITEM_CD}
+    </update>
+
+	<!-- 고객사 상품정보 변경 : DGNS 상품정보 변경 -->
+	<update id="updatePuaMtrlSpec" parameterType="hashMap">
+
+        UPDATE BOFADM.PUA_MTRL_STND${dgnsDbLink}
+           SET UPD_DT = <include refid="com.sql.sysdate"/>
+             , CRT_ID = <include refid="com.sql.nvl"/>(CRT_ID, 'ISN')
+             , CRT_IP = <include refid="com.sql.nvl"/>(CRT_IP, 'ISN')
+		<if test="MAKER_PART_NO != '' and MAKER_PART_NO != null ">
+             , MTRL_MODEL_NM = #{MAKER_PART_NO}	--모델명
+		</if>
+		<if test="MTRL_CAPACITY != '' and MTRL_CAPACITY != null ">
+             , MTRL_CAPACITY = #{MTRL_CAPACITY}	--용량(중량)
+		</if>
+		<if test="MTRL_SIZE != '' and MTRL_SIZE != null ">
+             , MTRL_SIZE = #{MTRL_SIZE}			--사이즈(규격)
+		</if>
+		<if test="MTRL_COLOR != '' and MTRL_COLOR != null ">
+             , MTRL_COLOR = #{MTRL_COLOR}		--색상
+		</if>
+		<if test="MTRL_QUALITY != '' and MTRL_QUALITY != null ">
+             , MTRL_QUALITY = #{MTRL_QUALITY}	--재질
+		</if>
+		<if test="MTRL_ETC != '' and MTRL_ETC != null ">
+             , MTRL_ETC = #{MTRL_ETC}			--추가정보
+		</if>
+		<if test="MK_NM != '' and MK_NM != null ">
+             , MTRL_PRODUCER = #{MK_NM}			--제조사/브랜드
+		</if>
+         WHERE MTRL_ID = (SELECT MAX(MTRL_ID) FROM BOFADM.PUA_MTRL_CD${dgnsDbLink}
+         				   WHERE MTRL_NO = #{CUST_ITEM_CD}
+            				  OR ISN_MTRL_NO = #{CUST_ITEM_CD})
+    </update>
+
+	<!-- ICOYITEM_IF : 고객사 품목의 판매단가 등록 및 변경 -->
+	<insert id="insCustUinfo" parameterType="hashmap">
+
+		INSERT INTO ICOYITEM_IF (
+			  HOUSE_CODE
+			, ITEM_NO
+			, COMPANY_CODE
+			, DIVISION_CODE
+			, UNIT_PRICE
+			, IF_FLAG
+			, IF_DATE
+			, IF_TIME
+			, IF_USER
+			, ITEM_FLAG
+			, PRICE_CHANGE_REMARK
+			, PRICE_CHANGE_DATE
+			, PRICE_CHANGE_TIME
+			, PRICE_USER_ID
+		)
+		VALUES (
+			  #{ses.gateCd}				--HOUSE_CODE
+			, #{CUST_ITEM_CD}			--ITEM_NO (고객사 품목코드)
+			, #{COMPANY_CODE}			--COMPANY_CODE (고객사 회사코드)
+			,(CASE WHEN <include refid="com.sql.nvl"/>(#{DIVISION_CODE}, '*') = '*' THEN 'ALL' ELSE #{DIVISION_CODE} END)	--DIVISION_CODE (고객사 사업장코드 : ALL or 사업장코드)
+			, #{UNIT_PRICE}				--UNIT_PRICE (고객사 판매단가)
+			, '2'						--IF_FLAG
+			,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD')		--IF_DATE
+			,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24:MI:SS') 	--IF_TIME
+			, #{ses.userId} 			--IF_USER
+			, #{ITEM_FLAG}				--ITEM_FLAG (?? => 검토 필요 : ICOMBYIT의 ALL_FLAG)
+			, #{PRICE_CHANGE_REMARK} 	--PRICE_CHANGE_REMARK (판가 변경사유)
+			, #{PRICE_CHANGE_DATE}		--PRICE_CHANGE_DATE (판가 변경일자)
+			, #{PRICE_CHANGE_TIME}		--PRICE_CHANGE_TIME (판가 변경시간)
+			, #{PRICE_USER_ID}			--PRICE_USER_ID (판가 변경자ID)
+		)
+	</insert>
+
+	<!-- 고객사 상품코드 단종 및 단종해제, 사용여부 변경(USE_YN=1/0): PROD_CLOSE_FLAG=1/0 -->
+	<update id="updateItemUseFlag" parameterType="hashMap">
+        UPDATE BOFADM.PUA_MTRL_CD${dgnsDbLink}
+           SET USE_YN = <include refid="com.sql.nvl"/>( CASE WHEN #{ITEM_STATUS} !='10' THEN '0' ELSE '1' END        , 0)	--사용여부
+		<if test="CLOSE_RMK != '' and CLOSE_RMK != null ">
+             , REMARK = #{CLOSE_RMK}	--단종사유
+		</if>
+         WHERE MTRL_NO = #{CUST_ITEM_CD}
+    </update>
+
+	<!-- 고객사 신규상품 계약정보 결재 승인(STOCCNHD=SIGN_STATUS=E) 후 견적합의대기로 변경하기 -->
+	<!-- 신규상품 HEADER 견적합의대기(RT) 생태 변경 -->
+	<update id="updateItemStatusPRHD" parameterType="hashMap">
+        UPDATE ICOYPRHD_IF
+           SET IF_FLAG = #{IF_FLAG}	-- 합의요청:2(RQ0102_Service.java에서 처리), 합의완료 mro처리: 5(ITEMIF.java - Batch에서 처리)
+            <!-- 하단은 RQ0102_Service.java의 견적합의요청에서만 사용 -->
+			<if test="PROCEEDING_FLAG != '' and PROCEEDING_FLAG != null ">
+             , PROCEEDING_FLAG = #{PROCEEDING_FLAG}
+        	</if>
+         WHERE HOUSE_CODE    = #{ses.gateCd}
+           AND COMPANY_CODE  = #{CUST_CD}
+           AND DIVISION_CODE = #{PLANT_CD}
+           AND PR_NO         = #{PR_NO}
+    </update>
+
+    <!-- 신규상품 DETAIL 견적합의대기(RT) 생태 변경 -->
+	<update id="updateItemStatusPRDT" parameterType="hashMap">
+        UPDATE ICOYPRDT_IF
+           SET IF_FLAG = #{IF_FLAG}	-- 합의요청:2, 합의완료 mro처리: 5
+			<!-- 하단은 RQ0102_Service.java의 견적합의요청에서만 사용 -->
+			<if test="PROCEEDING_FLAG != '' and PROCEEDING_FLAG != null ">
+             , PROCEEDING_FLAG = #{PROCEEDING_FLAG}
+        	</if>
+			<if test="ITEM_NO != '' and ITEM_NO != null ">
+             , ITEM_NO = #{ITEM_NO}
+        	</if>
+			<if test="DESCRIPTION_LOC != '' and DESCRIPTION_LOC != null ">
+             , DESCRIPTION_LOC = #{DESCRIPTION_LOC}
+        	</if>
+        	<if test="UNIT_CD != '' and UNIT_CD != null ">
+             , UNIT_MEASURE = #{UNIT_CD}
+        	</if>
+			<if test="MAKER_CODE != '' and MAKER_CODE != null ">
+             , MAKER_CODE = #{MAKER_CODE}
+        	</if>
+			<if test="MAKER_NAME != '' and MAKER_NAME != null ">
+             , MAKER_NAME = #{MAKER_NAME}
+        	</if>
+			<if test="ORIGIN_COUNTRY != '' and ORIGIN_COUNTRY != null ">
+             , ORIGIN_COUNTRY = #{ORIGIN_COUNTRY}
+	        </if>
+			<if test="CMS_CATEG_ID != '' and CMS_CATEG_ID != null ">
+             , CMS_CATEG_ID = #{CMS_CATEG_ID}
+	        </if>
+			<if test="CMS_CATLG_ID != '' and CMS_CATLG_ID != null ">
+             , CMS_CATLG_ID = #{CMS_CATLG_ID}
+	        </if>
+			<if test="UNIT_PRICE != '' and UNIT_PRICE != null ">
+             , UNIT_PRICE = #{UNIT_PRICE}
+	        </if>
+			<if test="LIST_PRICE != '' and LIST_PRICE != null ">
+             , LIST_PRICE = #{LIST_PRICE}
+	        </if>
+			<if test="QTA_UNIT_PRICE != '' and QTA_UNIT_PRICE != null ">
+             , QTA_UNIT_PRICE = #{QTA_UNIT_PRICE}
+        	</if>
+        	<if test="VENDOR_CD != '' and VENDOR_CD != null ">
+             , VENDOR_CODE = #{VENDOR_CD}
+        	</if>
+        	<if test="CTRL_USER_ID != '' and CTRL_USER_ID != null ">
+             , MD_CTRL_PERSON_ID = #{CTRL_USER_ID}
+        	</if>
+        	<if test="CTRL_USER_NM != '' and CTRL_USER_NM != null ">
+             , MD_CTRL_PERSON_NAME_LOC = #{CTRL_USER_NM}
+        	</if>
+         WHERE HOUSE_CODE    = #{ses.gateCd}
+           AND COMPANY_CODE  = #{CUST_CD}
+           AND DIVISION_CODE = #{PLANT_CD}
+           AND PR_NO         = #{PR_NO}
+           AND PR_SEQ        = #{PR_SEQ}
+    </update>
+
+    <!-- 고객사 입고건(ICOUGRDT_IF)의 입고 진행상태 변경 -->
+	<update id="updateGrStatusGRDT" parameterType="hashMap">
+        UPDATE ICOUGRDT_IF SET
+              IF_FLAG = #{IF_FLAG}
+        <!-- 반품확정 -->
+		<if test="IF_FLAG != '' and IF_FLAG != null and IF_FLAG = '12'.toString()">
+		   	, REMARK = #{REJECT_RMK}
+		   	, CONFIRM_DATE = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD')
+		</if>
+         WHERE HOUSE_CODE = #{ses.gateCd}
+           AND IF_GR_NO   = #{IF_GR_NO}
+           AND IF_GR_SEQ  = #{IF_GR_SEQ}
+    </update>
+
+    <!-- MRO 반품 확정 후 DGNS 테이블 진행상태 변경 : 10(반품요청), 11(반품 접수), 12(반품확정)-->
+    <update id="doUpdatePuaRtnDgns" parameterType="hashMap">
+        UPDATE BOFADM.PUA_RTN${dgnsDbLink}
+           SET RTN_STAT_CD = '8'
+		   	 , RTN_DCSN_ETC = #{REJECT_RMK}
+		   	 , RTN_DCSN_YMD = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD')
+         WHERE (CMPNY_CD, ORGT_ID, RTN_YMD, RTN_SEQ) IN (
+         		SELECT SUBSTR(SAP_CODE, 4, 3)
+         			 , SUBSTR(SAP_CODE, 7, 10)
+         			 , SUBSTR(SAP_CODE, 17, 8)
+         			 , TO_NUMBER(SUBSTR(SAP_CODE, 25, 4))
+         		  FROM ICOUGRDT_IF
+         		 WHERE HOUSE_CODE = #{ses.gateCd}
+         		   AND GR_NO   = #{IF_GR_NO}
+         		   AND GR_SEQ  = #{IF_GR_SEQ}
+         		   AND IF_FLAG = '11')
+    </update>
+
+	<!-- ICOUIVHD_IF : DGNS 고객사 납품서 Header정보 I/F 테이블 -->
+	<insert id="regDgnsInvoiceHD" parameterType="hashmap">
+
+		INSERT INTO ICOUIVHD_IF (
+				HOUSE_CODE
+				, AGENT_CODE
+				, AGENT_DIVISION_CODE
+				, INV_NO
+				, COMPANY_CODE
+				, DIVISION_CODE
+				, OPERATING_CODE
+				, VENDOR_CODE
+				, VENDOR_DIVISION_CODE
+				, VENDOR_GI_DATE
+				, VENDOR_GI_TIME
+				, CONSIGNEE
+				, INV_DATE
+				, SHIPPING_DATE
+				, SHIPPER_TYPE
+				, CUR
+				, INV_TTL_AMT
+				, INV_AMT
+				, COMMERCIAL_FLAG
+				, PAY_TERMS
+				, PAY_TEXT
+				, SHIPPING_COUNTRY
+				, REMARK
+				, ADD_USER_DEPT
+				, ADD_DATE
+				, ADD_TIME
+				, ADD_USER_ID
+				, ADD_USER_NAME_ENG
+				, ADD_USER_NAME_LOC
+				, CHANGE_USER_DEPT
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CHANGE_USER_ID
+				, CHANGE_USER_NAME_ENG
+				, CHANGE_USER_NAME_LOC
+				, STATUS
+				, SALES_PERSON_NAME
+				, SALES_PERSON_TEL
+				, PROCEEDING_FLAG
+				, IF_FLAG
+				, IF_DATE
+				, IF_TIME
+				, IF_USER
+				, HOUSE_BL_NO
+				, DGNS_NO1
+				, DGNS_NO2
+				, DGNS_NO3
+				, DGNS_NO4
+		)
+		SELECT
+				#{ses.gateCd} AS HOUSE_CODE
+				, #{ses.manageCd} AS AGENT_CODE
+				, #{ses.manageCd} AS AGENT_DIVISION_CODE
+				, #{INV_NO}	AS INV_NO
+				, CUST_CD	AS COMPANY_CODE
+				, PLANT_CD	AS DIVISION_CODE
+				, 'ALL'		AS OPERATING_CODE
+				, VENDOR_CD	AS VENDOR_CODE
+				, VENDOR_CD	AS VENDOR_DIVISION_CODE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') AS VENDOR_GI_DATE
+				, ''	  AS VENDOR_GI_TIME
+				, CUST_CD AS CONSIGNEE
+				,<include refid="com.sql.toDateChar"/>(SYSDATE, 'YYYYMMDD') AS INV_DATE
+				,<include refid="com.sql.toDateChar"/>(SYSDATE, 'YYYYMMDD') AS SHIPPING_DATE
+				, 'D'	  AS SHIPPER_TYPE
+				,<include refid="com.sql.nvl"/>((SELECT MAX(CUR) FROM STOUIVDT
+												  WHERE GATE_CD  = IVHD.GATE_CD
+												    AND INV_NO   = IVHD.INV_NO
+													AND DEL_FLAG = '0'), 'KRW') AS CUR
+				,(SELECT SUM(INV_ITEM_AMT) FROM STOUIVDT
+				   WHERE GATE_CD  = IVHD.GATE_CD
+				     AND INV_NO   = IVHD.INV_NO
+					 AND DEL_FLAG = '0') AS INV_TTL_AMT
+				,(SELECT SUM(INV_ITEM_AMT) FROM STOUIVDT
+				   WHERE GATE_CD  = IVHD.GATE_CD
+				     AND INV_NO   = IVHD.INV_NO
+					 AND DEL_FLAG = '0') AS INV_AMT
+				, 'Y'  AS COMMERCIAL_FLAG
+				, ''   AS PAY_TERMS
+				, ''   AS PAY_TEXT
+				, 'KR' AS SHIPPING_COUNTRY
+				, RMKS AS REMARK
+				,<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, REG_USER_ID, 'DEPT_CD') AS ADD_USER_DEPT
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') AS ADD_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24MISS') AS ADD_TIME
+				, REG_USER_ID AS ADD_USER_ID
+				, ''  AS ADD_USER_NAME_ENG
+				,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, REG_USER_ID, #{ses.langCd}) AS ADD_USER_NAME_LOC
+				,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, REG_USER_ID, #{ses.langCd}) AS CHANGE_USER_DEPT
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') AS CHANGE_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24MISS') AS CHANGE_TIME
+				, MOD_USER_ID AS CHANGE_USER_ID
+				, ''  AS CHANGE_USER_NAME_ENG
+				,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, MOD_USER_ID, #{ses.langCd}) AS ADD_USER_NAME_LOC
+				, 'C' AS STATUS
+				,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, CPO_USER_ID, #{ses.langCd}) AS SALES_PERSON_NAME
+				, CPO_USER_CELL_NUM AS SALES_PERSON_TEL
+				, 'D' AS PROCEEDING_FLAG
+				, '2' AS IF_FLAG
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>,'YYYYMMDD') AS IF_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>,'HH24MISS') AS IF_TIME
+				, REG_USER_ID AS IF_USER
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(POHD.PREV_PO_NO), 0) FROM STOUIVDT IVDT
+					JOIN STOUPOHD POHD
+						 ON (IVDT.GATE_CD  = POHD.GATE_CD
+						 AND IVDT.CPO_NO   = POHD.CPO_NO
+						 AND POHD.DEL_FLAG = '0')
+				   WHERE IVDT.GATE_CD  = IVHD.GATE_CD
+				     AND IVDT.INV_NO   = IVHD.INV_NO
+					 AND IVDT.DEL_FLAG = '0') AS PREV_PO_NO
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(POHD.DGNS_NO1), 0) FROM STOUIVDT IVDT
+					JOIN STOUPOHD POHD
+						 ON (IVDT.GATE_CD  = POHD.GATE_CD
+						 AND IVDT.CPO_NO   = POHD.CPO_NO
+						 AND POHD.DEL_FLAG = '0')
+				   WHERE IVDT.GATE_CD  = IVHD.GATE_CD
+				     AND IVDT.INV_NO   = IVHD.INV_NO
+					 AND IVDT.DEL_FLAG = '0') AS DGNS_NO1
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(POHD.DGNS_NO2), 0) FROM STOUIVDT IVDT
+					JOIN STOUPOHD POHD
+						 ON (IVDT.GATE_CD  = POHD.GATE_CD
+						 AND IVDT.CPO_NO   = POHD.CPO_NO
+						 AND POHD.DEL_FLAG = '0')
+				   WHERE IVDT.GATE_CD  = IVHD.GATE_CD
+				     AND IVDT.INV_NO   = IVHD.INV_NO
+					 AND IVDT.DEL_FLAG = '0') AS DGNS_NO2
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(POHD.DGNS_NO3), 0) FROM STOUIVDT IVDT
+					JOIN STOUPOHD POHD
+						 ON (IVDT.GATE_CD  = POHD.GATE_CD
+						 AND IVDT.CPO_NO   = POHD.CPO_NO
+						 AND POHD.DEL_FLAG = '0')
+				   WHERE IVDT.GATE_CD  = IVHD.GATE_CD
+				     AND IVDT.INV_NO   = IVHD.INV_NO
+					 AND IVDT.DEL_FLAG = '0') AS DGNS_NO3
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(POHD.DGNS_NO4), 0) FROM STOUIVDT IVDT
+					JOIN STOUPOHD POHD
+						 ON (IVDT.GATE_CD  = POHD.GATE_CD
+						 AND IVDT.CPO_NO   = POHD.CPO_NO
+						 AND POHD.DEL_FLAG = '0')
+				   WHERE IVDT.GATE_CD  = IVHD.GATE_CD
+				     AND IVDT.INV_NO   = IVHD.INV_NO
+					 AND IVDT.DEL_FLAG = '0') AS DGNS_NO4
+		  FROM STOUIVHD IVHD
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND INV_NO   = #{INV_NO}
+		   AND (SELECT COUNT(*) FROM STOUIVDT WHERE GATE_CD = #{ses.gateCd} AND INV_NO = #{INV_NO} AND DEL_FLAG = '0') != 0
+		   AND DEL_FLAG = '0'
+	</insert>
+
+	<!-- ICOUIVDT_IF : DGNS 고객사 납품서 Detail정보 I/F 테이블 -->
+	<insert id="regDgnsInvoiceDT" parameterType="hashmap">
+
+		INSERT INTO ICOUIVDT_IF (
+				HOUSE_CODE
+				, AGENT_CODE
+				, AGENT_DIVISION_CODE
+				, INV_NO
+				, INV_SEQ
+				, COMPANY_CODE
+				, DIVISION_CODE
+				, SHIPPER
+				, VENDOR_CODE
+				, VENDOR_DIVISION_CODE
+				, ITEM_NO
+				, VENDOR_ITEM_NO
+				, DESCRIPTION_LOC
+				, SPECIFICATION
+				, HS_NO
+				, UNIT_MEASURE
+				, INV_QTY
+				, UNIT_PRICE
+				, ITEM_AMT
+				, TAX_AMT
+				, TTL_AMT
+				, ORIGIN_COUNTRY
+				, CPO_NO
+				, CPO_SEQ
+				, PO_NO
+				, PO_SEQ
+				, VENDOR_INV_NO
+				, VENDOR_INV_SEQ
+				, MAKER_CODE
+				, MAKER_NAME
+				, DELY_TO_LOCATION
+				, INV_DATE
+				, GR_QTY
+				, ADD_USER_DEPT
+				, ADD_DATE
+				, ADD_TIME
+				, ADD_USER_ID
+				, ADD_USER_NAME_ENG
+				, ADD_USER_NAME_LOC
+				, CHANGE_USER_DEPT
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CHANGE_USER_ID
+				, CHANGE_USER_NAME_ENG
+				, CHANGE_USER_NAME_LOC
+				, STATUS
+				, MOLDING_CHARGE
+				, TTL_CHARGE
+				, GR_FLAG
+				, DELY_METHOD
+				, DELY_INV_NO		-- 운송장번호
+				, DELY_METHOD_CODE	-- 택배사코드
+				, IF_FLAG
+				, IF_DATE
+				, IF_TIME
+				, IF_USER
+		 )
+		 SELECT
+				#{ses.gateCd} AS HOUSE_CODE
+				, #{ses.manageCd} AS AGENT_CODE
+				, #{ses.manageCd} AS AGENT_DIVISION_CODE
+				, IVDT.INV_NO
+				, IVDT.INV_SEQ
+				, IVDT.CUST_CD	AS COMPANY_CODE
+				, IVDT.PLANT_CD	AS DIVISION_CODE
+				,<include refid="com.sql.nvl"/>((SELECT MAX(SHIPPER_TYPE) FROM STOYPODT
+												  WHERE GATE_CD  = IVDT.GATE_CD
+													AND PO_NO    = IVDT.PO_NO
+													AND DEL_FLAG = '0'), 'D') AS SHIPPER_TYPE
+				, IVHD.VENDOR_CD AS VENDOR_CODE
+				, IVHD.VENDOR_CD AS VENDOR_DIVISION_CODE
+				,(SELECT MAX(CUST_ITEM_CD) FROM STOCMTGB
+				   WHERE GATE_CD = #{ses.gateCd}
+				     AND CUST_CD = IVDT.CUST_CD
+				     AND ITEM_CD = IVDT.ITEM_CD) AS CUST_ITEM_CD
+				, '' AS VENDOR_ITEM_NO
+				, IVDT.ITEM_DESC AS DESCRIPTION_LOC
+				, IVDT.ITEM_SPEC AS SPECIFICATION
+				, '' AS HS_NO
+				, IVDT.UNIT_CD   AS UNIT_MEASURE
+				, IVDT.INV_QTY
+				, IVDT.INV_UNIT_PRICE AS UNIT_PRICE
+				, IVDT.INV_ITEM_AMT   AS ITEM_AMT
+				,(CASE WHEN IVDT.TAX_CD = 'T1' THEN ROUND(IVDT.INV_ITEM_AMT * 0.1) ELSE 0 END) AS TAX_AMT
+				,(CASE WHEN IVDT.TAX_CD = 'T1' THEN ROUND(IVDT.INV_ITEM_AMT * 0.1) ELSE 0 END) + IVDT.INV_ITEM_AMT AS TTL_AMT
+				, IVDT.ORIGIN_CD AS ORIGIN_COUNTRY
+				, IVDT.CPO_NO
+				, IVDT.CPO_SEQ
+				, IVDT.PO_NO
+				, IVDT.PO_SEQ
+				, IVDT.IV_NO	AS VENDOR_INV_NO
+				, IVDT.IV_SEQ	AS VENDOR_INV_SEQ
+				, IVDT.MAKER_CD AS MAKER_CODE
+				, IVDT.MAKER_NM AS MAKER_NAME
+				, SUBSTRB(IVHD.DELY_ZIP_CD || ' ' || IVHD.DELY_ADDR_1 || ' ' || IVHD.DELY_ADDR_2, 0, 200) AS DELY_TO_LOCATION
+				,<include refid="com.sql.toDateChar"/>(IVHD.DELY_APP_DATE, 'YYYYMMDD') AS INV_DATE
+				, 0 AS GR_QTY
+				,<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, IVHD.REG_USER_ID, 'DEPT_CD') AS ADD_USER_DEPT
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') AS ADD_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24MISS') AS ADD_TIME
+				, IVHD.REG_USER_ID AS ADD_USER_ID
+				, ''  AS ADD_USER_NAME_ENG
+				,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, IVHD.REG_USER_ID, #{ses.langCd}) AS ADD_USER_NAME_LOC
+				,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, IVHD.REG_USER_ID, #{ses.langCd}) AS CHANGE_USER_DEPT
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') AS CHANGE_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24MISS') AS CHANGE_TIME
+				, IVHD.MOD_USER_ID AS CHANGE_USER_ID
+				, ''  AS CHANGE_USER_NAME_ENG
+				,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, IVHD.MOD_USER_ID, #{ses.langCd}) AS ADD_USER_NAME_LOC
+				, 'C' AS STATUS
+				, 0	  AS MOLDING_CHARGE
+				, 0	  AS TTL_CHARGE
+				, 'N' AS GR_FLAG
+				, IVDT.DELY_TYPE 		AS DELY_METHOD 		--MP041(03:물류센터입고를 통한 재고)
+				, IVDT.WAYBILL_NO		AS DELY_INV_NO		--운송장번호
+				, IVDT.DELY_COMPANY_NM	AS DELY_METHOD_CODE	-- 택배사코드
+				, '2' AS IF_FLAG
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>,'YYYYMMDD') AS IF_DATE
+				,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>,'HH24MISS') AS IF_TIME
+				, IVHD.REG_USER_ID AS IF_USER
+		  FROM STOUIVDT IVDT
+		  JOIN STOUIVHD IVHD
+			   ON (IVDT.GATE_CD  = IVHD.GATE_CD
+			   AND IVDT.INV_NO   = IVHD.INV_NO
+			   AND IVDT.DEL_FLAG = '0')
+		 WHERE IVDT.GATE_CD  = #{ses.gateCd}
+		   AND IVDT.INV_NO   = #{INV_NO}
+		   AND IVDT.DEL_FLAG = '0'
+	</insert>
+	
+	<!-- 2023.01.27 추가: 납품완료 취소시 IF_FLAG='2'인 경우 삭제 가능함 -->
+	<select id="checkDgnsInvoice" parameterType="hashmap" resultType="Integer">
+
+		SELECT COUNT(*)
+		  FROM ICOUIVDT_IF A
+		  JOIN ICOUIVHD_IF B
+		  	   ON (A.HOUSE_CODE = B.HOUSE_CODE
+		  	   AND A.AGENT_CODE = B.AGENT_CODE
+		  	   AND A.AGENT_DIVISION_CODE = B.AGENT_DIVISION_CODE
+		  	   AND A.INV_NO = B.INV_NO
+		  	   AND A.COMPANY_CODE = B.COMPANY_CODE
+		  	   AND A.DIVISION_CODE = B.DIVISION_CODE)
+		 WHERE A.INV_NO  = #{INV_NO}
+		   AND A.INV_SEQ = #{INV_SEQ}
+		   AND A.IF_FLAG = '2'
+	</select>
+	
+	<!-- 2023.01.27 추가: 납품완료 취소시 IF_FLAG='2'인 경우 삭제 가능함 -->
+	<delete id="delDgnsInvoiceHD" parameterType="hashmap">
+		DELETE FROM ICOUIVHD_IF
+		 WHERE INV_NO  = #{INV_NO}
+		   AND IF_FLAG = '2'
+	</delete>
+	
+	<!-- 2023.01.27 추가: 납품완료 취소시 IF_FLAG='2'인 경우 삭제 가능함 -->
+	<delete id="delDgnsInvoiceDT" parameterType="hashmap">
+		DELETE FROM ICOUIVDT_IF
+		 WHERE INV_NO  = #{INV_NO}
+		   AND INV_SEQ = #{INV_SEQ}
+		   AND IF_FLAG = '2'
+	</delete>
+	
+</mapper>

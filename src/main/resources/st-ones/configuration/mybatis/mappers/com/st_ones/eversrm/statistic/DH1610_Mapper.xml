@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1610_Mapper">
+	<select id="DH1610_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT	 <include refid="com.sql.dbo"/>GETGMTDATE(EXEC_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EXEC_DATE
+				,EXEC_SUBJECT
+				,COMPANY_NM
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,VENDOR_CD
+				,PROCESS_CONTENTS
+				,CHARGE_FLAG
+				,TOTAL_AMT
+				,CONSIGN_AMT
+				,CUSTOMER_AMT
+				,UNCONFIRM_AMT
+				,RMK
+				,EXEC_NUM
+		  FROM	STOCGPCM
+		 WHERE	GATE_CD 	= #{ses.gateCd}
+		   AND	DEL_FLAG	= '0'
+		   AND	EXEC_DATE  BETWEEN 	<include refid="com.sql.toDate"/>#{EXEC_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{EXEC_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		<if test="EXEC_SUBJECT != '' and EXEC_SUBJECT != null">
+		   AND EXEC_SUBJECT <include refid="com.sql.likeL"/> #{EXEC_SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="COMPANY_NM != '' and COMPANY_NM != null">
+		   AND COMPANY_NM <include refid="com.sql.likeL"/> #{COMPANY_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		   AND 	VENDOR_CD = #{VENDOR_CD}
+		</if>
+		<if test="CHARGE_FLAG != '' and CHARGE_FLAG != null">
+		   AND 	CHARGE_FLAG = #{CHARGE_FLAG}
+		</if>
+	  ORDER BY 	EXEC_NUM DESC
+	</select>
+	
+	<update id="DH1610_doDelete" parameterType="hashmap">
+		UPDATE	STOCGPCM
+		   SET	DEL_FLAG	= '1'
+		 WHERE	GATE_CD		= #{ses.gateCd}
+		   AND	EXEC_NUM	= #{EXEC_NUM}
+	</update>
+	
+	<insert id="DH1610_doSave" parameterType="hashmap">
+		 MERGE STOCGPCM  AS A
+		 USING (SELECT 	 #{ses.gateCd} 			AS GATE_CD
+		 				,#{EXEC_DATE}			AS EXEC_DATE
+		 				,#{EXEC_SUBJECT}		AS EXEC_SUBJECT
+		 				,#{COMPANY_NM}			AS COMPANY_NM
+		 				,#{VENDOR_CD}			AS VENDOR_CD
+		 				,#{PROCESS_CONTENTS}	AS PROCESS_CONTENTS
+		 				,#{CHARGE_FLAG}			AS CHARGE_FLAG
+		 				,#{TOTAL_AMT}			AS TOTAL_AMT
+		 				,#{CONSIGN_AMT}			AS CONSIGN_AMT
+		 				,#{CUSTOMER_AMT}		AS CUSTOMER_AMT
+		 				,#{UNCONFIRM_AMT}		AS UNCONFIRM_AMT
+		 				,#{RMK}					AS RMK
+		 				,#{EXEC_NUM}			AS EXEC_NUM
+		 				,'0'					AS DEL_FLAG
+		 				,<include refid="com.sql.sysdate"/>		AS MOD_DATE
+		 				,#{ses.userId}			AS MOD_USER_ID
+		 				,<include refid="com.sql.sysdate"/>		AS REG_DATE
+		 				,#{ses.userId}			AS REG_USER_ID
+		 		<include refid="com.sql.dual"/>
+		 		) B
+            ON (	A.GATE_CD 	= B.GATE_CD
+            	AND	A.EXEC_NUM	= B.EXEC_NUM)
+		  WHEN MATCHED THEN
+		UPDATE  SET	
+				 EXEC_DATE			= B.EXEC_DATE
+				,EXEC_SUBJECT		= B.EXEC_SUBJECT
+				,COMPANY_NM			= B.COMPANY_NM
+				,VENDOR_CD			= B.VENDOR_CD
+				,PROCESS_CONTENTS	= B.PROCESS_CONTENTS
+				,CHARGE_FLAG		= B.CHARGE_FLAG
+				,TOTAL_AMT			= B.TOTAL_AMT
+				,CONSIGN_AMT		= B.CONSIGN_AMT
+				,CUSTOMER_AMT		= B.CUSTOMER_AMT
+				,UNCONFIRM_AMT		= B.UNCONFIRM_AMT
+				,RMK				= B.RMK
+				,DEL_FLAG			= B.DEL_FLAG
+				,MOD_DATE			= B.MOD_DATE
+				,MOD_USER_ID		= B.MOD_USER_ID
+		  WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, EXEC_DATE, EXEC_SUBJECT, COMPANY_NM, VENDOR_CD, PROCESS_CONTENTS, CHARGE_FLAG,
+				TOTAL_AMT, CONSIGN_AMT, CUSTOMER_AMT, UNCONFIRM_AMT, RMK, REG_DATE, REG_USER_ID, DEL_FLAG) 
+		VALUES (B.GATE_CD, B.EXEC_DATE, B.EXEC_SUBJECT, B.COMPANY_NM, B.VENDOR_CD, B.PROCESS_CONTENTS, B.CHARGE_FLAG,
+				B.TOTAL_AMT, B.CONSIGN_AMT, B.CUSTOMER_AMT, B.UNCONFIRM_AMT, B.RMK, B.REG_DATE, B.REG_USER_ID, B.DEL_FLAG<include refid="com.sql.mergeEnd"/>
+	</insert>
+	
+</mapper>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.po.poMgt.poProgress.SPOM_040_Mapper">
+
+    <select id="doSearch" resultType="hashMap">
+        SELECT A.*
+              ,A.PO_QT - (A.GR_QT + A.INV_QT) AS INV_BAL_QT
+          FROM (
+                SELECT DISTINCT
+                      (CASE WHEN PODT.PO_QT <![CDATA[ <= ]]> <include refid="com.sql.nvl"/>(PODT.GR_QT, 0) THEN '6200'
+                            WHEN PODT.PO_QT > <include refid="com.sql.nvl"/>(PODT.GR_QT, 0) THEN '6100'
+                            WHEN POHD.FORCE_CLOSE_DATE IS NOT NULL OR PODT.FORCE_CLOSE_DATE IS NOT NULL THEN '5400'
+                            WHEN POHD.VENDOR_RECEIPT_DATE IS NOT NULL THEN '5300'
+                            WHEN POHD.PROGRESS_CD = '300' THEN '5200'
+                            ELSE '' 
+                       END) AS PROGRESS_CD
+                     ,POHD.PO_TYPE AS PURCHASE_TYPE
+                     ,(CASE WHEN PODT.FORCE_CLOSE_DATE IS NULL THEN '0' ELSE '1' END) AS FORCE_CLOSE_FLAG
+                     ,<include refid="com.sql.dbo"/>GETGMTDATE(PODT.FORCE_CLOSE_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS FORCE_CLOSE_DATE
+                     ,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS PO_CREATE_DATE
+                     ,PODT.PO_NUM
+                     ,PODT.PO_SQ
+                     ,PODT.ITEM_CD
+                     ,PODT.ITEM_DESC
+                     ,PODT.ITEM_SPEC
+                     ,PODT.PO_QT
+                     ,PODT.ORDER_UNIT_CD AS UNIT_CD
+                     ,POHD.CUR
+                     ,PODT.UNIT_PRC
+                     ,(PODT.PO_QT * PODT.UNIT_PRC) AS ITEM_AMT
+                     ,<include refid="com.sql.dbo"/> GETGMTDATE(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE
+                     ,(SELECT SUM(IVDT.INV_QT) FROM STOCIVDT IVDT
+                       WHERE IVDT.GATE_CD = PODT.GATE_CD
+                         AND IVDT.PO_NUM = PODT.PO_NUM
+                         AND IVDT.PO_SQ = PODT.PO_SQ
+                         AND IVDT.DEL_FLAG = '0'
+                         AND NOT EXISTS (SELECT 1 FROM STOCGRDT
+                                          WHERE GATE_CD = IVDT.GATE_CD
+                                            AND INV_NUM = IVDT.INV_NUM
+                                            AND INV_SQ = IVDT.INV_SQ
+                                            AND DEL_FLAG = '0'
+                      )) AS INV_QT
+                     ,PODT.GR_QT
+                     ,(PODT.UNIT_PRC * PODT.GR_QT) AS GR_AMT
+                     ,<include refid="com.sql.dbo"/> GETGMTDATE((SELECT MIN(REG_DATE)
+                                               FROM STOCGRDT GRDT
+                                              WHERE GRDT.GATE_CD = PODT.GATE_CD
+                                                AND GRDT.PO_NUM = PODT.PO_NUM
+                                                AND GRDT.PO_SQ = PODT.PO_SQ
+                                                AND PODT.DEL_FLAG = '0'
+                                                AND GRDT.DEL_FLAG = '0'), #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS FIRST_GR_DATE
+                     ,POHD.PAY_TERMS
+                     ,POHD.DELY_TERMS
+                     ,POHD.SHIPPER_TYPE
+                     ,PODT.PLANT_CD
+                     ,<include refid="com.sql.dbo"/> GETUSERNAME(#{ses.gateCd}, POHD.CTRL_USER_ID, #{ses.langCd} )  AS CTRL_USER_NM
+                FROM STOCPODT PODT
+                JOIN STOCPOHD POHD
+                 ON (PODT.GATE_CD = POHD.GATE_CD
+                 AND PODT.PO_NUM = POHD.PO_NUM
+                 AND POHD.DEL_FLAG = '0')
+               WHERE POHD.GATE_CD = #{ses.gateCd}
+                 AND POHD.PROGRESS_CD IN ('300')
+                 AND POHD.VENDOR_RECEIPT_STATUS = '200'
+                 AND POHD.SIGN_STATUS = 'E'
+                 AND POHD.VENDOR_CD = #{ses.companyCd}
+                 AND POHD.DEL_FLAG = '0'
+	        <if test="FROM_DATE != '' and FROM_DATE != null">
+	            <if test="TO_DATE !='' and TO_DATE != null">
+	                AND POHD.PO_CREATE_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS')  AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            </if>
+	        </if>
+	        <if test="PLANT_CD !='' and PLANT_CD !=null">
+	            AND PODT.PLANT_CD = #{PLANT_CD}
+	        </if>
+	        <if test="PO_NUM !='' and PO_NUM !=null">
+	            AND POHD.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+	            AND POHD.PO_TYPE = #{PURCHASE_TYPE}
+	        </if>
+	        <if test="ITEM_CD !='' and ITEM_CD !=null">
+	            AND PODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+	            AND PODT.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+	        </if>
+        ) A
+        WHERE 1=1
+        <if test="PROGRESS_CD !='' and PROGRESS_CD !=null">
+            AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+
+        ORDER BY A.PO_CREATE_DATE DESC, A.PO_NUM DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.po.poMgt.poProgress.SPOM_010_Mapper">
+
+    <select id="doSearch" resultType="hashMap">
+        SELECT *
+          FROM (
+                SELECT DISTINCT
+                     <include refid="com.sql.nvl"/>(A.VENDOR_RECEIPT_STATUS, 0) AS VENDOR_RECEIPT_STATUS
+                    ,A.PO_TYPE AS PURCHASE_TYPE
+                    ,<include refid="com.sql.dbo"/>GETGMTDATE(A.PO_CREATE_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS PO_CREATE_DATE
+                    ,(SELECT MAX(PLANT_CD)
+                        FROM STOCPODT
+                       WHERE GATE_CD = A.GATE_CD
+                         AND PO_NUM = A.PO_NUM
+                         AND A.DEL_FLAG = '0') AS PLANT_CD
+                    ,A.PO_NUM
+                    ,<include refid="com.sql.nvl"/>(A.SIGN_CNT, '1') AS SIGN_CNT
+                    ,(CASE WHEN A.SIGN_CNT > 1 THEN 'C' ELSE 'N' END) AS SIGN_FLAG
+                    ,(CASE WHEN A.FORCE_CLOSE_DATE IS NULL THEN '0' ELSE '1' END) AS FORCE_CLOSE_FLAG
+                    ,A.SUBJECT
+                    ,(SELECT COUNT(*)
+                        FROM STOCPODT PODT
+                       WHERE PODT.GATE_CD = A.GATE_CD
+                         AND PODT.PO_NUM = A.PO_NUM
+                         AND A.DEL_FLAG = '0') AS ITEM_CNT
+                    ,A.PO_AMT
+                    ,A.PAY_TERMS
+                    ,<include refid="com.sql.dbo"/> GETGMTDATE(A.VENDOR_RECEIPT_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS VENDOR_RECEIPT_DATE
+                    ,<include refid="com.sql.dbo"/> GETUSERNAME(#{ses.gateCd}, A.VENDOR_RECEIPT_USER_ID, #{ses.langCd}) AS VENDOR_RECEIPT_USER_NM
+                    ,<include refid="com.sql.dbo"/> GETGMTDATE(A.FORCE_CLOSE_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS FORCE_CLOSE_DATE
+                    ,A.VENDOR_REJECT_RMK
+                    ,<include refid="com.sql.dbo"/> GETUSERNAME(#{ses.gateCd}, A.CTRL_USER_ID, #{ses.langCd} )  AS CTRL_USER_NM
+                    ,<include refid="com.sql.dbo"/> GETUSERNAME(#{ses.gateCd}, A.INSPECT_USER_ID, #{ses.langCd} )  AS INSPECT_USER_NM
+                    ,A.PO_ATT_FILE_NUM
+                    ,(SELECT CASE WHEN COUNT(*) = 0 THEN 0 ELSE COUNT(*) END FROM STOCATCH ATCH
+                             WHERE ATCH.GATE_CD = A.GATE_CD AND ATCH.UUID = A.PO_ATT_FILE_NUM
+                             AND ATCH.DEL_FLAG = '0') AS I_PO_ATT_FILE_NUM
+                FROM STOCPOHD A
+               WHERE A.GATE_CD = #{ses.gateCd}
+--                  AND A.PROGRESS_CD IN ('300')
+                 AND A.DEL_FLAG = '0'
+                 AND A.SIGN_STATUS = 'E'
+                 AND A.PROGRESS_CD = '300'
+                 AND A.VENDOR_CD = #{ses.companyCd}
+
+	        <if test="PLANT_CD !='' and PLANT_CD !=null">
+	            AND EXISTS (SELECT 1 FROM STOCPODT PODT
+	            			WHERE 1 = 1
+	            			  AND PODT.GATE_CD = A.GATE_CD
+	            			  AND PODT.PO_NUM = A.PO_NUM
+	            			  AND PODT.DEL_FLAG = '0'
+	            			  AND PODT.PLANT_CD = #{PLANT_CD})
+	        </if>
+	        <if test="FROM_DATE != '' and FROM_DATE != null">
+	            <if test="TO_DATE !='' and TO_DATE != null">
+	                AND A.PO_CREATE_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS')  AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            </if>
+	        </if>
+	        <if test="PO_NUM !='' and PO_NUM !=null">
+	            AND A.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="SUBJECT !='' and SUBJECT !=null">
+	            AND A.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+	            AND A.PO_TYPE = #{PURCHASE_TYPE}
+	        </if>
+	        <if test="VENDOR_RECEIPT_STATUS !='' and VENDOR_RECEIPT_STATUS !=null">
+	            AND <include refid="com.sql.nvl"/>(A.VENDOR_RECEIPT_STATUS, 0) = #{VENDOR_RECEIPT_STATUS}
+	        </if>
+	        <if test="CTRL_USER_NM !='' and CTRL_USER_NM !=null">
+	            AND  <include refid="com.sql.dbo"/> GETUSERNAME(#{ses.gateCd}, A.CTRL_USER_ID, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{CTRL_USER_NM} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="PLANT_NM !='' and PLANT_NM !=null">
+	            AND  <include refid="com.sql.dbo"/> GETPLANTNAME(#{ses.gateCd},#{ses.companyCd}, B.PLANT_CD, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+	            AND  <include refid="com.sql.dbo"/> GETVENDORNAME(A.GATE_CD,A.VENDOR_CD,  #{ses.langCd} ) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+	        </if>
+        ) A
+        WHERE 1=1
+
+        <if test="SIGN_FLAG !='' and SIGN_FLAG !=null">
+            AND A.SIGN_FLAG = #{SIGN_FLAG}
+        </if>
+
+        ORDER BY PO_CREATE_DATE DESC, A.PO_NUM DESC
+    </select>
+
+    <update id="doAcceptPo">
+        UPDATE STOCPOHD SET
+               VENDOR_RECEIPT_STATUS = '200'
+              ,VENDOR_RECEIPT_DATE = <include refid="com.sql.sysdate"/>
+              ,VENDOR_RECEIPT_USER_ID = #{ses.userId}
+              ,VENDOR_REJECT_RMK = null
+              ,MOD_DATE        = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID   = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PO_NUM = #{PO_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="doRejectPo">
+        UPDATE STOCPOHD SET
+               VENDOR_RECEIPT_STATUS = '100'
+              ,VENDOR_RECEIPT_DATE = <include refid="com.sql.sysdate"/>
+              ,VENDOR_RECEIPT_USER_ID = #{ses.userId}
+              ,VENDOR_REJECT_RMK = #{VENDOR_REJECT_RMK}
+              ,MOD_DATE        = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID   = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PO_NUM = #{PO_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="countInvoice" parameterType="hashmap" resultType="int">
+        SELECT COUNT(*)
+          FROM STOCIVDT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PO_NUM = #{PO_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+</mapper>

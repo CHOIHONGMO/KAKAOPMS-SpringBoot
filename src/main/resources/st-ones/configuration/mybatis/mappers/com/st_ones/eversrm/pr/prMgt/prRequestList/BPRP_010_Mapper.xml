@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prRequestList.BPRP_010_Mapper">
+
+    <select id="doSearchPrStatus" parameterType="hashMap" resultType="hashMap">
+
+        SELECT PRHD.SIGN_STATUS
+             , PRHD.SIGN_STATUS AS SIGN_CD
+             , PRHD.PR_NUM
+             , PRHD.PR_TYPE
+             , PRHD.SUBJECT
+             , <include refid="com.sql.dbo"/>GETGMTDATE(PRHD.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) as REQ_DATE
+             , <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD,PRHD.REQ_USER_ID,#{ses.langCd}) AS REQ_USER_ID
+             , PRHD.CUR
+             , <include refid="com.sql.dbo"/>GETAMOUNTBYCUR(PRHD.CUR, PRHD.PR_AMT) AS PR_AMT
+             , (SELECT MAX(PRDT.PROGRESS_CD)
+                  FROM STOCPRDT PRDT
+                 WHERE PRDT.GATE_CD = PRHD.GATE_CD
+                   AND PRDT.PR_NUM = PRHD.PR_NUM
+                   AND PRDT.DEL_FLAG = '0'
+                   AND PRHD.SIGN_STATUS = #{SIGN_STATUS}) AS PROGRESS_CD
+             , PRHD.GATE_CD
+             , PRHD.REG_USER_ID
+             , (SELECT COUNT(1) FROM STOCPRDT WHERE GATE_CD = PRHD.GATE_CD AND PR_NUM = PRHD.PR_NUM AND DEL_FLAG = '0') AS ITEM_ALL
+             , (SELECT COUNT(1) FROM STOCPRDT WHERE GATE_CD = PRHD.GATE_CD AND PR_NUM = PRHD.PR_NUM AND PROGRESS_CD = '1200' AND DEL_FLAG = '0') AS ITEM_RETURN
+             , PRHD.REQ_DEPT_NM
+          FROM STOCPRHD PRHD
+          LEFT JOIN STOCPRDT PRDT
+                 ON(PRHD.GATE_CD = PRDT.GATE_CD
+                AND PRHD.PR_NUM = PRDT.PR_NUM)
+          LEFT JOIN STOCUSER USERS
+                 ON(PRHD.GATE_CD = USERS.GATE_CD
+                AND PRHD.REQ_USER_ID = USERS.USER_ID)
+         WHERE PRHD.DEL_FLAG = '0'
+           AND USERS.DEL_FLAG = '0'
+           AND PRHD.GATE_CD = #{ses.gateCd}
+           AND PRHD.PR_TYPE NOT IN ('DC','ISP') <!-- 구매유형이 "품의,투자품의(M136_ISP)"인 건은 제외(업무진행관리에서 진행함) -->
+        <if test="PR_FROM_DATE != '' and PR_FROM_DATE != null and PR_TO_DATE != '' and PR_TO_DATE != null">
+           AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{PR_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{PR_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+		<if test="PLANT_CD !='' and PLANT_CD !=null">
+		   AND PRDT.PLANT_CD = #{PLANT_CD}
+        </if>
+        <if test="SUBJECT !='' and SUBJECT !=null">
+           AND UPPER(PRHD.SUBJECT) <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+	    </if>
+	    <if test="PR_NUM !='' and PR_NUM !=null">
+           AND PRHD.PR_NUM <include refid="com.sql.likeL"/> #{PR_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_TYPE !='' and PR_TYPE !=null">
+           AND PRHD.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="SIGN_STATUS !='' and SIGN_STATUS !=null">
+           AND PRHD.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="REQ_USER_ID != '' and REQ_USER_ID != null">
+           AND UPPER(PRHD.REQ_USER_ID) <include refid="com.sql.likeL"/> #{REQ_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+           AND <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD,PRHD.REQ_USER_ID,#{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_DEPT_NM != '' and REQ_DEPT_NM != null">
+           AND PRHD.REQ_DEPT_NM <include refid="com.sql.likeL"/> #{REQ_DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+         GROUP BY PRHD.GATE_CD
+                , PRHD.SIGN_STATUS
+                , PRHD.PR_NUM
+                , PRHD.PR_TYPE
+                , PRHD.SUBJECT
+                , PRHD.REQ_DATE
+                , PRHD.REQ_USER_ID
+                , PRHD.CUR
+                , PRHD.PR_AMT
+                , PRHD.REG_DATE
+                , PRHD.REG_USER_ID
+                , PRHD.REQ_DEPT_NM
+         ORDER BY PRHD.REG_DATE DESC, PRHD.PR_NUM DESC
+    </select>
+
+</mapper>

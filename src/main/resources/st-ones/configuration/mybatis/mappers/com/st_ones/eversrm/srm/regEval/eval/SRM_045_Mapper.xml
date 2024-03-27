@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.regEval.eval.SRM_045_Mapper">
+
+<!--    SRM_045 -->
+    <select id="doSearch" parameterType="hashMap" resultType="hashMap">
+			SELECT     EV_NUM
+					       , PROGRESS_CD
+					       , <include refid="com.sql.dbo"/>GETCODENAME(GATE_CD,'M122',PROGRESS_CD,#{ses.langCd}) as PROGRESS_NM
+					       , EV_NM
+					       , EV_CTRL_USER_ID
+					       , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD,EV_CTRL_USER_ID,#{ses.langCd}) as EV_CTRL_NM
+					       , PURCHASE_TYPE
+					       , EV_TYPE
+					       , SCRE_EV_TPL_NUM
+					       , SITE_EV_TPL_NUM
+					       , (SELECT EV_TPL_SUBJECT FROM STOCEVTM TMP WHERE TMP.EV_TPL_NUM = SCRE_EV_TPL_NUM ) AS EV_TPL_SUBJECT
+					       , VENDOR_CD
+					       ,<include refid="com.sql.dbo"/>GETVENDORNAME(GATE_CD,VENDOR_CD,#{ses.langCd}) as VENDOR_NM
+					       ,<include refid="com.sql.dbo"/>GETGMTDATE(START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS START_DATE
+					       ,<include refid="com.sql.dbo"/>GETGMTDATE(END_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS END_DATE
+					       , RESULT_ENTER_CD
+					       , SG_NUM
+					       , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD,REG_USER_ID,#{ses.langCd}) as REG_USER_NM
+					       ,  <include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+					       , <include refid="com.sql.dbo"/>GETGMTDATE(REQUEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQUEST_DATE
+					       , <include refid="com.sql.dbo"/>GETGMTDATE(COMPLETE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS COMPLETE_DATE
+					       , EG_NUM
+					       , ATT_FILE_NUM
+					      , APP_DOC_NUM
+					      , APP_DOC_CNT
+				FROM STOCEVVM
+			  WHERE GATE_CD 	= #{ses.gateCd}
+			       AND DEL_FLAG 	= '0'
+			       AND EV_NUM 	= #{EV_NUM}
+     </select>
+     
+    <select id="doSearchSg" parameterType="hashMap" resultType="hashMap">
+			      SELECT (SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},1,SG_NUM)) AS CLS1
+				    	      ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},2,SG_NUM)) AS CLS2
+					          ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},3,SG_NUM)) AS CLS3
+					          ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},4,SG_NUM)) AS CLS4
+					          ,EV_NUM
+					          ,SG_NUM
+					  FROM STOCEVSC
+					WHERE GATE_CD 	= #{ses.gateCd} 
+					    AND DEL_FLAG 	= '0'
+					    AND EV_NUM 		= #{EV_NUM}
+ 		     GROUP BY GATE_CD, EV_NUM, SG_NUM
+ 		     ORDER BY GATE_CD, EV_NUM, SG_NUM
+     </select>
+    
+    <select id="doSearchUs" parameterType="hashMap" resultType="hashMap">
+	    SELECT EVVU.EV_USER_ID
+	         , EVVU.USER_NM
+		     ,<include refid="com.sql.dbo"/>getUserDivisionName(#{ses.gateCd}, EVVU.EV_USER_ID, #{ses.langCd}) AS DIVISION_NM
+		     ,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, EVVU.EV_USER_ID, #{ses.langCd}) AS DEPT_NM
+		     ,<include refid="com.sql.dbo"/>getUserPartName(#{ses.gateCd}, EVVU.EV_USER_ID, #{ses.langCd}) AS PART_NM
+		     , EVVU.POSITION_NM
+		     , EVVU.REP_FLAG
+		     , EV_NUM
+		  FROM (
+				SELECT EV_USER_ID
+				      ,<include refid="com.sql.dbo"/>GETUSERINFO(#{ses.gateCd},EV_USER_ID,'USER_NM') AS USER_NM
+				      ,<include refid="com.sql.dbo"/>GETUSERINFO(#{ses.gateCd},EV_USER_ID,'POSITION_NM') AS POSITION_NM
+				      ,REP_FLAG
+				      ,EV_NUM
+				FROM STOCEVVU
+				WHERE GATE_CD  = #{ses.gateCd} 
+				  AND DEL_FLAG = '0'
+				  AND EV_NUM   =  #{EV_NUM}
+		 ) EVVU      
+		ORDER BY EVVU.USER_NM					  
+     </select>
+     
+    <select id="doCheckMaster" parameterType="hashmap" resultType="hashMap">
+        SELECT GATE_CD
+			    	,EV_NUM
+		 	    	,PROGRESS_CD 
+			      	,EV_CTRL_USER_ID     
+			      	,REQUEST_DATE                                     
+           FROM STOCEVVM                          
+         WHERE GATE_CD = #{ses.gateCd}
+              AND EV_NUM = #{EV_NUM}
+    </select>      
+     
+     <insert id="doInsertMaster" parameterType="hashMap">
+
+		INSERT INTO STOCEVVM ( GATE_CD
+		                      ,EV_NUM
+		                      ,EV_NM
+		                      ,SG_NUM
+		                      ,PURCHASE_TYPE
+		                      ,EV_TYPE
+		                      ,PROGRESS_CD
+		                      ,EV_CTRL_USER_ID
+		                      ,SCRE_EV_TPL_NUM
+		                      ,SITE_EV_TPL_NUM
+		                      ,RESULT_ENTER_CD
+		                      ,ATT_FILE_NUM
+		                      ,VENDOR_CD
+		                      ,START_DATE
+		                      ,END_DATE
+		                      ,REG_DATE
+		                      ,REG_USER_ID
+		                      ,MOD_DATE
+		                      ,MOD_USER_ID
+		                      ,DEL_FLAG )
+		              VALUES ( #{ses.gateCd} 
+		                      ,#{EV_NUM}
+		                      ,#{EV_NM}
+		                      ,#{SG_NUM}
+		                      ,#{PURCHASE_TYPE}
+		                      ,#{EV_TYPE}
+		                      ,#{PROGRESS_CD}
+		                      ,#{EV_CTRL_USER_ID}
+		                      ,#{SCRE_EV_TPL_NUM}
+		                      ,#{SITE_EV_TPL_NUM}
+		                      ,#{RESULT_ENTER_CD}
+		                      ,#{ATT_FILE_NUM}
+		                      ,#{VENDOR_CD}
+		                      ,#{START_DATE}
+		                      ,#{END_DATE}
+		                      ,<include refid="com.sql.sysdate"/>
+		                      ,#{ses.userId}
+		                      ,<include refid="com.sql.sysdate"/>
+		                      ,#{ses.userId}
+		                      ,'0' )                      
+     
+     </insert>
+     
+     <update id="doUpdateMaster" parameterType="hashMap">
+
+				UPDATE STOCEVVM 
+				    SET EV_NM 						= #{EV_NM}
+					      ,EV_CTRL_USER_ID 	= #{EV_CTRL_USER_ID}
+					      ,PURCHASE_TYPE 		= #{PURCHASE_TYPE}
+					      ,EV_TYPE 					= #{EV_TYPE}
+					      ,SCRE_EV_TPL_NUM 	= #{SCRE_EV_TPL_NUM}
+					      ,SITE_EV_TPL_NUM 	= #{SITE_EV_TPL_NUM}
+					      ,RESULT_ENTER_CD 	= #{RESULT_ENTER_CD}
+					      ,ATT_FILE_NUM 			= #{ATT_FILE_NUM}
+					      ,VENDOR_CD  			= #{VENDOR_CD}
+					      ,START_DATE 			= #{START_DATE}
+					      ,END_DATE 				= #{END_DATE}
+					      ,MOD_USER_ID			= #{ses.userId}
+					      ,MOD_DATE				= <include refid="com.sql.sysdate"/>
+				WHERE GATE_CD 				= #{ses.gateCd}
+				  AND EV_NUM  					= #{EV_NUM}
+				  AND SG_NUM  					= #{SG_NUM}                
+     
+     </update>
+     
+     <update id="doRequestMaster" parameterType="hashMap">
+
+				UPDATE STOCEVVM 
+				    SET REQUEST_DATE		= <include refid="com.sql.sysdate"/>
+					      ,PROGRESS_CD			= #{PROGRESS_CD}
+					      ,MOD_USER_ID			= #{ses.userId}
+					      ,MOD_DATE				= <include refid="com.sql.sysdate"/>
+				WHERE GATE_CD 				= #{ses.gateCd}
+				  AND EV_NUM  					= #{EV_NUM}
+				  AND SG_NUM  					= #{SG_NUM}                
+     
+     </update>
+     
+     <update id="doCancelMaster" parameterType="hashMap">
+
+				UPDATE STOCEVVM 
+				    SET REQUEST_DATE		= NULL
+					      ,PROGRESS_CD			= #{PROGRESS_CD}
+					      ,MOD_USER_ID			= #{ses.userId}
+					      ,MOD_DATE				= <include refid="com.sql.sysdate"/>
+				WHERE GATE_CD 				= #{ses.gateCd}
+				  AND EV_NUM  					= #{EV_NUM}
+				  AND SG_NUM  					= #{SG_NUM}                
+     
+     </update>
+     
+     <update id="doDeleteMaster" parameterType="hashMap">
+
+				UPDATE STOCEVVM 
+				    SET DEL_FLAG 				= '1'
+					      ,MOD_USER_ID			= #{ses.userId}
+					      ,MOD_DATE				= <include refid="com.sql.sysdate"/>
+				WHERE GATE_CD 				= #{ses.gateCd}
+				  AND EV_NUM  					= #{EV_NUM}
+				  AND SG_NUM  					= #{SG_NUM}                
+     
+     </update>
+     
+     
+    <insert id="doInsertEvsc" parameterType="hashMap">
+        INSERT INTO STOCEVSC (
+										            GATE_CD,
+										            EV_NUM,
+										            REG_DATE,
+										            REG_USER_ID,
+										            MOD_DATE,
+										            MOD_USER_ID,
+										            DEL_FLAG,
+										            EV_TPL_NUM,
+										            EV_ITEM_NUM,
+										            SG_NUM
+										        ) VALUES (
+										            #{ses.gateCd},
+										            #{EV_NUM},
+										            <include refid="com.sql.sysdate"/>,
+										            #{ses.userId},
+										            <include refid="com.sql.sysdate"/>,
+										            #{ses.userId},
+										            '0',
+										            #{EV_TPL_NUM},         
+										            #{EV_ITEM_NUM},          
+										            #{SG_NUM}          
+										        )        
+    </insert>
+    
+    <update id="doUpdateEvsc" parameterType="hashmap">    
+        UPDATE STOCEVSC
+              SET  DEL_FLAG 			= '0'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}
+             AND SG_NUM 			= #{SG_NUM}
+    </update>
+    
+    <update id="doDeleteEvsc" parameterType="hashmap">    
+        UPDATE STOCEVSC
+              SET DEL_FLAG 			= '1'
+             	   , MOD_DATE 			= <include refid="com.sql.sysdate"/>
+                   , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}
+          <if test="SG_NUM != '' and SG_NUM != null ">
+             AND SG_NUM 			= #{SG_NUM}
+          </if>          
+          
+    </update>  
+    
+     <update id="doDeleteAllEvsc" parameterType="hashmap">    
+        UPDATE  STOCEVSC
+              SET  DEL_FLAG 			= '1'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}   
+             AND DEL_FLAG 			= '0'      
+    </update>
+    
+    <select id="existsEvsc" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEVSC
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EV_NUM = #{EV_NUM}
+        AND   SG_NUM = #{SG_NUM}
+    </select>
+
+     
+     
+    <select id="existsEvvu" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEVVU
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EV_NUM = #{EV_NUM}
+        AND   EV_USER_ID = #{EV_USER_ID}
+    </select>
+    
+    <insert id="doInsertEvvu" parameterType="hashMap">
+        INSERT INTO STOCEVVU (
+            GATE_CD,
+            EV_NUM,
+            SG_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            REP_FLAG,
+            EV_USER_ID
+        ) VALUES (
+            #{ses.gateCd},
+            #{EV_NUM},
+            #{SG_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{REP_FLAG},
+            #{EV_USER_ID}          
+        )        
+    </insert> 
+    
+    <update id="doUpdateEvvu" parameterType="hashmap">    
+        UPDATE STOCEVVU
+              SET  DEL_FLAG 			= '0'
+                    , REP_FLAG 			= #{REP_FLAG}
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}
+             AND EV_USER_ID 		= #{EV_USER_ID}
+    </update> 
+    
+    <update id="doDeleteEvvu" parameterType="hashmap">    
+        UPDATE  STOCEVVU
+              SET  DEL_FLAG 			= '1'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}         
+          <if test="EV_USER_ID != '' and EV_USER_ID != null ">
+             AND EV_USER_ID 		= #{EV_USER_ID}
+          </if>          
+    </update>
+    
+    <update id="doDeleteAllEvvu" parameterType="hashmap">    
+        UPDATE  STOCEVVU
+              SET  DEL_FLAG 			= '1'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}   
+             AND DEL_FLAG 			= '0'      
+    </update>
+    
+    <update id="doRequestEvvu" parameterType="hashmap">    
+        UPDATE  STOCEVVU
+              SET  PROGRESS_CD = #{PROGRESS_CD}
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}         
+          <if test="EV_USER_ID != '' and EV_USER_ID != null ">
+             AND EV_USER_ID 		= #{EV_USER_ID}
+          </if>          
+    </update>
+    
+    <update id="doCancelEvvu" parameterType="hashmap">    
+        UPDATE  STOCEVVU
+              SET  PROGRESS_CD = NULL
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}           
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}         
+          <if test="EV_USER_ID != '' and EV_USER_ID != null ">
+             AND EV_USER_ID 		= #{EV_USER_ID}
+          </if>          
+    </update>
+    
+ 	<select id="getOfVendorInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT EVVM.VENDOR_CD
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME(EVVM.GATE_CD, EVVM.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+        	 , EVVM.PURCHASE_TYPE
+        	 , USR.TEL_NUM
+             , <include refid="com.sql.dbo"/>GETUSERNAME(EVVM.GATE_CD, EVVM.EV_CTRL_USER_ID, #{ses.gateCd}) AS USER_NM
+		  FROM STOCEVVM EVVM
+		  LEFT OUTER JOIN STOCUSER USR
+            ON(EVVM.GATE_CD = USR.GATE_CD
+           AND EVVM.EV_CTRL_USER_ID = USR.USER_ID
+           AND USR.DEL_FLAG = '0')
+		 WHERE EVVM.GATE_CD = #{ses.gateCd}
+		   AND EVVM.EV_NUM = #{EV_NUM}
+		   AND EVVM.SG_NUM = #{SG_NUM}
+		   AND EVVM.DEL_FLAG = '0'
+	</select>
+	
+ 	<select id="getReceiverMailAddress" parameterType="hashmap" resultType="hashmap">
+		SELECT EVVU.EV_USER_ID AS RECV_USER_ID
+			      , <include refid="com.sql.dbo"/>GETUSERNAME(EVVU.GATE_CD, EVVU.EV_USER_ID, #{ses.langCd}) AS RECV_NM
+			      , USR.EMAIL AS RECV_EMAIL
+			      , USR.TEL_NUM
+			FROM STOCEVVU EVVU
+			INNER JOIN STOCUSER USR
+			ON EVVU.GATE_CD 			= USR.GATE_CD
+			AND EVVU.EV_USER_ID 	= USR.USER_ID
+			WHERE EVVU.GATE_CD 	=  #{ses.gateCd}
+			AND EVVU.EV_NUM 		= #{EV_NUM}
+			AND EVVU.SG_NUM 		= #{SG_NUM}
+			AND EVVU.DEL_FLAG 		= '0'
+			AND EVVU.DEL_FLAG 		= '0'
+			AND USR.DEL_FLAG			='0'
+	</select>
+ 
+</mapper>

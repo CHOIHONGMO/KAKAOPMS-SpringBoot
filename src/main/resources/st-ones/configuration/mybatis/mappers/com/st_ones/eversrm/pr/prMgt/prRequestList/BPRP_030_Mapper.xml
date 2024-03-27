@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prRequestList.BPRP_030_Mapper">
+
+   <!-- 	  detailPrPoGrInfo - BPR_150    -->
+   <select id="doSearchDetailPrPoGrInfo_F" parameterType="hashMap" resultType="hashMap">
+
+			   SELECT <if test='_databaseId == "mssql"'>TOP 1</if>
+			          <if test='_databaseId == "oracle"'>DISTINCT</if>
+			          PRDT.PR_NUM
+					, PRDT.PR_SQ							       
+			        , PRDT.ITEM_CD
+					, PRDT.ITEM_DESC
+					, PRDT.ITEM_SPEC
+					, PRDT.PR_QT
+					, PRDT.UNIT_CD
+					, DONU.PO_NUM
+					, DONU.PO_SQ
+		        FROM STOCPRDT PRDT
+		        	 LEFT JOIN STOCPRHD PRHD
+		        	 ON (PRDT.GATE_CD = PRHD.GATE_CD
+		        	 AND PRDT.PR_NUM = PRHD.PR_NUM
+		        	 AND PRHD.DEL_FLAG = '0') 
+		        	 LEFT OUTER JOIN STOCDONU DONU
+			         ON (PRDT.GATE_CD = DONU.GATE_CD
+			         AND PRDT.PR_NUM = DONU.PR_NUM
+			         AND PRDT.PR_SQ = DONU.PR_SQ)
+		        WHERE PRDT.GATE_CD = #{ses.gateCd}
+		          AND PRDT.DEL_FLAG = '0'
+		          AND PRDT.PR_NUM = #{PR_NUM}
+				  AND PRDT.PR_SQ = #{PR_SQ}
+		          <if test='_databaseId == "oracle"'>AND ROWNUM = 1</if>		        
+    </select> 
+    
+    <select id="doSearchDetailPrPoGrInfo_G" parameterType="hashMap" resultType="hashMap">
+			   SELECT POHD.PO_NUM
+			        , <include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS PO_CREATE_DATE
+			        , <include refid="com.sql.dbo"/>GETGMTDATE(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE
+			        , PODT.PO_QT
+			        , GRDT.GR_NUM
+			        , <include refid="com.sql.dbo"/>GETGMTDATE(GRDT.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS GR_DATE
+			        , GRDT.GR_QT
+			        , POHD.GATE_CD
+			        , PODT.PO_SQ
+		        FROM STOCPODT PODT 
+		        LEFT JOIN STOCPOHD POHD
+			         ON (PODT.GATE_CD = POHD.GATE_CD
+			         AND PODT.PO_NUM = POHD.PO_NUM
+			         AND POHD.DEL_FLAG = '0')
+			    
+			    LEFT JOIN STOCGRDT GRDT
+			         ON (PODT.GATE_CD = GRDT.GATE_CD
+			         AND GRDT.PO_NUM = PODT.PO_NUM
+			         AND GRDT.PO_SQ = PODT.PO_SQ
+			         AND GRDT.DEL_FLAG = '0') 
+			              			                 
+		        WHERE PODT.GATE_CD = #{ses.gateCd}
+		         AND PODT.PR_NUM = #{PR_NUM}
+		         AND PODT.PR_SQ = #{PR_SQ}
+		         AND PODT.DEL_FLAG = '0'
+		        ORDER BY PODT.PO_NUM, PODT.PO_SQ, GRDT.GR_NUM, GRDT.GR_SQ 		        
+    </select>  	
+</mapper>

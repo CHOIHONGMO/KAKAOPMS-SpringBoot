@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.delyAlarmIf.DelyAlarmIfMapper">
+	
+	<!-- 현재일자가 희망납기일이 - 1일인 주문건중에 납품이 생성되지 않은 주문건 -->
+	<select id="getInvoiceHeaderList" parameterType="hashMap" resultType="hashMap">
+		SELECT VENDOR_CD
+		     , VENDOR_NM
+		     , VEND_USER_ID
+		     , VEND_USER_NM
+		     , VEND_TEL_NUM
+		     , VEND_CELL_NUM
+		     , VEND_EMAIL
+		     , CUR_DATE
+		  FROM (
+			SELECT
+				  POHD.VENDOR_CD
+				, VNGL.VENDOR_NM
+				, CVUR.USER_ID  AS VEND_USER_ID -- 공급사 납품담당자
+				, CVUR.USER_NM  AS VEND_USER_NM
+				, CVUR.TEL_NUM  AS VEND_TEL_NUM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(CVUR.SMS_FLAG, '0') = '1' THEN CVUR.CELL_NUM ELSE '' END) AS VEND_CELL_NUM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(CVUR.MAIL_FLAG, '0') = '1' THEN CVUR.EMAIL ELSE '' END) AS VEND_EMAIL
+				, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS CUR_DATE
+			 FROM STOYPOHD POHD
+			 JOIN STOYPODT PODT
+			      ON (POHD.GATE_CD  = PODT.GATE_CD
+			      AND POHD.PO_NO    = PODT.PO_NO
+			      AND PODT.DEL_FLAG = '0')
+			 JOIN STOCVNGL VNGL
+			      ON (POHD.GATE_CD  = VNGL.GATE_CD
+			      AND POHD.VENDOR_CD= VNGL.VENDOR_CD)
+			 JOIN STOCCVUR CVUR
+			      ON (POHD.GATE_CD  = CVUR.GATE_CD
+			      AND POHD.VENDOR_CD= CVUR.COMPANY_CD
+			      AND CVUR.DEL_FLAG = '0')
+			WHERE POHD.GATE_CD     = #{ses.gateCd}
+			  AND POHD.SIGN_STATUS = 'E' 		-- 결재완료
+			  AND <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE - 1, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') -- 현재일자 == 희망납기일 D-1 시점에서 1회 발송
+			  AND <include refid="com.sql.nvl"/>(PODT.INV_QTY, 0) = 0 				-- 납품수량=0
+			  AND <include refid="com.sql.nvl"/>(PODT.DELY_REJECT_CD, 'X')   = 'X' 	-- 납품거부 제외
+			  AND <include refid="com.sql.nvl"/>(PODT.GR_COMPLETE_FLAG, '0') = '0' 	-- 입고완료여부=N
+			  AND PODT.FORCE_CLOSE_DATE IS NULL	-- 발주종결제외
+			  AND POHD.DEL_FLAG    = '0'
+		  ) TMP
+		 WHERE 1 = 1
+		 GROUP BY VENDOR_CD
+		        , VENDOR_NM
+		        , VEND_USER_ID
+		        , VEND_USER_NM
+		        , VEND_TEL_NUM
+		        , VEND_CELL_NUM
+		        , VEND_EMAIL
+		        , CUR_DATE
+	</select>
+	
+	<!-- 현재일자가 희망납기일이 - 1일인 주문건중에 납품이 생성되지 않은 주문건 -->
+	<select id="getInvoiceItemList" parameterType="hashMap" resultType="hashMap">
+		SELECT CUST_CD, CUST_NM, CPO_NO, PO_NO, CPO_DATE
+		     , CPO_USER_ID, CPO_USER_NM, CPO_USER_TEL_NUM, CPO_USER_CELL_NUM, CPO_USER_EMAIL
+		     , HOPE_DUE_DATE
+		  FROM (
+			SELECT
+				  POHD.CUST_CD
+				, CUST.CUST_NM
+				, PODT.CPO_NO
+				, POHD.PO_NO
+				, <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+				, POHD.CPO_USER_ID
+				, CVUR.USER_NM AS CPO_USER_NM
+				, POHD.CPO_USER_TEL_NUM
+				, POHD.CPO_USER_CELL_NUM
+				, CVUR.EMAIL AS CPO_USER_EMAIL
+				, <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			 FROM STOYPOHD POHD
+			 JOIN STOYPODT PODT
+			      ON (POHD.GATE_CD  = PODT.GATE_CD
+			      AND POHD.CUST_CD  = PODT.CUST_CD
+			      AND POHD.CPO_NO   = PODT.CPO_NO
+			      AND PODT.DEL_FLAG = '0')
+			 JOIN STOCCUST CUST
+			      ON (POHD.GATE_CD  = CUST.GATE_CD
+			      AND POHD.CUST_CD  = CUST.CUST_CD)
+			 LEFT OUTER JOIN STOCCVUR CVUR
+				  ON (POHD.GATE_CD     = CVUR.GATE_CD
+				  AND POHD.CUST_CD     = CVUR.COMPANY_CD
+				  AND POHD.CPO_USER_ID = CVUR.USER_ID)
+			WHERE POHD.GATE_CD     = #{ses.gateCd}
+			  AND POHD.SIGN_STATUS = 'E' 		-- 결재완료
+			  AND POHD.VENDOR_CD   = #{VENDOR_CD}
+			  AND <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE - 1, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') -- 현재일자 == 희망납기일 D-1 시점에서 1회 발송
+			  AND <include refid="com.sql.nvl"/>(PODT.INV_QTY, 0) = 0 				-- 납품수량=0
+			  AND <include refid="com.sql.nvl"/>(PODT.DELY_REJECT_CD, 'X')   = 'X' 	-- 납품거부 제외
+			  AND <include refid="com.sql.nvl"/>(PODT.GR_COMPLETE_FLAG, '0') = '0' 	-- 입고완료여부=N
+			  AND PODT.FORCE_CLOSE_DATE IS NULL	-- 발주종결제외
+			  AND POHD.DEL_FLAG    = '0'
+		  ) TMP
+		 WHERE 1 = 1
+		 GROUP BY CUST_CD, CUST_NM, CPO_NO, PO_NO, CPO_DATE
+		        , CPO_USER_ID, CPO_USER_NM, CPO_USER_TEL_NUM, CPO_USER_CELL_NUM, CPO_USER_EMAIL
+		        , HOPE_DUE_DATE
+	</select>
+	
+	<!-- 금일 납품건중에 납품이 생성되지 않은 주문건 -->
+	<select id="getCurInvoiceHeaderList" parameterType="hashMap" resultType="hashMap">
+		SELECT VENDOR_CD
+		     , VENDOR_NM
+		     , VEND_USER_ID
+		     , VEND_USER_NM
+		     , VEND_TEL_NUM
+		     , VEND_CELL_NUM
+		     , VEND_EMAIL
+		     , CUR_DATE
+		  FROM (
+			SELECT
+				  POHD.VENDOR_CD
+				, VNGL.VENDOR_NM
+				, CVUR.USER_ID  AS VEND_USER_ID -- 공급사 납품담당자
+				, CVUR.USER_NM  AS VEND_USER_NM
+				, CVUR.TEL_NUM  AS VEND_TEL_NUM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(CVUR.SMS_FLAG, '0') = '1' THEN CVUR.CELL_NUM ELSE '' END) AS VEND_CELL_NUM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(CVUR.MAIL_FLAG, '0') = '1' THEN CVUR.EMAIL ELSE '' END) AS VEND_EMAIL
+		        , <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD') AS CUR_DATE
+			 FROM STOYPOHD POHD
+			 JOIN STOYPODT PODT
+			      ON (POHD.GATE_CD  = PODT.GATE_CD
+			      AND POHD.PO_NO    = PODT.PO_NO
+			      AND PODT.DEL_FLAG = '0')
+			 JOIN STOCVNGL VNGL
+			      ON (POHD.GATE_CD  = VNGL.GATE_CD
+			      AND POHD.VENDOR_CD= VNGL.VENDOR_CD)
+			 JOIN STOCCVUR CVUR
+			      ON (POHD.GATE_CD  = CVUR.GATE_CD
+			      AND POHD.VENDOR_CD= CVUR.COMPANY_CD
+			      AND CVUR.DEL_FLAG = '0')
+			WHERE POHD.GATE_CD     = #{ses.gateCd}
+			  AND POHD.SIGN_STATUS = 'E' 		-- 결재완료
+			  AND <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') -- 현재일자 == 희망납기일 D-1 시점에서 1회 발송
+			  AND <include refid="com.sql.nvl"/>(PODT.INV_QTY, 0) = 0 				-- 납품수량=0
+			  AND <include refid="com.sql.nvl"/>(PODT.DELY_REJECT_CD, 'X')   = 'X' 	-- 납품거부 제외
+			  AND <include refid="com.sql.nvl"/>(PODT.GR_COMPLETE_FLAG, '0') = '0' 	-- 입고완료여부=N
+			  AND PODT.FORCE_CLOSE_DATE IS NULL	-- 발주종결제외
+			  AND POHD.DEL_FLAG    = '0'
+		  ) TMP
+		 WHERE 1 = 1
+		 GROUP BY VENDOR_CD
+		        , VENDOR_NM
+		        , VEND_USER_ID
+		        , VEND_USER_NM
+		        , VEND_TEL_NUM
+		        , VEND_CELL_NUM
+		        , VEND_EMAIL
+		        , CUR_DATE
+	</select>
+	
+	<!-- 금일 납품건중에 납품이 생성되지 않은 주문건 -->
+	<select id="getCurInvoiceItemList" parameterType="hashMap" resultType="hashMap">
+		SELECT CUST_CD, CUST_NM, CPO_NO, PO_NO, CPO_DATE
+		     , CPO_USER_ID, CPO_USER_NM, CPO_USER_TEL_NUM, CPO_USER_CELL_NUM, CPO_USER_EMAIL
+		     , HOPE_DUE_DATE
+		  FROM (
+			SELECT
+				  POHD.CUST_CD
+				, CUST.CUST_NM
+				, PODT.CPO_NO
+				, POHD.PO_NO
+				, <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+				, POHD.CPO_USER_ID
+				, CVUR.USER_NM AS CPO_USER_NM
+				, POHD.CPO_USER_TEL_NUM
+				, POHD.CPO_USER_CELL_NUM
+				, CVUR.EMAIL AS CPO_USER_EMAIL
+				, <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			 FROM STOYPOHD POHD
+			 JOIN STOYPODT PODT
+			      ON (POHD.GATE_CD  = PODT.GATE_CD
+			      AND POHD.CUST_CD  = PODT.CUST_CD
+			      AND POHD.CPO_NO   = PODT.CPO_NO
+			      AND PODT.DEL_FLAG = '0')
+			 JOIN STOCCUST CUST
+			      ON (POHD.GATE_CD  = CUST.GATE_CD
+			      AND POHD.CUST_CD  = CUST.CUST_CD)
+			 LEFT OUTER JOIN STOCCVUR CVUR
+				  ON (POHD.GATE_CD     = CVUR.GATE_CD
+				  AND POHD.CUST_CD     = CVUR.COMPANY_CD
+				  AND POHD.CPO_USER_ID = CVUR.USER_ID)
+			WHERE POHD.GATE_CD     = #{ses.gateCd}
+			  AND POHD.SIGN_STATUS = 'E' 		-- 결재완료
+			  AND POHD.VENDOR_CD   = #{VENDOR_CD}
+			  AND <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'yyyyMMdd') = <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') -- 현재일자 == 희망납기일 D-1 시점에서 1회 발송
+			  AND <include refid="com.sql.nvl"/>(PODT.INV_QTY, 0) = 0 				-- 납품수량=0
+			  AND <include refid="com.sql.nvl"/>(PODT.DELY_REJECT_CD, 'X')   = 'X' 	-- 납품거부 제외
+			  AND <include refid="com.sql.nvl"/>(PODT.GR_COMPLETE_FLAG, '0') = '0' 	-- 입고완료여부=N
+			  AND PODT.FORCE_CLOSE_DATE IS NULL	-- 발주종결제외
+			  AND POHD.DEL_FLAG    = '0'
+		  ) TMP
+		 WHERE 1 = 1
+		 GROUP BY CUST_CD, CUST_NM, CPO_NO, PO_NO, CPO_DATE
+		        , CPO_USER_ID, CPO_USER_NM, CPO_USER_TEL_NUM, CPO_USER_CELL_NUM, CPO_USER_EMAIL
+		        , HOPE_DUE_DATE
+	</select>
+
+</mapper>

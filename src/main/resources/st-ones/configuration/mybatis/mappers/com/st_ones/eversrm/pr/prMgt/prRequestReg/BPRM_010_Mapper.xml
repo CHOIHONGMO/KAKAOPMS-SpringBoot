@@ -1,0 +1,801 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prRequestReg.BPRM_010_Mapper">
+
+    <select id="getPrManualRegInitData" parameterType="hashMap" resultType="hashMap">
+        SELECT #{ses.companyCd} AS BUYER_REQ_CD
+              ,<include refid="com.sql.dbo"/>GETBUYERNAME(#{ses.gateCd}, #{ses.companyCd}, #{ses.langCd}) AS BUYER_REQ_NM
+              ,#{ses.plantCd} AS PLANT_CD
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.sysdate"/>, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQ_DATE
+              ,#{ses.userNm} AS REQ_USER_NM
+              ,#{ses.userId} AS REQ_USER_ID
+              ,<include refid="com.sql.dbo"/>GETDEPTNAME(#{ses.gateCd}, #{ses.companyCd}, (SELECT DEPT_CD
+                                                                          FROM STOCUSER
+                                                                         WHERE GATE_CD  = #{ses.gateCd}
+                                                                           AND USER_ID  = #{ses.userId}
+                                                                           AND DEL_FLAG = '0') ,#{ses.langCd}) REQ_USER_DEPT
+              ,#{ses.telNum} AS TEL_NUM
+          <include refid="com.sql.dual"/>
+    </select>
+
+    <select id="getGridDataByRFINo" resultType="hashMap">
+        SELECT RIQD.UNIT_CD,
+               RIQD.ITEM_SPEC,
+               RIQD.ITEM_RMK,
+               RIQD.ITEM_DESC,
+               RIQD.ITEM_CD,
+               RIAD_SUB.RFI_UNIT_PRC
+          FROM STOCRIQD RIQD
+            JOIN
+               (SELECT RIAD.RFI_NUM,
+                      RIAD.RFI_SQ,
+                      RIAD.UNIT_PRC AS RFI_UNIT_PRC,
+                      RANK() OVER(PARTITION BY RIAD.RFI_NUM, RIAD.RFI_SQ, RIAH.VENDOR_CD ORDER BY SUM(RIAD.RFI_AMT)) AS RANK,
+                      SUM(RIAD.RFI_AMT)                                                                              AS RFI_AMT
+                 FROM STOCRIAD RIAD
+                   JOIN STOCRIAH RIAH
+                     ON(RIAD.GATE_CD = RIAH.GATE_CD
+                    AND RIAD.RFI_NUM = RIAH.RFI_NUM
+                    AND RIAD.ANSWER_SQ = RIAH.ANSWER_SQ)
+                WHERE RIAD.GATE_CD = #{ses.gateCd}
+                      AND RIAD.DEL_FLAG = '0'
+                      AND RIAH.DEL_FLAG = '0'
+                      AND RIAH.RECOMMEND_FLAG = '1'
+                 GROUP BY RIAD.RFI_NUM,
+                      RIAD.RFI_SQ,
+                      RIAH.VENDOR_CD,
+                      RIAD.UNIT_PRC
+               ) RIAD_SUB
+                ON(
+                  RIQD.RFI_NUM = RIAD_SUB.RFI_NUM
+                  AND RIQD.RFI_SQ = RIAD_SUB.RFI_SQ
+               )
+         WHERE RIQD.GATE_CD = #{ses.gateCd}
+               AND RIQD.RFI_NUM = #{rfiNo}
+               AND RIQD.DEL_FLAG = '0'
+               AND RIAD_SUB.RANK = 1
+    </select>
+
+    <select id="getPrFormData" resultType="hashMap">
+        SELECT A.PR_NUM,
+		       A.BUYER_REQ_CD,
+		       <include refid="com.sql.dbo"/>GETBUYERNAME(A.GATE_CD, A.BUYER_REQ_CD, #{ses.langCd}) AS BUYER_REQ_NM,
+
+		       A.SUBJECT,
+		       <include refid="com.sql.dbo"/>GETGMTDATE(A.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQ_DATE,
+		       A.REQ_USER_ID,
+		       <include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM,
+	           <include refid="com.sql.dbo"/>GETDEPTNAME(A.GATE_CD, A.BUYER_REQ_CD, (SELECT DEPT_CD
+		                                                        FROM STOCUSER
+		                                                       WHERE GATE_CD  = #{ses.gateCd}
+		                                                         AND USER_ID  = A.REQ_USER_ID
+		                                                         AND DEL_FLAG = '0') , #{ses.langCd}) REQ_USER_DEPT,
+		       A.PR_TYPE,
+
+		       A.PR_AMT,
+
+
+		       A.CUR,
+		       A.RMK_TEXT_NUM,
+		       A.ATT_FILE_NUM,
+		       A.SIGN_STATUS,
+		       <include refid="com.sql.dbo"/>GETGMTDATE(A.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SIGN_DATE,
+		       A.APP_DOC_NUM ,
+		       A.APP_DOC_CNT,
+		       SCTM.BLSM_MSG
+		  FROM STOCPRHD A LEFT JOIN STOCSCTM SCTM
+		      ON (A.GATE_CD = SCTM.GATE_CD
+		      AND A.APP_DOC_NUM = SCTM.APP_DOC_NUM
+		      AND A.APP_DOC_CNT = SCTM.APP_DOC_CNT
+		      AND SCTM.SIGN_STATUS = 'E'
+		      AND SCTM.DEL_FLAG = '0')
+		  
+		  
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		  <choose>
+		    <when test="PR_NUM != null">
+		      AND A.PR_NUM = #{PR_NUM}
+		    </when>
+		    <when test="APP_DOC_NUM != null">
+		      AND A.APP_DOC_NUM = #{APP_DOC_NUM}
+		    </when>
+		  </choose>
+    	   AND A.DEL_FLAG = '0'
+    </select>
+    
+
+    <select id="getPrFormDataBAK" resultType="hashMap">
+        SELECT PR_NUM,
+		       BUYER_REQ_CD,
+		       <include refid="com.sql.dbo"/>GETBUYERNAME(GATE_CD, BUYER_REQ_CD, #{ses.langCd}) AS BUYER_REQ_NM,
+
+		       SUBJECT,
+		       <include refid="com.sql.dbo"/>GETGMTDATE(REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQ_DATE,
+		       REQ_USER_ID,
+		       <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM,
+	           <include refid="com.sql.dbo"/>GETDEPTNAME(GATE_CD, BUYER_REQ_CD, (SELECT DEPT_CD
+		                                                        FROM STOCUSER
+		                                                       WHERE GATE_CD  = #{ses.gateCd}
+		                                                         AND USER_ID  = REQ_USER_ID
+		                                                         AND DEL_FLAG = '0') , #{ses.langCd}) REQ_USER_DEPT,
+		       PR_TYPE,
+
+		       PR_AMT,
+
+
+		       CUR,
+		       RMK_TEXT_NUM,
+		       ATT_FILE_NUM,
+		       SIGN_STATUS,
+		       <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SIGN_DATE,
+		       APP_DOC_NUM ,
+		       APP_DOC_CNT
+		  FROM STOCPRHD
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND (BUYER_REQ_CD IN (SELECT #{ses.companyCd}
+		                        <if test='_databaseId == "oracle"'>FROM DUAL</if>
+		                        UNION
+		                        SELECT BUYER_CD 
+		                          FROM STOCOGCM 
+		                         WHERE REAL_BUYER_CD = #{ses.companyCd}))
+		  <choose>
+		    <when test="PR_NUM != null">
+		      AND PR_NUM = #{PR_NUM}
+		    </when>
+		    <when test="APP_DOC_NUM != null">
+		      AND APP_DOC_NUM = #{APP_DOC_NUM}
+		    </when>
+		  </choose>
+    	   AND DEL_FLAG = '0'
+    </select>
+
+    <select id="getPrGridData" resultType="hashMap">
+
+       SELECT PR_NUM,
+              PLANT_CD,
+              MAKER,
+              CAST(PR_SQ AS VARCHAR(6)) AS PR_SQ,
+              ITEM_CD,
+              ITEM_DESC,
+              ITEM_SPEC,
+              PR_QT,
+              UNIT_CD,
+              <include refid="com.sql.dbo"/>GETGMTDATE(DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE,
+              DELY_TO_CD,
+              DELY_TO_NM,
+              ATT_FILE_NUM,
+              (SELECT COUNT(*)
+                FROM STOCATCH
+               WHERE GATE_CD = #{ses.gateCd}
+                     AND UUID = ATT_FILE_NUM
+                     AND DEL_FLAG = '0'
+              ) AS ATT_FILE_CNT,
+              ACCOUNT_CD,
+              (SELECT ACCOUNT_NM
+                FROM STOCACMT
+               WHERE GATE_CD = #{ses.gateCd}
+                     AND DEL_FLAG = '0'
+                     AND USE_FLAG = '1'
+                     AND ACCOUNT_CD = PRDT.ACCOUNT_CD
+              ) AS ACCOUNT_NM,
+              COST_CD,
+              '' AS COST_NM,
+              PRDT.CTRL_CD,
+              (SELECT CTRL_NM FROM STOCBACO
+	            WHERE GATE_CD = PRDT.GATE_CD
+	              AND CTRL_CD = PRDT.CTRL_CD
+	              AND DEL_FLAG = '0'
+	          ) AS CTRL_NM,
+              <include refid="com.sql.dbo"/>GETDEPTNAME(#{ses.gateCd}, #{ses.companyCd}, COST_CD, #{ses.langCd}) AS COST_DEPT_NM,
+              COST_CD,
+              ITEM_RMK,
+              <include refid="com.sql.dbo"/>GETVENDORNAME(GATE_CD, VENDOR_CD, #{ses.langCd}) AS REC_VENDOR_NM,
+              VENDOR_CD,
+              RFI_AMT,
+              'R' AS INSERT_FLAG,
+              PLAN_NUM
+         FROM STOCPRDT PRDT
+        WHERE GATE_CD = #{ses.gateCd}
+          AND PR_NUM = #{PR_NUM}
+        <if test="PR_SQ != null and PR_SQ != ''">
+          AND PR_SQ = #{PR_SQ}
+        </if>
+          AND DEL_FLAG = '0'
+        ORDER BY PRDT.PR_SQ
+
+    </select>
+
+    <insert id="prRegistrationInsertFormData">
+        INSERT INTO STOCPRHD(
+            GATE_CD ,
+            PR_NUM ,
+            REG_DATE ,
+            REG_USER_ID ,
+            DEL_FLAG ,
+            PR_TYPE ,
+            SUBJECT ,
+            REQ_DATE ,
+            REQ_USER_ID ,
+            REQ_DEPT_NM ,
+            CUR ,
+            PR_AMT ,
+            RMK_TEXT_NUM ,
+            ATT_FILE_NUM ,
+            BUYER_REQ_CD ,
+            APP_DOC_NUM ,
+            APP_DOC_CNT ,
+            SIGN_STATUS ,
+            SIGN_DATE
+        ) VALUES (
+            #{ses.gateCd} ,
+            #{PR_NUM} ,
+            <include refid="com.sql.sysdate"/> ,
+            #{ses.userId},
+            '0' ,
+            #{PR_TYPE} ,
+            #{SUBJECT} ,
+            <include refid="com.sql.dbo"/>SETGMTDATE(#{REQ_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>),
+            #{REQ_USER_ID},
+            #{REQ_DEPT_NM} ,
+            #{CUR} ,
+            #{PR_AMT} ,
+            #{RMK_TEXT_NUM} ,
+            #{ATT_FILE_NUM} ,
+            #{BUYER_REQ_CD} ,
+            #{APP_DOC_NUM} ,
+          <if test='_databaseId=="oracle"'>
+			CASE WHEN <include refid="com.sql.nvl"/>(#{APP_DOC_CNT}, 0) = 0 THEN 0 ELSE TO_NUMBER(<include refid="com.sql.nvl"/>(#{APP_DOC_CNT}, 0)) END,
+		  </if>
+		  <if test='_databaseId=="mssql"'>
+			CASE WHEN #{APP_DOC_CNT} = '' THEN 0 ELSE CONVERT(INT, #{APP_DOC_CNT}) END,
+		  </if>
+            <choose>
+            	<when test='SIGN_STATUS == "P"'>'P' ,</when>
+            	<otherwise>#{SIGN_STATUS} ,</otherwise>
+            </choose>
+            <choose>
+                <when test='SIGN_STATUS == "E"'><include refid="com.sql.sysdate"/></when>
+                <otherwise>NULL</otherwise>
+            </choose>
+        )
+    </insert>
+
+    <select id="getCtrlUserId" resultType="hashMap">
+        SELECT BAMT.CTRL_CD,
+               BACP.CTRL_USER_ID,
+               BACO.PUR_ORG_CD
+          FROM STOCOGCM OGCM
+           LEFT JOIN STOCBACP BACP
+               ON (
+                   OGCM.GATE_CD = BACP.GATE_CD
+                   AND OGCM.REAL_BUYER_CD = BACP.BUYER_CD
+               )
+           LEFT JOIN STOCBACO BACO
+               ON (
+                   BACP.GATE_CD = BACO.GATE_CD
+                   AND BACP.CTRL_CD = BACO.CTRL_CD
+                   AND BACP.BUYER_CD = BACO.BUYER_CD
+               )
+           LEFT JOIN STOCBAMT BAMT
+               ON (
+                   BACO.CTRL_CD = BAMT.CTRL_CD
+                   AND BACO.BUYER_CD = BAMT.BUYER_CD
+                   AND BACO.GATE_CD = BAMT.GATE_CD
+               )
+           LEFT JOIN STOCMTGL MTGL
+               ON (
+                   BAMT.GATE_CD = MTGL.GATE_CD
+                   AND BAMT.ITEM_CLS1 = MTGL.ITEM_CLS1
+                   AND BAMT.ITEM_CLS2 = MTGL.ITEM_CLS2
+                   AND BAMT.ITEM_CLS3 = MTGL.ITEM_CLS3
+               )
+         WHERE BAMT.DEL_FLAG = '0'
+               AND OGCM.DEL_FLAG = '0'
+               AND BACP.DEL_FLAG = '0'
+               AND BACO.DEL_FLAG = '0'
+               /*AND BACO.CTRL_TYPE = 'SOU'*/
+               AND BAMT.GATE_CD = #{ses.gateCd}
+               AND OGCM.BUYER_CD = #{BUYER_REQ_CD}
+               AND MTGL.ITEM_CD = #{ITEM_CD}
+               AND BAMT.CTRL_CD = BACO.CTRL_CD
+    </select>
+
+    <select id="getPrSeq" parameterType="hashMap" resultType="String">
+        SELECT <include refid="com.sql.nvl"/>(MAX(PR_SQ), 0) + 1
+          FROM STOCPRDT
+         WHERE PR_NUM = #{PR_NUM}
+               AND GATE_CD = #{ses.gateCd}
+    </select>
+
+    <insert id="insertPrRegistrationGridData" parameterType="hashMap">
+
+        INSERT INTO STOCPRDT(
+            GATE_CD ,
+            PLANT_CD ,
+            PR_NUM ,
+            PR_SQ ,
+            REG_DATE ,
+            REG_USER_ID ,
+            DEL_FLAG,
+            PROGRESS_CD ,
+            ITEM_CD ,
+            ITEM_DESC ,
+            ITEM_SPEC ,
+            MAKER ,
+            PR_QT ,
+            UNIT_CD ,
+            UNIT_PRC ,
+            PR_AMT ,
+            DUE_DATE ,
+            ATT_FILE_NUM ,
+            ACCOUNT_CD ,
+            COST_CD ,
+            MAT_GROUP ,
+            CTRL_CD ,
+            ITEM_RMK ,
+            PLAN_NUM
+        ) VALUES (
+            #{ses.gateCd} ,
+            #{PLANT_CD} ,
+            #{PR_NUM} ,
+            #{PR_SQ},
+            <include refid="com.sql.sysdate"/> ,
+            #{ses.userId},
+            '0' ,
+            <choose>
+                <when test='PR_SIGN_STATUS == "E"'>
+                    '2100',
+                </when>
+                <otherwise>
+                    '1100',
+                </otherwise>
+            </choose>
+            #{ITEM_CD} ,
+            #{ITEM_DESC} ,
+            #{ITEM_SPEC} ,
+            #{MAKER} ,
+            #{PR_QT} ,
+            #{UNIT_CD} ,
+            #{UNIT_PRC} ,
+            #{PR_AMT} ,
+            <include refid="com.sql.dbo"/>SETGMTDATE(#{DUE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>),
+            #{ATT_FILE_NUM} ,
+            #{ACCOUNT_CD} ,
+            #{COST_CD} ,
+            #{MAT_GROUP} ,
+            #{CTRL_CD} ,
+            #{ITEM_RMK} ,
+            #{PLAN_NUM}
+        )
+
+    </insert>
+
+    <select id="getPrdtCount" resultType="int">
+        SELECT COUNT(*)
+          FROM STOCPRDT
+         WHERE GATE_CD = #{ses.gateCd}
+               AND PR_NUM = #{PR_NUM}
+               AND DEL_FLAG = '0'
+    </select>
+
+    <insert id="insertPrsiData">
+        <selectKey keyProperty="PR_SUB_SQ" resultType="int" order="BEFORE">
+            SELECT <include refid="com.sql.nvl"/>(MAX(PR_SUB_SQ), 0) + 1
+            FROM STOCPRSI
+            WHERE PR_NUM = #{PR_NUM}
+            AND PR_SQ = #{PR_SQ}
+        </selectKey>
+        INSERT
+          INTO STOCPRSI
+               (
+                  GATE_CD,
+                  PR_NUM,
+                  PR_SQ,
+                  PR_SUB_SQ,
+                  REG_DATE,
+                  REG_USER_ID,
+                  MOD_DATE,
+                  MOD_USER_ID,
+                  DEL_FLAG,
+                  SUB_TEXT,
+                  SUB_ITEM_TEXT,
+                  UNIT_PRC,
+                  SUB_ITEM_DESC,
+                  SUB_ITEM_SPEC,
+                  SUB_RMK
+               )
+               VALUES
+               (
+                  #{ses.gateCd},
+                  #{PR_NUM},
+                  #{PR_SQ},
+                  #{PR_SUB_SQ},
+                  <include refid="com.sql.sysdate"/>,
+                  #{ses.userId},
+                  <include refid="com.sql.sysdate"/>,
+                  #{ses.userId},
+                  0,
+                  #{SUB_TEXT},
+                  #{SUB_ITEM_TEXT},
+                  CASE WHEN #{UNIT_PRC} = '' THEN NULL
+                     ELSE #{UNIT_PRC}
+                  END,
+                  #{SUB_ITEM_DESC},
+                  #{SUB_ITEM_SPEC},
+                  #{SUB_RMK}
+               )
+    </insert>
+
+    <update id="deletePrsiData">
+        UPDATE STOCPRSI
+        SET MOD_DATE = <include refid="com.sql.sysdate"/> ,
+        MOD_USER_ID = #{ses.userId} ,
+        DEL_FLAG = 1
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        <if test='PR_SQ != "" and PR_SQ != null'>
+            AND PR_SQ = #{PR_SQ}
+        </if>
+        <if test='PR_SUB_SQ != "" and PR_SUB_SQ != null'>
+            AND PR_SUB_SQ = #{PR_SUB_SQ}
+        </if>
+    </update>
+
+    <update id="updatePrsiData">
+        UPDATE STOCPRSI
+               SET MOD_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID  = #{ses.userId},
+               SUB_TEXT     = #{SUB_TEXT},
+               SUB_ITEM_TEXT = #{SUB_ITEM_TEXT},
+               UNIT_PRC      =
+               CASE WHEN #{UNIT_PRC} = '' THEN NULL
+                  ELSE #{UNIT_PRC}
+               END,
+               SUB_RMK = #{SUB_RMK},
+               SUB_ITEM_DESC = #{SUB_ITEM_DESC},
+               SUB_ITEM_SPEC = #{SUB_ITEM_SPEC}
+         WHERE GATE_CD       = #{ses.gateCd}
+               AND PR_NUM    = #{PR_NUM}
+               AND PR_SQ     = #{PR_SQ}
+               AND PR_SUB_SQ = #{PR_SUB_SQ}
+    </update>
+
+    <select id="getSignStatus" resultType="string">
+        SELECT SIGN_STATUS
+          FROM STOCPRHD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PR_NUM = #{PR_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="getMaxProgressCode" resultType="int">
+        SELECT <include refid="com.sql.nvl"/>(MAX(CAST(PROGRESS_CD AS INTEGER)), 0)
+        FROM STOCPRDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND DEL_FLAG = '0'
+    </select>
+
+    <update id="updatePrRegistrationFormData">
+
+        UPDATE STOCPRHD SET
+               MOD_DATE      = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID   = #{ses.userId},
+               PR_TYPE       = #{PR_TYPE},
+               SUBJECT       = #{SUBJECT},
+               REQ_DATE      = <include refid="com.sql.sysdate"/>,
+               CUR           = #{CUR},
+               PR_AMT        = #{PR_AMT},
+               RMK_TEXT_NUM  = #{RMK_TEXT_NUM},
+               ATT_FILE_NUM  = #{ATT_FILE_NUM},
+               BUYER_REQ_CD  = #{BUYER_REQ_CD},
+               APP_DOC_NUM   = #{APP_DOC_NUM},
+             <if test='_databaseId=="oracle"'>
+               APP_DOC_CNT = CASE WHEN <include refid="com.sql.nvl"/>(#{APP_DOC_CNT}, 0) = 0 THEN 0 ELSE TO_NUMBER(<include refid="com.sql.nvl"/>(#{APP_DOC_CNT}, 0)) END,
+		     </if>
+		     <if test='_databaseId=="mssql"'>
+		       APP_DOC_CNT = CASE WHEN #{APP_DOC_CNT} = '' THEN 0 ELSE CONVERT(INT, #{APP_DOC_CNT}) END,
+		     </if>
+             <if test='SIGN_STATUS == "E"'>
+               SIGN_DATE     = <include refid="com.sql.sysdate"/>,
+             </if>
+               <choose>
+                 <when test='SIGN_STATUS == "P"'>
+               	   SIGN_STATUS   = 'P'
+               	 </when>
+               	 <otherwise>
+               	   SIGN_STATUS   = #{SIGN_STATUS}
+               	 </otherwise>
+               </choose>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PR_NUM = #{PR_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="prRegistrationUpdateGridData">
+        UPDATE STOCPRDT SET
+            MOD_DATE = <include refid="com.sql.sysdate"/> ,
+            MOD_USER_ID = #{ses.userId} ,
+            PLANT_CD = #{PLANT_CD} ,
+            ITEM_CD = #{ITEM_CD} ,
+            ITEM_DESC = #{ITEM_DESC} ,
+            ITEM_SPEC = #{ITEM_SPEC} ,
+            MAKER = #{MAKER} ,
+            PR_QT = #{PR_QT} ,
+            UNIT_CD = #{UNIT_CD} ,
+            UNIT_PRC = #{UNIT_PRC} ,
+            PR_AMT = #{PR_AMT} ,
+            DUE_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{DUE_DATE}, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>),
+            ATT_FILE_NUM = #{ATT_FILE_NUM} ,
+            ACCOUNT_CD = #{ACCOUNT_CD} ,
+            COST_CD = #{COST_CD} ,
+            MAT_GROUP = #{MAT_GROUP} ,
+            CTRL_CD = #{CTRL_CD} ,
+            <if test='PR_SIGN_STATUS == "E"'>
+            PROGRESS_CD = '2100', /* 구매요청 결재승인 = 진행상태 : 접수대기(2100) */
+            </if>
+            <if test='PR_SIGN_STATUS != "E"'>
+            PROGRESS_CD = '1100', /* 구매요청 NOT 결재승인 = 진행상태 : 구매요청중(1100) */
+            </if>
+            ITEM_RMK = #{ITEM_RMK} ,
+            PLAN_NUM = #{PLAN_NUM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PR_NUM = #{PR_NUM}
+           AND PR_SQ = #{PR_SQ}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="getPrsiData" resultType="hashMap">
+        SELECT PR_NUM ,
+               CAST(PR_SQ AS VARCHAR(6)) AS PR_SQ ,
+               CAST(PR_SUB_SQ AS VARCHAR(6)) AS PR_SUB_SQ ,
+               SUB_TEXT ,
+               SUB_ITEM_TEXT ,
+               UNIT_PRC ,
+               SUB_RMK ,
+               SUB_ITEM_DESC ,
+               SUB_ITEM_SPEC
+          FROM STOCPRSI
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DEL_FLAG = '0'
+           AND PR_NUM = #{PR_NUM}
+        <if test="PR_SQ != null and PR_SQ != ''">
+           AND PR_SQ = #{PR_SQ}
+        </if>
+         ORDER BY PR_SQ
+    </select>
+
+    <update id="deletePrRegistrationGridData">
+        UPDATE STOCPRDT
+        SET MOD_DATE = <include refid="com.sql.sysdate"/> ,
+        MOD_USER_ID = #{ses.userId} ,
+        DEL_FLAG = 1
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        <if test='PR_SQ != null and PR_SQ != ""'>
+            AND PR_SQ = #{PR_SQ}
+        </if>
+        AND DEL_FLAG = '0'
+    </update>
+
+    <update id="deletePrRegistrationFormData">
+        UPDATE STOCPRHD
+        SET MOD_DATE = <include refid="com.sql.sysdate"/> ,
+        MOD_USER_ID = #{ses.userId} ,
+        DEL_FLAG = 1
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND DEL_FLAG = '0'
+    </update>
+
+    <update id="updatePRDTProgressCodeByDonu">
+        UPDATE STOCPRDT
+        SET PROGRESS_CD = #{PROGRESS_CD} ,
+        MOD_DATE = <include refid="com.sql.sysdate"/> ,
+        MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND PR_SQ = #{PR_SQ}
+        AND DEL_FLAG = '0'
+    </update>
+
+    <update id="deleteBasketData">
+        UPDATE STOCCART
+        SET MOD_DATE = <include refid="com.sql.sysdate"/> ,
+        MOD_USER_ID = #{ses.userId} ,
+        DEL_FLAG = 1
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CART_SQ = #{CART_SQ}
+        AND DEL_FLAG = '0'
+    </update>
+
+    <update id="BPRM_010_gwGridDelete" parameterType="hashmap">
+        UPDATE STOCGWLK SET
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DOC_ID = #{DOC_ID}
+           AND DOC_SQ = #{DOC_SQ}
+           AND PURC_GRP = #{PURC_GRP}
+    </update>
+
+    <insert id="insertPRHBData">
+        INSERT INTO STOCPRHB(GATE_CD, PR_NUM, PR_SQ, REG_DATE)
+        SELECT GATE_CD, PR_NUM, PR_SQ, <include refid="com.sql.sysdate"/> AS REG_DATE
+        FROM STOCPRDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND DEL_FLAG = '0'
+    </insert>
+
+    <delete id="deletePRHBData">
+        DELETE STOCPRHB
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+    </delete>
+
+    <insert id="insertDONUData">
+        INSERT INTO STOCDONU(
+        GATE_CD
+        <if test='_databaseId == "oracle"'>, DOC_SQ</if>
+        , PR_NUM
+        , PR_SQ)
+        SELECT
+        GATE_CD
+        <if test='_databaseId == "oracle"'>, SEQ_STOCDONU.NEXTVAL</if>
+        , PR_NUM
+        , PR_SQ
+        FROM STOCPRDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND DEL_FLAG = '0'
+    </insert>
+
+    <insert id="BPRM_010_gwGridSave">
+
+         MERGE<include refid="com.sql.mergeInto"/>STOCGWLK<include refid="com.sql.mergeAs"/>A
+         USING (SELECT #{ses.gateCd} AS GATE_CD, #{DOC_ID} AS DOC_ID, #{DOC_SQ} AS DOC_SQ, #{PURC_GRP} AS PURC_GRP <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (A.GATE_CD = B.GATE_CD
+           AND 	A.DOC_ID = B.DOC_ID
+           AND A.DOC_SQ = B.DOC_SQ
+           AND A.PURC_GRP = B.PURC_GRP)
+        WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , APRV_NO = #{APRV_NO}
+             , APRV_URL = #{APRV_URL}
+             , DEL_FLAG = '0'
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , DOC_ID
+            , DOC_SQ
+            , PURC_GRP
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , APRV_NO
+            , APRV_URL
+            , RMKS
+        ) VALUES (
+              #{ses.gateCd}
+            , #{PR_NUM}
+            , (SELECT count(*) + 1 FROM STOCGWLK WHERE GATE_CD = #{ses.gateCd} AND DOC_ID = #{PR_NUM}) -- DOC_SQ
+            , 'PR'
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{APRV_NO}
+            , #{APRV_URL}
+            , #{RMKS}
+        )
+
+    </insert>
+
+    <delete id="deleteDONUData">
+        DELETE STOCDONU
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+    </delete>
+
+    <select id="getPRHBDataCount" resultType="int">
+        SELECT COUNT(*)
+        FROM STOCPRHB
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+    </select>
+
+    <select id="getAppDocNo" resultType="hashMap">
+        SELECT APP_DOC_NUM ,
+               APP_DOC_CNT
+        FROM STOCPRHD
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND DEL_FLAG = '0'
+    </select>
+
+    <select id="getDONU" resultType="hashMap">
+        SELECT PR_NUM, PR_SQ
+        FROM STOCDONU
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PR_NUM = #{PR_NUM}
+        AND PO_NUM IS NOT NULL
+
+        <if test="_databaseId == 'oracle'">
+            /* oracleStatement */
+        </if>
+
+        <if test="_databaseId == 'mssql'">
+            /* mssql Statement */
+        </if>
+    </select>
+
+    <select id="doSearchGwDocData" parameterType="hashmap" resultType="java.util.Map">
+        SELECT APRV_NO
+             , APRV_URL
+             , DOC_ID
+             , DOC_SQ
+             , PURC_GRP
+          FROM STOCGWLK
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DOC_ID = #{PR_NUM}
+           AND PURC_GRP = 'PR'
+           AND DEL_FLAG = '0'
+    </select>
+	
+	<select id="getApprovalPrNum" parameterType="hashMap" resultType="String">
+        SELECT PR_NUM
+          FROM STOCPRHD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+           AND APP_DOC_CNT = #{APP_DOC_CNT}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="doAccountSearch" parameterType="hashmap" resultType="java.util.Map">
+        SELECT ACCOUNT_NUM
+             , ACCOUNT_NM
+          FROM STOCACMT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ACCOUNT_NUM = #{ACCOUNT_NUM}
+           AND DEL_FLAG = '0'
+         ORDER BY ACCOUNT_NUM ASC
+    </select>
+
+    <select id="doCostSearch" parameterType="hashmap" resultType="java.util.Map">
+        SELECT COST_CD
+		     , COST_NM
+	      FROM STOCCOST
+	     WHERE GATE_CD = #{ses.gateCd}
+	       AND COST_CD = #{COST_CD}
+	       AND PLANT_CD = #{PLANT_CD}
+	       AND DEL_FLAG = '0'
+    </select>
+
+    <!-- 결재진행중(P), 결재승인(E), 결재반려(R), 상신취소(C)인 경우 결재상태 변경 -->
+    <update id="updateSignStatus">
+		UPDATE STOCPRHD SET
+			SIGN_STATUS   = #{SIGN_STATUS}
+        	<if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            	, SIGN_DATE     = <include refid="com.sql.sysdate"/>
+			</if>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+           AND APP_DOC_CNT = #{APP_DOC_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+	<!-- 결재승인(E)시 STOCPRDT의 PROGRESS_CD='2100'(접수대기)로 변경함 -->
+    <update id="updateProgressCd">
+		UPDATE STOCPRDT SET
+			PROGRESS_CD   = '2100'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PR_NUM = #{PR_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+</mapper>
+

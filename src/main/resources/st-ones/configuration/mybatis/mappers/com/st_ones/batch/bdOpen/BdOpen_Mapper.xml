@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.bdOpen.BdOpen_Mapper">
+    <select id="getBdOpenTargetList" resultType="hashmap">
+		SELECT DISTINCT
+			 A.RFX_NUM
+			,A.OPEN_BID_USER_ID
+			,GETUSERINFO(A.GATE_CD,A.OPEN_BID_USER_ID,'USER_NM') AS OPEN_BID_USER_NM
+			,TO_CHAR(A.RFX_TO_DATE,'YYYY-MM-DD HH24') RFX_TO_DATE
+
+	    	, UR.USER_ID AS RECV_USER_ID
+	        , UR.USER_NM AS RECV_USER_NM
+	        ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.MAIL_FLAG, '0') = '1' THEN UR.EMAIL ELSE '' END) AS RECV_EMAIL
+	        ,(CASE WHEN <include refid="com.sql.nvl"/>(UR.SMS_FLAG, '0') = '1' THEN UR.CELL_NUM ELSE '' END) AS RECV_CELL_NUM
+
+		FROM STOPBDHD A	JOIN STOCUSER UR
+			           ON (UR.GATE_CD = A.GATE_CD
+			           AND UR.USER_ID = A.OPEN_BID_USER_ID
+			           AND UR.DEL_FLAG = '0')
+		WHERE A.GATE_CD = '100'
+	    AND A.DEL_FLAG = '0'
+		AND CASE WHEN A.PROGRESS_CD = '2650' AND SYSDATE   <![CDATA[>]]>   A.RFX_TO_DATE THEN '2750'  ELSE A.PROGRESS_CD END = '2750'
+		AND TO_CHAR(A.RFX_TO_DATE,'YYYYMMDDHH24') = TO_CHAR(SYSDATE, 'YYYYMMDDHH24')
+    </select>
+</mapper>

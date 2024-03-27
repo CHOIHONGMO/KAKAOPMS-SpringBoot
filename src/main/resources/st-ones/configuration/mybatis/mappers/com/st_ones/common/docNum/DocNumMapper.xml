@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="com.st_ones.common.docNum.DocNumMapper">
+    
+    <select id="getDocNum" parameterType="hashmap" resultType="hashmap">
+    
+       SELECT START_NUM
+       		 , END_NUM2
+       		 , <include refid="com.sql.nvl"/>(CURRENT_NUM, '0') AS CURRENT_NUM
+       		 , PREFIX_STRING,
+             , <include refid="com.sql.toVarchar"/>CURRENT_VAL<include refid="com.sql.asVarchar"/> AS CURRENT_VAL
+             , YEAR_FLAG
+             , YEAR_TYPE
+             , MONTH_FLAG
+             , DAY_FLAG
+          FROM STOCDNCT <include refid="com.sql.noLock"/>
+         WHERE GATE_CD  = <choose>
+                            <when test="gateCd == null or gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{gateCd}</otherwise>
+                         </choose>
+           AND DOC_TYPE = #{docType}
+           AND DEL_FLAG = '0'
+		FOR UPDATE <if test="_databaseId == 'oracle'">OF DOC_TYPE</if>
+
+    </select>
+    
+    <update id="setDocNum" parameterType="hashmap">
+
+        UPDATE STOCDNCT <include refid="com.sql.rowLock"/>
+        SET
+            CURRENT_NUM = #{currentNo},
+            CURRENT_VAL = #{currentVal},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = <choose>
+                             <when test="ses.userId == null or ses.userId == ''">'SYSTEM'</when>
+                             <otherwise>#{ses.userId}</otherwise>
+                          </choose>
+        WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{ses.gateCd}</otherwise>
+                        </choose>
+          AND DOC_TYPE = #{docType}
+
+    </update>
+
+    <select id="getDocNumbers" parameterType="hashmap" resultType="hashMap">
+    
+        SELECT
+            GATE_CD,
+            DOC_TYPE,
+            PREFIX_STRING,
+            YEAR_FLAG,
+            MONTH_FLAG,
+            DAY_FLAG,
+            YEAR_TYPE,
+            <include refid="com.sql.toVarchar"/>CURRENT_VAL<include refid="com.sql.asVarchar"/> AS CURRENT_VAL,
+            CURRENT_NUM,
+            USE_FLAG,
+            MOD_USER_ID,
+            <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM,
+            <include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS MOD_DATE,
+            'U' AS DB_FLAG
+          FROM STOCDNCT
+         WHERE GATE_CD = <choose>
+                             <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                             <otherwise>#{ses.gateCd}</otherwise>
+                         </choose>
+           AND DEL_FLAG = '0'
+        <if test="DOC_TYPE != '' and DOC_TYPE != null">        
+           AND DOC_TYPE = #{DOC_TYPE}
+        </if>
+        <if test="PREFIX_STRING != '' and PREFIX_STRING != null">
+           AND PREFIX_STRING <include refid="com.sql.likeL"/> #{PREFIX_STRING} <include refid="com.sql.likeR"/>
+        </if>
+    
+    </select>
+    
+    <select id="checkDocType" parameterType="hashMap" resultType="string">
+    
+        SELECT COUNT(DOC_TYPE) FROM STOCDNCT
+         WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{gateCd}</otherwise>
+                        </choose>
+           AND DOC_TYPE = #{DOC_TYPE}
+    
+    </select>
+
+    <insert id="doInsert" parameterType="hashMap">
+<!--     Don't use in service? -->
+        INSERT INTO STOCDNCT(
+            GATE_CD,
+            DOC_TYPE,
+            PREFIX_STRING,
+            CURRENT_NUM,
+            YEAR_FLAG,
+            MONTH_FLAG,
+            DAY_FLAG,
+            YEAR_TYPE,
+            CURRENT_VAL,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            START_NUM,
+            END_NUM2,
+            DEL_FLAG,
+            USE_FLAG
+        )
+        VALUES (
+            #{ses.gateCd},
+            #{DOC_TYPE},
+            #{PREFIX_STRING},
+            ( <include refid="com.sql.stringMergeStart"/>#{PREFIX_STRING}
+              <include refid="com.sql.stringMerge"/>(CASE WHEN #{YEAR_FLAG} = '1' THEN (CASE WHEN #{YEAR_TYPE} = '4' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYY') ELSE TO_CHAR(<include refid="com.sql.sysdate"/>, 'YY') END) ELSE '' END)
+              <include refid="com.sql.stringMerge"/>(CASE WHEN #{MONTH_FLAG} = '1' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'MM') ELSE '' END)
+              <include refid="com.sql.stringMerge"/>(CASE WHEN #{DAY_FLAG} = '1' THEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'DD') ELSE '' END)
+              <include refid="com.sql.stringMerge"/>#{CURRENT_VAL}
+              <include refid="com.sql.stringMergeEnd"/>
+            ),
+            #{YEAR_FLAG},
+            #{MONTH_FLAG},
+            #{DAY_FLAG},
+            #{YEAR_TYPE},
+            #{CURRENT_VAL},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.toNumber"/>#{CURRENT_VAL}<include refid="com.sql.asNumber"/>,
+            <include refid="com.sql.lpad"/>('9', <include refid="com.sql.length"/>(#{CURRENT_VAL}), '9'),
+            '0',
+            #{USE_FLAG}
+        )
+    
+    </insert>
+    
+    <update id="updateDocNo" parameterType="hashMap">
+    <!--     Don't use in service? -->
+        UPDATE STOCDNCT SET
+            CURRENT_NUM = #{CURRENT_NUM},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+          AND DOC_TYPE = #{DOC_TYPE}
+    
+    </update>
+    
+    <update id="doUpdate" parameterType="hashMap">
+     <!--     Don't use in service? -->
+        UPDATE STOCDNCT SET
+            PREFIX_STRING = #{PREFIX_STRING},
+            CURRENT_NUM = #{CURRENT_NUM},
+            YEAR_FLAG = #{YEAR_FLAG},
+            MONTH_FLAG = #{MONTH_FLAG},
+            DAY_FLAG = #{DAY_FLAG},
+            YEAR_TYPE = #{YEAR_TYPE},
+            CURRENT_VAL = #{CURRENT_VAL},
+            USE_FLAG = #{USE_FLAG},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = <choose>
+                              <when test="ses.userId == null or ses.userId == ''">'SYSTEM'</when>
+                              <otherwise>#{ses.userId}</otherwise>
+                          </choose>
+        WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{gateCd}</otherwise>
+                        </choose>
+          AND DOC_TYPE = #{DOC_TYPE}
+    
+    </update>
+    
+    <update id="doDelete" parameterType="hashMap">
+    <!--     Don't use in service? -->
+        UPDATE STOCDNCT SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = <choose>
+                              <when test="ses.userId == null or ses.userId == ''">'SYSTEM'</when>
+                              <otherwise>#{ses.userId}</otherwise>
+                          </choose>
+        WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{gateCd}</otherwise>
+                        </choose>
+          AND DOC_TYPE = #{DOC_TYPE}
+    
+    </update>
+
+    <select id="getNewDocNum" parameterType="hashMap" resultType="java.lang.String">
+
+        SELECT <include refid="com.sql.stringMergeStart"/> 'TN'
+        	   <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>fn_lpad(<include refid="com.sql.nvl"/>(MAX(CONVERT(NUMERIC, <include refid="com.sql.subStr"/>(TEXT_NUM, 11, 6))), 0) <include refid="com.sql.stringMerge"/> 1, 6, '0')
+        	   <include refid="com.sql.stringMergeEnd"/> AS NEW_NUM
+          FROM STOCTXTH
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TEXT_NUM LIKE <include refid="com.sql.stringMergeStart"/> 'TN' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') <include refid="com.sql.stringMerge"/> '%' <include refid="com.sql.stringMergeEnd"/>
+
+    </select>
+</mapper>

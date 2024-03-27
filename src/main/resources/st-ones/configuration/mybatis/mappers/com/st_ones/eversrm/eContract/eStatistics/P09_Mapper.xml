@@ -1,0 +1,2228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.eContract.eStatistics.P09_Mapper">
+
+    <select id="p09001_doSearch" parameterType="hashMap" resultType="hashMap">
+    SELECT CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+                 END AS CUST_NM     --고객사명
+         , BSCD.CODE_DESC BS_TYPE   --구분
+         , '' BS_NM                 -- 사업부
+         , MM.REQ_DEPT_CD           -- 팀
+         , MM.REQ_DEPT_NM           -- 팀명
+         ,  MM.REQ_USER_ID REQ_USER_ID  -- 담당자
+         , getUserName(#{ses.gateCd}, MM.REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM -- 담당자
+         , MM.CONT_DESC                                                  -- 계약/프로젝트명
+         , PRCD.CODE_DESC AS PRC_TYPE_NM                                    -- 원가확정유형
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS1, '1') AS ITEM_CLS1_NM   -- 대분류
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS2, '2') AS ITEM_CLS2_NM   -- 중분류
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS3, '3') AS ITEM_CLS3_NM   -- 소분류
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS4, '4') AS ITEM_CLS4_NM   -- 세분류
+         , MKBR.MKBR_NM AS MAKER_NM                                         -- 제조사명
+         , CODD.CODE_DESC AS VENDOR_TYPE_NM -- 협력회사구분
+         , MM.FORM_NM    -- 계약유형
+         , MM.SUPPLY_AMT -- 계약기준
+         , MM.INV_AMT    -- 매입확정기준
+      FROM (
+        SELECT
+               KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , BSMG.BS_TYPE                     --구분
+             , KPHD.BS_CD                       --고객코드
+             , PRHD.REQ_DEPT_CD                 --팀
+             , PRHD.REQ_DEPT_NM                 --팀명
+             , PRHD.REQ_USER_ID                 --담당자
+             , <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT) || ' (' || KPHD.SO_NUM || ')' AS CONT_DESC --계약/프로젝트명
+             , (CASE WHEN <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0') = '1' THEN '20'
+                       ELSE '10'
+                   END)             AS PRC_TYPE   --원가확정유형
+             , MTGL.ITEM_CLS1                   --대분류
+             , MTGL.ITEM_CLS2                   --중분류
+             , MTGL.ITEM_CLS3                   --소분류
+             , MTGL.ITEM_CLS4                   --세분류
+             , MTGL.MAKER                       --제조사
+
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE --협력사구분
+             , ECCF.FORM_NM                      --계약유형
+             , ECCT.SUPPLY_AMT                   --계약기준
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT     --매입확정기준
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="BS_TYPE != '' and BS_TYPE != null">
+           AND BSMG.BS_TYPE =  #{BS_TYPE}
+        </if>
+        <if test="CONTRACT_TYPE  != '' and CONTRACT_TYPE != null">
+           AND ECCF.FORM_NUM  =  #{CONTRACT_TYPE}
+        </if>
+        <if test="MAKER != '' and MAKER != null">
+           AND MTGL.MAKER IN ${MAKER}
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID
+                 ) MM
+         LEFT OUTER JOIN STOCCODD CODD
+           ON (   CODD.GATE_CD     = #{ses.gateCd}
+             AND CODD.LANG_CD     = #{ses.langCd}
+             AND CODD.DEL_FLAG = '0'
+             AND CODD.CODE_TYPE = 'SC0279'
+             AND CODD.CODE        = MM.VENDOR_TYPE)
+         LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MM.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         LEFT OUTER JOIN STOCCODD PRCD
+           ON (   PRCD.GATE_CD     = #{ses.gateCd}
+             AND PRCD.LANG_CD     = #{ses.langCd}
+             AND PRCD.DEL_FLAG = '0'
+             AND PRCD.CODE_TYPE = 'SC0278'
+             AND PRCD.CODE        = MM.PRC_TYPE)
+         LEFT OUTER JOIN STOCCODD BSCD
+           ON (   BSCD.GATE_CD     = #{ses.gateCd}
+             AND BSCD.LANG_CD     = #{ses.langCd}
+             AND BSCD.DEL_FLAG = '0'
+             AND BSCD.CODE_TYPE = 'SC0007'
+             AND BSCD.CODE        = MM.BS_TYPE)
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = MM.BS_CD)
+       LEFT OUTER JOIN STOCCUST CUST
+         ON(    CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+       LEFT OUTER JOIN (
+                         SELECT DISTINCT B.TREE AS DEPT_TREE
+                              , B.ITEM_CLS_PATH_NM
+                              , B.DEPT_CD
+                              , B.DEPT_NM
+                            FROM
+                            (
+                                SELECT
+                                     ( CASE WHEN A.LVL=1 THEN A.DEPT_CD
+                                            WHEN A.LVL=2 THEN A.ITEM_CLS1 || A.ITEM_CLS2
+                                            WHEN A.LVL=3 THEN A.ITEM_CLS1 || A.ITEM_CLS2 || A.ITEM_CLS3
+                                            WHEN A.LVL=4 THEN A.ITEM_CLS1 || A.ITEM_CLS2 || A.ITEM_CLS3 || A.ITEM_CLS4
+                                            ELSE A.ITEM_CLS1 || A.ITEM_CLS2 || A.ITEM_CLS3 || A.ITEM_CLS4 || A.ITEM_CLS5 END) AS TREE
+                                     , A.DEPT_NM
+                                     , A.ITEM_CLS1
+                                     , A.ITEM_CLS2
+                                     , A.ITEM_CLS3
+                                     , A.ITEM_CLS4
+                                     , A.ITEM_CLS5
+                                     , (CASE WHEN A.LVL=1 THEN A.COMPANY_NM
+                                             WHEN A.LVL=2 THEN A.COMPANY_NM ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS2,'DEPT_NM')
+                                             WHEN A.LVL=3 THEN A.COMPANY_NM ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS2,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS3,'DEPT_NM')
+                                             WHEN A.LVL=4 THEN A.COMPANY_NM ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS2,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS3,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS4,'DEPT_NM')
+                                             ELSE A.COMPANY_NM ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS2,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS3,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS4,'DEPT_NM') ||' > '||  GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},A.ITEM_CLS5,'DEPT_NM') END) AS ITEM_CLS_PATH_NM
+                                     , (CASE WHEN A.LVL=1 THEN (SELECT COUNT(*) FROM STOCOGDP)
+                                             WHEN A.LVL=2 THEN (SELECT COUNT(*) FROM STOCOGDP WHERE PARENT_DEPT_CD=A.ITEM_CLS2)
+                                             WHEN A.LVL=3 THEN (SELECT COUNT(*) FROM STOCOGDP WHERE PARENT_DEPT_CD=A.ITEM_CLS3)
+                                             WHEN A.LVL=4 THEN (SELECT COUNT(*) FROM STOCOGDP WHERE PARENT_DEPT_CD=A.ITEM_CLS4)
+                                             ELSE 0 END) AS COUNTS
+                                     , A.LVL
+                                     , A.INDEPT
+                                     , A.SEQ
+                                     , A.DEPT_CD
+                                     , A.PARENT_DEPT_CD AS UP_DEPT_CD
+                                     , <include refid="com.sql.nvl"/>((SELECT (CASE WHEN SEQ<![CDATA[<]]>10 THEN '0'||SEQ||DEPT_CD ELSE SEQ||DEPT_CD END) FROM STOCOGDP WHERE DEPT_CD =A.ITEM_CLS2),'0') AS ITEM_CLS2_SEQ
+                                     , <include refid="com.sql.nvl"/>((SELECT (CASE WHEN SEQ<![CDATA[<]]>10 THEN '0'||SEQ||DEPT_CD ELSE SEQ||DEPT_CD END) FROM STOCOGDP WHERE DEPT_CD =A.ITEM_CLS3),'0') AS ITEM_CLS3_SEQ
+                                     , <include refid="com.sql.nvl"/>((SELECT (CASE WHEN SEQ<![CDATA[<]]>10 THEN '0'||SEQ||DEPT_CD ELSE SEQ||DEPT_CD END) FROM STOCOGDP WHERE DEPT_CD =A.ITEM_CLS4),'0') AS ITEM_CLS4_SEQ
+                                     , <include refid="com.sql.nvl"/>((SELECT (CASE WHEN SEQ<![CDATA[<]]>10 THEN '0'||SEQ||DEPT_CD ELSE SEQ||DEPT_CD END) FROM STOCOGDP WHERE DEPT_CD =A.ITEM_CLS5),'0') AS ITEM_CLS5_SEQ
+                                     , A.TEAM_LEADER_USER_ID
+                                     , A.ACC_CODE
+                                  FROM (
+                                        SELECT OGDP.GATE_CD
+                                             , (SELECT BUYER_NM FROM STOCOGCM WHERE GATE_CD = OGDP.GATE_CD AND BUYER_CD = '1000') AS COMPANY_NM
+                                             , OGDP.DEPT_CD
+                                             , OGDP.DEPT_NM
+                                             , #{ses.companyCd} AS ITEM_CLS1
+                                             , (CASE WHEN OGDP.LVL=2 THEN OGDP.DEPT_CD
+                                                     ELSE (CASE WHEN OGDP.LVL=3 THEN OGDP.PARENT_DEPT_CD
+                                                                WHEN OGDP.LVL=4 THEN (GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},OGDP.PARENT_DEPT_CD,'PARENT_DEPT_CD'))
+                                                                WHEN OGDP.LVL=5 THEN (GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},OGDP.PARENT_DEPT_CD,'PARENT_DEPT_CD'),'PARENT_DEPT_CD'))
+                                                                ELSE '*'
+                                                           END)
+                                                END) AS ITEM_CLS2
+                                             , (CASE WHEN OGDP.LVL=3 THEN OGDP.DEPT_CD
+                                                     ELSE (CASE WHEN OGDP.LVL=4 THEN OGDP.PARENT_DEPT_CD
+                                                                WHEN OGDP.LVL=5 THEN (GETDEPTINFO(#{ses.gateCd},#{ses.companyCd},OGDP.PARENT_DEPT_CD,'PARENT_DEPT_CD'))
+                                                                 ELSE '*'
+                                                           END)
+                                               END) AS ITEM_CLS3
+                                             , (CASE WHEN OGDP.LVL=4 THEN OGDP.DEPT_CD
+                                                     ELSE (CASE WHEN OGDP.LVL=5 THEN OGDP.PARENT_DEPT_CD
+                                                                ELSE '*'
+                                                            END)
+                                                END) AS ITEM_CLS4
+                                             , (CASE WHEN OGDP.LVL=5 THEN OGDP.DEPT_CD
+                                                     ELSE '*'
+                                                END) AS ITEM_CLS5
+                                             , OGDP.PARENT_DEPT_CD
+                                             , OGDP.LVL
+                                             , OGDP.INDEPT
+                                             , OGDP.SEQ
+                                             , OGDP.TEAM_LEADER_USER_ID
+                                             , OGDP.ACC_CODE
+                                          FROM STOCOGDP OGDP
+                                         WHERE OGDP.GATE_CD = #{ses.gateCd}
+                                           AND OGDP.BUYER_CD = #{ses.companyCd}
+                                           AND DEL_FLAG='0'
+                                     ) A
+                                UNION ALL
+                                SELECT OGCM.BUYER_CD AS tree
+                                     , OGCM.BUYER_NM AS DEPT_NM
+                                     , OGCM.BUYER_CD AS ITEM_CLS1
+                                     , '*' AS ITEM_CLS2
+                                     , '*' AS ITEM_CLS3
+                                     , '*' AS ITEM_CLS4
+                                     , '*' AS ITEM_CLS5
+                                     , OGCM.BUYER_NM AS ITEM_CLS_PATH_NM
+                                     , 1 AS COUNTS
+                                     , 1 AS LVL
+                                     , '1' AS INDEPT
+                                     , '0' AS SEQ
+                                     , #{ses.companyCd} AS DEPT_CD
+                                     , NULL AS UP_DEPT_CD
+                                     , '0' AS ITEM_CLS2_SEQ
+                                     , '0' AS ITEM_CLS3_SEQ
+                                     , '0' AS ITEM_CLS4_SEQ
+                                     , '0' AS ITEM_CLS5_SEQ
+                                     , NULL AS TEAM_LEADER_USER_ID
+                                     , NULL AS ACC_CODE
+                                  FROM STOCOGCM OGCM
+                                 WHERE OGCM.GATE_CD = #{ses.gateCd}
+                                   AND OGCM.BUYER_CD = #{ses.companyCd}
+                            )B
+                            CONNECT BY DEPT_CD = PRIOR UP_DEPT_CD
+                       ) TREE
+                 ON( TREE.DEPT_CD = MM.REQ_DEPT_CD )
+         WHERE 1 = 1
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, MM.REQ_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND MM.REQ_USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_DESC != '' and CONT_DESC != null">
+            AND MM.CONT_DESC <include refid="com.sql.likeL"/> #{CONT_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="COST_TYPE != '' and COST_TYPE != null">
+            AND PRCD.CODE = #{COST_TYPE}
+        </if>
+        <if test="VENDOR_TYPE != '' and VENDOR_TYPE != null">
+            AND CODD.CODE = #{VENDOR_TYPE}
+        </if>
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+            AND TREE.DEPT_TREE <include refid="com.sql.likeL"/> #{DEPT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND TREE.ITEM_CLS_PATH_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+     </select>
+
+    <select id="p09002_doSearch" parameterType="hashMap" resultType="hashMap">
+    SELECT
+     <choose>
+        <when test="STYPE == '100'">GETITEMCLASS('100', MM.ITEM_CLS3, '3') AS TITLE_NM</when>
+        <when test="STYPE == '101'">MM.BS_TYPE_NM  AS TITLE_NM</when>
+        <when test="STYPE == '102'">MM.SHIN_YN_NM   AS TITLE_NM</when>
+        <when test="STYPE == '103'">MM.REQ_DEPT_NM AS TITLE_NM</when>
+          <otherwise>GETITEMCLASS('100', MM.ITEM_CLS3, '3') AS TITLE_NM</otherwise>
+     </choose>
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) - <include refid="com.sql.nvl"/>(SUM(NN.INV_AMT),0) INCREASE_AMT
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , BSMG.BS_TYPE                     --구분
+             , BSCD.CODE_DESC BS_TYPE_NM
+             , KPHD.BS_CD                       --고객코드
+             , PRHD.REQ_DEPT_CD                 --팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 --팀명
+             , MTGL.ITEM_CLS1                   --대분류
+             , MTGL.ITEM_CLS2                   --중분류
+             , MTGL.ITEM_CLS3                   --소분류
+             , MTGL.ITEM_CLS4                   --세분류
+             , ECCF.FORM_NM                      --계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT     --매입확정기준
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+		<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+		   AND MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+		   AND MTGL.ITEM_CLS2 = DECODE(#{ITEM_CLS2}, '*', MTGL.ITEM_CLS2, #{ITEM_CLS2})
+		</if>
+		<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+		   AND MTGL.ITEM_CLS3 = DECODE(#{ITEM_CLS3}, '*', MTGL.ITEM_CLS3, #{ITEM_CLS3})
+		</if>
+		<if test="ITEM_CLS4 != '' and ITEM_CLS4 != null">
+		   AND MTGL.ITEM_CLS4 = DECODE(#{ITEM_CLS4}, '*', MTGL.ITEM_CLS4, #{ITEM_CLS4})
+		</if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="STD_MONTH != '' and STD_MONTH != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{STD_MONTH} || '01'<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{STD_LASTDAY}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="BS_TYPE != '' and BS_TYPE != null">
+           AND BSMG.BS_TYPE =  #{BS_TYPE}
+        </if>
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+            AND TREE.DEPT_TREE <include refid="com.sql.likeL"/> #{DEPT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND TREE.ITEM_CLS_PATH_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC
+                 ) MM
+   LEFT OUTER JOIN (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , BSMG.BS_TYPE                     --구분
+             , BSCD.CODE_DESC BS_TYPE_NM
+             , KPHD.BS_CD                       --고객코드
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_CD                 --팀
+             , PRHD.REQ_DEPT_NM                 --팀명
+             , MTGL.ITEM_CLS1                   --대분류
+             , MTGL.ITEM_CLS2                   --중분류
+             , MTGL.ITEM_CLS3                   --소분류
+             , MTGL.ITEM_CLS4                   --세분류
+             , ECCF.FORM_NM                      --계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT     --매입확정기준
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+           LEFT OUTER JOIN STOCCODD BSCD
+           ON (   BSCD.GATE_CD     = #{ses.gateCd}
+             AND BSCD.LANG_CD     = #{ses.langCd}
+             AND BSCD.DEL_FLAG = '0'
+             AND BSCD.CODE_TYPE = 'SC0007'
+             AND BSCD.CODE        = BSMG.BS_TYPE)
+         LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+		<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+		   AND MTGL.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+		   AND MTGL.ITEM_CLS2 = DECODE(#{ITEM_CLS2}, '*', MTGL.ITEM_CLS2, #{ITEM_CLS2})
+		</if>
+		<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+		   AND MTGL.ITEM_CLS3 = DECODE(#{ITEM_CLS3}, '*', MTGL.ITEM_CLS3, #{ITEM_CLS3})
+		</if>
+		<if test="ITEM_CLS4 != '' and ITEM_CLS4 != null">
+		   AND MTGL.ITEM_CLS4 = DECODE(#{ITEM_CLS4}, '*', MTGL.ITEM_CLS4, #{ITEM_CLS4})
+		</if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="RTD_MONTH != '' and RTD_MONTH != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{RTD_MONTH} || '01'<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{RTD_LASTDAY}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="BS_TYPE != '' and BS_TYPE != null">
+           AND BSMG.BS_TYPE =  #{BS_TYPE}
+        </if>
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+            AND TREE.DEPT_TREE <include refid="com.sql.likeL"/> #{DEPT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND TREE.ITEM_CLS_PATH_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC
+       ) NN
+      ON (
+             NN.SO_NUM    = MM.SO_NUM
+	  	 AND NN.SO_CNT    = MM.SO_CNT
+	 	 AND NN.BS_TYPE	= MM.BS_TYPE
+		 AND NN.BS_CD		= MM.BS_CD
+		 AND NN.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND NN.ITEM_CLS2	= MM.ITEM_CLS2
+		 AND NN.ITEM_CLS3	= MM.ITEM_CLS3
+		 AND NN.ITEM_CLS4	= MM.ITEM_CLS4
+         )
+         WHERE 1 = 1
+     <choose>
+        <when test="STYPE == '100'">GROUP BY MM.ITEM_CLS3 ORDER BY MM.ITEM_CLS3</when>
+        <when test="STYPE == '101'">GROUP BY MM.BS_TYPE_NM ORDER BY MM.BS_TYPE_NM</when>
+        <when test="STYPE == '102'">GROUP BY MM.SHIN_YN_NM ORDER BY MM.SHIN_YN_NM</when>
+        <when test="STYPE == '103'">GROUP BY MM.REQ_DEPT_NM ORDER BY MM.REQ_DEPT_NM</when>
+          <otherwise>GROUP BY MM.ITEM_CLS3 ORDER BY MM.ITEM_CLS3</otherwise>
+     </choose>
+     </select>
+
+    <select id="p09003_doSearch" parameterType="hashMap" resultType="hashMap">
+    SELECT
+     <choose>
+        <when test="STYPE == '100'">MM.BS_TYPE_NM AS TITLE_NM</when>
+        <when test="STYPE == '101'">MM.MAKER_NM   AS TITLE_NM</when>
+        <when test="STYPE == '102'">MM.ITEM_DESC  AS TITLE_NM</when>
+          <otherwise>MM.BS_TYPE_NM AS TITLE_NM</otherwise>
+     </choose>
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT                                          -- 매입금액
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE  -- 비율
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) - <include refid="com.sql.nvl"/>(SUM(NN.INV_AMT),0) INCREASE_AMT     -- 동기간별 증감액
+        <if test="STYPE == '102'">
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS2, '2') AS ITEM_CLS2_NM   -- 중분류
+         , MM.MAKER_NM AS MAKER_NM
+        </if>
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM MAKER_NM            -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="BS_TYPE != '' and BS_TYPE != null">
+           AND BSMG.BS_TYPE =  #{BS_TYPE}
+        </if>
+        <if test="MAKER != '' and MAKER != null">
+           AND MTGL.MAKER IN ${MAKER}
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+            AND MTGL.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC
+                 ) MM
+   LEFT OUTER JOIN (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM AS MAKER_NM          -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="PRE_DATE_FROM != '' and PRE_DATE_FROM != null and PRE_DATE_TO != '' and PRE_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="BS_TYPE != '' and BS_TYPE != null">
+           AND BSMG.BS_TYPE =  #{BS_TYPE}
+        </if>
+        <if test="MAKER != '' and MAKER != null">
+           AND MTGL.MAKER IN ${MAKER}
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+            AND MTGL.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC
+       ) NN
+      ON (
+             NN.SO_NUM    = MM.SO_NUM
+	  	 AND NN.SO_CNT    = MM.SO_CNT
+	 	 AND NN.BS_TYPE	  = MM.BS_TYPE
+		 AND NN.BS_CD     = MM.BS_CD
+		 AND NN.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND NN.ITEM_CLS2 = MM.ITEM_CLS2
+		 AND NN.ITEM_CLS3 = MM.ITEM_CLS3
+		 AND NN.ITEM_CLS4 = MM.ITEM_CLS4
+		 AND NN.VENDOR_TYPE = MM.VENDOR_TYPE
+         )
+         WHERE 1 = 1
+           AND MM.VENDOR_TYPE = '20'
+     <choose>
+        <when test="STYPE == '100'">GROUP BY MM.BS_TYPE_NM ORDER BY MM.BS_TYPE_NM</when>
+        <when test="STYPE == '101'">GROUP BY MM.MAKER_NM ORDER BY MM.MAKER_NM</when>
+        <when test="STYPE == '102'">GROUP BY MM.ITEM_DESC, MM.ITEM_CLS2, MM.MAKER_NM ORDER BY MM.ITEM_DESC, MM.ITEM_CLS2, MM.MAKER_NM</when>
+          <otherwise>GROUP BY MM.ITEM_CLS3 ORDER BY MM.ITEM_CLS3</otherwise>
+     </choose>
+    </select>
+
+    <select id="p09004_doSearch" parameterType="hashMap" resultType="hashMap">
+    SELECT MM.CUST_NM AS CUST_NM
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT                                          -- 매입금액
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE  -- 비율
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) - <include refid="com.sql.nvl"/>(SUM(NN.INV_AMT),0) INCREASE_AMT     -- 동기간별 증감액
+     <if test="STYPE == '101'">
+         , <include refid="com.sql.nvl"/>(SUM(PP.INV_AMT),0) AS PRE_MONTH_AMT  -- 전월금액
+     </if>
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM MAKER_NM            -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN = 'Y'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+                 ) MM
+   LEFT OUTER JOIN (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM AS MAKER_NM          -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN  = 'Y'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PRE_DATE_FROM != '' and PRE_DATE_FROM != null and PRE_DATE_TO != '' and PRE_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+       ) NN
+      ON (
+             NN.SO_NUM    = MM.SO_NUM
+	  	 AND NN.SO_CNT    = MM.SO_CNT
+	 	 AND NN.BS_TYPE	  = MM.BS_TYPE
+		 AND NN.BS_CD     = MM.BS_CD
+		 AND NN.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND NN.ITEM_CLS2 = MM.ITEM_CLS2
+		 AND NN.ITEM_CLS3 = MM.ITEM_CLS3
+		 AND NN.ITEM_CLS4 = MM.ITEM_CLS4
+		 AND NN.VENDOR_TYPE = MM.VENDOR_TYPE
+         )
+     <if test="STYPE == '101'">
+     LEFT OUTER JOIN (SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM AS MAKER_NM          -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN  = 'Y'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PRE_M_DATE_FROM != '' and PRE_M_DATE_FROM != null and PRE_M_DATE_TO != '' and PRE_M_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_M_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_M_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+       ) PP
+      ON (
+             PP.SO_NUM    = MM.SO_NUM
+	  	 AND PP.SO_CNT    = MM.SO_CNT
+	 	 AND PP.BS_TYPE	  = MM.BS_TYPE
+		 AND PP.BS_CD     = MM.BS_CD
+		 AND PP.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND PP.ITEM_CLS2 = MM.ITEM_CLS2
+		 AND PP.ITEM_CLS3 = MM.ITEM_CLS3
+		 AND PP.ITEM_CLS4 = MM.ITEM_CLS4
+		 AND PP.VENDOR_TYPE = MM.VENDOR_TYPE
+         )
+     </if>
+         WHERE 1 = 1
+     GROUP BY MM.CUST_NM
+
+     UNION ALL
+
+    SELECT #{TITLE} AS CUST_NM
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT                                          -- 매입금액
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE  -- 비율
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) - <include refid="com.sql.nvl"/>(SUM(NN.INV_AMT),0) INCREASE_AMT     -- 동기간별 증감액
+     <if test="STYPE == '101'">
+         , <include refid="com.sql.nvl"/>(SUM(PP.INV_AMT),0) AS PRE_MONTH_AMT  -- 전월금액
+     </if>
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM MAKER_NM            -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN  = 'N'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+                 ) MM
+   LEFT OUTER JOIN (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM AS MAKER_NM          -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN  = 'N'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PRE_DATE_FROM != '' and PRE_DATE_FROM != null and PRE_DATE_TO != '' and PRE_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+       ) NN
+      ON (
+             NN.SO_NUM    = MM.SO_NUM
+	  	 AND NN.SO_CNT    = MM.SO_CNT
+	 	 AND NN.BS_TYPE	  = MM.BS_TYPE
+		 AND NN.BS_CD     = MM.BS_CD
+		 AND NN.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND NN.ITEM_CLS2 = MM.ITEM_CLS2
+		 AND NN.ITEM_CLS3 = MM.ITEM_CLS3
+		 AND NN.ITEM_CLS4 = MM.ITEM_CLS4
+		 AND NN.VENDOR_TYPE = MM.VENDOR_TYPE
+         )
+     <if test="STYPE == '101'">
+     LEFT OUTER JOIN (SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , PRHD.REQ_DEPT_CD                 -- 팀
+             , CUST.SHIN_YN                     -- 대내/대외
+             , CSNM.CODE_DESC SHIN_YN_NM
+             , PRHD.REQ_DEPT_NM                 -- 팀명
+             , MTGL.ITEM_CLS1                   -- 대분류
+             , MTGL.ITEM_CLS2                   -- 중분류
+             , MTGL.ITEM_CLS3                   -- 소분류
+             , MTGL.ITEM_CLS4                   -- 세분류
+             , MTGL.ITEM_DESC                   -- 품명
+             , ECCF.FORM_NM                     -- 계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , BSCD.CODE_DESC BS_TYPE_NM        -- 사업구분명
+             , MTGL.MAKER                       -- 제조사
+             , MKBR.MKBR_NM AS MAKER_NM          -- 제조사명
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE -- 협력사구분
+
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT OUTER JOIN STOCCODD CSNM
+           ON (   CSNM.GATE_CD     = #{ses.gateCd}
+             AND CSNM.LANG_CD     = #{ses.langCd}
+             AND CSNM.DEL_FLAG = '0'
+             AND CSNM.CODE_TYPE = 'SC0009'
+             AND CSNM.CODE        = CUST.SHIN_YN)
+          LEFT OUTER JOIN STOCMKBR MKBR
+           ON (  MKBR.GATE_CD = #{ses.gateCd}
+             AND MKBR.BUSINESS_TYPE = '100'
+             AND MKBR.MKBR_CD = MTGL.MAKER
+             AND MKBR.MKBR_TYPE = 'MK'
+             AND MKBR.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+           AND KPHD.SO_TYPE  = 'ITM'
+           AND CUST.SHIN_YN  = 'N'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PRE_M_DATE_FROM != '' and PRE_M_DATE_FROM != null and PRE_M_DATE_TO != '' and PRE_M_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_M_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_M_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+                   MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+                  ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,
+                  PRHD.REQ_DEPT_CD,PRHD.REQ_DEPT_NM, PRHD.REQ_USER_ID, BSCD.CODE_DESC, CUST.SHIN_YN, CSNM.CODE_DESC, MKBR.MKBR_NM, MTGL.ITEM_DESC,BSCM.CNT,CUST.CUST_NM, BSCM.CUST_CD
+       ) PP
+      ON (
+             PP.SO_NUM    = MM.SO_NUM
+	  	 AND PP.SO_CNT    = MM.SO_CNT
+	 	 AND PP.BS_TYPE	  = MM.BS_TYPE
+		 AND PP.BS_CD     = MM.BS_CD
+		 AND PP.ITEM_CLS1 = MM.ITEM_CLS1
+		 AND PP.ITEM_CLS2 = MM.ITEM_CLS2
+		 AND PP.ITEM_CLS3 = MM.ITEM_CLS3
+		 AND PP.ITEM_CLS4 = MM.ITEM_CLS4
+		 AND PP.VENDOR_TYPE = MM.VENDOR_TYPE
+         )
+     </if>
+         WHERE 1 = 1
+     GROUP BY #{TITLE}
+
+    </select>
+
+    <select id="p09005_doSearch" parameterType="hashMap" resultType="hashMap">
+    SELECT MM.VENDOR_NM
+         , CODD.CODE_DESC REMARK
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT                                          -- 매입금액
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE  -- 비율
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) - <include refid="com.sql.nvl"/>(SUM(NN.INV_AMT),0) INCREASE_AMT     -- 동기간별 증감액
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , (CASE WHEN <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0') = '1' THEN '20'
+                       ELSE '10'
+                   END)             AS PRC_TYPE   --원가확정유형
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , ECCT.VENDOR_CD
+             , VNGL.VENDOR_NM
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE --협력사구분
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+          LEFT JOIN STOCVNGL VNGL
+		   ON (VNGL.GATE_CD = ECCT.GATE_CD
+		   AND VNGL.VENDOR_CD = ECCT.VENDOR_CD
+		   AND VNGL.DEL_FLAG = '0')
+         WHERE 1 = 1
+           AND KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND ECCT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+               MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,CUST.CUST_NM,
+              ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT, VNGL.VENDOR_NM,BSCM.CUST_CD,BSCM.CNT,ECCT.GATE_CD
+                 ) MM
+   LEFT OUTER JOIN (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                    WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                    WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+               END AS CUST_NM     --고객사명
+             , (CASE WHEN <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0') = '1' THEN '20'
+                       ELSE '10'
+                   END)             AS PRC_TYPE   --원가확정유형
+             , BSMG.BS_TYPE                     -- 구분
+             , KPHD.BS_CD                       -- 고객코드
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT    -- 매입확정기준
+             , ECCT.VENDOR_CD
+             , VNGL.VENDOR_NM
+             , (CASE WHEN ECCF.FORM_NM IN ('FORM2017080300002','FORM2017080300003') THEN '30'
+                       WHEN ECCT.VENDOR_CD IN (SELECT CODE
+                                                  FROM STOCCODD
+                                                 WHERE GATE_CD   = ECCT.GATE_CD
+                                                   AND CODE_TYPE = 'SC0263'
+                                                   AND LANG_CD   = #{ses.langCd}
+                                                   AND DEL_FLAG  = '0'
+                                                   AND USE_FLAG  = '1')              THEN '20'
+                       ELSE '10'
+                   END)             AS VENDOR_TYPE --협력사구분
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT JOIN STOCVNGL VNGL
+		   ON (VNGL.GATE_CD = ECCT.GATE_CD
+		   AND VNGL.VENDOR_CD = ECCT.VENDOR_CD
+		   AND VNGL.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCCODD BSCD
+            ON ( BSCD.GATE_CD     = #{ses.gateCd}
+           AND BSCD.LANG_CD     = #{ses.langCd}
+           AND BSCD.DEL_FLAG = '0'
+           AND BSCD.CODE_TYPE = 'SC0007'
+           AND BSCD.CODE        = BSMG.BS_TYPE)
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="PRE_DATE_FROM != '' and PRE_DATE_FROM != null and PRE_DATE_TO != '' and PRE_DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{PRE_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{PRE_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND ECCT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+               MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,CUST.CUST_NM,
+              ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT, VNGL.VENDOR_NM,BSCM.CUST_CD,BSCM.CNT,ECCT.GATE_CD
+       ) NN
+      ON (
+             NN.SO_NUM    = MM.SO_NUM
+	  	 AND NN.SO_CNT    = MM.SO_CNT
+	 	 AND NN.BS_TYPE	  = MM.BS_TYPE
+		 AND NN.BS_CD     = MM.BS_CD
+		 AND NN.VENDOR_CD = MM.VENDOR_CD
+		 AND NN.PRC_TYPE  = MM.PRC_TYPE
+         )
+     LEFT OUTER JOIN STOCCODD PRCD
+           ON (   PRCD.GATE_CD     = #{ses.gateCd}
+             AND PRCD.LANG_CD     = #{ses.langCd}
+             AND PRCD.DEL_FLAG = '0'
+             AND PRCD.CODE_TYPE = 'SC0278'
+             AND PRCD.CODE        = MM.PRC_TYPE)
+    LEFT OUTER JOIN STOCCODD CODD
+           ON (   CODD.GATE_CD     = #{ses.gateCd}
+             AND CODD.LANG_CD     = #{ses.langCd}
+             AND CODD.DEL_FLAG = '0'
+             AND CODD.CODE_TYPE = 'SC0279'
+             AND CODD.CODE        = MM.VENDOR_TYPE)
+         WHERE 1 = 1
+           AND PRCD.CODE = '20'
+        GROUP BY MM.VENDOR_NM, CODD.CODE_DESC
+        ORDER BY MM.VENDOR_NM, CODD.CODE_DESC
+    </select>
+
+    <select id="p09005_doSearch2" parameterType="hashMap" resultType="hashMap">
+    SELECT MM.CUST_NM
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS2, '2') AS ITEM_CLS2_NM   -- 중분류
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS3, '3') AS ITEM_CLS3_NM   -- 소분류
+         , GETITEMCLASS(#{ses.gateCd}, MM.ITEM_CLS4, '4') AS ITEM_CLS4_NM   -- 세분류
+         , <include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0) INV_AMT_C
+         , TRUNC(RATIO_TO_REPORT(<include refid="com.sql.nvl"/>(SUM(MM.INV_AMT),0)) OVER (),5) * 100 AS RATE_C
+      FROM (
+        SELECT KPHD.SO_NUM
+             , KPHD.SO_CNT
+             , CASE WHEN BSCM.CUST_CD IS NULL THEN ''
+                   WHEN BSCM.CNT = 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD)
+                   WHEN BSCM.CNT > 0 THEN <include refid="com.sql.nvl"/>(CUST.CUST_NM, BSCM.CUST_CD) || ' ' || FN_HANGUL('T001') || BSCM.CNT || FN_HANGUL('T002')
+              END AS CUST_NM     --고객사명
+             , (CASE WHEN <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0') = '1' THEN '20'
+                       ELSE '10'
+                 END)             AS PRC_TYPE   --원가확정유형
+             , MTGL.ITEM_CLS1                   --대분류
+             , MTGL.ITEM_CLS2                   --중분류
+             , MTGL.ITEM_CLS3                   --소분류
+             , MTGL.ITEM_CLS4                   --세분류
+             , ECCF.FORM_NM                      --계약유형
+             , SUM(IVDT.ITEM_AMT) AS INV_AMT     --매입확정기준
+          FROM STOCKPHD KPHD
+          JOIN STOCBSMG BSMG
+            ON (BSMG.GATE_CD     = KPHD.GATE_CD
+           AND BSMG.BS_CD       = KPHD.BS_CD
+           AND BSMG.DEL_FLAG    = '0')
+          JOIN STOCECCT ECCT
+            ON (ECCT.GATE_CD     = KPHD.GATE_CD
+           AND ECCT.SO_NUM      = KPHD.SO_NUM
+           AND ECCT.SO_CNT      = KPHD.SO_CNT
+           AND ECCT.DEL_FLAG    = '0')
+          JOIN STOCECRL ECRL
+            ON (ECRL.GATE_CD     = ECCT.GATE_CD
+           AND ECRL.CONT_NUM    = ECCT.CONT_NUM
+           AND ECRL.CONT_CNT    = ECCT.CONT_CNT
+           AND ECRL.FORM_SQ     = 0
+           AND ECRL.DEL_FLAG    = '0')
+          JOIN STOCECCF ECCF
+            ON (ECCF.GATE_CD     = ECRL.GATE_CD
+           AND ECCF.FORM_NUM    = ECRL.FORM_NUM)
+          JOIN STOCKPEC KPEC
+            ON (KPEC.GATE_CD     = ECCT.GATE_CD
+           AND KPEC.CONT_NUM    = ECCT.CONT_NUM
+           AND KPEC.SO_NUM      = ECCT.SO_NUM
+           AND KPEC.DEL_FLAG    = '0')
+          JOIN STOCMTGL MTGL
+            ON (MTGL.GATE_CD     = KPEC.GATE_CD
+           AND MTGL.ITEM_CD     = KPEC.ITEM_CD)
+          LEFT OUTER JOIN STOCRQDT RQDT
+            ON (RQDT.GATE_CD     = KPEC.GATE_CD
+           AND RQDT.RFX_NUM     = KPEC.RFX_NUM
+           AND RQDT.RFX_CNT     = KPEC.RFX_CNT
+           AND RQDT.RFX_SQ      = KPEC.RFX_SQ
+           AND RQDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPRHD PRHD
+            ON (PRHD.GATE_CD     = RQDT.GATE_CD
+           AND PRHD.PR_NUM      = RQDT.PR_NUM
+           AND PRHD.PR_CNT      = RQDT.PR_CNT
+           AND PRHD.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCPODT PODT
+            ON (PODT.GATE_CD     = KPEC.GATE_CD
+           AND PODT.KPEC_NUM    = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ     = KPEC.KPEC_SQ
+           AND PODT.DEL_FLAG    = '0')
+        LEFT OUTER JOIN (SELECT GATE_CD
+                              , BS_CD
+                              , MAX(CUST_CD) CUST_CD
+                              , (COUNT(CUST_CD) - 1) CNT
+                           FROM STOCBSCM
+                          WHERE DEL_FLAG = '0'
+                          GROUP BY GATE_CD, BS_CD) BSCM
+         ON(    BSCM.GATE_CD = #{ses.gateCd}
+            AND BSCM.BS_CD   = KPHD.BS_CD)
+           LEFT OUTER JOIN STOCCUST CUST
+            ON( CUST.GATE_CD  = BSCM.GATE_CD
+           AND CUST.CUST_CD  = BSCM.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+            ON (IVDT.GATE_CD     = PODT.GATE_CD
+           AND IVDT.PO_NUM      = PODT.PO_NUM
+           AND IVDT.PO_SQ       = PODT.PO_SQ
+           AND IVDT.DEL_FLAG    = '0')
+          LEFT OUTER JOIN STOCIVGH IVGH
+            ON (IVGH.GATE_CD     = IVDT.GATE_CD
+           AND IVGH.INV_NUM     = IVDT.INV_NUM
+           AND IVGH.SIGN_STATUS = 'E'
+           AND IVGH.PROGRESS_CD = 'V'
+           AND IVGH.DEL_FLAG    = '0')
+          LEFT JOIN STOCVNGL VNGL
+		   ON (VNGL.GATE_CD = ECCT.GATE_CD
+		   AND VNGL.VENDOR_CD = ECCT.VENDOR_CD
+		   AND VNGL.DEL_FLAG = '0')
+         WHERE KPHD.GATE_CD  = #{ses.gateCd}
+           AND KPHD.LAST_YN  = '1'
+           AND KPHD.DEL_FLAG = '0'
+        <if test="DATE_FROM != '' and DATE_FROM != null and DATE_TO != '' and DATE_TO != null">
+           AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND (SELECT UPPER(CUST_NM) FROM STOCCUST WHERE CUST_CD = CUST.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND ECCT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+         GROUP BY KPHD.SO_NUM, KPHD.SO_CNT, KPHD.BS_CD, BSMG.BS_TYPE, <include refid="com.sql.nvl"/>(ECCT.CONT_DESC, KPHD.SUBJECT), <include refid="com.sql.nvl"/>(KPEC.YEAR_PRC_YN, '0'),
+               MTGL.ITEM_CLS1, MTGL.ITEM_CLS2, MTGL.ITEM_CLS3, MTGL.ITEM_CLS4, MTGL.MAKER,
+              ECCT.GATE_CD, ECCT.VENDOR_CD, ECCF.FORM_NM, ECCT.SUPPLY_AMT,CUST.CUST_NM, BSCM.CUST_CD,BSCM.CNT
+                 ) MM
+         JOIN STOCCODD PRCD
+           ON (   PRCD.GATE_CD     = #{ses.gateCd}
+             AND PRCD.LANG_CD     = #{ses.langCd}
+             AND PRCD.DEL_FLAG = '0'
+             AND PRCD.CODE_TYPE = 'SC0278'
+             AND PRCD.CODE        = MM.PRC_TYPE)
+         WHERE 1 = 1
+           AND PRCD.CODE = '20'
+        GROUP BY MM.CUST_NM, MM.ITEM_CLS2, MM.ITEM_CLS3, MM.ITEM_CLS4
+        ORDER BY MM.CUST_NM, MM.ITEM_CLS2, MM.ITEM_CLS3, MM.ITEM_CLS4
+    </select>
+
+
+</mapper>

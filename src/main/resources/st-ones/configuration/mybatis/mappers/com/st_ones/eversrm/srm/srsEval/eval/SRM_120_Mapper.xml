@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.srsEval.eval.SRM_120_Mapper">
+
+<!--    SRM_120 -->
+    <select id="getEgmtList" parameterType="hashMap" resultType="hashMap">
+		SELECT  EGMT.EG_NUM as "value"                   
+               ,<include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'EG', #{ses.langCd}, EGMT.EG_NUM,'-') AS "text"
+               
+             FROM STOCEGMT EGMT   
+             WHERE  EGMT.GATE_CD = #{ses.gateCd}
+               AND EGMT.DEL_FLAG = '0'  
+    </select>
+    
+    <select id="doCheckEvmtEvalMgt" parameterType="hashmap" resultType="hashMap">
+          SELECT EVMT.GATE_CD
+				,EVMT.EV_NUM
+				,EVMT.PROGRESS_CD 
+				,EVMT.EV_CTRL_USER_ID                                          
+          FROM STOCEVMT EVMT                          
+          WHERE  EVMT.GATE_CD = #{ses.gateCd}
+            AND EVMT.EV_NUM = #{EV_NUM}
+    </select> 
+    
+    <select id="doSearchEvmtEvalMgt" parameterType="hashmap" resultType="hashMap">
+          SELECT EVMT.GATE_CD
+				,EVMT.EV_NUM
+				,<include refid="com.sql.dbo"/>getGmtDate(EVMT.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REG_DATE
+				,EVMT.REG_USER_ID
+				,<include refid="com.sql.dbo"/>GETUSERNAME(EVMT.GATE_CD, EVMT.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+				,EVMT.MOD_DATE
+				,EVMT.MOD_USER_ID
+				,EVMT.DEL_FLAG
+				,<include refid="com.sql.dbo"/>GETCOMCODE(EVMT.GATE_CD, 'M122', EVMT.PROGRESS_CD, '0', #{ses.langCd}) AS PROGRESS_NM
+				,EVMT.PROGRESS_CD
+				,EVMT.EV_NM
+				,EVMT.EV_CTRL_USER_ID
+				,<include refid="com.sql.dbo"/>GETUSERNAME(EVMT.GATE_CD, EVMT.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_NM
+				,EVMT.RA_EV_TPL_NUM
+				,EVTM1.EV_TPL_SUBJECT AS RA_TPL_SUBJECT
+				,EVTM.EV_TPL_SUBJECT AS EV_TPL_SUBJECT
+				,EVMT.SI_EV_TPL_NUM
+				,<include refid="com.sql.dbo"/>getGmtDate(EVMT.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS START_DATE
+				,<include refid="com.sql.dbo"/>getGmtDate(EVMT.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CLOSE_DATE
+				,EVMT.EG_NUM
+				,EVMT.RESULT_ENTER_CD
+				,<include refid="com.sql.dbo"/>getGmtDate(EVMT.REQUEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQUEST_DATE
+				,<include refid="com.sql.dbo"/>getGmtDate(EVMT.COMPLETE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS COMPLETE_DATE
+				,EVMT.ATTACH_FILE_NUM
+                ,(SELECT COUNT(*) FROM STOCEVSG EVSG WHERE EVSG.GATE_CD = EVMT.GATE_CD
+                                                       AND EVSG.EV_NUM = EVMT.EV_NUM
+                                                       AND EVSG.DEL_FLAG = '0') AS EVSG_CNT
+                ,(SELECT COUNT(*) FROM STOCEVUS EVUS WHERE EVUS.GATE_CD = EVMT.GATE_CD
+                                                       AND EVUS.EV_NUM = EVMT.EV_NUM
+                                                       AND EVUS.DEL_FLAG = '0') AS EVUS_CNT                                       
+          
+          FROM STOCEVMT EVMT 
+          LEFT JOIN STOCEVTM EVTM ON (    EVTM.GATE_CD = EVMT.GATE_CD
+                                      AND EVTM.DEL_FLAG = '0'
+                                      AND EVTM.EV_TPL_NUM = EVMT.SI_EV_TPL_NUM)
+                                       
+          LEFT JOIN STOCEVTM EVTM1 ON (    EVTM1.GATE_CD = EVMT.GATE_CD
+                                      AND EVTM1.DEL_FLAG = '0'
+                                      AND EVTM1.EV_TPL_NUM = EVMT.RA_EV_TPL_NUM)                              
+          WHERE  EVMT.GATE_CD = #{ses.gateCd}
+            AND EVMT.DEL_FLAG = '0'  
+            AND EVMT.EV_NUM = #{EV_NUM}
+    </select> 
+    
+    <insert id="doInsertEvmtEvalMgt" parameterType="hashMap">
+        INSERT INTO STOCEVMT (
+	            GATE_CD,
+				EV_NUM,
+				REG_DATE,
+				REG_USER_ID,
+				MOD_DATE,
+				MOD_USER_ID,
+				DEL_FLAG,
+				PROGRESS_CD,
+				EV_NM,
+				EV_CTRL_USER_ID,
+				RA_EV_TPL_NUM,
+				SI_EV_TPL_NUM,
+				START_DATE,
+				CLOSE_DATE,
+				EG_NUM,
+				RESULT_ENTER_CD,
+				REQUEST_DATE,
+				COMPLETE_DATE,
+				ATTACH_FILE_NUM
+
+        ) VALUES (
+            	#{ses.gateCd},
+            	#{EV_NUM},
+            	<include refid="com.sql.sysdate"/>,
+            	#{ses.userId},
+            	<include refid="com.sql.sysdate"/>,
+            	#{ses.userId},
+            	'0',
+            	#{PROGRESS_CD},
+				#{EV_NM},
+				#{EV_CTRL_USER_ID},
+				#{RA_EV_TPL_NUM},
+				#{SI_EV_TPL_NUM},
+            	<include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            	<include refid="com.sql.dbo"/>setGmtDate(#{CLOSE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            	#{EG_NUM},
+				#{RESULT_ENTER_CD},
+				<include refid="com.sql.dbo"/>setGmtDate(#{REQUEST_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+				<include refid="com.sql.dbo"/>setGmtDate(#{COMPLETE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+				#{ATTACH_FILE_NUM}
+        )        
+    </insert>
+    
+    <update id="doUpdateEvmtEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVMT
+        SET    DEL_FLAG = '0'       
+        	  ,PROGRESS_CD = #{PROGRESS_CD}
+			  ,EV_NM = #{EV_NM}
+			  ,EV_CTRL_USER_ID = #{EV_CTRL_USER_ID}
+			  ,RA_EV_TPL_NUM = #{RA_EV_TPL_NUM}
+			  ,SI_EV_TPL_NUM = #{SI_EV_TPL_NUM}
+			  ,START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,CLOSE_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{CLOSE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,EG_NUM = #{EG_NUM}
+			  ,RESULT_ENTER_CD = #{RESULT_ENTER_CD}
+			  ,REQUEST_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{REQUEST_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,COMPLETE_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{COMPLETE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,ATTACH_FILE_NUM = #{ATTACH_FILE_NUM}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+    </update> 
+    
+    <update id="doDeleteEvmtEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVMT
+        SET   
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+    </update> 
+    
+    <select id="doSearchEvsgEvalMgt" parameterType="hashmap" resultType="hashMap">
+             SELECT GATE_CD
+                   ,EV_NUM
+                   ,SG_NUM
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,1,SG_NUM) AS CLASS1
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,2,SG_NUM) AS CLASS2
+				   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,3,SG_NUM) AS CLASS3
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,4,SG_NUM) AS CLASS4
+                   ,DEL_FLAG                           
+             FROM STOCEVSG
+             WHERE GATE_CD = #{ses.gateCd}
+               AND DEL_FLAG = '0'  
+               AND EV_NUM = #{EV_NUM}    
+             ORDER BY 
+                <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,1,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,2,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,3,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,4,SG_NUM)
+    </select>
+    
+    <insert id="doInsertEvsgEvalMgt" parameterType="hashMap">
+        INSERT INTO STOCEVSG (
+            GATE_CD,
+            EV_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            SG_NUM
+        ) VALUES (
+            #{ses.gateCd},
+            #{EV_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{SG_NUM}          
+        )        
+    </insert>
+    
+    <update id="doUpdateEvsgEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVSG
+        SET    DEL_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          AND SG_NUM = #{SG_NUM}
+    </update>
+    
+    <update id="doDeleteEvsgEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVSG
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          <if test="SG_NUM != '' and SG_NUM != null ">
+               AND SG_NUM = #{SG_NUM}
+          </if>          
+          
+    </update>  
+    
+    <select id="existsEvsgEvalMgt" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEVSG
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EV_NUM = #{EV_NUM}
+        AND   SG_NUM = #{SG_NUM}
+    </select>
+    
+    
+    <select id="doSearchEvusEvalMgt" parameterType="hashmap" resultType="hashMap">
+         SELECT EVUS.GATE_CD
+               ,EVUS.EV_NUM
+               ,EVUS.EV_USER_ID
+               ,EVUS.REP_FLAG
+               ,EVUS.PROGRESS_CD
+               ,<include refid="com.sql.dbo"/>GETUSERNAME(EVUS.GATE_CD,EVUS.EV_USER_ID,#{ses.langCd}) AS USER_NM
+               ,<include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+               ,USERS.POSITION_NM                                
+         FROM STOCEVUS EVUS INNER JOIN STOCUSER USERS ON (EVUS.GATE_CD = USERS.GATE_CD
+	                                                     AND EVUS.EV_USER_ID = USERS.USER_ID
+	                                                     AND USERS.DEL_FLAG = '0')
+         WHERE  EVUS.GATE_CD = #{ses.gateCd}
+           AND EVUS.DEL_FLAG = '0'  
+           AND EVUS.EV_NUM = #{EV_NUM}                      
+    </select>
+    
+    <update id="doUpdateEvusEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVUS
+        SET    DEL_FLAG = '0'
+             , REP_FLAG = #{REP_FLAG}
+<!--              , PROGRESS_CD = #{PROGRESS_CD} -->
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          AND EV_USER_ID = #{EV_USER_ID}
+    </update> 
+    
+    <update id="doDeleteEvusEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVUS
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}         
+          <if test="EV_USER_ID != '' and EV_USER_ID != null ">
+               AND EV_USER_ID = #{EV_USER_ID}
+          </if>          
+    </update>
+    
+    <insert id="doInsertEvusEvalMgt" parameterType="hashMap">
+        INSERT INTO STOCEVUS (
+            GATE_CD,
+            EV_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            REP_FLAG,
+<!--             PROGRESS_CD, -->
+            EV_USER_ID
+        ) VALUES (
+            #{ses.gateCd},
+            #{EV_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            #{REP_FLAG},
+<!--             #{PROGRESS_CD}, -->
+            #{EV_USER_ID}          
+        )        
+    </insert> 
+    
+    <select id="existsEvusEvalMgt" parameterType="hashmap" resultType="java.lang.Integer">  
+        SELECT COUNT(*)
+        FROM STOCEVUS
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EV_NUM = #{EV_NUM}
+        AND   EV_USER_ID = #{EV_USER_ID}
+    </select>
+    
+    
+    <update id="doUpdateProgressEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVMT
+        SET         
+        	   PROGRESS_CD = #{PROGRESS_CD}
+			<if test="REQUEST_DATE == 'YES'">
+               ,REQUEST_DATE = <include refid="com.sql.sysdate"/>              
+          	</if>
+          	<if test="REQUEST_DATE == 'NO'">
+               ,REQUEST_DATE = null             
+          	</if>
+          	
+          	<if test="COMPLETE_DATE == 'YES'">
+               ,COMPLETE_DATE = <include refid="com.sql.sysdate"/>              
+          	</if>
+          	<if test="COMPLETE_DATE == 'NO'">
+               ,COMPLETE_DATE = null              
+          	</if>    
+          
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+    </update>
+    
+    <update id="doApplyEvalMgt" parameterType="hashmap">    
+        UPDATE STOCSGMT
+        SET         
+        	SRS_EV_NUM = #{EV_NUM}          
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND DEL_FLAG = '0'	
+          AND SG_NUM IN (SELECT DISTINCT SG_NUM FROM STOCEVSG WHERE EV_NUM = #{EV_NUM} 
+          											  AND GATE_CD = #{ses.gateCd}
+          											  AND DEL_FLAG = '0')
+    </update>
+    
+    <update id="doUpdateProgressUsEvalMgt" parameterType="hashmap">    
+        UPDATE STOCEVUS
+        SET    PROGRESS_CD = #{PROGRESS_CD}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}           
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          AND DEL_FLAG = '0'
+    </update> 
+    
+    <select id="doImportSgEvalMgt" parameterType="hashmap" resultType="hashMap">
+             SELECT GATE_CD
+                   ,SG_NUM
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,1,SG_NUM) AS CLASS1
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,2,SG_NUM) AS CLASS2
+				   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,3,SG_NUM) AS CLASS3
+                   ,<include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,4,SG_NUM) AS CLASS4
+             FROM STOCEGSG
+             WHERE GATE_CD = #{ses.gateCd}
+               AND DEL_FLAG = '0'  
+               AND EG_NUM = #{EG_NUM}    
+             ORDER BY 
+                <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,1,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,2,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,3,SG_NUM)
+              , <include refid="com.sql.dbo"/>GETSGCLASS(GATE_CD,4,SG_NUM)
+    </select>       
+
+	<select id="doImportUsEvalMgt" parameterType="hashmap" resultType="hashMap">
+          SELECT EGUS.GATE_CD
+                ,EGUS.EG_NUM
+                ,EGUS.USER_ID
+                ,EGUS.REP_FLAG
+                ,<include refid="com.sql.dbo"/>GETUSERNAME(EGUS.GATE_CD,EGUS.USER_ID,#{ses.langCd}) AS USER_NM
+                ,<include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+                ,USERS.POSITION_NM                                
+          FROM STOCEGUS EGUS INNER JOIN STOCUSER USERS ON (EGUS.GATE_CD = USERS.GATE_CD
+                                                       AND EGUS.USER_ID = USERS.USER_ID
+                                                       AND USERS.DEL_FLAG = '0')
+          WHERE EGUS.GATE_CD = #{ses.gateCd}
+            AND EGUS.DEL_FLAG = '0'  
+            AND EGUS.EG_NUM = #{EG_NUM}                      
+	</select>
+</mapper>

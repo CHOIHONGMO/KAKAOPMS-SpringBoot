@@ -1,0 +1,916 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.rfiMgt.BPP_Mapper">
+
+	<select id="doSearchRfiMgtRequestProgressStatus" parameterType="hashMap" resultType="hashMap">
+
+		SELECT <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD, RIQH.CLOSE_DATE) AS PROGRESS_CD
+		     , <include refid="com.sql.dbo"/>GETCOMCODE(RIQH.GATE_CD, 'M059', <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD, RIQH.CLOSE_DATE),'0',#{ses.langCd}) AS PROGRESS_NM
+		     , RIQH.RFI_NUM
+		     , RIQH.RFI_SUBJECT
+		     , <include refid="com.sql.dbo"/>GETGMTDATE(RIQH.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQ_DATE
+		     , <include refid="com.sql.dbo"/>GETGMTDATE(RIQH.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS CLOSE_DATE
+		     , <include refid="com.sql.dbo"/>GETCOMCODE(RIQH.GATE_CD,'M057',RIQH.RFI_TYPE,'0',#{ses.langCd}) AS RFI_TYPE
+		     , <include refid="com.sql.dbo"/>GETDEPTINFOById(RIQH.GATE_CD, RIQH.REQ_USER_ID, #{ses.langCd}, 'DEPT_NM') AS REQ_DEPT
+		     , <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.REG_USER_ID, #{ses.langCd}) AS REQ_USER_ID
+		     , RIQH.TEL_NUM
+		     , <include refid="com.sql.dbo"/>GETPURORGNAME(RIQH.GATE_CD, RIQH.BUYER_CD, RIQH.PUR_ORG_CD, #{ses.langCd}) AS PUR_ORG_CD
+		     , <include refid="com.sql.dbo"/>GETCTRLNAME(RIQH.GATE_CD, RIQH.BUYER_CD, RIQH.CTRL_CD, #{ses.langCd}) AS CTRL_CD
+		     , <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+		     , <include refid="com.sql.dbo"/>GETDEPTINFOById(RIQH.GATE_CD, RIQH.CTRL_USER_ID, #{ses.langCd}, 'DEPT_NM') AS PUR_DEPT
+		     , <include refid="com.sql.dbo"/>GETGMTDATE(RIQH.RECEIPT_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS RECEIPT_DATE
+		     , <include refid="com.sql.dbo"/>GETGMTDATE(RIQV.RECEIPT_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS VENDOR_RECEIPT_DATE
+		     , RIQH.GATE_CD
+		     , RIQV.VENDOR_CD
+		     , <include refid="com.sql.dbo"/>GETVENDORNAME(RIQV.GATE_CD,RIQV.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+		 FROM STOCRIQH RIQH LEFT JOIN STOCRIQV RIQV
+          ON (RIQH.GATE_CD = RIQV.GATE_CD
+          AND RIQH.RFI_NUM = RIQV.RFI_NUM
+          AND RIQV.DEL_FLAG = '0')
+         LEFT JOIN STOCUSER MUSER
+          ON (RIQH.GATE_CD = MUSER.GATE_CD
+          AND MUSER.USER_ID = RIQH.REQ_USER_ID
+          AND MUSER.DEL_FLAG = '0')
+		WHERE RIQH.GATE_CD = #{ses.gateCd}
+		  AND RIQH.DEL_FLAG = '0'
+			<if test="REQ_DATE_FROM !='' and REQ_DATE_FROM != null and REQ_DATE_TO !='' and REQ_DATE_TO !=null">
+	             AND RIQH.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+	        </if>
+
+			<if test="VENDOR_CD != '' and VENDOR_CD != null">
+                  AND RIQV.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+            </if>
+
+	        <if test="RFI_NUM != '' and RFI_NUM != null">
+                  AND RIQH.RFI_NUM <include refid="com.sql.likeL"/> #{RFI_NUM} <include refid="com.sql.likeR"/>
+            </if>
+
+            <if test="RFI_SUBJECT != '' and RFI_SUBJECT != null">
+                  AND RIQH.RFI_SUBJECT <include refid="com.sql.likeL"/> #{RFI_SUBJECT} <include refid="com.sql.likeR"/>
+            </if>
+
+            <if test="RFI_TYPE != '' and RFI_TYPE != null">
+                AND RIQH.RFI_TYPE = #{RFI_TYPE}
+            </if>
+
+            <if test="CTRL_CD != '' and CTRL_CD != null">
+	        			AND <include refid="com.sql.dbo"/>GETCTRLNAME(RIQH.GATE_CD, RIQH.BUYER_CD, RIQH.CTRL_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_CD} <include refid="com.sql.likeR"/>
+	        </if>
+
+	        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+	        			AND <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_USER_ID} <include refid="com.sql.likeR"/>
+	        </if>
+
+            <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+                AND <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD, RIQH.CLOSE_DATE) = #{PROGRESS_CD}
+            </if>
+        ORDER BY RIQH.REQ_DATE DESC
+    </select>
+
+	<select id="doSearchRfiReqStatus" parameterType="hashMap" resultType="hashMap">
+       SELECT
+        RIQH.GATE_CD
+        , <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD, RIQH.CLOSE_DATE) AS PROGRESS_CD
+        , RIQH.RFI_NUM
+        , RIQH.RFI_SUBJECT
+        , <include refid="com.sql.dbo"/>GETGMTDATE(RIQH.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQ_DATE
+        , <include refid="com.sql.dbo"/>GETGMTDATE(RIQH.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS CLOSE_DATE
+        , <include refid="com.sql.dbo"/>GETDEPTNAME(RIQH.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD, #{ses.langCd}) as REQ_DEPT_NM
+        --, RIQH.REQ_USER_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+        , RIQH.RFI_TYPE
+        , RIQH.REQ_PERSON_TYPE
+        , <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+        , <include refid="com.sql.dbo"/>GETGMTDATE((SELECT MAX(REG_DATE) FROM STOCRIAH WHERE GATE_CD = RIQH.GATE_CD
+            AND RFI_NUM = RIQH.RFI_NUM AND DEL_FLAG = '0')
+            , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS REPLY_DATE_TIME
+        , <include refid="com.sql.dbo"/>GETRFIVENDORREPLYCOUNT(RIQH.GATE_CD, RIQH.RFI_NUM) AS ANSWER_SQ
+        --, (0) AS ANSWER_SEQ_IMAGE
+       FROM STOCRIQH RIQH LEFT JOIN STOCUSER USER_TBL
+        ON (USER_TBL.GATE_CD = RIQH.GATE_CD
+		AND USER_TBL.USER_ID = RIQH.REQ_USER_ID
+		AND USER_TBL.DEL_FLAG = '0')
+      WHERE RIQH.GATE_CD = #{ses.gateCd}
+        AND RIQH.DEL_FLAG = '0'
+	        <if test="REQ_DATE_FROM !='' and REQ_DATE_FROM !=null and REQ_DATE_TO !='' and REQ_DATE_TO !=null">
+	                AND RIQH.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+	        </if>
+	        <if test="RFI_NUM !='' and RFI_NUM !=null">
+	                AND RIQH.RFI_NUM <include refid="com.sql.likeL"/> #{RFI_NUM} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="RFI_SUBJECT !='' and RFI_SUBJECT !=null">
+	                AND RIQH.RFI_SUBJECT <include refid="com.sql.likeL"/> #{RFI_SUBJECT} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="RFI_TYPE !='' and RFI_TYPE !=null">
+	            AND RIQH.RFI_TYPE = #{RFI_TYPE}
+	        </if>
+	        <if test="PROGRESS_CD !='' and PROGRESS_CD !=null">
+	            AND <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD, RIQH.CLOSE_DATE) = #{PROGRESS_CD}
+	        </if>
+	        <if test="REQ_PERSON_TYPE !='' and REQ_PERSON_TYPE !=null">
+	            AND RIQH.REQ_PERSON_TYPE = #{REQ_PERSON_TYPE}
+	        </if>
+
+            <if test="REQ_DEPT_NM != '' and REQ_DEPT_NM != null">
+				AND <include refid="com.sql.dbo"/>GETDEPTNAME(RIQH.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_DEPT_NM} <include refid="com.sql.likeR"/>
+			</if>
+            <if test="REQ_USER_ID != '' and REQ_USER_ID != null">
+				AND <include refid="com.sql.dbo"/>GETUSERNAME(RIQH.GATE_CD, RIQH.REQ_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_ID} <include refid="com.sql.likeR"/>
+			</if>
+        ORDER BY RIQH.REG_DATE DESC, RIQH.CLOSE_DATE ASC
+    </select>
+
+    <select id="checkExistsProgressCode" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(RFI_NUM) AS CNT
+        FROM STOCRIQH
+        WHERE GATE_CD = #{ses.gateCd}
+        AND RFI_NUM = #{RFI_NUM}
+        AND <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(PROGRESS_CD, CLOSE_DATE) > '200'
+    </select>
+
+    <update id="deleteRIQV" parameterType="hashmap">
+        UPDATE STOCRIQV SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+            AND RFI_NUM = #{RFI_NUM}
+    </update>
+
+    <update id="deleteRIQD" parameterType="hashmap">
+        UPDATE STOCRIQD SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+            AND RFI_NUM = #{RFI_NUM}
+    </update>
+
+	<update id="deleteRIQH" parameterType="hashmap">
+        UPDATE STOCRIQH SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+            AND RFI_NUM = #{RFI_NUM}
+    </update>
+
+	<select id="getVendorCd_SgParentList" parameterType="hashmap" resultType="hashmap">
+
+		SELECT VENDOR_CD
+		FROM STOCSGVN T
+        LEFT OUTER JOIN STOCSGMT SG
+          ON (SG.GATE_CD = T.GATE_CD AND SG.SG_NUM = T.SG_NUM AND SG.DEL_FLAG='0')
+        WHERE T.GATE_CD=#{ses.gateCd} AND T.DEL_FLAG='0' AND SG.PARENT_SG_NUM='${PARENT_SG_NUM}'
+	</select>
+
+	<select id="getVendorCd_SgList" parameterType="hashmap" resultType="hashmap">
+
+		SELECT VENDOR_CD FROM STOCSGVN T WHERE T.GATE_CD = #{ses.gateCd} AND T.DEL_FLAG = '0' AND T.SG_NUM = '${SG_NUM}'
+
+	</select>
+
+	<select id="doSearchCandidate" parameterType="hashMap" resultType="hashMap">
+
+		<if test='_databaseId=="oracle"'>
+
+			SELECT <include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD, 'M013', VNGL.VENDOR_TYPE, 0, #{ses.langCd}) AS VENDOR_TYPE
+		        , VNGL.VENDOR_CD
+		        , <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, VNGL.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		        , VNGL.IRS_NUM
+		        , VNGL.REP_TEL_NUM AS REP_TEL_NUM
+		        , VNGL.GATE_CD
+		        , ' ' AS CREDIT_GRADE
+		        , ' ' AS EVALUATION_GRADE
+		        , VNGL.CEO_USER_NM AS CEO_NM
+		        , '' AS REGION_NM
+		        ,(SELECT distinct ITEM_CLS_NM FROM STOCMTCA
+		           WHERE GATE_CD = #{ses.gateCd}
+		        	 AND DEL_FLAG != '1'
+		        	 AND ITEM_CLS_TYPE = 'C2'
+		        	 AND ITEM_CLS2 = VNGL.PARTNER_TYPE ) AS PARTNER_TYPE
+		        , VNGL.PARTNER_TYPE AS PARTNER_TYPE_CD
+		        ,(SELECT USER_NM FROM STOCVNCP
+		           WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = VNGL.VENDOR_CD AND PERSON_SQ = 1
+		        	 AND DEL_FLAG = '0') CTRL_USER_NM
+		        , <include refid="com.sql.dbo"/>getDecTel((SELECT TEL_NUM FROM STOCVNCP WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = VNGL.VENDOR_CD AND PERSON_SQ = 1 AND DEL_FLAG = '0')) CTRL_USER_TEL
+				,'' AS REGION_TEXT
+		        ,'' AS EVAL_RESULT
+		        ,'' AS DEAL_SQ_CD
+		        ,'' AS EVAL_GRADE
+		        ,'' AS EVAL_RESULT
+		        ,(SELECT MAJOR_ITEM_TEXT FROM STOCVNGL WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD) AS MAJOR_ITEM_TEXT
+	         FROM STOCVNGL VNGL
+	        <if test='CON_FLAG == "Y"'>
+
+	         INNER JOIN (SELECT
+			  				CT.GATE_CD, CT.VENDOR_CD
+			  			   FROM STOCECCT CT INNER JOIN STOCECRL RL
+			                ON (CT.GATE_CD = RL.GATE_CD
+			                AND CT.CONT_NUM = RL.CONT_NUM
+			                AND CT.CONT_CNT = RL.CONT_CNT)
+			  			  WHERE CT.GATE_CD = #{ses.gateCd}
+			                AND RL.FORM_NUM = 'FORM2017080100001'
+			                AND CT.DEL_FLAG = '0'
+			                AND RL.DEL_FLAG = '0'
+			              GROUP BY CT.GATE_CD, CT.VENDOR_CD) EC
+			   ON (VNGL.GATE_CD = EC.GATE_CD
+			   AND VNGL.VENDOR_CD = EC.VENDOR_CD)
+
+		    </if>
+	        WHERE VNGL.GATE_CD = #{ses.gateCd}
+	          AND VNGL.DEL_FLAG = '0'
+
+	        <if test="selectedVendors == null or selectedVendors.isEmpty">
+				<if test="vdList != null">AND VNGL.VENDOR_CD IN
+					<foreach item="node" collection="vdList" open="(" separator="," close=")">
+						#{node.VENDOR_CD}
+					</foreach>
+				</if>
+	            <if test="VENDOR_TYPE !='' and VENDOR_TYPE !=null">
+		           	AND VNGL.VENDOR_TYPE = #{VENDOR_TYPE}
+		        </if>
+		        <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+		           	AND VNGL.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		        </if>
+		        <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+		           	AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VNGL.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		        </if>
+		        <if test="CREDIT_GRADE !='' and CREDIT_GRADE !=null">
+		           	AND CREDIT_GRADE = #{CREDIT_GRADE}
+		        </if>
+		        <if test="REGION_CD !='' and REGION_CD !=null">
+		           	AND VNGL.VENDOR_CD IN ( SELECT VENDOR_CD FROM STOCVNRG WHERE GATE_CD = #{ses.gateCd} AND REGION_CD = #{REGION_CD} )
+		        </if>
+		        <if test="PARTNER_TYPE !='' and PARTNER_TYPE !=null">
+		           	AND PARTNER_TYPE = #{PARTNER_TYPE}
+		        </if>
+	            <if test="PURCHASE_FLAG !='' and PURCHASE_FLAG !=null and PURCHASE_FLAG=='NORMAL' ">
+	                AND NORMAL_PURCHASE_FLAG = '1'
+	            </if>
+	            <if test="PURCHASE_FLAG !='' and PURCHASE_FLAG !=null and PURCHASE_FLAG=='ITEM' ">
+	                AND ITEM_PURCHASE_FLAG = '1'
+	            </if>
+	            <if test="DEAL_SQ_CD !='' and DEAL_SQ_CD !=null">
+	                AND DEAL_SQ_CD = #{DEAL_SQ_CD}
+	            </if>
+	        </if>
+			<if test="selectedVendors != null and !selectedVendors.isEmpty">
+				AND VNGL.VENDOR_CD IN
+				<foreach open="(" collection="selectedVendors" item="vendor" separator="union" close=")">
+					select #{vendor} <include refid="com.sql.dual"/>
+				</foreach>
+			</if>
+		</if>
+
+		<if test='_databaseId=="mssql"'>
+			SELECT <include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD, 'M013', VNGL.VENDOR_TYPE, 0, #{ses.langCd}) AS VENDOR_TYPE
+		        , VNGL.VENDOR_CD
+		        , <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VNGL.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+		        , VNGL.IRS_NUM
+		        , VNGL.REP_TEL_NUM
+		        , VNGL.GATE_CD
+		        , ' ' AS CREDIT_GRADE
+		        , ' ' AS EVALUATION_GRADE
+		        , VNGL.CEO_USER_NM AS CEO_NM
+		        , '' AS REGION_NM
+		        ,(SELECT distinct ITEM_CLS_NM FROM STOCMTCA
+		           WHERE GATE_CD = #{ses.gateCd}
+		        	 AND DEL_FLAG != '1'
+		        	 AND ITEM_CLS_TYPE='C2'
+		        	 AND ITEM_CLS2 = VNGL.PARTNER_TYPE ) AS PARTNER_TYPE
+		        , VNGL.PARTNER_TYPE AS PARTNER_TYPE_CD
+		        ,(SELECT USER_NM FROM STOCVNCP
+		           WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = VNGL.VENDOR_CD AND PERSON_SQ = 1
+		        	 AND DEL_FLAG = '0') CTRL_USER_NM
+		        , <include refid="com.sql.dbo"/>getDecTel((SELECT TEL_NUM FROM STOCVNCP WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = VNGL.VENDOR_CD AND PERSON_SQ = 1 AND DEL_FLAG = '0')) CTRL_USER_TEL
+				,STUFF( (SELECT ', ' + CAST(DD.PLANT_NM AS NVARCHAR(500)) FROM STOCVNRG RG
+		        		   JOIN STOCOGPL DD
+		        				ON (DD.GATE_CD = RG.GATE_CD
+		        				AND DD.PLANT_CD = RG.REGION_CD
+		        				AND DD.BUYER_CD = '1000'
+		        				AND DD.DEL_FLAG = '0')
+		        		  WHERE RG.GATE_CD = VNGL.GATE_CD
+		        			AND RG.VENDOR_CD = VNGL.VENDOR_CD
+		        			AND RG.DEL_FLAG = '0'
+		        		FOR XML PATH('')
+		        		), 1,1,'') AS REGION_TEXT
+		        ,'' EVAL_RESULT
+		        ,VNGL.DEAL_SQ_CD
+		        ,EVAL.EVAL_GRADE
+		        ,EVAL.EVAL_RESULT
+	        FROM STOCVNGL VNGL OUTER APPLY (
+				SELECT EVES.VENDOR_CD
+							,EVES.EVAL_GRADE_CLS AS EVAL_GRADE
+							,EVES.EV_SCORE AS EVAL_RESULT
+				  FROM STOCEVES EVES
+				 WHERE EVES.GATE_CD = #{ses.gateCd}
+				   AND EVES.VENDOR_CD = VNGL.VENDOR_CD
+				   AND EVES.EV_NUM = (
+								SELECT MAX(EM.EV_NUM)
+				          FROM STOCEVEM EM JOIN STOCEVES ES
+				           ON (EM.GATE_CD = ES.GATE_CD
+				           AND EM.EV_NUM = ES.EV_NUM
+				           AND EM.EV_TYPE = 'CLASS'
+				           AND EM.PROGRESS_CD = '300'
+				           AND EM.DEL_FLAG = '0')
+				   )
+				AND EVES.DEL_FLAG = '0'
+			) EVAL
+	        WHERE VNGL.GATE_CD = #{ses.gateCd}
+	          AND VNGL.DEL_FLAG = '0'
+	          AND VNGL.VENDOR_TYPE IN ('B', 'P') /* 승인업체, 잠재업체만 조회됨 */
+
+	        <if test="selectedVendors == null or selectedVendors.isEmpty()">
+	            <if test="SG_NUM1 !='' and SG_NUM1 !=null">
+	                AND EXISTS (
+		                SELECT '1'
+		                FROM STOCSGVN SGVN
+		                WHERE GATE_CD = #{ses.gateCd}
+		                AND <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'1', SGVN.SG_NUM) = #{SG_NUM1}
+		                AND SGVN.VENDOR_CD = VNGL.VENDOR_CD
+		                AND DEL_FLAG = '0'
+	                )
+	            </if>
+	            <if test="SG_NUM2 !='' and SG_NUM2 !=null">
+	                AND EXISTS (
+		                SELECT '1'
+		                FROM STOCSGVN SGVN
+		                WHERE GATE_CD = #{ses.gateCd}
+		                AND <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'2', SGVN.SG_NUM) = #{SG_NUM2}
+		                AND SGVN.VENDOR_CD = VNGL.VENDOR_CD
+		                AND DEL_FLAG = '0'
+	                )
+	            </if>
+	            <if test="SG_NUM3 !='' and SG_NUM3 !=null">
+	                AND EXISTS (
+		                SELECT '1'
+		                FROM STOCSGVN SGVN
+		                WHERE GATE_CD = #{ses.gateCd}
+		                AND <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'3', SGVN.SG_NUM) = #{SG_NUM3}
+		                AND SGVN.VENDOR_CD = VNGL.VENDOR_CD
+		                AND DEL_FLAG = '0'
+	                )
+	            </if>
+	            <if test="SG_NUM4 !='' and SG_NUM4 !=null">
+	                AND EXISTS (
+		                SELECT '1'
+		                FROM STOCSGVN SGVN
+		                WHERE GATE_CD = #{ses.gateCd}
+		                AND <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'4', SGVN.SG_NUM) = #{SG_NUM4}
+		                AND SGVN.VENDOR_CD = VNGL.VENDOR_CD
+		                AND DEL_FLAG = '0'
+	                )
+	            </if>
+
+	            <if test="VENDOR_TYPE !='' and VENDOR_TYPE !=null">
+		           	AND VNGL.VENDOR_TYPE = #{VENDOR_TYPE}
+		        </if>
+		        <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+		           	AND VNGL.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		        </if>
+		        <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+		           	AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VNGL.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		        </if>
+		        <if test="CREDIT_GRADE !='' and CREDIT_GRADE !=null">
+		           	AND CREDIT_GRADE = #{CREDIT_GRADE}
+		        </if>
+		        <if test="REGION_CD !='' and REGION_CD !=null">
+		           	AND VNGL.VENDOR_CD IN ( SELECT VENDOR_CD FROM STOCVNRG WHERE GATE_CD = #{ses.gateCd} AND REGION_CD = #{REGION_CD} )
+		        </if>
+		        <if test="PARTNER_TYPE !='' and PARTNER_TYPE !=null">
+		           	AND PARTNER_TYPE = #{PARTNER_TYPE}
+		        </if>
+	            <if test="PURCHASE_FLAG !='' and PURCHASE_FLAG !=null and PURCHASE_FLAG=='NORMAL' ">
+	                AND NORMAL_PURCHASE_FLAG = '1'
+	            </if>
+	            <if test="PURCHASE_FLAG !='' and PURCHASE_FLAG !=null and PURCHASE_FLAG=='ITEM' ">
+	                AND ITEM_PURCHASE_FLAG = '1'
+	            </if>
+	            <if test="DEAL_SQ_CD !='' and DEAL_SQ_CD !=null">
+	                AND DEAL_SQ_CD = #{DEAL_SQ_CD}
+	            </if>
+	        </if>
+			<if test="selectedVendors != null and !selectedVendors.isEmpty">
+				AND VNGL.VENDOR_CD IN
+				<foreach open="(" collection="selectedVendors" item="vendor" separator="union" close=")">
+					select #{vendor}
+				</foreach>
+			</if>
+		</if>
+
+    </select>
+
+	<select id="doSearchCandidateForRFX" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 A.VENDOR_TYPE, A.VENDOR_CD, A.VENDOR_NM
+		    ,A.IRS_NUM, A.REP_TEL_NUM AS REP_TEL_NUM, A.GATE_CD
+		    ,A.CREDIT_GRADE, A.EVALUATION_GRADE, A.CEO_USER_NM AS CEO_NM
+		    ,A.REGION_NM, A.PARTNER_TYPE, A.PARTNER_TYPE_CD
+		    ,A.CTRL_USER_NM, A.CTRL_USER_TEL, A.REGION_TEXT
+		    ,A.DEAL_SQ_CD, A.EVAL_GRADE, A.EVAL_RESULT
+		  FROM (
+		    SELECT
+		         GETCOMCODE(VNGL.GATE_CD, 'M013', VNGL.VENDOR_TYPE, 0, #{ses.langCd}) AS VENDOR_TYPE
+		    	,VNGL.VENDOR_CD
+		        ,GETVENDORNAME(VNGL.GATE_CD, VNGL.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		        ,VNGL.IRS_NUM
+		        ,VNGL.REP_TEL_NUM
+		        ,VNGL.GATE_CD
+		        ,' ' AS CREDIT_GRADE
+		        ,' ' AS EVALUATION_GRADE
+		        ,VNGL.CEO_USER_NM
+		        ,'' AS REGION_NM
+		        ,(SELECT distinct ITEM_CLS_NM FROM STOCMTCA
+		           WHERE GATE_CD = VNGL.GATE_CD AND DEL_FLAG != '1'
+		             AND ITEM_CLS_TYPE = 'C2' AND ITEM_CLS2 = VNGL.PARTNER_TYPE) AS PARTNER_TYPE
+				,VNGL.PARTNER_TYPE AS PARTNER_TYPE_CD
+		        ,(SELECT USER_NM FROM STOCVNCP
+		           WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD
+		             AND PERSON_SQ = 1 AND DEL_FLAG = '0') CTRL_USER_NM
+				,getDecTel((SELECT TEL_NUM FROM STOCVNCP WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD AND PERSON_SQ = 1 AND DEL_FLAG = '0')) CTRL_USER_TEL
+		        ,'' AS REGION_TEXT, '' AS DEAL_SQ_CD, '' AS EVAL_GRADE, '' AS EVAL_RESULT
+		      FROM STOCECCT ECCT LEFT JOIN STOCECRL ECRL
+		        ON (ECCT.GATE_CD = ECRL.GATE_CD
+		        AND ECCT.CONT_NUM = ECRL.CONT_NUM
+		        AND ECCT.CONT_CNT = ECRL.CONT_CNT)
+		      LEFT JOIN STOCECCF ECCF
+		       ON (ECRL.GATE_CD = ECCF.GATE_CD
+		       AND ECRL.FORM_NUM = ECCF.FORM_NUM)
+		      LEFT JOIN STOCVNGL VNGL
+		       ON (ECCT.GATE_CD = VNGL.GATE_CD
+		       AND ECCT.VENDOR_CD = VNGL.VENDOR_CD)
+		     <if test='CON_FLAG == "Y"'>
+		      INNER JOIN (SELECT
+		                      CT.GATE_CD, CT.VENDOR_CD
+		                     FROM STOCECCT CT INNER JOIN STOCECRL RL
+		                      ON (CT.GATE_CD = RL.GATE_CD
+		                      AND CT.CONT_NUM = RL.CONT_NUM
+		                      AND CT.CONT_CNT = RL.CONT_CNT)
+		                    WHERE CT.GATE_CD = #{ses.gateCd}
+		                      AND RL.FORM_NUM = 'FORM2017080100001'
+		                      AND CT.DEL_FLAG = '0'
+		                      AND RL.DEL_FLAG = '0'
+		                    GROUP BY CT.GATE_CD, CT.VENDOR_CD) EC
+			   ON (VNGL.GATE_CD = EC.GATE_CD
+		       AND VNGL.VENDOR_CD = EC.VENDOR_CD)
+		     </if>
+		     WHERE ECCT.DEL_FLAG = '0'
+		       AND ECCT.GATE_CD = #{ses.gateCd}
+		       AND ECCT.PROGRESS_CD = '4300'
+		       AND <include refid="com.sql.sysdate"/> BETWEEN ECCT.CONT_START_DATE AND ECCT.CONT_END_DATE
+		       AND ECCF.FORM_GUBUN = 'SSN'
+		       AND ECRL.DEL_FLAG = '0'
+		       AND ECCF.DEL_FLAG = '0'
+		       AND VNGL.DEL_FLAG = '0'
+		     <if test='CON_FLAG == "Y"'>
+	           AND VNGL.VENDOR_TYPE = 'P'
+	         </if>
+
+		     ORDER BY DBMS_RANDOM.RANDOM
+		  ) A
+		 WHERE ROWNUM <![CDATA[<]]> 4
+
+    </select>
+
+	<!-- RfiRequest -->
+    <select id="getRFIRequestInfo" parameterType="hashmap" resultType="hashmap">
+
+        SELECT GATE_CD
+            , RFI_NUM
+            , <include refid="com.sql.dbo"/>GETGMTDATE(REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS REQ_DATE
+            , RFI_SUBJECT
+            , TEL_NUM
+            , REQ_USER_ID
+            , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+            , ITEM_CLASS_TYPE
+            , RFI_TYPE
+            , REQ_PERSON_TYPE
+            , <include refid="com.sql.dbo"/>GETGMTDATE(CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CLOSE_DATE
+            , <include refid="com.sql.dbo"/>GETGMTDATE(CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'hh24:mi:ss') AS CLOSE_TIME
+            , <include refid="com.sql.dbo"/>GETGMTDATE(CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS CLOSE_DATE_TIME
+            , ATTACH_FILE_NUM
+            , PROGRESS_CD
+            , BUYER_REQ_CD
+            , BUYER_CD
+            , CTRL_CD
+            , CTRL_USER_ID
+            , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+            , CUR
+            , RFI_TEXT_NUM
+         FROM STOCRIQH
+        WHERE GATE_CD = #{ses.gateCd}
+          AND RFI_NUM = #{RFI_NUM}
+          AND DEL_FLAG = '0'
+
+    </select>
+
+    <insert id="insertRIQH" parameterType="hashMap">
+
+        INSERT INTO STOCRIQH (
+	        GATE_CD,
+	        RFI_NUM,
+	        REG_DATE,
+	        REG_USER_ID,
+	        MOD_DATE,
+	        MOD_USER_ID,
+	        DEL_FLAG,
+	        REQ_DATE,
+	        RFI_SUBJECT,
+	        TEL_NUM,
+	        REQ_USER_ID,
+	        ITEM_CLASS_TYPE,
+	        RFI_TYPE,
+	        REQ_PERSON_TYPE,
+	        CLOSE_DATE,
+	        ATTACH_FILE_NUM,
+	        PROGRESS_CD,
+	        BUYER_REQ_CD,
+	        BUYER_CD,
+	        CUR,
+	        RFI_TEXT_NUM
+        ) VALUES (
+	        #{ses.gateCd},
+	        #{RFI_NUM},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        '0',
+	        <include refid="com.sql.sysdate"/>,
+	        #{RFI_SUBJECT},
+	        #{TEL_NUM},
+	        #{ses.userId},
+	        #{ITEM_CLASS_TYPE},
+	        #{RFI_TYPE},
+	        #{REQ_PERSON_TYPE},
+	        <include refid="com.sql.dbo"/>SETGMTSECOND(#{CLOSE_DATE}, #{CLOSE_HOURS}, #{CLOSE_MINUTES}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+	        #{ATTACH_FILE_NUM},
+	        '100',
+	        #{ses.companyCd},
+	        <choose><when test='REQ_PERSON_TYPE == "V"'>#{ses.companyCd}</when> <otherwise>null</otherwise> </choose>,
+	        #{CUR},
+	        #{RFI_TEXT_NUM}
+        )
+
+    </insert>
+
+    <insert id="insertRIQHRequest" parameterType="hashMap">
+
+        INSERT INTO STOCRIQH (
+            GATE_CD,
+            RFI_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            REQ_DATE,
+            RFI_SUBJECT,
+            TEL_NUM,
+            REQ_USER_ID,
+            ITEM_CLASS_TYPE,
+            RFI_TYPE,
+            REQ_PERSON_TYPE,
+            CLOSE_DATE,
+            ATTACH_FILE_NUM,
+            PROGRESS_CD,
+            BUYER_REQ_CD,
+            BUYER_CD,
+            CUR,
+            RFI_TEXT_NUM
+        ) VALUES (
+            #{ses.gateCd},
+            #{RFI_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            <include refid="com.sql.sysdate"/>,
+            #{RFI_SUBJECT},
+            #{TEL_NUM},
+            #{ses.userId},
+            #{ITEM_CLASS_TYPE},
+            #{RFI_TYPE},
+            #{REQ_PERSON_TYPE},
+            <include refid="com.sql.dbo"/>SETGMTSECOND(#{CLOSE_DATE}, #{CLOSE_HOURS}, #{CLOSE_MINUTES}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            #{ATTACH_FILE_NUM},
+            <choose><when test='REQ_PERSON_TYPE == "V"'>'300'</when> <otherwise>'200'</otherwise> </choose>,
+            #{ses.companyCd},
+            <choose><when test='REQ_PERSON_TYPE == "V"'>#{ses.companyCd}</when> <otherwise>null</otherwise> </choose>,
+            #{CUR},
+            #{RFI_TEXT_NUM}
+        )
+
+    </insert>
+
+    <update id="requestRFI" parameterType="hashmap">
+
+        UPDATE STOCRIQH SET
+            DEL_FLAG = '0',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            RFI_SUBJECT = #{RFI_SUBJECT},
+            TEL_NUM = #{TEL_NUM},
+            ITEM_CLASS_TYPE = #{ITEM_CLASS_TYPE},
+            RFI_TYPE = #{RFI_TYPE},
+            REQ_PERSON_TYPE = #{REQ_PERSON_TYPE},
+            ATTACH_FILE_NUM = #{ATTACH_FILE_NUM},
+            CUR = #{CUR},
+            RFI_TEXT_NUM = #{RFI_TEXT_NUM},
+            PROGRESS_CD = <choose><when test='REQ_PERSON_TYPE == "V"'>'300'</when> <otherwise>'200'</otherwise> </choose>,
+            CLOSE_DATE = <include refid="com.sql.dbo"/>SETGMTSECOND(#{CLOSE_DATE}, #{CLOSE_HOURS}, #{CLOSE_MINUTES}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        WHERE GATE_CD = #{GATE_CD}
+          AND RFI_NUM = #{RFI_NUM}
+
+    </update>
+
+    <update id="updateRIQH" parameterType="hashmap">
+
+        UPDATE STOCRIQH SET
+            DEL_FLAG = '0',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            RFI_SUBJECT = #{RFI_SUBJECT},
+            TEL_NUM = #{TEL_NUM},
+            ITEM_CLASS_TYPE = #{ITEM_CLASS_TYPE},
+            RFI_TYPE = #{RFI_TYPE},
+            REQ_PERSON_TYPE = #{REQ_PERSON_TYPE},
+            BUYER_CD = <choose><when test='REQ_PERSON_TYPE == "V"'>#{ses.companyCd}</when> <otherwise>null</otherwise> </choose>,
+            ATTACH_FILE_NUM = #{ATTACH_FILE_NUM},
+            CUR = #{CUR},
+            RFI_TEXT_NUM = #{RFI_TEXT_NUM},
+            <!--  PROGRESS_CD = '100', -->
+            CLOSE_DATE = <include refid="com.sql.dbo"/>SETGMTSECOND(#{CLOSE_DATE}, #{CLOSE_HOURS}, #{CLOSE_MINUTES}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        WHERE GATE_CD = #{GATE_CD}
+          AND RFI_NUM = #{RFI_NUM}
+
+    </update>
+
+    <select id="checkProgressCode200" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(RFI_NUM) AS CNT
+          FROM STOCRIQH
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFI_NUM = #{RFI_NUM}
+           AND <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(PROGRESS_CD, CLOSE_DATE) > '200'
+
+    </select>
+
+    <select id="checkProgressCode100" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(RFI_NUM) AS CNT
+        FROM STOCRIQH
+        WHERE GATE_CD = #{ses.gateCd}
+        AND RFI_NUM = #{RFI_NUM}
+        AND <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(PROGRESS_CD, CLOSE_DATE) > '100'
+
+    </select>
+
+    <select id="checkExistsRIQH" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(RFI_NUM) AS CNT
+          FROM STOCRIQH
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFI_NUM = #{RFI_NUM}
+
+    </select>
+
+	<!-- RIQV -->
+    <select id="getDataOfRIQV" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+	        RIQV.GATE_CD,
+	        RIQV.VENDOR_CD,
+	        RIQV.RFI_NUM,
+	        <include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD, 'M013',VNGL.VENDOR_TYPE,0, #{ses.langCd}) AS VENDOR_TYPE,
+	        VNGL.VENDOR_NM,
+	        VNGL.IRS_NUM,
+	        VNGL.REP_TEL_NUM,
+	        'U' AS INSERT_FLAG,
+	        '1' AS SELECTED
+        FROM STOCRIQV RIQV INNER JOIN STOCVNGL VNGL
+         ON (RIQV.GATE_CD = VNGL.GATE_CD
+         AND RIQV.VENDOR_CD = VNGL.VENDOR_CD)
+       WHERE RIQV.GATE_CD = #{ses.gateCd}
+         AND RIQV.RFI_NUM = #{RFI_NUM}
+         AND RIQV.DEL_FLAG = '0'
+
+    </select>
+
+    <insert id="insertRIQV" parameterType="hashMap">
+
+        INSERT INTO STOCRIQV(
+	        GATE_CD,
+	        VENDOR_CD,
+	        RFI_NUM,
+	        REG_DATE,
+	        REG_USER_ID,
+	        MOD_DATE,
+	        MOD_USER_ID,
+	        DEL_FLAG,
+	        PROGRESS_CD
+        ) VALUES (
+	        #{ses.gateCd},
+	        #{VENDOR_CD},
+	        #{RFI_NUM},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        '0',
+	        #{PROGRESS_CD}
+        )
+
+    </insert>
+
+    <update id="updateRIQV" parameterType="hashmap">
+
+        UPDATE STOCRIQV SET
+            DEL_FLAG = '0',
+            PROGRESS_CD = #{PROGRESS_CD},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+            AND VENDOR_CD = #{VENDOR_CD}
+            AND RFI_NUM = #{RFI_NUM}
+
+    </update>
+
+    <update id="deleteSelectedRowsRIQV" parameterType="hashmap">
+
+        UPDATE STOCRIQV SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND RFI_NUM = #{RFI_NUM}
+
+    </update>
+
+    <select id="checkExistsRIQV" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(VENDOR_CD) AS CNT
+        FROM STOCRIQV
+        WHERE GATE_CD = #{ses.gateCd}
+        AND RFI_NUM = #{RFI_NUM}
+        AND VENDOR_CD = #{VENDOR_CD}
+    </select>
+
+	<!-- RIQD -->
+    <select id="getDataOfRIQD" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+	        RIQD.GATE_CD,
+	        RIQD.RFI_NUM,
+	        RIQD.RFI_SEQ,
+	        RIQD.ITEM_CD,
+	        RIQD.ITEM_DESC,
+	        RIQD.ITEM_SPEC,
+	        RFI_QTY,
+	        RIQD.UNIT_PRICE AS ESTIMATE_UNIT_PRICE,
+	        RIQD.ITEM_AMT AS ESTIMATE_AMOUNT,
+	        RIQD.UNIT_MEASURE,
+	        RIQD.ITEM_REMARK,
+	        <include refid="com.sql.dbo"/>GETGMTDATE(RIQD.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQUEST_DELIVERY,
+	        'U' AS INSERT_FLAG,
+	        '1' AS SELECTED
+	   FROM STOCRIQD RIQD
+       WHERE RIQD.GATE_CD = #{ses.gateCd}
+         AND RIQD.RFI_NUM = #{RFI_NUM}
+         AND RIQD.DEL_FLAG = '0'
+
+    </select>
+
+    <insert id="insertRIQD" parameterType="hashMap">
+        INSERT INTO STOCRIQD(
+	        GATE_CD,
+	        RFI_NUM,
+	        RFI_SEQ,
+	        ITEM_CD,
+	        REG_DATE,
+	        REG_USER_ID,
+	        MOD_DATE,
+	        MOD_USER_ID,
+	        DEL_FLAG,
+	        ITEM_DESC,
+	        ITEM_SPEC,
+	        UNIT_MEASURE,
+	        RFI_QTY,
+	        UNIT_PRICE,
+	        ITEM_AMT,
+	        ITEM_REMARK,
+	        DUE_DATE
+        ) VALUES (
+	        #{ses.gateCd},
+	        #{RFI_NUM},
+            (SELECT  <include refid="com.sql.nvl"/>(MAX(RFI_SEQ), 0) + 1 AS RFI_SEQ_MAX
+                FROM STOCRIQD
+                WHERE GATE_CD = #{ses.gateCd}
+                    AND RFI_NUM = #{RFI_NUM}),
+	        #{ITEM_CD},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        <include refid="com.sql.sysdate"/>,
+	        #{ses.userId},
+	        '0',
+	        #{ITEM_DESC},
+	        #{ITEM_SPEC},
+	        #{UNIT_MEASURE},
+	        CASE WHEN #{RFI_QTY} = '' THEN NULL ELSE #{RFI_QTY} END,
+	        CASE WHEN #{ESTIMATE_UNIT_PRICE} = '' THEN NULL ELSE #{ESTIMATE_UNIT_PRICE} END,
+	        CASE WHEN #{ESTIMATE_AMOUNT} = '' THEN NULL ELSE #{ESTIMATE_AMOUNT} END,
+	        #{ITEM_REMARK},
+	        <include refid="com.sql.dbo"/>SETGMTDATE(#{REQUEST_DELIVERY}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        )
+
+    </insert>
+
+    <update id="updateRIQD" parameterType="hashmap">
+
+        UPDATE STOCRIQD SET
+        	ITEM_CD      = #{ITEM_CD},
+	        ITEM_DESC      = #{ITEM_DESC},
+	        ITEM_SPEC      = #{ITEM_SPEC},
+	        UNIT_MEASURE   = #{UNIT_MEASURE},
+	        RFI_QTY        = CASE WHEN #{RFI_QTY} = '' THEN NULL ELSE #{RFI_QTY} END,
+	        UNIT_PRICE     = CASE WHEN #{ESTIMATE_UNIT_PRICE} = '' THEN NULL ELSE #{ESTIMATE_UNIT_PRICE} END,
+	        ITEM_AMT       = CASE WHEN #{ESTIMATE_AMOUNT} = '' THEN NULL ELSE #{ESTIMATE_AMOUNT} END,
+	        ITEM_REMARK    = #{ITEM_REMARK},
+	        DUE_DATE       = <include refid="com.sql.dbo"/>SETGMTDATE(#{REQUEST_DELIVERY}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>),
+	        MOD_DATE    = <include refid="com.sql.sysdate"/>,
+	        MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD   = #{GATE_CD}
+	        AND RFI_NUM     = #{RFI_NUM}
+	        AND RFI_SEQ    = #{RFI_SEQ}
+
+    </update>
+
+    <update id="deleteSelectedRowsRIQD" parameterType="hashmap">
+
+        UPDATE STOCRIQD SET
+            DEL_FLAG = '1',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+          AND RFI_NUM = #{RFI_NUM}
+          AND RFI_SEQ = #{RFI_SEQ}
+
+    </update>
+
+
+    <select id="checkExistsRIQD" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(RFI_SEQ) AS CNT
+          FROM STOCRIQD
+          WHERE GATE_CD = #{ses.gateCd}
+           AND RFI_NUM = #{RFI_NUM}
+           AND RFI_SEQ = #{RFI_SEQ}
+
+    </select>
+
+    <update id="updateExtendDeadline" parameterType="hashMap">
+        UPDATE STOCRIQH SET
+           CLOSE_DATE = <include refid="com.sql.dbo"/>SETGMTSECOND(#{CLOSE_DATE}, #{CLOSE_HOUR}, #{CLOSE_MINUTE},  #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        WHERE GATE_CD = #{ses.gateCd}
+            AND RFI_NUM = #{RFI_NUM}
+    </update>
+
+    <update id="doFinishRfi" parameterType="hashMap">
+        UPDATE STOCRIQH SET
+             CLOSE_DATE = <include refid="com.sql.sysdate"/>
+           , PROGRESS_CD = '400'
+        WHERE GATE_CD = #{ses.gateCd}
+            AND RFI_NUM = #{RFI_NUM}
+    </update>
+
+    <select id="getCloseDate" parameterType="hashMap" resultType="java.lang.String" >
+         SELECT <include refid="com.sql.dbo"/>GETGMTDATE(CLOSE_DATE,#{ses.userGmt},#{ses.systemGmt}, #{ses.dateFormat} <include refid="com.sql.stringMerge"/>' hh24:mi') AS CLOSE_DATE
+	       FROM STOCRIQH
+	      WHERE  GATE_CD = #{ses.gateCd}
+	        AND RFI_NUM = #{RFI_NUM}
+	        AND DEL_FLAG = '0'
+    </select>
+
+    <select id="checkRfiProgressCode" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD,RIQH.CLOSE_DATE)
+        FROM STOCRIQH RIQH
+             WHERE RIQH.RFI_NUM = #{RFI_NUM}
+               AND RIQH.GATE_CD = #{ses.gateCd}
+               AND RIQH.DEL_FLAG = '0'
+    </select>
+
+    <select id="checkRfiProgressCodeForm" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT <include refid="com.sql.dbo"/>GETRFIPROGRESSCODE(RIQH.PROGRESS_CD,RIQH.CLOSE_DATE)
+        FROM STOCRIQH RIQH
+             WHERE RIQH.RFI_NUM = #{RFI_NUM}
+               AND RIQH.GATE_CD = #{ses.gateCd}
+               AND RIQH.DEL_FLAG = '0'
+    </select>
+
+</mapper>

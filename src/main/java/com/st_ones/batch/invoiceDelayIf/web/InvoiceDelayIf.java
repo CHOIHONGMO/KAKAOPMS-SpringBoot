@@ -1,0 +1,80 @@
+package com.st_ones.batch.invoiceDelayIf.web;
+
+import com.st_ones.batch.EverJob;
+import com.st_ones.batch.batchLogCom.service.BatchLogCommon_Service;
+import com.st_ones.batch.invoiceDelayIf.service.InvoiceDelayIfService;
+import com.st_ones.common.login.domain.UserInfo;
+import com.st_ones.common.util.SpringContextUtil;
+import com.st_ones.common.util.clazz.EverDate;
+import com.st_ones.everf.serverside.config.PropertiesManager;
+import com.st_ones.everf.serverside.info.UserInfoManager;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 납품지연 알림(시스템 => 운영사 품목담당자) i/f
+ */
+@Service
+public class InvoiceDelayIf extends EverJob {
+	
+	@Autowired private BatchLogCommon_Service batchLogCommon_Service;
+    @Autowired private InvoiceDelayIfService invoiceDelayIfService;
+    
+    @Override
+    public void execute(JobExecutionContext context) throws JobExecutionException {
+
+        if (super.isAllowedToRunBatch(context)) {
+
+            printJobStartLog(context);
+
+            String jobRlt = "E";
+            String startDate = EverDate.getTimeStampString();
+
+            UserInfo baseinfo = new UserInfo();
+            baseinfo.setGateCd(PropertiesManager.getString("eversrm.gateCd.default"));
+            baseinfo.setUserId(PropertiesManager.getString("eversrm.userId.default"));
+            baseinfo.setLangCd(PropertiesManager.getString("eversrm.langCd.default"));
+            baseinfo.setIpAddress("127.0.0.1");
+            UserInfoManager.createUserInfo(baseinfo);
+            
+            batchLogCommon_Service = SpringContextUtil.getBean(BatchLogCommon_Service.class);
+            invoiceDelayIfService = SpringContextUtil.getBean(InvoiceDelayIfService.class);
+            
+            String msg = "";
+            int totalCount = 0;
+            try {
+                // 납품지연 알림
+                msg = invoiceDelayIfService.doAlarmInvoiceDelay(new HashMap<String, String>());
+                jobRlt = "S";
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e);
+                msg = getMessageAsString(e);
+                throw new JobExecutionException();
+            } finally {
+                try {
+                    Map<String, Object> logData = new HashMap<String, Object>();
+                    logData.put("JOB_DATE", startDate.substring(0, 19));
+                    logData.put("JOB_TYPE", "Batch");
+                    logData.put("JOB_ID", "InvoiceDelayIf");
+                    logData.put("JOB_NM", "납품지연 알림(시스템 => 운영사 품목담당자), 매일 09시, 희망납기일 D+1 시점에서 1회 발송");
+                    logData.put("JOB_KEY", "");
+                    logData.put("JOB_RLT", jobRlt);
+                    logData.put("JOB_RLT_CD", "");
+                    logData.put("JOB_RLT_MSG", msg);
+                    logData.put("JOB_END_DATE", EverDate.getTimeStampString().substring(0, 19));
+                    batchLogCommon_Service.doSaveBatchLog(logData);
+                } catch (Exception e2) {
+                    logger.error(e2.getMessage(), e2);
+                }
+            }
+            printJobEndLog(context, msg, totalCount);
+        } else {
+            printJobNotRunningLog(context);
+        }
+    }
+}

@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.eval.EV0240Mapper">
+
+    <select id="doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		  FROM (
+				SELECT EVEM.EV_NUM
+				      ,EVEM.EV_NM
+				      ,EVEM.EV_TYPE
+				      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'M212',EVEM.EV_TYPE,#{ses.langCd}) AS EV_TYPE_NM
+				      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'M197',EVEM.PURCHASE_TYPE,#{ses.langCd}) AS PURCHASE_TYPE_NM
+				      ,EVEM.EV_CTRL_USER_ID
+				      ,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd},EVEM.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+				      ,EVEM.PROGRESS_CD
+				      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'M122',EVEM.PROGRESS_CD,#{ses.langCd}) AS PROGRESS_NM
+				      ,<include refid="com.sql.dbo"/>getGmtDate(EVEM.REQUEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYYMMDD HH24:MI:SS') AS REQUEST_DATE
+				      ,<include refid="com.sql.dbo"/>getGmtDate(EVEM.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYYMMDD HH24:MI:SS') AS START_DATE
+				      ,<include refid="com.sql.dbo"/>getGmtDate(EVEM.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYYMMDD HH24:MI:SS') AS CLOSE_DATE
+				      ,EVEM.RESULT_ENTER_CD
+				      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'M123',EVEM.RESULT_ENTER_CD,#{ses.langCd}) AS RESULT_ENTER_NM
+				      ,EVEU.EV_USER_ID
+				      ,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd},EVEU.EV_USER_ID, #{ses.langCd}) AS EV_USER_NM
+				      ,EVEU.PRG_CHK AS EV_PROGRESS_CD
+				      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'M124',EVEU.PRG_CHK,#{ses.langCd}) AS EV_PROGRESS_NM
+				      ,(SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND EV_USER_ID = EVEU.EV_USER_ID AND DEL_FLAG = '0') AS VENDOR_CNT
+
+
+
+					<if test="_databaseId == 'mssql'">
+		              ,(SELECT
+		                  	STRING_AGG ( <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})   ,',') MMM
+							FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND EV_USER_ID = EVEU.EV_USER_ID AND DEL_FLAG = '0'
+						) AS VENDOR_NMS
+					</if>
+					<if test="_databaseId == 'oracle'">
+		              ,(SELECT
+		                  	LISTAGG ( <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})   ,',') MMM
+							FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND EV_USER_ID = EVEU.EV_USER_ID AND DEL_FLAG = '0'
+						) AS VENDOR_NMS
+					</if>
+
+
+
+				      ,(SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND EV_USER_ID = EVEU.EV_USER_ID AND DEL_FLAG = '0' AND PROGRESS_CD='200') AS VENDOR_COMP_CNT
+				      ,<include refid="com.sql.nvl"/>( (SELECT EV_USER_ID
+				      			  FROM STOCEVEU
+				      			 WHERE GATE_CD    = EVEU.GATE_CD
+				      			   AND EV_NUM     = EVEU.EV_NUM
+				      			   <!--  AND EV_USER_ID = #{ses.userId} -->
+				      			   AND EV_USER_ID = EVEU.EV_USER_ID
+				      			   AND REP_FLAG   = '1'
+				      			   AND DEL_FLAG   = '0'
+				      			 GROUP BY EV_USER_ID
+				      			 ),'-') AS REP_EV_USER_ID
+				      ,EVEM.PURCHASE_TYPE
+					  ,EVEM.COMPLETE_DATE AS COMPLETE_DATE
+					  /*정성평가 항목이 있는 평가만 조회되도록 함*/
+					  ,(SELECT COUNT(*)
+					      FROM STOCEVTM TM
+					      JOIN STOCEVTD TD
+		            		ON(TM.GATE_CD    = TD.GATE_CD
+		           		   AND TM.EV_TPL_NUM = TD.EV_TPL_NUM
+		           		   AND TM.DEL_FLAG   = '0')
+		          		  JOIN STOCEVIM IM
+		            		ON (TD.GATE_CD          = IM.GATE_CD
+		           		   AND TD.EV_ITEM_NUM       = IM.EV_ITEM_NUM
+		           		   AND IM.DEL_FLAG          = '0'
+		           		   AND IM.EV_ITEM_METHOD_CD = 'QUA')
+		         	   WHERE TM.GATE_CD    = EVEM.GATE_CD
+		                 AND TM.EV_TPL_NUM = EVEM.EXEC_EV_TPL_NUM) AS QTY_CNT
+
+				      ,
+					    CASE WHEN EV_TYPE = 'ESG' THEN
+				      	<include refid="com.sql.nvl"/>(EVEU.ESG_CHK_TYPE,'P')
+				      	ELSE '' END ESG_CHK_TYPE
+
+
+
+						,CASE WHEN EVEM.EV_TYPE = 'ESG' AND (SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM
+						   AND VENDOR_CD = #{ses.companyCd} AND DEL_FLAG = '0' AND PROGRESS_CD = '200') != 0
+						 THEN
+
+
+						(
+						SELECT
+							
+								  CASE WHEN <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[>=]]> 80 THEN 'A'
+								  WHEN <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[>=]]> 65 AND <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[<]]> 80 THEN 'B+'
+								  WHEN <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[>=]]> 45 AND <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[<]]> 65 THEN 'B'
+								  WHEN <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[>=]]> 0 AND <include refid="com.sql.nvl"/>(SUM(EV_SCORE / 3),'-1') <![CDATA[<]]> 45 THEN 'C'
+								  ELSE ''
+								  END
+							
+							AS EV_SCORE
+							FROM <include refid="com.sql.dbo"/>STOCEVEU EVEU
+							WHERE EVEU.GATE_CD = #{ses.gateCd}
+							AND EVEU.EV_NUM = EVEM.EV_NUM
+							AND VENDOR_CD = #{ses.companyCd}
+							AND VENDOR_SQ = '1'
+							AND EVEU.DEL_FLAG = '0'
+
+						<if test="ses.userType == 'S'.toString()">
+							AND EVEM.PROGRESS_CD = '300'
+						</if>
+
+						)
+						 ELSE '' END ESG_POP
+
+				  FROM STOCEVEM EVEM
+				  INNER JOIN ( SELECT GATE_CD, EV_NUM, EV_USER_ID, CASE WHEN SUM(CASE WHEN PROGRESS_CD = '200' THEN 0 ELSE 1 END) > 0 THEN '100' ELSE '200' END AS PRG_CHK
+				                 ,MAX(ESG_CHK_TYPE) ESG_CHK_TYPE
+						         FROM STOCEVEU
+						        WHERE GATE_CD  = #{ses.gateCd}
+						          AND DEL_FLAG = '0'
+						        GROUP BY GATE_CD, EV_NUM, EV_USER_ID) EVEU
+				  	 ON (EVEM.GATE_CD    		= EVEU.GATE_CD
+				  	AND EVEM.EV_NUM      	= EVEU.EV_NUM)
+				  WHERE EVEM.GATE_CD  		= #{ses.gateCd}
+					<if test="_databaseId == 'mssql'">
+			        AND EVEM.REG_DATE BETWEEN #{REG_DATE_FROM} AND #{REG_DATE_TO}
+					</if>
+					<if test="_databaseId == 'oracle'">
+			        AND EVEM.REG_DATE BETWEEN TO_DATE(#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND TO_DATE(#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+					</if>
+				    AND EVEM.DEL_FLAG 		= '0'
+
+
+					AND EVEM.REQUEST_DATE IS NOT NULL
+
+					<if test="BUYER_CD != null and BUYER_CD != ''">
+						AND EVEM.BUYER_CD in
+						<foreach collection="BUYER_CD_LIST" item="item" open="(" close=")" separator=",">
+							#{item}
+						</foreach>
+					</if>
+
+		  <if test="ses.userType == 'S'.toString()">
+				AND EV_USER_ID IN
+				 (
+					 SELECT USER_ID FROM STOCCVUR
+					 WHERE GATE_CD = #{ses.gateCd}
+					 AND COMPANY_CD = #{ses.companyCd}
+                 )
+		  </if>
+
+
+		  <if test="VENDOR_CD !=null and VENDOR_CD !='' ">
+			  AND EXISTS(
+				SELECT '1' FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND DEL_FLAG = '0'
+				AND EV_USER_ID = EVEU.EV_USER_ID
+				AND UPPER(VENDOR_CD) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_CD}) <include refid="com.sql.likeR"/>
+			  )
+		  </if>
+
+
+		  <if test="VENDOR_NM !=null and VENDOR_NM !='' ">
+			  AND EXISTS(
+				SELECT '1' FROM STOCEVEU WHERE GATE_CD = EVEM.GATE_CD AND EV_NUM = EVEM.EV_NUM AND DEL_FLAG = '0'
+				AND EV_USER_ID = EVEU.EV_USER_ID
+				AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+			  )
+		  </if>
+
+
+
+
+			) BASE
+		    WHERE BASE.QTY_CNT <![CDATA[>]]> 0 <!-- /*정성평가 항목이 있는 경우에만 보이도록 함*/ -->
+
+		  <if test="PROGRESS_CD !=null and PROGRESS_CD !='' ">
+		  	  AND BASE.EV_PROGRESS_CD = #{PROGRESS_CD}
+		  </if>
+		  <if test="PURCHASE_TYPE !=null and PURCHASE_TYPE !='' ">
+		  	  AND BASE.PURCHASE_TYPE = #{PURCHASE_TYPE}
+		  </if>
+		  <if test="EV_CTRL_NM !=null and EV_CTRL_NM !='' ">
+			  AND <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, BASE.EV_CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_CTRL_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_NUM !=null and EV_NUM !='' ">
+			  AND BASE.EV_NUM <include refid="com.sql.likeL"/> #{EV_NUM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_NM !=null and EV_NM !='' ">
+			  AND BASE.EV_NM <include refid="com.sql.likeL"/> #{EV_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_USER_ID !=null and EV_USER_ID !='' ">
+			  AND BASE.EV_USER_ID = #{EV_USER_ID}
+		  </if>
+		  <if test="EV_USER_NM !=null and EV_USER_NM !='' ">
+			  AND <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, BASE.EV_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_TYPE !=null and EV_TYPE !='' ">
+		  	  AND BASE.EV_TYPE = #{EV_TYPE}
+		  </if>
+		  <if test="ESG_CHK_TYPE !=null and ESG_CHK_TYPE !='' ">
+		  	  AND BASE.ESG_CHK_TYPE = #{ESG_CHK_TYPE}
+		  </if>
+
+		  ORDER BY BASE.EV_NUM DESC
+
+     </select>
+
+     <select id="checkAllCount" parameterType="hashMap" resultType="java.lang.Integer">
+     	SELECT	COUNT(*)
+     	  FROM	STOCEVEU
+     	 WHERE	EV_NUM 		= #{EV_NUM}
+     	   AND	EV_USER_ID 	= #{EV_USER_ID}
+     	   AND	GATE_CD 	= #{ses.gateCd}
+     	   AND	DEL_FLAG 	= '0'
+     </select>
+	 <select id="checkScoreCount" parameterType="hashMap" resultType="java.lang.Integer">
+	 	SELECT	COUNT(*)
+     	  FROM	STOCEVEU
+     	 WHERE	EV_NUM 		= #{EV_NUM}
+     	   AND	EV_USER_ID 	= #{EV_USER_ID}
+     	   AND	GATE_CD 	= #{ses.gateCd}
+     	   AND	DEL_FLAG 	= '0'
+     	   AND	EV_SCORE IS NULL
+	 </select>
+
+     <select id="doCheck" parameterType="hashmap" resultType="hashmap">
+		SELECT MASTER.COMPLETE_DATE
+			        ,MASTER.EV_CTRL_USER_ID
+			        ,MASTER.RESULT_ENTER_CD
+			        ,MASTER.EV_TYPE
+			        ,MASTER.PURCHASE_TYPE
+			        ,MASTER.EXEC_EV_TPL_NUM AS EV_TPL_NUM
+			        ,EVEU.EMPTY_SCORE_CNT
+			        ,EVEU.REP_FLAG
+			        ,EVEU.EV_USER_ID
+		  FROM STOCEVEM MASTER
+		<!-- INNER JOIN (SELECT GATE_CD, EV_NUM, SG_NUM, EV_USER_ID, SUM(CASE WHEN EV_SCORE IS NULL OR EV_SCORE = 0 THEN 1 ELSE 0 END) AS EMPTY_SCORE_CNT, REP_FLAG -->
+		INNER JOIN (SELECT GATE_CD, EV_NUM, EV_USER_ID, SUM(CASE WHEN EV_SCORE IS NULL OR EV_SCORE = 0 THEN 1 ELSE 0 END) AS EMPTY_SCORE_CNT, REP_FLAG
+                  FROM STOCEVEU
+                 WHERE DEL_FLAG='0'
+					  AND EV_USER_ID 	= #{EV_USER_ID}
+                GROUP BY GATE_CD, EV_NUM, EV_USER_ID, REP_FLAG ) EVEU
+		ON MASTER.GATE_CD 		= EVEU.GATE_CD
+		AND MASTER.EV_NUM 		= EVEU.EV_NUM
+		AND MASTER.DEL_FLAG   	= '0'
+		AND MASTER.EV_NUM 		= #{EV_NUM}
+		AND MASTER.GATE_CD 		= #{ses.gateCd}
+     </select>
+
+     <select id="checkProgress" parameterType="hashmap" resultType="java.lang.String">
+     	SELECT	CASE WHEN COUNT(*) > 0
+     			THEN 'Y'
+                ELSE 'N'
+       			END AS CHK
+ 		 FROM 	STOCEVEU
+ 		WHERE 	EV_NUM 		= #{EV_NUM}
+ 		  AND 	EV_USER_ID 	= #{EV_USER_ID}
+		  AND 	<include refid="com.sql.nvl"/>(PROGRESS_CD, '100') != '200'
+		  AND 	DEL_FLAG	= '0'
+		  AND 	GATE_CD 	= #{ses.gateCd}
+     </select>
+
+     <select id="doRepUserCheck"  parameterType="hashmap" resultType="java.lang.Integer">
+     SELECT COUNT(*) AS CNT
+		FROM STOCEVEU
+	  WHERE EV_NUM     		=  #{EV_NUM}
+		   AND REP_FLAG   	= '1'
+		   AND DEL_FLAG   	= '0'
+		   AND GATE_CD    	=  #{ses.gateCd}
+		   AND EV_USER_ID 	=  #{CHK_USER}
+     </select>
+
+	<update id="doCompleteEveu" parameterType="hashmap">
+        UPDATE  STOCEVEU
+              SET  PROGRESS_CD 	= '200'
+                 , MOD_DATE 	= <include refid="com.sql.sysdate"/>
+                 , MOD_USER_ID 	= #{ses.userId}
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{EV_NUM}
+             AND EV_USER_ID 		= #{EV_USER_ID}
+    </update>
+
+     <update id="doCancelEveu" parameterType="hashmap">
+        UPDATE  STOCEVEU
+              SET  PROGRESS_CD 		= '100'
+                    , ESG_CHK_TYPE = null
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}
+        WHERE  GATE_CD 				= #{ses.gateCd}
+             AND EV_NUM 			= #{EV_NUM}
+             AND EV_USER_ID 		= #{EV_USER_ID}
+    </update>
+
+	<select id="qtyCheck" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT	COUNT(EV_ITEM_METHOD_CD)
+  	      FROM 	STOCEVTD TD
+  	INNER JOIN 	STOCEVIM IM ON TD.EV_ITEM_NUM 		= IM.EV_ITEM_NUM
+  	INNER JOIN 	STOCEVEM EM ON EM.EXEC_EV_TPL_NUM 	= TD.EV_TPL_NUM
+  		 WHERE 	TD.GATE_CD			 				= #{ses.gateCd}
+  		   AND 	EM.EV_NUM 							= #{EV_NUM}
+  		   AND 	IM.EV_ITEM_METHOD_CD 				= 'QTY'
+  		   AND 	TD.DEL_FLAG 						= '0'
+  		   AND 	IM.DEL_FLAG 						= '0'
+	</select>
+
+	<select id="getVendorCd" parameterType="hashmap" resultType="hashmap">
+		SELECT	DISTINCT VENDOR_CD
+				, VENDOR_SQ
+		  FROM 	STOCEVEU
+		 WHERE	GATE_CD 	= #{ses.gateCd}
+		   AND	DEL_FLAG 	= '0'
+		   AND	EV_NUM 		= #{EV_NUM}
+		   AND EV_USER_ID   = #{EV_USER_ID}
+	</select>
+
+	<select id="checkEuScore" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT 	COUNT(*)
+		  FROM	STOCEVEU
+		 WHERE	EV_NUM		= #{EV_NUM}
+		   AND	VENDOR_CD 	= #{VENDOR_CD}
+		   AND	EV_SCORE 	  IS NULL
+		   AND	DEL_FLAG 	= '0'
+
+	</select>
+
+	<select id="getEuScore" parameterType="hashmap" resultType="String">
+		SELECT 	AVG(EV_SCORE)
+		  FROM 	STOCEVEU
+	     WHERE 	GATE_CD   = #{ses.gateCd}
+		   AND 	EV_NUM    = #{EV_NUM}
+		   AND 	VENDOR_CD = #{VENDOR_CD}
+		   AND 	VENDOR_SQ = #{VENDOR_SQ}
+		   AND	EV_SCORE  IS NOT NULL
+	</select>
+
+	<select id="getEtScore" parameterType="hashmap" resultType="String">
+		SELECT 	SUM(FINAL_SCORE) AS ET_SUM
+          FROM 	STOCEVET
+         WHERE 	GATE_CD    = #{ses.gateCd}
+           AND 	EV_NUM	   = #{EV_NUM}
+           AND 	VENDOR_CD  = #{VENDOR_CD}
+	</select>
+
+	<update id="updateEsScore" parameterType="hashmap">
+		UPDATE	STOCEVES
+		   SET	FIRST_EV_SCORE 			= #{EV_SCORE}
+		       ,EV_SCORE  				= #{EV_SCORE}
+		       ,FIRST_EVAL_GRADE_CLS 	= #{EV_GRADE_CLS}
+		       ,EVAL_GRADE_CLS	        = #{EV_GRADE_CLS}
+		       ,MOD_DATE				= <include refid="com.sql.sysdate"/>
+		       ,MOD_USER_ID				= #{ses.userId}
+		 WHERE	GATE_CD   		        = #{ses.gateCd}
+		   AND EV_NUM	  		        = #{EV_NUM}
+		   AND	VENDOR_CD 		        = #{VENDOR_CD}
+		   AND	VENDOR_SQ 		        = #{VENDOR_SQ}
+		   AND	DEL_FLAG  		        = '0'
+	</update>
+
+
+	<select id="getEuVendor" parameterType="hashmap" resultType="hashmap">
+		SELECT	EV_NUM
+			   ,EV_USER_ID
+		       ,VENDOR_CD
+			, VENDOR_SQ
+		       ,<include refid="com.sql.dbo"/>getVendorName(GATE_CD, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+		  FROM	STOCEVEU
+		 WHERE	GATE_CD		= #{ses.gateCd}
+		   AND	DEL_FLAG	= '0'
+		   AND	EV_USER_ID 	= #{EV_USER_ID}
+		   AND 	EV_NUM		= #{EV_NUM}
+		   AND	EV_SCORE	IS NOT NULL
+	</select>
+
+	<update id="doIndivisualComplete" parameterType="hashmap" >
+		UPDATE	STOCEVEU SET
+		    PROGRESS_CD	= '200'
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND DEL_FLAG = '0'
+		AND EV_USER_ID = #{EV_USER_ID}
+		AND EV_NUM = #{EV_NUM}
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = #{VENDOR_SQ}
+	</update>
+
+
+</mapper>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.customs.customsList.BCSP_Mapper">
+
+    <select id="doSearchCustomsList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT BLHD.BL_NO, BLHD.TRACKING_NO
+        	, <include refid="com.sql.dbo"/>GETUSERNAME(BLHD.GATE_CD,BLHD.REQ_USER_ID,#{ses.langCd}) AS REQ_USER_ID
+		    , <include refid="com.sql.dbo"/>GETGMTDATE(BLHD.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) as REQ_DATE
+		    , <include refid="com.sql.dbo"/>GETUSERNAME(BLHD.GATE_CD,BLHD.PUR_USER_ID,#{ses.langCd}) AS PUR_USER_ID
+		    , BLHD.PUR_USER_TEL_NUM, BLHD.PUR_USER_ROOM_NUM
+		    , <include refid="com.sql.dbo"/>GETGMTDATE(BLHD.SHIPPING_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) as SHIPPING_DATE
+		    , <include refid="com.sql.dbo"/>GETCOMCODE(BLHD.GATE_CD, 'M061', BLHD.DELY_TERMS, 0, #{ses.langCd}) AS DELY_TERMS
+		    , <include refid="com.sql.dbo"/>GETCOMCODE(BLHD.GATE_CD, 'M061', BLHD.STATUS, 0, #{ses.langCd}) AS STATUS
+		FROM STOCBLHD BLHD
+		WHERE BLHD.GATE_CD = #{ses.gateCd}
+			AND BLHD.DEL_FLAG = '0'
+
+        <if test="REQ_FROM_DATE != '' and REQ_FROM_DATE != null and REQ_TO_DATE != '' and REQ_TO_DATE != null">
+          AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+        <if test="SIGN_STATUS !='' and SIGN_STATUS !=null">
+             AND PRHD.SIGN_STATUS = #{SIGN_STATUS}
+         </if>
+         <if test="BL_NO !='' and BL_NO !=null">
+               AND BLHD.BL_NO <include refid="com.sql.likeL"/> #{BL_NO} <include refid="com.sql.likeR"/>
+         </if>
+         <if test="TRACKING_NO !='' and TRACKING_NO !=null">
+               AND BLHD.TRACKING_NO <include refid="com.sql.likeL"/> #{TRACKING_NO} <include refid="com.sql.likeR"/>
+         </if>
+         <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+                    AND <include refid="com.sql.dbo"/>GETUSERNAME(BLHD.GATE_CD,BLHD.REQ_USER_ID,#{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+         </if>
+         <if test="PUR_USER_NM != '' and PUR_USER_NM != null">
+                    AND <include refid="com.sql.dbo"/>GETUSERNAME(BLHD.GATE_CD,BLHD.PUR_USER_ID,#{ses.langCd}) <include refid="com.sql.likeL"/> #{PUR_USER_NM} <include refid="com.sql.likeR"/>
+         </if>
+
+         ORDER BY BLHD.REQ_DATE DESC, BLHD.BL_NUM DESC
+    </select>
+
+</mapper>

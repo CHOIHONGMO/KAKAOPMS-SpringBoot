@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.srm.SRM_400_Mapper">
+
+	<select id="SRM_400_doSearch" parameterType="hashmap" resultType="java.util.Map">
+
+		SELECT
+			   <include refid="com.sql.toDateChar"/>(EVSQ.EV_DATE, 'yyyyMMdd') AS EV_DATE
+			 , EVSQ.VENDOR_CD
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME(EVSQ.GATE_CD, EVSQ.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			 , EVSQ.EV_USER_NM
+			 , EVSQ.EV_SCORE
+			 , EVSQ.CERT_NUM
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(EVSQ.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS VALID_TO_DATE
+			 ,(SELECT COUNT(*)
+				 FROM STOCATCH
+				WHERE GATE_CD = #{ses.gateCd}
+				  AND UUID = EVSQ.ATT_FILE_NUM
+				  AND DEL_FLAG = '0') AS ATT_FILE_CNT
+			 , EVSQ.ATT_FILE_NUM
+			 , EVSQ.EV_RMK
+			 , EVSQ.SQ_GRADE_CD
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(EVSQ.FIRST_SQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS FIRST_SQ_DATE
+			 , EVSQ.FIRST_SQ_SCORE
+			 , VNGL.VAATZ_VENDOR_CD
+			 , EVSQ.DEAL_TYPE_CD
+			 , EVSQ.MAIN_EV_INS_NM
+		  FROM STOCEVSQ EVSQ
+		  LEFT JOIN STOCVNGL VNGL
+				 ON(EVSQ.GATE_CD = VNGL.GATE_CD
+				AND EVSQ.VENDOR_CD = VNGL.VENDOR_CD
+				AND VNGL.DEL_FLAG = '0')
+		 WHERE EVSQ.GATE_CD = #{ses.gateCd}
+		<if test="EV_DATE != null and EV_DATE != ''">
+		  <if test='_databaseId == "oracle"'>
+		    AND TO_CHAR(EVSQ.EV_DATE, 'YYYY') = #{EV_DATE}
+		  </if>
+		  <if test='_databaseId == "mssql"'>
+		    AND CONVERT(CHAR(4), EVSQ.EV_DATE, 112) = #{EV_DATE}
+		  </if>
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+		   AND UPPER(<include refid="com.sql.dbo"/>GETVENDORNAME(EVSQ.GATE_CD, EVSQ.VENDOR_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_USER_NM != null and EV_USER_NM != ''">
+		   AND EVSQ.EV_USER_NM <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		   AND EVSQ.DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doVendorCnt" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(VENDOR_CD) AS CNT
+		FROM STOCVNGL
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND DEL_FLAG = '0'
+		AND PROGRESS_CD = 'E'
+	</select>
+	
+	<update id="SRM_400_doDelete" parameterType="hashmap">
+		UPDATE STOCEVSQ SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '1'
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND EV_DATE = #{EV_DATE}
+	</update>
+	
+	<insert id="SRM_400_doSave" parameterType="hashmap">
+		 MERGE STOCEVSQ AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{EV_DATE} AS EV_DATE) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND 	A.VENDOR_CD = B.VENDOR_CD
+		   AND A.EV_DATE = B.EV_DATE)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   EV_USER_NM = #{EV_USER_NM}
+			 , EV_SCORE = #{EV_SCORE}
+			 , CERT_NUM = #{CERT_NUM}
+			 , VALID_TO_DATE = #{VALID_TO_DATE}
+			 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+			 , EV_RMK = #{EV_RMK}
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '0'
+			 , SQ_GRADE_CD = #{SQ_GRADE_CD}
+			 , FIRST_SQ_DATE = #{FIRST_SQ_DATE}
+			 , FIRST_SQ_SCORE = #{FIRST_SQ_SCORE}
+			 , DEAL_TYPE_CD = #{DEAL_TYPE_CD}
+			 , MAIN_EV_INS_NM = #{MAIN_EV_INS_NM}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , VENDOR_CD
+			 , EV_DATE
+			 , EV_USER_NM
+			 , EV_SCORE
+			 , CERT_NUM
+			 , VALID_TO_DATE
+			 , ATT_FILE_NUM
+			 , EV_RMK
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , SQ_GRADE_CD
+			 , FIRST_SQ_DATE
+			 , FIRST_SQ_SCORE
+			 , DEAL_TYPE_CD
+			 , MAIN_EV_INS_NM
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{EV_DATE}
+			 , #{EV_USER_NM}
+			 , #{EV_SCORE}
+			 , #{CERT_NUM}
+			 , #{VALID_TO_DATE}
+			 , #{ATT_FILE_NUM}
+			 , #{EV_RMK}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{SQ_GRADE_CD}
+			 , #{FIRST_SQ_DATE}
+			 , #{FIRST_SQ_SCORE}
+			 , #{DEAL_TYPE_CD}
+			 , #{MAIN_EV_INS_NM}
+		<include refid="com.sql.mergeEnd"/>
+	</insert>
+</mapper>

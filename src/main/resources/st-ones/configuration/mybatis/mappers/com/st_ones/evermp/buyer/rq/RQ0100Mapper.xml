@@ -1,0 +1,1565 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.rq.RQ0100Mapper">
+
+	<update id="chgRfqDate" parameterType="hashMap">
+
+		UPDATE STOPRQHD SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+
+
+
+		<if test="_databaseId == 'oracle'">
+	        <if test="CHG_TYPE == 'START'">
+	        	,RFX_FROM_DATE = <include refid="com.sql.toDate"/> (  #{CHG_DATE}) ,'YYYYMMDD HH24:MI:SS')
+				,FROM_MOD_RMK = #{FROM_MOD_RMK}
+	        </if>
+	        <if test="CHG_TYPE == 'END'">
+				,RFX_TO_DATE = <include refid="com.sql.toDate"/> (  #{CHG_DATE}) ,'YYYYMMDD HH24:MI:SS')
+				,TO_EXTEND_RMK = #{TO_EXTEND_RMK}
+				,PROGRESS_CD =  '2350'
+			</if>
+		</if>
+		<if test="_databaseId == 'mssql'">
+	        <if test="CHG_TYPE == 'START'">
+	        	,RFX_FROM_DATE = CONVERT(DATETIME,  #{CHG_DATE})
+				,FROM_MOD_RMK = #{FROM_MOD_RMK}
+	        </if>
+	        <if test="CHG_TYPE == 'END'">
+				,RFX_TO_DATE = CONVERT(DATETIME,  #{CHG_DATE})
+				,TO_EXTEND_RMK = #{TO_EXTEND_RMK}
+				,PROGRESS_CD =  '2350'
+			</if>
+		</if>
+
+
+
+
+
+
+		WHERE GATE_CD=#{ses.gateCd}
+		AND BUYER_CD = #{BUYER_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+	<update id="closeRfq" parameterType="hashMap">
+		UPDATE STOPRQHD SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,RFX_TO_DATE = <include refid="com.sql.sysdate"/>
+			,FORCE_CLOSE_RMK = #{FORCE_CLOSE_RMK}
+			,PROGRESS_CD = '2355'
+		WHERE GATE_CD=#{ses.gateCd}
+		AND BUYER_CD = #{BUYER_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+
+	<update id="transfer" parameterType="hashMap">
+		UPDATE STOPRQHD SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,CTRL_USER_ID = #{CTRL_USER_ID}
+			,CTRL_USER_NM = #{CTRL_USER_NM}
+		WHERE GATE_CD=#{ses.gateCd}
+		AND BUYER_CD = #{BUYER_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+
+    <select id="getRfqQtaList" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 A.VENDOR_CD
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN 'Y' ELSE 'N' END) AS QTA_YN
+			,(CASE B.SETTLE_YN WHEN '1' THEN 'Y' WHEN '0' THEN 'N' ELSE  <include refid="com.sql.nvl"/>(B.SETTLE_YN,'N') END) SETTLE_YN
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			, B.VENDOR_USER_NM
+			, B.VENDOR_USER_TEL_NUM
+			, B.QTA_NUM
+			,(CASE WHEN C.OPEN_BID_DATE IS NULL THEN 0 ELSE B.QTA_AMT END) AS QTA_AMT
+			,<include refid="com.sql.dbo"/>GETTOCHAR(A.RECEIPT_DATE,'YYYY-MM-DD HH24:MI:SS') AS RECEIPT_DATE
+			,<include refid="com.sql.dbo"/>GETTOCHAR(B.SUBMIT_DATE,'YYYY-MM-DD HH24:MI:SS') AS SUBMIT_DATE
+			,(CASE WHEN A.GIVEUP_FLAG = '1' THEN 'Y' ELSE 'N' END) AS GIVE_UP_YN
+			, B.REG_IP_ADDR IP_ADDR
+			, C.PROGRESS_CD
+			, A.GIVEUP_RMK
+		FROM (
+			 SELECT
+			     A.GATE_CD
+			    ,A.BUYER_CD
+			    ,A.RFX_NUM
+			    ,A.RFX_CNT
+				,A.VENDOR_CD
+				,MAX(A.PROGRESS_CD)  AS PROGRESS_CD
+				,MAX(A.GIVEUP_FLAG)  AS GIVEUP_FLAG
+				,MAX(A.RECEIPT_DATE) AS RECEIPT_DATE
+				,MAX(A.GIVEUP_DATE)  AS GIVEUP_DATE
+				,MAX(A.GIVEUP_RMK)   AS GIVEUP_RMK
+			 FROM STOPRQVN A
+			 WHERE A.GATE_CD=#{ses.gateCd}
+			 AND A.BUYER_CD = #{BUYER_CD}
+			 AND A.RFX_NUM = #{RFX_NUM}
+			 AND A.RFX_CNT = #{RFX_CNT}
+			 AND A.DEL_FLAG = '0'
+			 GROUP BY A.GATE_CD
+			    ,A.BUYER_CD
+			    ,A.RFX_NUM
+			    ,A.RFX_CNT
+				,A.VENDOR_CD
+			 ) A LEFT OUTER JOIN (
+											SELECT
+												 A.VENDOR_CD
+												,MAX(A.VENDOR_USER_NM) VENDOR_USER_NM
+												,MAX(A.VENDOR_USER_TEL_NUM) VENDOR_USER_TEL_NUM
+												,MAX(A.QTA_NUM) QTA_NUM
+												,MAX(A.REG_DATE) REG_DATE
+												,MAX(A.SUBMIT_DATE) SUBMIT_DATE
+
+												,SUM(B.QTA_AMT) QTA_AMT
+												,MAX(B.SLT_FLAG) SETTLE_YN
+												,MAX(A.REG_IP_ADDR) REG_IP_ADDR
+											FROM STOPQTHD A JOIN STOPQTDT B
+																			ON A.GATE_CD = B.GATE_CD
+																			AND A.BUYER_CD = B.BUYER_CD
+																			AND A.QTA_NUM = B.QTA_NUM
+																			AND A.DEL_FLAG = '0'
+																			AND B.DEL_FLAG = '0'
+																			AND B.PROGRESS_CD = '300'
+											WHERE A.GATE_CD=#{ses.gateCd}
+											AND A.BUYER_CD = #{BUYER_CD}
+											AND A.RFX_NUM = #{RFX_NUM}
+											AND A.RFX_CNT = #{RFX_CNT}
+											GROUP BY A.VENDOR_CD
+										) B
+										ON A.VENDOR_CD = B.VENDOR_CD
+					     JOIN STOPRQHD C 	ON A.GATE_CD = C.GATE_CD
+											AND A.BUYER_CD = C.BUYER_CD
+											AND A.RFX_NUM = C.RFX_NUM
+											AND A.RFX_CNT = C.RFX_CNT
+	</select>
+
+    <select id="getRfqHd" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 A.GATE_CD
+			,A.BUYER_CD
+			,A.RFX_NUM
+			,A.RFX_CNT
+			,A.REG_DATE
+			,A.REG_USER_ID
+			,A.MOD_DATE
+			,A.MOD_USER_ID
+			,A.DEL_FLAG
+			,A.RFX_TYPE
+			,A.RFX_SUBJECT
+			,A.RFX_DATE
+			,A.PR_TYPE
+			,A.PR_REQ_TYPE
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			,<include refid="com.sql.dbo"/>GETTOCHAR(A.RFX_FROM_DATE, 'YYYYMMDD') RFX_FROM_DATE
+			,<include refid="com.sql.dbo"/>GETTOCHAR(A.RFX_TO_DATE, 'YYYYMMDD') RFX_TO_DATE
+			,<include refid="com.sql.dbo"/>GETTOCHAR(A.RFX_BF_DAY1, 'YYYYMMDD') RFX_BF_DAY1
+			,<include refid="com.sql.dbo"/>GETTOCHAR(A.RFX_BF_DAY2, 'YYYYMMDD') RFX_BF_DAY2
+			<if test="_databaseId == 'oracle'">
+				,TO_CHAR(A.RFX_FROM_DATE,'HH24') FROM_RFX_HH
+				,TO_CHAR(A.RFX_FROM_DATE,'MI') FROM_RFX_MM
+				,TO_CHAR(A.RFX_TO_DATE,'HH24') TO_RFX_HH
+				,TO_CHAR(A.RFX_TO_DATE,'MI') TO_RFX_MM
+			</if>
+			<if test="_databaseId == 'mssql'">
+				,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5),1,2) FROM_RFX_HH
+				,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5),4,2) FROM_RFX_MM
+				,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5),1,2) TO_RFX_HH
+				,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5),4,2) TO_RFX_MM
+			</if>
+
+			,<include refid="com.sql.dbo"/>GETTOCHAR( A.RFX_FROM_DATE, 'YYYY-MM-DD HH24:MI') RFX_FROM_DATE2
+			,<include refid="com.sql.dbo"/>GETTOCHAR( A.RFX_TO_DATE, 'YYYY-MM-DD HH24:MI') RFX_TO_DATE2
+
+			,A.VENDOR_OPEN_TYPE
+			,A.VENDOR_SLT_TYPE
+			,A.PRC_SLT_TYPE
+			,A.CUR
+			,A.SHIPPER_TYPE
+			,A.DELY_TERMS
+			,A.PAY_TERMS
+			,A.PRIVATE_RMK
+			,A.RMK
+			,A.ATT_FILE_NUM
+			,A.ATT_FILE_NUM_IN
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.SIGN_STATUS
+			,A.SIGN_DATE
+			,A.FROM_MOD_RMK
+			,A.TO_EXTEND_RMK
+			,A.FORCE_CLOSE_RMK
+			,CASE WHEN A.PROGRESS_CD = '2350' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '2355' ELSE A.PROGRESS_CD END AS PROGRESS_CD
+			,A.PUR_ORG_CD
+		FROM STOPRQHD A
+		WHERE GATE_CD=#{ses.gateCd}
+		AND BUYER_CD = #{BUYER_CD}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</select>
+
+    <select id="getRfqHdList" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 A.GATE_CD
+			,A.BUYER_CD
+			,A.RFX_NUM
+			,A.RFX_CNT
+			,A.REG_DATE
+			,A.REG_USER_ID
+			,A.MOD_DATE
+			,A.MOD_USER_ID
+			,A.DEL_FLAG
+			,A.RFX_TYPE
+			,A.RFX_SUBJECT
+			,A.RFX_DATE
+			,A.PR_TYPE
+			,A.PR_REQ_TYPE
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			<if test="_databaseId == 'mssql'">
+				,REPLACE(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 111) + ' ' + LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5), '/', '-') RFX_FROM_DATE
+				,REPLACE(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 111) + ' ' + LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5), '/', '-') RFX_TO_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+				,<include refid="com.sql.toDateChar"/>(A.RFX_FROM_DATE,'YYYY-MM-DD HH24:MI:SS') RFX_FROM_DATE
+				,<include refid="com.sql.toDateChar"/>(A.RFX_TO_DATE,'YYYY-MM-DD HH24:MI:SS') RFX_TO_DATE
+			</if>
+			,A.RFX_BF_DAY1
+			,A.RFX_BF_DAY2
+			,A.VENDOR_OPEN_TYPE
+			,A.VENDOR_SLT_TYPE
+			,A.PRC_SLT_TYPE
+			,A.CUR
+			,A.SHIPPER_TYPE
+			,A.DELY_TERMS
+			,A.PAY_TERMS
+			,A.PRIVATE_RMK
+			,A.RMK
+			,A.ATT_FILE_NUM
+			,A.ATT_FILE_NUM_IN
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.SIGN_STATUS
+			,A.SIGN_DATE
+			,A.FROM_MOD_RMK
+			,A.TO_EXTEND_RMK
+			,A.FORCE_CLOSE_RMK
+
+
+
+			,(
+				SELECT COUNT(DISTINCT VENDOR_CD) FROM STOPQTHD WHERE GATE_CD = A.GATE_CD
+				                                AND BUYER_CD = A.BUYER_CD
+				                                AND RFX_NUM = A.RFX_NUM
+				                                AND RFX_CNT = A.RFX_CNT
+				                                AND DEL_FLAG = '0'
+			 ) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+			 (
+				SELECT COUNT(DISTINCT VENDOR_CD) FROM STOPRQVN WHERE GATE_CD = A.GATE_CD
+				                                AND BUYER_CD = A.BUYER_CD
+				                                AND RFX_NUM = A.RFX_NUM
+				                                AND RFX_CNT = A.RFX_CNT
+				                                AND DEL_FLAG = '0'
+			 )
+			 VENDOR_CNT
+
+
+
+
+			,CASE WHEN A.PROGRESS_CD = '2350' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '2355' ELSE A.PROGRESS_CD END AS PROGRESS_CD
+		FROM STOPRQHD A
+		WHERE GATE_CD=#{ses.gateCd}
+		  AND A.DEL_FLAG = '0'
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND
+                    <choose>
+                      <when test='TYPE == "REG_DATE"'> A.REG_DATE </when>
+                      <when test='TYPE == "RFX_TO_DATE"'> A.RFX_TO_DATE </when>
+                      <when test='TYPE == "RFX_FROM_DATE"'> A.RFX_FROM_DATE </when>
+                    </choose>
+		           <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND
+                    <choose>
+                      <when test='TYPE == "REG_DATE"'> A.REG_DATE </when>
+                      <when test='TYPE == "RFX_TO_DATE"'> A.RFX_TO_DATE </when>
+                      <when test='TYPE == "RFX_FROM_DATE"'> A.RFX_FROM_DATE </when>
+                    </choose>
+            		<![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+
+
+
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+           AND A.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="BUYER_CD != '' and BUYER_CD != null">
+           AND A.BUYER_CD = #{BUYER_CD}
+        </if>
+        <if test="RFX_NUM != '' and RFX_NUM != null">
+           AND A.RFX_NUM = #{RFX_NUM}
+        </if>
+        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+          AND A.RFX_SUBJECT <include refid="com.sql.likeL"/>#{RFX_SUBJECT}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CTRL_USER_ID <include refid="com.sql.likeL"/>#{CTRL_USER_ID}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_NM != '' and CTRL_USER_NM != null">
+           AND A.CTRL_USER_NM <include refid="com.sql.likeL"/>#{CTRL_USER_NM}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND CASE WHEN A.PROGRESS_CD = '200' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '300' ELSE A.PROGRESS_CD END = #{PROGRESS_CD}
+        </if>
+        <if test="VENDOR_OPEN_TYPE != '' and VENDOR_OPEN_TYPE != null">
+           AND A.VENDOR_OPEN_TYPE = #{VENDOR_OPEN_TYPE}
+        </if>
+        <if test="RFX_TYPE != '' and RFX_TYPE != null">
+           AND A.RFX_TYPE = #{RFX_TYPE}
+        </if>
+
+		ORDER BY A.RFX_DATE DESC,A.RFX_NUM DESC, A.RFX_CNT DESC
+
+	</select>
+
+
+
+
+
+
+
+
+
+    <!--***************************************************************************-->
+    <insert id="insertRQHD">
+            INSERT INTO STOPRQHD (
+                           GATE_CD
+                         , BUYER_CD
+                         , RFX_NUM
+                         , RFX_CNT
+                         , REG_DATE
+                         , REG_USER_ID
+                         , MOD_DATE
+                         , MOD_USER_ID
+                         , DEL_FLAG
+                         , RFX_TYPE
+                         , RFX_SUBJECT
+                         , RFX_DATE
+                         , PR_TYPE
+                         , PR_REQ_TYPE
+                         , CTRL_USER_ID
+                         , CTRL_USER_NM
+                         , RFX_FROM_DATE
+                         , RFX_TO_DATE
+                         , RFX_BF_DAY
+                         , VENDOR_OPEN_TYPE
+                         , VENDOR_SLT_TYPE
+                         , PRC_SLT_TYPE
+                         , CUR
+                         , SHIPPER_TYPE
+                         , DELY_TERMS
+                         , PAY_TERMS
+                         , PRIVATE_RMK
+                         , RMK
+                         , ATT_FILE_NUM
+                         , ATT_FILE_NUM_IN
+                         , APP_DOC_NUM
+                         , APP_DOC_CNT
+                         , SIGN_STATUS
+                         , SIGN_DATE
+                         , PROGRESS_CD
+                        )
+                    VALUES (
+                          #{GATE_CD}
+                        , #{BUYER_CD}
+                        , #{RFX_NUM}
+                        , #{RFX_CNT}
+                        , <include refid="com.sql.sysdate"/>
+                        , #{CTRL_USER_ID}
+                        , <include refid="com.sql.sysdate"/>
+                        , #{ses.userId}
+                        , '0'
+                        , #{RFX_TYPE}
+                        , #{RFX_SUBJECT}
+                        , <include refid="com.sql.sysdate"/>
+                        , #{PR_TYPE}
+                        , #{PR_REQ_TYPE}
+                        , #{CTRL_USER_ID}
+                        , #{CTRL_USER_NM}
+
+                        <if test="_databaseId == 'oracle'">
+                            , <include refid="com.sql.toDate"/>#{RFX_FROM_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_FROM_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_FROM_MIN} <include refid="com.sql.stringMerge"/> ':00', 'YYYYMMDD HH24:MI:SS')
+                            , <include refid="com.sql.toDate"/>#{RFX_TO_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_TO_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_TO_MIN} <include refid="com.sql.stringMerge"/>  ':00', 'YYYYMMDD HH24:MI:SS')
+                        </if>
+
+                        <if test="_databaseId == 'mssql'">
+                            , <include refid="com.sql.toDate"/>#{RFX_FROM_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_FROM_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_FROM_MIN})
+                            , <include refid="com.sql.toDate"/>#{RFX_TO_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_TO_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_TO_MIN})
+                        </if>
+
+                        , CASE WHEN #{RFX_BF_DAY} = '' THEN NULL ELSE #{RFX_BF_DAY} END --RFX_BF_DAY
+                        , #{VENDOR_OPEN_TYPE}
+                        , #{VENDOR_SLT_TYPE}
+                        , #{PRC_SLT_TYPE}
+                        , #{CUR}
+                        , #{SHIPPER_TYPE}
+                        , #{DELY_TERMS}
+                        , #{PAY_TERMS}
+                        , #{PRIVATE_RMK}
+                        , #{RMK}
+                        , #{ATT_FILE_NUM}
+                        , #{ATT_FILE_NUM_IN}
+                        , #{APP_DOC_NUM}
+                        , CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END   --APP_DOC_CNT
+                        , #{SIGN_STATUS}
+                        , <include refid="com.sql.sysdate"/>
+                        , #{PROGRESS_CD}
+                    )
+    </insert>
+
+    <update id="updateRQHD">
+                UPDATE STOPRQHD
+                   SET MOD_DATE = <include refid="com.sql.sysdate"/>
+                     , MOD_USER_ID = #{ses.userId}
+                     , RFX_TYPE = #{RFX_TYPE}
+                     , RFX_SUBJECT = #{RFX_SUBJECT}
+                     , RFX_DATE = <include refid="com.sql.sysdate"/>
+                     , PR_TYPE = #{PR_TYPE}
+                     , PR_REQ_TYPE = #{PR_REQ_TYPE}
+                     , CTRL_USER_ID = #{CTRL_USER_ID}
+                     , CTRL_USER_NM = #{CTRL_USER_NM}
+
+                      <if test="_databaseId == 'oracle'">
+                        , RFX_FROM_DATE = <include refid="com.sql.toDate"/>#{RFX_FROM_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_FROM_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_FROM_MIN} <include refid="com.sql.stringMerge"/> ':00', 'YYYYMMDD HH24:MI:SS')
+                        , RFX_TO_DATE = <include refid="com.sql.toDate"/>#{RFX_TO_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_TO_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_TO_MIN} <include refid="com.sql.stringMerge"/>  ':00', 'YYYYMMDD HH24:MI:SS')
+                      </if>
+
+                      <if test="_databaseId == 'mssql'">
+                        , RFX_FROM_DATE = <include refid="com.sql.toDate"/>#{RFX_FROM_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_FROM_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_FROM_MIN})
+                        , RFX_TO_DATE = <include refid="com.sql.toDate"/>#{RFX_TO_DATE} <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> #{RFX_TO_HOUR} <include refid="com.sql.stringMerge"/> ':' <include refid="com.sql.stringMerge"/> #{RFX_TO_MIN})
+                      </if>
+
+                     , RFX_BF_DAY = CASE WHEN #{RFX_BF_DAY} = '' THEN NULL ELSE #{RFX_BF_DAY} END --RFX_BF_DAY
+                     , VENDOR_OPEN_TYPE = #{VENDOR_OPEN_TYPE}
+                     , VENDOR_SLT_TYPE = #{VENDOR_SLT_TYPE}
+                     , PRC_SLT_TYPE = #{PRC_SLT_TYPE}
+                     , CUR = #{CUR}
+                     , SHIPPER_TYPE = #{SHIPPER_TYPE}
+                     , DELY_TERMS = #{DELY_TERMS}
+                     , PAY_TERMS = #{PAY_TERMS}
+                     , PRIVATE_RMK = #{PRIVATE_RMK}
+                     , ATT_FILE_NUM = #{ATT_FILE_NUM}
+                     , ATT_FILE_NUM_IN = #{ATT_FILE_NUM_IN}
+                     , APP_DOC_NUM = #{APP_DOC_NUM}
+                     , APP_DOC_CNT = CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END   --APP_DOC_CNT
+                     , SIGN_STATUS = #{SIGN_STATUS}
+                     , SIGN_DATE = <include refid="com.sql.sysdate"/>
+                     , PROGRESS_CD = #{PROGRESS_CD}
+                 WHERE GATE_CD = #{GATE_CD}
+                   AND BUYER_CD = #{BUYER_CD}
+                   AND RFX_NUM = #{RFX_NUM}
+                   AND RFX_CNT = #{RFX_CNT}
+
+
+    </update>
+
+    <delete id="deleteRQDT">
+               UPDATE STOPRQDT
+                  SET DEL_FLAG = '1'
+                WHERE GATE_CD = #{GATE_CD}
+                  AND BUYER_CD = #{BUYER_CD}
+                  AND RFX_NUM = #{RFX_NUM}
+                  AND RFX_CNT = #{RFX_CNT}
+                  AND RFX_SQ = #{RFX_SQ}
+    </delete>
+
+    <insert id="insertRQDT">
+                INSERT INTO STOPRQDT(
+                                 GATE_CD
+                               , BUYER_CD
+                               , RFX_NUM
+                               , RFX_CNT
+                               , RFX_SQ
+                               , REG_DATE
+                               , REG_USER_ID
+                               , MOD_DATE
+                               , MOD_USER_ID
+                               , DEL_FLAG
+                               , PR_NUM
+                               , PR_SQ
+                               , PROGRESS_CD
+                               , ITEM_CD
+                               , ITEM_DESC
+                               , ITEM_SPEC
+                               , UNIT_CD
+                               , CUR
+                               , RFX_QT
+                               , UNIT_PRC
+                               , RFX_AMT
+                               , MAKER_CD
+                               , MAKER_PART_NO
+                               , ORIGIN_CD
+                               , PLANT_CD
+                               , ATT_FILE_NUM
+                               , DELY_DATE
+                               , DELY_PLACE_NM
+                               , RMK
+                        )
+                            VALUES (
+                                 #{GATE_CD}
+                               , #{BUYER_CD}
+                               , #{RFX_NUM}
+                               , #{RFX_CNT}
+                               , (SELECT COUNT(*) + 1 FROM STOPRQDT WHERE GATE_CD = #{GATE_CD} AND BUYER_CD = #{BUYER_CD}  AND RFX_NUM = #{RFX_NUM} AND RFX_CNT =  #{RFX_CNT}) --RFX_SQ
+                               ,  <include refid="com.sql.sysdate"/>
+                               , #{ses.userId}
+                               ,  <include refid="com.sql.sysdate"/>
+                               , #{ses.userId}
+                               , '0'
+                               , #{PR_NUM}
+                               , #{PR_SQ}
+                               , #{PROGRESS_CD}
+                               , #{ITEM_CD}
+                               , #{ITEM_DESC}
+                               , #{ITEM_SPEC}
+                               , #{UNIT_CD}
+                               , #{CUR}
+                               , #{RFX_QT}
+                               , #{UNIT_PRC}
+                               , #{RFX_AMT}
+                               , #{MAKER_CD}
+                               , #{MAKER_PART_NO}
+                               , #{ORGIN_CD}
+                               , #{PLANT_CD}
+                               , #{ATT_FILE_NUM}
+                               , #{DELY_DATE}
+                               , #{DELY_PLACE_NM}
+                               , #{RMK}
+                        )
+        </insert>
+
+        <update id="updateRQDT">
+              UPDATE STOPRQDT
+                 SET MOD_DATE = <include refid="com.sql.sysdate"/>
+                   , MOD_USER_ID = #{ses.userId}
+                   , PROGRESS_CD = #{PROGRESS_CD}
+                   , ITEM_CD = #{ITEM_CD}
+                   , ITEM_DESC = #{ITEM_DESC}
+                   , ITEM_SPEC = #{ITEM_SPEC}
+                   , UNIT_CD = #{UNIT_CD}
+                   , CUR = #{CUR}
+                   , RFX_QT = #{RFX_QT}
+                   , UNIT_PRC = #{UNIT_PRC}
+                   , RFX_AMT = #{RFX_AMT}
+                   , MAKER_CD = #{MAKER_CD}
+                   , MAKER_PART_NO = #{MAKER_PART_NO}
+                   , ORIGIN_CD = #{ORGIN_CD}
+                   , PLANT_CD = #{PLANT_CD}
+                   , ATT_FILE_NUM = #{ATT_FILE_NUM}
+                   , DELY_DATE = #{DELY_DATE}
+                   , DELY_PLACE_NM = #{DELY_PLACE_NM}
+                   , RMK = #{RMK}
+               WHERE GATE_CD = #{GATE_CD}
+                 AND BUYER_CD = #{BUYER_CD}
+                 AND RFX_NUM = #{RFX_NUM}
+                 AND RFX_CNT = #{RFX_CNT}
+                 AND RFX_SQ = #{RFX_SQ}
+        </update>
+
+        <select id="getRqdtByRfxNum" parameterType="hashMap" resultType="hashMap">
+            SELECT RQDT.ITEM_CD
+                , RQDT.ITEM_DESC
+                , RQDT.ITEM_SPEC
+                , RQDT.MAKER_CD
+                , RQDT.MAKER_NM
+                , RQDT.MAKER_PART_NO
+                , RQDT.UNIT_CD
+                , RQDT.RFX_QT
+                , RQDT.UNIT_PRC
+                , RQDT.ATT_FILE_NUM
+                , '' AS VENDER_N
+                , '' AS VENDER_S
+                , RQDT.DELY_DATE
+                , RQDT.DELY_PLACE_NM
+                , RQDT.PR_NUM
+                , RQDT.RFX_NUM
+            FROM STOPRQDT RQDT
+            INNER JOIN STOPRQHD RQHD
+            ON (RQDT.GATE_CD = RQHD.GATE_CD
+            AND RQDT.BUYER_CD = RQHD.BUYER_CD
+            AND RQDT.RFX_NUM = RQHD.RFX_NUM
+            AND RQDT.RFX_CNT = RQHD.RFX_CNT
+            AND RQDT.DEL_FLAG = 0
+            AND RQHD.DEL_FLAG = 0)
+        </select>
+
+        <select id="getVendorListDefault" resultType="hashMap">
+                SELECT VNGL.VENDOR_CD
+                     , VNGL.VENDOR_NM
+                     , VNGL.CEO_USER_NM
+                     , VNGL.IRS_NO
+                     , CVUR.USER_NM
+                     , CVUR.TEL_NUM
+                     , CVUR.EMAIL
+                     , CVUR.USER_ID
+                     , CVUR.CELL_NUM
+                     , VNGL.MAKER_NM
+                  FROM STOCVNGL VNGL
+                  <!--<foreach collection="prBuyerCdList" index="index" item="buyerCd">
+                  JOIN (SELECT * FROM STOCVNCM WHERE BUYER_CD = {buyerCd}) VNCM${index} ON VNCM${index}.VENDOR_CD = VNGL.VENDOR_CD
+                  </foreach>-->
+       LEFT OUTER JOIN STOCCVUR CVUR
+                   ON (VNGL.GATE_CD = CVUR.GATE_CD
+                   AND VNGL.VENDOR_CD = CVUR.COMPANY_CD
+                   AND CVUR.DEL_FLAG = 0)
+                 WHERE VNGL.GATE_CD = #{ses.gateCd}
+                   AND <include refid="com.sql.nvl"/>(VNGL.BLOCK_FLAG, '0') = '0'
+                   AND VNGL.VENDOR_CD IN (SELECT VENDOR_CD FROM STOCVNCM WHERE PROGRESS_CD IN ('P','E') AND BUYER_CD IN
+                                            <foreach collection="prBuyerCdList" item="buyerCd" open="(" close=")" separator=",">
+                                                #{buyerCd}
+                                            </foreach>
+                                         )
+                <if test="MAJOR_SEARCH != null and MAJOR_SEARCH != ''">
+                   AND
+                    <choose>
+                        <when test='TYPE == "MAJOR_ITEM_NM"'> VNGL.MAJOR_ITEM_NM </when>
+						<when test='TYPE == "MAJOR_VENDOR_RMK"'> VNGL.MAJOR_VENDOR_RMK </when>
+						<when test='TYPE == "MAJOR_CERT_RMK"'> VNGL.MAJOR_CERT_RMK </when>
+                    </choose>
+                   <include refid="com.sql.likeL"/> #{MAJOR_SEARCH} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="VENDOR_NM != '' and VENDOR_NM != null">
+                   AND UPPER(VNGL.VENDOR_NM) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="VENDOR_CD != '' and VENDOR_CD != null">
+                   AND UPPER(VNGL.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="CEO_USER_NM != '' and CEO_USER_NM != null">
+                   AND UPPER(VNGL.CEO_USER_NM) <include refid="com.sql.likeL"/> #{CEO_USER_NM} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="IRS_NO != '' and IRS_NO != null">
+                   AND UPPER(VNGL.IRS_NO) <include refid="com.sql.likeL"/> #{IRS_NO} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="VENDOR_TYPE != null and VENDOR_TYPE != ''">
+                    AND VNGL.VENDOR_TYPE in ('B','P')
+                </if>
+                <if test="VENDOR_TYPE == null or VENDOR_TYPE == ''">
+                    AND VNGL.VENDOR_TYPE in ('B')
+                </if>
+        </select>
+
+        <delete id="deleteRQVN">
+               DELETE FROM STOPRQVN
+                     WHERE GATE_CD = #{GATE_CD}
+                       AND BUYER_CD = #{BUYER_CD}
+                       AND RFX_NUM = #{RFX_NUM}
+                       AND RFX_CNT = #{RFX_CNT}
+        </delete>
+
+        <insert id="insertRQVN">
+            <selectKey keyProperty="RFX_SQ_KEY" resultType="int" order="BEFORE">
+                SELECT MAX(RFX_SQ) FROM STOPRQDT
+                  WHERE GATE_CD  = #{ses.gateCd}
+                    AND RFX_NUM  = #{RFX_NUM}
+                    AND RFX_CNT  = #{RFX_CNT}
+            </selectKey>
+
+                INSERT INTO STOPRQVN(
+                            GATE_CD
+                          , BUYER_CD
+                          , RFX_NUM
+                          , RFX_CNT
+                          , RFX_SQ
+                          , VENDOR_CD
+                          , REG_DATE
+                          , REG_USER_ID
+                          , MOD_DATE
+                          , MOD_USER_ID
+                          , DEL_FLAG
+                          , PROGRESS_CD
+                          , ITEM_CD
+                          , ITEM_DESC
+                ) VALUES(
+                           #{ses.gateCd}
+                         , #{BUYER_CD}
+                         , #{RFX_NUM}
+                         , #{RFX_CNT}
+                         <if test="RFX_SQ != null and RFX_SQ != ''">
+                            , #{RFX_SQ}
+                         </if>
+                         <if test="RFX_SQ == null or RFX_SQ == ''">
+                            , #{RFX_SQ_KEY}
+                         </if>
+                         , #{VENDOR_CD}
+                         , <include refid="com.sql.sysdate"/>
+                         , #{ses.userId}
+                         , <include refid="com.sql.sysdate"/>
+                         , #{ses.userId}
+                         , '0'
+                         , #{PROGRESS_CD}
+                         , #{ITEM_CD}
+                         , #{ITEM_DESC}
+                )
+        </insert>
+
+        <select id="getSignStatus" resultType="string">
+                    SELECT SIGN_STATUS
+                      FROM STOPRQHD
+                     WHERE GATE_CD = #{ses.gateCd}
+                       AND BUYER_CD = #{BUYER_CD}
+                       AND RFX_NUM = #{RFX_NUM}
+                       AND RFX_CNT = #{RFX_CNT}
+        </select>
+
+        <update id="updatePrdtProgress">
+                    UPDATE STOPPRDT
+                       SET PROGRESS_CD = #{PROGRESS_CD}
+                         , MOD_DATE = <include refid="com.sql.sysdate"/>
+                         , MOD_USER_ID = #{ses.userId}
+                     WHERE GATE_CD = #{ses.gateCd}
+                       AND BUYER_CD = #{BUYER_CD}
+                       AND PR_NUM = #{PR_NUM}
+                       AND PR_SQ = #{PR_SQ}
+        </update>
+
+        <select id="getRfxHdDetail" resultType="hashmap">
+                       SELECT
+                             A.GATE_CD
+                            ,A.BUYER_CD
+                            ,A.RFX_NUM
+                            ,A.RFX_CNT
+                            ,<include refid="com.sql.dbo"/>getGmtDate(A.RFX_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS RFX_DATE
+                            ,A.REG_USER_ID
+                            ,A.MOD_DATE
+                            ,A.MOD_USER_ID
+                            ,A.DEL_FLAG
+                            ,A.RFX_TYPE
+                            ,A.RFX_SUBJECT
+                            ,A.RFX_DATE
+                            ,A.PR_TYPE
+                            ,A.PR_REQ_TYPE
+                            ,A.CTRL_USER_ID
+                            ,A.CTRL_USER_NM
+                            <if test="_databaseId == 'mssql'">
+                                ,<include refid="com.sql.dbo"/>getGmtDate(A.RFX_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) RFX_FROM_DATE
+                                ,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5),1,2) RFX_FROM_HOUR
+                                ,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5),4,2) RFX_FROM_MIN
+                                ,<include refid="com.sql.dbo"/>getGmtDate(A.RFX_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) RFX_TO_DATE
+                                ,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5),1,2) RFX_TO_HOUR
+                                ,SUBSTRING(LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5),4,2) RFX_TO_MIN
+                            </if>
+                            <if test="_databaseId == 'oracle'">
+                                ,<include refid="com.sql.dbo"/>getGmtDate(A.RFX_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) RFX_FROM_DATE
+                                ,TO_CHAR(A.RFX_FROM_DATE, 'HH24') AS RFX_FROM_HOUR
+                                ,TO_CHAR(A.RFX_FROM_DATE, 'MI') AS RFX_FROM_MIN
+                                ,<include refid="com.sql.dbo"/>getGmtDate(A.RFX_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) RFX_TO_DATE
+                                ,TO_CHAR(A.RFX_TO_DATE, 'HH24') AS RFX_TO_HOUR
+                                ,TO_CHAR(A.RFX_TO_DATE, 'MI') AS RFX_TO_MIN
+                            </if>
+                            ,A.RFX_BF_DAY
+                            ,A.VENDOR_OPEN_TYPE
+                            ,A.VENDOR_SLT_TYPE
+                            ,A.PRC_SLT_TYPE
+                            ,A.CUR
+                            ,A.SHIPPER_TYPE
+                            ,A.DELY_TERMS
+                            ,A.PAY_TERMS
+                            ,A.PRIVATE_RMK
+                            ,A.RMK
+                            ,A.ATT_FILE_NUM
+                            ,A.ATT_FILE_NUM_IN
+                            ,A.APP_DOC_NUM
+                            ,A.APP_DOC_CNT
+                            ,A.SIGN_STATUS
+                            ,A.SIGN_DATE
+                            ,A.FROM_MOD_RMK
+                            ,A.TO_EXTEND_RMK
+                            ,A.FORCE_CLOSE_RMK
+                            ,CASE WHEN A.PROGRESS_CD = '2350' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '2355' ELSE A.PROGRESS_CD END AS PROGRESS_CD
+                        FROM STOPRQHD A
+                       WHERE A.GATE_CD = #{ses.gateCd}
+                        <if test="APP_DOC_NUM == '' or APP_DOC_NUM == null">
+                                AND A.BUYER_CD = #{BUYER_CD}
+                                AND A.RFX_NUM = #{RFX_NUM}
+                                AND A.RFX_CNT = #{RFX_CNT}
+                        </if>
+                        <if test="APP_DOC_NUM != '' and APP_DOC_NUM != null">
+                                AND A.APP_DOC_NUM = #{APP_DOC_NUM}
+                                AND A.APP_DOC_CNT = #{APP_DOC_CNT}
+                        </if>
+
+        </select>
+
+        <select id="getRfxDtDetail" resultType="hashmap">
+                        SELECT
+                              RQDT.GATE_CD
+                            , RQDT.BUYER_CD
+                            , RQDT.RFX_NUM
+                            , RQDT.RFX_CNT
+                            , RQDT.RFX_SQ
+                            , RQDT.REG_DATE
+                            , RQDT.REG_USER_ID
+                            , RQDT.MOD_DATE
+                            , RQDT.MOD_USER_ID
+                            , RQDT.DEL_FLAG
+                            , RQDT.PR_NUM
+                            , RQDT.PR_SQ
+                            , RQDT.PROGRESS_CD
+                            , RQDT.ITEM_CD
+                            , RQDT.ITEM_DESC
+                            , RQDT.ITEM_SPEC
+                            , RQDT.UNIT_CD
+                            , RQDT.CUR
+                            , RQDT.RFX_QT
+                            , RQDT.UNIT_PRC
+                            , RQDT.RFX_AMT
+                            , RQDT.MAKER_CD
+                            , RQDT.MAKER_NM
+                            , RQDT.MAKER_PART_NO
+                            , RQDT.ORIGIN_CD
+                            , RQDT.PLANT_CD
+                            , RQDT.ATT_FILE_NUM
+                            , <include refid="com.sql.dbo"/>GETFILECOUNT(RQDT.GATE_CD, RQDT.ATT_FILE_NUM) AS ATT_FILE_CNT
+                            , RQDT.DELY_DATE
+                            , RQDT.DELY_PLACE_NM
+                            , RQDT.RMK
+                            , (SELECT COUNT(*) FROM STOPRQVN RQVN WHERE RQVN.GATE_CD = RQDT.GATE_CD AND RQVN.BUYER_CD = RQDT.BUYER_CD AND RQVN.RFX_NUM = RQDT.RFX_NUM AND RQVN.RFX_CNT = RQDT.RFX_CNT AND RQVN.RFX_SQ = RQDT.RFX_SQ) AS VENDOR_S
+                        FROM STOPRQDT RQDT
+                        <if test="ses.userType eq 'S'.toString()">
+                            JOIN STOPRQVN RQVN
+                             ON (RQDT.GATE_CD = RQVN.GATE_CD
+                             AND RQDT.BUYER_CD = RQVN.BUYER_CD
+                             AND RQDT.RFX_NUM = RQVN.RFX_NUM
+                             AND RQDT.RFX_CNT = RQVN.RFX_CNT
+                             AND RQDT.RFX_SQ = RQVN.RFX_SQ
+                             AND RQVN.VENDOR_CD = #{ses.companyCd})
+                        </if>
+                       WHERE RQDT.GATE_CD = #{GATE_CD}
+                         AND RQDT.BUYER_CD = #{BUYER_CD}
+                         AND RQDT.RFX_NUM = #{RFX_NUM}
+                         AND RQDT.RFX_CNT = CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE  #{RFX_CNT} END
+                         AND RQDT.DEL_FLAG = '0'
+                    ORDER BY RQDT.RFX_SQ
+        </select>
+
+        <select id="getRqvnByItem" resultType="hashmap">
+                    SELECT RQVN.VENDOR_CD
+                         , VNGL.VENDOR_NM
+                         , VNGL.CEO_USER_NM
+                         , VNGL.IRS_NO
+                      FROM STOPRQVN RQVN
+                INNER JOIN STOCVNGL VNGL
+                        ON (RQVN.GATE_CD = VNGL.GATE_CD
+                        AND RQVN.VENDOR_CD = VNGL.VENDOR_CD)
+                     WHERE RQVN.GATE_CD = #{GATE_CD}
+                       AND RQVN.BUYER_CD = #{BUYER_CD}
+                       AND RQVN.RFX_NUM = #{RFX_NUM}
+                       AND RQVN.RFX_CNT = #{RFX_CNT}
+                       AND RQVN.RFX_SQ = #{RFX_SQ}
+        </select>
+
+        <update id="updateRqSignStatus">
+            UPDATE STOPRQHD
+               SET SIGN_STATUS = #{SIGN_STATUS}
+                  ,SIGN_DATE = CASE WHEN #{SIGN_STATUS} = 'E' THEN <include refid="com.sql.sysdate"/> ELSE SIGN_DATE END
+            WHERE GATE_CD = #{ses.gateCd}
+            AND APP_DOC_NUM = #{APP_DOC_NUM}
+            AND APP_DOC_CNT = #{APP_DOC_CNT}
+        </update>
+
+        <update id="sendRQ">
+            UPDATE STOPRQDT
+               SET PROGRESS_CD = '2350'
+            WHERE GATE_CD = #{ses.gateCd}
+            AND BUYER_CD = #{BUYER_CD}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+            ANd DEL_FLAG = '0'
+        </update>
+
+        <select id="getVendorCdListByRfx" resultType="string">
+                SELECT DISTINCT VENDOR_CD
+                  FROM STOPRQVN
+                 WHERE RFX_NUM = #{RFX_NUM}
+                   AND RFX_CNT = #{RFX_CNT}
+        </select>
+
+        <select id="getVendorUserList" resultType="hashmap">
+                    SELECT CVUR.USER_ID
+                          ,CVUR.USER_NM
+                          ,CVUR.EMAIL
+                          ,VNGL.VENDOR_NM
+                          ,RQHD.BUYER_NM
+                          ,RQHD.RFX_NUM
+                          ,RQHD.RFX_CNT
+                          ,RQHD.RFX_SUBJECT
+                          ,RQHD.RFX_TO_DATE
+                          ,<include refid="com.sql.dbo"/>GETDEPTNAME(<include refid="com.sql.nvl"/>(USTB.GATE_CD, C_CVUR.GATE_CD), <include refid="com.sql.nvl"/>(USTB.COMPANY_CD, C_CVUR.COMPANY_CD), <include refid="com.sql.nvl"/>(USTB.DEPT_CD, C_CVUR.DEPT_CD), 'ko') AS CTRL_USER_DEPT
+                          ,<include refid="com.sql.dbo"/>GETBUYERNAME(RQHD.GATE_CD, RQHD.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+		                  ,RQHD.CTRL_USER_NM
+		                  ,C_CVUR.EMAIL AS CTRL_USER_EMAIL
+                      FROM STOCVNGL VNGL
+                      JOIN STOPRQHD RQHD
+                       ON (VNGL.GATE_CD = RQHD.GATE_CD)
+                 LEFT JOIN STOCUSER USTB
+					    ON (RQHD.GATE_CD = USTB.GATE_CD
+				       AND RQHD.BUYER_CD = USTB.COMPANY_CD
+				       AND RQHD.CTRL_USER_ID = USTB.USER_ID
+				       AND USTB.USER_TYPE = 'C'
+				       AND USTB.USE_FLAG = '1'
+				       AND USTB.DEL_FLAG = '0')
+                 LEFT JOIN STOCCVUR CVUR
+                       ON (VNGL.GATE_CD = CVUR.GATE_CD
+                       AND VNGL.VENDOR_CD = CVUR.COMPANY_CD
+                       AND CVUR.DEL_FLAG = '0'
+                       AND CVUR.USE_FLAG = '1'
+                       AND CVUR.USER_TYPE = 'S')
+                      JOIN STOCCVUR C_CVUR
+                       ON (C_CVUR.GATE_CD = RQHD.GATE_CD
+                       AND C_CVUR.USER_ID = RQHD.CTRL_USER_ID
+                       AND C_CVUR.DEL_FLAG = '0'
+                       AND C_CVUR.USE_FLAG = '1'
+                       AND C_CVUR.USER_TYPE = 'B')
+                     WHERE RQHD.RFX_NUM = #{RFX_NUM}
+                       AND RQHD.RFX_CNT = #{RFX_CNT}
+                       AND VNGL.VENDOR_CD IN
+                    <foreach item="item" index="index" collection="VENDOR_LIST" open="(" separator="," close=")">
+                         #{item}
+                    </foreach>
+                        AND VNGL.DEL_FLAG = '0'
+        </select>
+
+    <!--  견적요청서 삭제 -->
+    <update id="deleteRFX" parameterType="hashMap">
+        UPDATE ${_TABLE_NM} SET
+              DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND BUYER_CD = #{ses.companyCd}
+           AND RFX_NUM  = #{RFX_NUM}
+           AND RFX_CNT  = #{RFX_CNT}
+    </update>
+
+    <!-- RQ0130 -->
+    <select id="getQtaList" resultType="hashmap">
+        SELECT QTHD.RFX_NUM
+             , QTHD.RFX_CNT
+             , RQHD.RFX_SUBJECT
+             , RQHD.RFX_TYPE
+             , RQHD.VENDOR_OPEN_TYPE
+             , RQHD.VENDOR_SLT_TYPE
+             , QTHD.VENDOR_CD
+             , <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},QTHD.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+             , QTHD.QTA_NUM
+             , QTHD.QTA_AMT
+             , <include refid="com.sql.dbo"/>GETTOCHAR(QTHD.SUBMIT_DATE,'YYYYMMDD') AS SUBMIT_DATE
+             , <include refid="com.sql.dbo"/>GETTOCHAR(QTHD.VALID_TO_DATE,'YYYYMMDD') AS VALID_TO_DATE
+             , RQHD.CTRL_USER_NM
+             , RQHD.PROGRESS_CD
+             , RQHD.BUYER_CD
+          FROM STOPRQHD RQHD
+          JOIN STOPQTHD QTHD ON RQHD.GATE_CD = QTHD.GATE_CD
+          					AND RQHD.BUYER_CD = QTHD.BUYER_CD
+          					AND RQHD.RFX_NUM = QTHD.RFX_NUM
+          					AND RQHD.RFX_CNT = QTHD.RFX_CNT
+         WHERE RQHD.GATE_CD = #{ses.gateCd}
+           AND RQHD.DEL_FLAG = '0'
+           AND RQHD.RFX_TYPE = 'RFQ'
+           AND RQHD.PROGRESS_CD IN ('2400','2500','2550','1300')
+        <!-- 조회조건 : 요청일 -->
+        <if test="SEL_DATE != '' and SEL_DATE != null and SEL_DATE == 'REQ'.toString()">
+            <if test="FROM_DATE != '' and FROM_DATE != null">
+                AND RQHD.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/>
+            </if>
+            <if test="TO_DATE != '' and TO_DATE != null">
+                AND RQHD.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+            </if>
+        </if>
+        <!-- 조회조건 : 종료일 -->
+        <if test="SEL_DATE != '' and SEL_DATE != null and SEL_DATE == 'END'.toString()">
+            <if test="FROM_DATE != '' and FROM_DATE != null">
+                AND RQHD.RFQ_TO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/>
+            </if>
+            <if test="TO_DATE != '' and TO_DATE != null">
+                AND RQHD.RFQ_TO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+            </if>
+        </if>
+        <!-- 조회조건 : 시작일 -->
+        <if test="SEL_DATE != '' and SEL_DATE != null and SEL_DATE == 'STR'.toString()">
+            <if test="FROM_DATE != '' and FROM_DATE != null">
+                AND RQHD.RFQ_FROM_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/>
+            </if>
+            <if test="TO_DATE != '' and TO_DATE != null">
+                AND RQHD.RFQ_FROM_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+            </if>
+        </if>
+        <!-- 조회조건 : 구매유형 -->
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+            AND RQHD.PR_TYPE = #{PR_TYPE}
+        </if>
+        <!-- 조회조건 : 회사명 -->
+        <if test="BUYER_CD != '' and BUYER_CD != null">
+            AND RQHD.BUYER_CD = #{BUYER_CD}
+        </if>
+        <!-- 조회조건 : 오청번호-->
+        <if test="RFX_NUM != '' and RFX_NUM != null">
+            AND RQHD.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- 조회조건 : 요청명-->
+        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+            AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- 조회조건 : 구매담당자 ID-->
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+            AND RQHD.CTRL_USER_ID <include refid="com.sql.likeL"/> #{CTRL_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- 조회조건 : 구매담당자명-->
+        <if test="CTRL_USER_NM != '' and CTRL_USER_NM != null">
+            AND RQHD.CTRL_USER_NM <include refid="com.sql.likeL"/> #{CTRL_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- 조회조건 : 견적/입찰-->
+        <if test="RFX_TYPE != '' and RFX_TYPE != null">
+            AND RQHD.RFX_TYPE  = #{RFX_TYPE}
+        </if>
+        <!-- 조회조건 : 진행상태-->
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND RQHD.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <!-- 조회조건 : 지명방식-->
+        <if test="VENDOR_OPEN_TYPE != '' and VENDOR_OPEN_TYPE != null">
+            AND RQHD.VENDOR_OPEN_TYPE = #{VENDOR_OPEN_TYPE}
+        </if>
+    </select>
+
+
+
+
+    <select id="getOpenSettleTargetList" resultType="hashmap">
+		SELECT
+			 A.GATE_CD
+			,A.BUYER_CD
+			,A.RFX_NUM
+			,A.RFX_CNT
+			,A.REG_DATE
+			,A.REG_USER_ID
+			,A.MOD_DATE
+			,A.MOD_USER_ID
+			,A.DEL_FLAG
+			,A.RFX_TYPE
+			,A.RFX_SUBJECT
+			,A.RFX_DATE
+			,A.PR_TYPE
+			,A.PR_REQ_TYPE
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			<if test="_databaseId == 'mssql'">
+				,REPLACE(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 111) + ' ' + LEFT(CONVERT(NVARCHAR(20),  A.RFX_FROM_DATE, 108), 5), '/', '-') RFX_FROM_DATE
+				,REPLACE(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 111) + ' ' + LEFT(CONVERT(NVARCHAR(20),  A.RFX_TO_DATE, 108), 5), '/', '-') RFX_TO_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+				,<include refid="com.sql.toDateChar"/>(A.RFX_FROM_DATE,'YYYY-MM-DD HH24:MI:SS') RFX_FROM_DATE
+				,<include refid="com.sql.toDateChar"/>(A.RFX_TO_DATE,'YYYY-MM-DD HH24:MI:SS') RFX_TO_DATE
+			</if>
+			,A.RFX_BF_DAY
+			,A.VENDOR_OPEN_TYPE
+			,A.VENDOR_SLT_TYPE
+			,A.PRC_SLT_TYPE
+			,A.CUR
+			,A.SHIPPER_TYPE
+			,A.DELY_TERMS
+			,A.PAY_TERMS
+			,A.PRIVATE_RMK
+			,A.RMK
+			,A.ATT_FILE_NUM
+			,A.ATT_FILE_NUM_IN
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.SIGN_STATUS
+			,A.SIGN_DATE
+			,A.FROM_MOD_RMK
+			,A.TO_EXTEND_RMK
+			,A.FORCE_CLOSE_RMK
+			,CASE WHEN A.PROGRESS_CD = '2350' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '2355' ELSE A.PROGRESS_CD END AS PROGRESS_CD
+
+
+
+			,(
+				SELECT COUNT(DISTINCT VENDOR_CD) FROM STOPQTHD WHERE GATE_CD = A.GATE_CD
+				                                AND BUYER_CD = A.BUYER_CD
+				                                AND RFX_NUM = A.RFX_NUM
+				                                AND RFX_CNT = A.RFX_CNT
+				                                AND DEL_FLAG = '0'
+			 ) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+			 (
+				SELECT COUNT(DISTINCT VENDOR_CD) FROM STOPRQVN WHERE GATE_CD = A.GATE_CD
+				                                AND BUYER_CD = A.BUYER_CD
+				                                AND RFX_NUM = A.RFX_NUM
+				                                AND RFX_CNT = A.RFX_CNT
+				                                AND DEL_FLAG = '0'
+			 )
+			 VENDOR_CNT
+
+
+
+
+		FROM STOPRQHD A
+		WHERE GATE_CD=#{ses.gateCd}
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND
+                    <choose>
+                      <when test='TYPE == "REG_DATE"'> A.REG_DATE </when>
+                      <when test='TYPE == "RFX_TO_DATE"'> A.RFX_TO_DATE </when>
+                      <when test='TYPE == "RFX_FROM_DATE"'> A.RFX_FROM_DATE </when>
+                    </choose>
+		           <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND
+                    <choose>
+                      <when test='TYPE == "REG_DATE"'> A.REG_DATE </when>
+                      <when test='TYPE == "RFX_TO_DATE"'> A.RFX_TO_DATE </when>
+                      <when test='TYPE == "RFX_FROM_DATE"'> A.RFX_FROM_DATE </when>
+                    </choose>
+            		<![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+
+
+
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+           AND A.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="BUYER_CD != '' and BUYER_CD != null">
+           AND A.BUYER_CD = #{BUYER_CD}
+        </if>
+        <if test="RFX_NUM != '' and RFX_NUM != null">
+           AND A.RFX_NUM = #{RFX_NUM}
+        </if>
+        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+          AND A.RFX_SUBJECT <include refid="com.sql.likeL"/>#{RFX_SUBJECT}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CTRL_USER_ID <include refid="com.sql.likeL"/>#{CTRL_USER_ID}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_NM != '' and CTRL_USER_NM != null">
+           AND A.CTRL_USER_NM <include refid="com.sql.likeL"/>#{CTRL_USER_NM}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND CASE WHEN A.PROGRESS_CD = '200' AND <include refid="com.sql.sysdate"/> > A.RFX_TO_DATE THEN '300' ELSE A.PROGRESS_CD END = #{PROGRESS_CD}
+        </if>
+        <if test="VENDOR_OPEN_TYPE != '' and VENDOR_OPEN_TYPE != null">
+           AND A.VENDOR_OPEN_TYPE = #{VENDOR_OPEN_TYPE}
+        </if>
+        <if test="RFX_TYPE != '' and RFX_TYPE != null">
+           AND A.RFX_TYPE = #{RFX_TYPE}
+        </if>
+
+		ORDER BY A.RFX_DATE DESC,A.RFX_NUM DESC, A.RFX_CNT DESC
+	</select>
+
+    <update id="saveQtaOpen">
+        UPDATE STOPRQHD
+           SET PROGRESS_CD = '2400'
+           ,OPEN_BID_DATE    = <include refid="com.sql.sysdate"/>
+           ,OPEN_BID_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+
+    <select id="getSettleItemList" resultType="hashmap">
+		SELECT
+			 A.GIVEUP_FLAG
+			,B.ITEM_CD
+			,B.ITEM_DESC
+			,B.ITEM_SPEC
+			,B.RFX_QT
+			,B.UNIT_CD
+			,B.CUR
+			,B.RFX_AMT
+			,C.SLT_FLAG
+			,DENSE_RANK() OVER (PARTITION BY B.RFX_SQ ORDER BY (CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT ELSE 99999999999999999999 END) ASC) RANK
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.UNIT_PRC ELSE 0 END) AS UNIT_PRC
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT  ELSE 0 END) AS QTA_AMT
+			,C.SLT_RMK
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_NUM ELSE NULL END) AS QTA_NUM
+			,B.DELY_DATE
+			,B.ATT_FILE_NUM AS BATT_FILE_NUM
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.ATT_FILE_NUM ELSE NULL END) AS SATT_FILE_NUM
+			,<include refid="com.sql.dbo"/>GETFILECOUNT(B.GATE_CD, B.ATT_FILE_NUM) AS BATT_FILE_CNT
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN <include refid="com.sql.dbo"/>GETFILECOUNT(C.GATE_CD, C.ATT_FILE_NUM) ELSE '0' END) AS SATT_FILE_CNT
+			,B.RMK BRMK
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.RMK ELSE NULL END) AS SRMK
+			,B.BUYER_CD
+			,B.RFX_NUM
+			,B.RFX_CNT
+			,B.RFX_SQ
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_SQ ELSE NULL END) AS QTA_SQ
+		FROM STOPRQVN A JOIN STOPRQDT B ON A.GATE_CD = B.GATE_CD
+		                                AND A.BUYER_CD = B.BUYER_CD
+		                                AND A.RFX_NUM = B.RFX_NUM
+		                                AND A.RFX_CNT = B.RFX_CNT
+		                                AND A.RFX_SQ = B.RFX_SQ
+		                                AND B.DEL_FLAG = '0'
+					    JOIN STOPQTDT C ON A.GATE_CD = C.GATE_CD
+		                                AND A.BUYER_CD = C.BUYER_CD
+		                                AND A.RFX_NUM = C.RFX_NUM
+		                                AND A.RFX_CNT = C.RFX_CNT
+		                                AND A.RFX_SQ = C.RFX_SQ
+		                                AND A.VENDOR_CD = C.VENDOR_CD
+		                                AND C.DEL_FLAG = '0'
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.BUYER_CD  = #{BUYER_CD}
+		AND A.RFX_NUM   = #{RFX_NUM}
+		AND A.RFX_CNT   = #{RFX_CNT}
+		AND A.DEL_FLAG  = '0'
+	</select>
+
+    <select id="getTargetVendor" resultType="hashmap">
+		SELECT
+			  A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			, DENSE_RANK() OVER (ORDER BY (CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT ELSE 99999999999999999999 END) ASC) RANK
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_NUM ELSE NULL END) AS QTA_NUM
+			, B.CUR
+			,(SELECT SUM(RFX_AMT) FROM STOPRQDT K
+			   WHERE GATE_CD  = #{ses.gateCd}
+			     AND BUYER_CD = #{BUYER_CD}
+			     AND RFX_NUM  = #{RFX_NUM}
+			     AND RFX_CNT  = #{RFX_CNT}
+			     AND DEL_FLAG = '0') RFX_AMT
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT ELSE 0 END) AS QTA_AMT
+			, D.SLT_FLAG
+			, D.SLT_RMK
+		FROM (
+				SELECT
+					 DISTINCT
+					 GATE_CD
+					,BUYER_CD
+					,RFX_NUM
+					,RFX_CNT
+					,VENDOR_CD
+					,PROGRESS_CD
+				FROM STOPRQVN A
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.BUYER_CD  = #{BUYER_CD}
+				AND A.RFX_NUM   = #{RFX_NUM}
+				AND A.RFX_CNT   = #{RFX_CNT}
+				AND A.DEL_FLAG  = '0'
+			  ) A JOIN STOPRQHD B ON A.GATE_CD = B.GATE_CD
+		                                AND A.BUYER_CD = B.BUYER_CD
+		                                AND A.RFX_NUM = B.RFX_NUM
+		                                AND A.RFX_CNT = B.RFX_CNT
+		                                AND B.DEL_FLAG = '0'
+
+			      JOIN STOPQTHD C ON A.GATE_CD = C.GATE_CD
+		                                AND A.BUYER_CD = C.BUYER_CD
+		                                AND A.RFX_NUM = C.RFX_NUM
+		                                AND A.RFX_CNT = C.RFX_CNT
+		                                AND A.VENDOR_CD = C.VENDOR_CD
+		                                AND C.DEL_FLAG = '0'
+				  JOIN (
+				  	SELECT
+						 GATE_CD
+						,BUYER_CD
+						,RFX_NUM
+						,RFX_CNT
+						,VENDOR_CD
+						,MAX(SLT_FLAG) SLT_FLAG
+						,MAX(SLT_RMK) SLT_RMK
+				    FROM STOPQTDT
+					WHERE GATE_CD = #{ses.gateCd}
+					AND BUYER_CD  = #{BUYER_CD}
+					AND RFX_NUM   = #{RFX_NUM}
+					AND RFX_CNT   = #{RFX_CNT}
+					GROUP BY GATE_CD
+							,BUYER_CD
+							,RFX_NUM
+							,RFX_CNT
+							,VENDOR_CD
+				  ) D ON A.GATE_CD = D.GATE_CD
+                      AND A.BUYER_CD = D.BUYER_CD
+                      AND A.RFX_NUM = D.RFX_NUM
+                      AND A.RFX_CNT = D.RFX_CNT
+                      AND A.VENDOR_CD = D.VENDOR_CD
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.BUYER_CD  = #{BUYER_CD}
+		AND A.RFX_NUM   = #{RFX_NUM}
+		AND A.RFX_CNT   = #{RFX_CNT}
+
+	</select>
+	
+    <select id="getTargetItemList" resultType="hashmap">
+
+		SELECT
+			 A.GIVEUP_FLAG
+			,B.ITEM_CD
+			,B.ITEM_DESC
+			,B.ITEM_SPEC
+			,B.RFX_QT
+			,B.UNIT_CD
+			,B.CUR
+			,B.RFX_AMT
+			,C.SLT_FLAG
+			,DENSE_RANK() OVER (ORDER BY (CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT ELSE 99999999999999999999 END) ASC) RANK
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.UNIT_PRC ELSE 0 END) AS UNIT_PRC
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_AMT  ELSE 0 END) AS QTA_AMT
+			,C.SLT_RMK
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.QTA_NUM ELSE NULL END) AS QTA_NUM
+			,B.DELY_DATE
+			,B.ATT_FILE_NUM AS BATT_FILE_NUM
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.ATT_FILE_NUM ELSE NULL END) AS SATT_FILE_NUM
+			,<include refid="com.sql.dbo"/>GETFILECOUNT(B.GATE_CD, B.ATT_FILE_NUM) AS BATT_FILE_CNT
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN <include refid="com.sql.dbo"/>GETFILECOUNT(C.GATE_CD, C.ATT_FILE_NUM) ELSE '0' END) AS SATT_FILE_CNT
+			,B.RMK BRMK
+			,(CASE WHEN A.PROGRESS_CD = '300' THEN C.RMK ELSE NULL END) AS SRMK
+		FROM STOPRQVN A JOIN STOPRQDT B ON A.GATE_CD = B.GATE_CD
+		                                AND A.BUYER_CD = B.BUYER_CD
+		                                AND A.RFX_NUM = B.RFX_NUM
+		                                AND A.RFX_CNT = B.RFX_CNT
+		                                AND A.RFX_SQ = B.RFX_SQ
+		                                AND B.DEL_FLAG = '0'
+					    JOIN STOPQTDT C ON A.GATE_CD = C.GATE_CD
+		                                AND A.BUYER_CD = C.BUYER_CD
+		                                AND A.RFX_NUM = C.RFX_NUM
+		                                AND A.RFX_CNT = C.RFX_CNT
+		                                AND A.RFX_SQ = C.RFX_SQ
+		                                AND C.DEL_FLAG = '0'
+		                                AND C.QTA_NUM = #{QTA_NUM}
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.BUYER_CD  = #{BUYER_CD}
+		AND A.RFX_NUM   = #{RFX_NUM}
+		AND A.RFX_CNT   = #{RFX_CNT}
+		AND A.DEL_FLAG  = '0'
+
+	</select>
+
+    <select id="getDecAmtVendorList" resultType="hashmap">
+		SELECT
+		  A.GATE_CD
+		 ,A.BUYER_CD
+		 ,A.QTA_NUM
+		 ,B.QTA_SQ
+		 ,A.VENDOR_CD
+		 ,A.ENC_QTA_AMT HENC_QTA_AMT
+		 ,B.ENC_UNIT_PRC DENC_UNIT_PRC
+		 ,B.ENC_QTA_AMT DHENC_QTA_AMT
+		FROM STOPQTHD A JOIN STOPQTDT B ON A.GATE_CD   = B.GATE_CD
+										AND A.BUYER_CD = B.BUYER_CD
+										AND A.QTA_NUM  = B.QTA_NUM
+										AND B.DEL_FLAG = '0'
+										AND B.PROGRESS_CD = '300'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.BUYER_CD  = #{BUYER_CD}
+		AND A.RFX_NUM   = #{RFX_NUM}
+		AND A.RFX_CNT   = #{RFX_CNT}
+		AND A.DEL_FLAG  = '0'
+	</select>
+
+
+    <update id="updateDecodeQthd">
+        UPDATE STOPQTHD
+           SET QTA_AMT = #{HDEC_QTA_AMT}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND QTA_NUM = #{QTA_NUM}
+    </update>
+    <update id="updateDecodeQtdt">
+        UPDATE STOPQTDT
+            SET UNIT_PRC = #{DDEC_UNIT_PRC}
+           ,QTA_AMT = #{DDEC_QTA_AMT}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND QTA_NUM = #{QTA_NUM}
+        AND QTA_SQ = #{QTA_SQ}
+    </update>
+
+
+
+
+
+    <update id="setDocSettleCancelRqhd">
+        UPDATE STOPRQHD
+           SET PROGRESS_CD = #{PROGRESS_CD}
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+    <update id="setDocSettleQtdt">
+        UPDATE STOPQTDT
+           SET SLT_FLAG = '1'
+			,SLT_DATE = <include refid="com.sql.sysdate"/>
+			,SLT_RMK = #{SLT_RMK}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND QTA_NUM = #{QTA_NUM}
+    </update>
+
+    <update id="setItemSettleQtdt">
+        UPDATE STOPQTDT
+           SET SLT_FLAG = '1'
+			,SLT_DATE = <include refid="com.sql.sysdate"/>
+			,SLT_RMK = #{SLT_RMK}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND QTA_NUM = #{QTA_NUM}
+        AND QTA_SQ = #{QTA_SQ}
+    </update>
+
+
+
+
+
+
+    <update id="setCancelPrdt">
+        UPDATE STOPPRDT
+           SET PROGRESS_CD = '2200'  --접수완료
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND (BUYER_CD,PR_NUM,PR_SQ) IN (
+			SELECT DISTINCT BUYER_CD,PR_NUM,PR_SQ
+			FROM STOPRQDT
+	        WHERE GATE_CD = #{ses.gateCd}
+	        AND BUYER_CD = #{BUYER_CD}
+	        AND RFX_NUM = #{RFX_NUM}
+	        AND RFX_CNT = #{RFX_CNT}
+        )
+    </update>
+
+
+
+    <update id="reRfqRqhd">
+		INSERT INTO STOPRQHD (
+			 GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT,REG_DATE,REG_USER_ID,MOD_DATE,MOD_USER_ID,DEL_FLAG,RFX_TYPE,RFX_SUBJECT,RFX_DATE,PR_TYPE,PR_REQ_TYPE,CTRL_USER_ID,CTRL_USER_NM
+			 ,RFX_FROM_DATE
+			 ,RFX_TO_DATE
+			,RFX_BF_DAY,VENDOR_OPEN_TYPE,VENDOR_SLT_TYPE,PRC_SLT_TYPE,CUR,SHIPPER_TYPE,DELY_TERMS,PAY_TERMS,PRIVATE_RMK,RMK,ATT_FILE_NUM,ATT_FILE_NUM_IN,APP_DOC_NUM,APP_DOC_CNT,SIGN_STATUS
+			,SIGN_DATE,FROM_MOD_RMK,TO_EXTEND_RMK,FORCE_CLOSE_RMK
+			,PROGRESS_CD,OPEN_BID_DATE,OPEN_BID_USER_ID,RE_RFX_DATE,FAIL_BID_RMK,FAIL_BID_DATE
+		) SELECT
+			 GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT+1,<include refid="com.sql.sysdate"/>,#{ses.userId},<include refid="com.sql.sysdate"/>,#{ses.userId},DEL_FLAG,RFX_TYPE,RFX_SUBJECT,RFX_DATE,PR_TYPE,PR_REQ_TYPE,CTRL_USER_ID,CTRL_USER_NM
+
+
+		<if test="_databaseId == 'oracle'">
+	        	,<include refid="com.sql.toDate"/> (  #{RFX_FROM_DATE2}) ,'YYYYMMDD HH24:MI:SS')
+	        	,<include refid="com.sql.toDate"/> (  #{RFX_TO_DATE2}) ,'YYYYMMDD HH24:MI:SS')
+		</if>
+		<if test="_databaseId == 'mssql'">
+	        	,CONVERT(DATETIME,  #{RFX_FROM_DATE})
+	        	,CONVERT(DATETIME,  #{RFX_TO_DATE})
+		</if>
+
+			,RFX_BF_DAY,VENDOR_OPEN_TYPE,VENDOR_SLT_TYPE,PRC_SLT_TYPE,CUR,SHIPPER_TYPE,DELY_TERMS,PAY_TERMS,PRIVATE_RMK,RMK,ATT_FILE_NUM,ATT_FILE_NUM_IN,APP_DOC_NUM,APP_DOC_CNT,SIGN_STATUS
+			,SIGN_DATE,FROM_MOD_RMK,TO_EXTEND_RMK,FORCE_CLOSE_RMK
+			,'2350' PROGRESS_CD,OPEN_BID_DATE,OPEN_BID_USER_ID,RE_RFX_DATE,FAIL_BID_RMK,FAIL_BID_DATE
+		FROM STOPRQHD
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+
+    </update>
+
+    <update id="reRfqRqdt">
+		INSERT INTO STOPRQDT (
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT,RFX_SQ,REG_DATE,REG_USER_ID,MOD_DATE,MOD_USER_ID,DEL_FLAG,PR_NUM,PR_SQ
+				,PROGRESS_CD,ITEM_CD,ITEM_DESC,ITEM_SPEC,UNIT_CD,CUR,RFX_QT,UNIT_PRC,RFX_AMT,MAKER_CD,MAKER_NM,MAKER_PART_NO,ORIGIN_CD,PLANT_CD,ATT_FILE_NUM,DELY_DATE,DELY_PLACE_NM,RMK
+		) SELECT
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT+1,RFX_SQ,<include refid="com.sql.sysdate"/>,#{ses.userId},<include refid="com.sql.sysdate"/>,#{ses.userId},DEL_FLAG,PR_NUM,PR_SQ
+				,PROGRESS_CD,ITEM_CD,ITEM_DESC,ITEM_SPEC,UNIT_CD,CUR,RFX_QT,UNIT_PRC,RFX_AMT,MAKER_CD,MAKER_NM,MAKER_PART_NO,ORIGIN_CD,PLANT_CD,ATT_FILE_NUM,DELY_DATE,DELY_PLACE_NM,RMK
+				FROM STOPRQDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+    <update id="reRfqRqvn">
+		INSERT INTO STOPRQVN (
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT,RFX_SQ,VENDOR_CD,REG_DATE,REG_USER_ID,MOD_DATE,MOD_USER_ID,DEL_FLAG,ITEM_CD
+				,ITEM_DESC,PROGRESS_CD,RECEIPT_DATE,GIVEUP_FLAG,GIVEUP_DATE,GIVEUP_RMK
+		) SELECT
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT+1,RFX_SQ,VENDOR_CD,<include refid="com.sql.sysdate"/>,#{ses.userId},<include refid="com.sql.sysdate"/>,#{ses.userId},DEL_FLAG
+				,ITEM_CD,ITEM_DESC,'100' PROGRESS_CD,null RECEIPT_DATE,null GIVEUP_FLAG,null GIVEUP_DATE,null GIVEUP_RMK
+				FROM STOPRQVN
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <update id="reRfqRqdtItem">
+		INSERT INTO STOPRQDT (
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT,RFX_SQ,REG_DATE,REG_USER_ID,MOD_DATE,MOD_USER_ID,DEL_FLAG,PR_NUM,PR_SQ
+				,PROGRESS_CD,ITEM_CD,ITEM_DESC,ITEM_SPEC,UNIT_CD,CUR,RFX_QT,UNIT_PRC,RFX_AMT,MAKER_CD,MAKER_NM,MAKER_PART_NO,ORIGIN_CD,PLANT_CD,ATT_FILE_NUM,DELY_DATE,DELY_PLACE_NM,RMK
+		) SELECT
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT+1,RFX_SQ,<include refid="com.sql.sysdate"/>,#{ses.userId},<include refid="com.sql.sysdate"/>,#{ses.userId},DEL_FLAG,PR_NUM,PR_SQ
+				,PROGRESS_CD,ITEM_CD,ITEM_DESC,ITEM_SPEC,UNIT_CD,CUR,RFX_QT,UNIT_PRC,RFX_AMT,MAKER_CD,MAKER_NM,MAKER_PART_NO,ORIGIN_CD,PLANT_CD,ATT_FILE_NUM,DELY_DATE,DELY_PLACE_NM,RMK
+				FROM STOPRQDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+		AND NOT EXISTS (
+
+
+
+		)
+
+    </update>
+
+    <update id="reRfqRqvnItem">
+		INSERT INTO STOPRQVN (
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT,RFX_SQ,VENDOR_CD,REG_DATE,REG_USER_ID,MOD_DATE,MOD_USER_ID,DEL_FLAG,ITEM_CD
+				,ITEM_DESC,PROGRESS_CD,RECEIPT_DATE,GIVEUP_FLAG,GIVEUP_DATE,GIVEUP_RMK
+		) SELECT
+				GATE_CD,BUYER_CD,RFX_NUM,RFX_CNT+1,RFX_SQ,VENDOR_CD,<include refid="com.sql.sysdate"/>,#{ses.userId},<include refid="com.sql.sysdate"/>,#{ses.userId},DEL_FLAG
+				,ITEM_CD,ITEM_DESC,'100' PROGRESS_CD,null RECEIPT_DATE,null GIVEUP_FLAG,null GIVEUP_DATE,null GIVEUP_RMK
+				FROM STOPRQVN
+        WHERE GATE_CD = #{ses.gateCd}
+        AND BUYER_CD = #{BUYER_CD}
+        AND RFX_NUM = #{RFX_NUM}
+        AND RFX_CNT = #{RFX_CNT}
+    </update>
+
+
+
+
+</mapper>

@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.comUserIf.ComUserIf_Mapper">
+
+    <select id="getComUserList" parameterType="hashMap" resultType="hashmap">
+
+		SELECT
+			 HOUSE_CODE
+			,USER_ID
+			,SEQ
+			,USER_TYPE
+			,PASSWORD
+			,COMPANY_CODE
+			,DEPT
+			,POSITION
+			,USER_NAME_LOC
+			,USER_NAME_ENG
+			,LINK_DEPT
+			,LANGUAGE
+			,TIME_ZONE
+			,EMAIL
+			,ZIP_CODE
+			,COUNTRY
+			,PR_LOCATION
+			,ADDRESS_LOC
+			,ADDRESS_ENG
+			,PHONE_NO
+			,MOBILE_NO
+			,FAX_NO
+			,EMPLOYEE_NO
+			,RESIDENT_NO
+			,SIGN_STATUS
+			,WORK_TYPE
+			,STATUS
+			,ADD_DATE
+			,ADD_TIME
+			,ADD_USER_ID
+			,ADD_USER_NAME_LOC
+			,ADD_USER_NAME_ENG
+			,ADD_USER_DEPT
+			,CHANGE_DATE
+			,CHANGE_TIME
+			,CHANGE_USER_ID
+			,CHANGE_USER_NAME_LOC
+			,CHANGE_USER_NAME_ENG
+			,CHANGE_USER_DEPT
+			,MENU_PROFILE_CODE
+			,MANAGER_POSITION
+			,USER_FIRST_NAME_ENG
+			,USER_LAST_NAME_ENG
+			,POSITION_NAME
+			,SIGN_CTRL_FLAG
+			,GROUP_COMPANY_CODE
+			,MAIL_FLAG
+			,SMS_FLAG
+			,RECIEPT_CTRL_FLAG
+			,PART_CODE
+			,DIVISION_CODE
+			,VEN_DEPT_NAME
+			,PURCHASER_CTRL_FLAG
+			,PW_VALID_DATE
+			,PO_DEPT
+			,ADDRESS_LOC2
+			,ENTER_CTRL_FLAG
+			,ACCOUNT_CTRL_FLAG
+			,SOURCING_CTRL_FLAG
+			,PLANT_CODE 
+		 FROM ICOMLUSR_IF
+		WHERE HOUSE_CODE = #{ses.gateCd}
+		  AND IF_FLAG    = '0'
+		ORDER BY USER_ID, SEQ
+    </select>
+	
+	<!-- 고객사 사용자 등록(STOCCVUR) -->
+    <insert id="setComUserCVUR" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCVUR<include refid="com.sql.mergeAs"/>CVUR
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+	                , #{USER_ID}    AS USER_ID
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (CVUR.GATE_CD = B.GATE_CD
+	         AND CVUR.USER_ID = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,PROGRESS_CD = (CASE WHEN #{SIGN_STATUS} = '' THEN PROGRESS_CD
+            					 WHEN #{SIGN_STATUS} = 'A' THEN 'E'
+            					 ELSE 'R'
+            			    END)
+            ,USER_NM = <include refid="com.sql.nvl"/>(#{USER_NAME_LOC}, USER_NM)
+            ,COMPANY_CD = <include refid="com.sql.nvl"/>(#{COMPANY_CODE}, COMPANY_CD)
+            ,PLANT_CD = <include refid="com.sql.nvl"/>(#{DIVISION_CODE}, PLANT_CD)
+            ,DIVISION_CD = <include refid="com.sql.nvl"/>(#{PLANT_CODE}, DIVISION_CD)
+            ,DEPT_CD = <include refid="com.sql.nvl"/>(#{DEPT}, DEPT_CD)
+            ,DEPT_NM = <include refid="com.sql.nvl"/>(#{VEN_DEPT_NAME}, DEPT_NM)
+            ,PART_CD = <include refid="com.sql.nvl"/>(#{PART_CODE}, PART_CD)
+            ,POSITION_NM = (CASE WHEN #{POSITION} = '' THEN POSITION_NM
+            					 ELSE <include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M172', #{POSITION}, #{ses.langCd})
+            				END)
+            ,EMAIL = <include refid="com.sql.nvl"/>(#{EMAIL}, EMAIL)
+            ,ZIP_CD = <include refid="com.sql.nvl"/>(#{ZIP_CODE}, ZIP_CD)
+            ,ADDR_1 = <include refid="com.sql.nvl"/>(#{ADDRESS_LOC}, ADDR_1)
+            ,ADDR_2 = <include refid="com.sql.nvl"/>(#{ADDRESS_LOC2}, ADDR_2)
+            ,TEL_NUM = <include refid="com.sql.nvl"/>(#{PHONE_NO}, TEL_NUM)
+            ,CELL_NUM = <include refid="com.sql.nvl"/>(#{MOBILE_NO}, CELL_NUM)
+            ,FAX_NUM = <include refid="com.sql.nvl"/>(#{FAX_NO}, FAX_NUM)
+            ,EMPLOYEE_NO = <include refid="com.sql.nvl"/>(#{EMPLOYEE_NO}, EMPLOYEE_NO)
+            ,BLOCK_FLAG = (CASE WHEN #{STATUS} = 'F' THEN '1' ELSE '0' END)
+            ,USE_FLAG = (CASE WHEN #{STATUS} = 'F' THEN '0' ELSE '1' END)
+            ,DATA_CREATION_TYPE = 'I'	-- 데이터 생성방식 : I/F
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,USER_ID
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,COMPANY_CD
+			,PLANT_CD
+			,MNG_YN
+			,USER_TYPE
+			,USER_NM
+			,PASSWORD
+			,EMPLOYEE_NO
+			,DEPT_CD
+			,DEPT_NM
+			,POSITION_NM
+			,TEL_NUM
+			,FAX_NUM
+			,CELL_NUM
+			,EMAIL
+			,ZIP_CD
+			,ADDR_1
+			,ADDR_2
+			,BUDGET_DEPT_CD
+			,WMS_FLAG
+			,MY_SITE_FLAG
+			,BUDGET_FLAG
+			,GR_FLAG
+			,FINANCIAL_FLAG
+			,RECIPIENT_NM
+			,RECIPIENT_DEPT_NM
+			,RECIPIENT_TEL_NUM
+			,RECIPIENT_CELL_NUM
+			,RECIPIENT_EMAIL
+			,DELY_ZIP_CD
+			,DELY_ADDR_1
+			,DELY_ADDR_2
+			,SMS_FLAG
+			,MAIL_FLAG
+			,BLOCK_FLAG
+			,PW_WRONG_CNT
+			,PW_RESET_FLAG
+			,PW_RESET_DATE
+			,LAST_LOGIN_DATE
+			,USE_FLAG
+			,PROGRESS_CD
+			,CONFIRM_USER_ID
+			,CONFIRM_DATE
+			,DATA_CREATION_TYPE
+			,AGREE_YN
+			,AGREE_YN_DATE
+			,CSDM_SEQ
+			,CUBL_SEQ
+			,USER_AUTO_PO_FLAG
+			,APCH_FLAG
+			,APROVAL_USER_FLAG
+			,DIVISION_CD
+			,PART_CD
+        ) VALUES (
+             #{ses.gateCd}
+			,#{USER_ID}
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END) --DEL_FLAG
+			,#{COMPANY_CODE}
+			,#{DIVISION_CODE}
+			,'0' --MNG_YN
+			,'B' --USER_TYPE
+			,#{USER_NAME_LOC}
+			,#{PASSWORD}
+			,#{EMPLOYEE_NO}
+			,#{DEPT}
+			,#{VEN_DEPT_NAME} --DEPT_NM
+			,<include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M172', #{POSITION}, #{ses.langCd})
+			,#{PHONE_NO}
+			,#{FAX_NO}
+			,#{MOBILE_NO}
+			,#{EMAIL}
+			,#{ZIP_CODE}
+			,#{ADDRESS_LOC}
+			,#{ADDRESS_LOC2}
+			,#{LINK_DEPT}
+			,'0' --WMS_FLAG
+			,'0' --MY_SITE_FLAG
+			,'0' --BUDGET_FLAG
+			,'1' --GR_FLAG
+			,'1' --FINANCIAL_FLAG
+			,#{USER_NAME_LOC}  	--RECIPIENT_NM
+			,#{VEN_DEPT_NAME}  	--RECIPIENT_DEPT_NM
+			,#{PHONE_NO}  		--RECIPIENT_TEL_NUM
+			,#{MOBILE_NO}  		--RECIPIENT_CELL_NUM
+			,#{EMAIL}  			--RECIPIENT_EMAIL
+			,''  --DELY_ZIP_CD
+			,''  --DELY_ADDR_1
+			,''  --DELY_ADDR_2
+			,'1' --SMS_FLAG
+			,'1' --MAIL_FLAG
+			,CASE WHEN #{STATUS} = 'F' THEN '1' ELSE '0' END 		--BLOCK_FLAG
+			,'0' --PW_WRONG_CNT
+			,'1' --PW_RESET_FLAG
+			,<include refid="com.sql.sysdate"/>  					--PW_RESET_DATE
+			,<include refid="com.sql.sysdate"/>  					--LAST_LOGIN_DATE(최종 로그인 일시는 i/f 일자를 기준으로 함 ==> 1년 동안 로그인 하지 않을 경우 Block 처리함)
+			,CASE WHEN #{STATUS} = 'F' THEN '0' ELSE '1' END 		--USE_FLAG
+			,CASE WHEN #{SIGN_STATUS} = 'A' THEN 'E' ELSE 'R' END 	--PROGRESS_CD
+			,''  --CONFIRM_USER_ID
+			,''  --CONFIRM_DATE
+			,'I' --DATA_CREATION_TYPE
+			,'0' --AGREE_YN
+			,''  --AGREE_YN_DATE
+			,(SELECT MIN(SEQ) FROM STOCCSDM WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{COMPANY_CODE} AND DEL_FLAG = '0') --CSDM_SEQ
+			,(SELECT MIN(CUBL_SQ) FROM STOCCUBL WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{COMPANY_CODE} AND PLANT_CD = #{DIVISION_CODE} AND DEL_FLAG = '0') --CUBL_SEQ
+			,'0' --USER_AUTO_PO_FLAG
+			,'0' --APCH_FLAG
+			,'0' --APROVAL_USER_FLAG
+			,#{PLANT_CODE}
+			,#{PART_CODE}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+    
+    <!-- 운영사 사용자 등록(STOCUSER) -->
+    <insert id="setComUserUSER" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCUSER<include refid="com.sql.mergeAs"/>CVUR
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+	                , #{USER_ID}    AS USER_ID
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (CVUR.GATE_CD = B.GATE_CD
+	         AND CVUR.USER_ID = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,USE_FLAG = (CASE WHEN #{STATUS} = 'F' THEN '0' ELSE '1' END)
+            ,PROGRESS_CD = (CASE WHEN #{SIGN_STATUS} = '' THEN PROGRESS_CD
+            					 WHEN #{SIGN_STATUS} = 'A' THEN 'E'
+            					 ELSE 'R'
+            			    END)
+            ,USER_NM = <include refid="com.sql.nvl"/>(#{USER_NAME_LOC}, USER_NM)
+            ,PLANT_CD = <include refid="com.sql.nvl"/>(#{DIVISION_CODE}, PLANT_CD)
+            ,DIVISION_CD = <include refid="com.sql.nvl"/>(#{PLANT_CODE}, DIVISION_CD)
+            ,DEPT_CD = <include refid="com.sql.nvl"/>(#{DEPT}, DEPT_CD)
+            ,DEPT_NM = <include refid="com.sql.nvl"/>(#{VEN_DEPT_NAME}, DEPT_NM)
+            ,PART_CD = <include refid="com.sql.nvl"/>(#{PART_CODE}, PART_CD)
+            ,POSITION_NM = (CASE WHEN #{POSITION} = '' THEN POSITION_NM
+            					 ELSE <include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M172', #{POSITION}, #{ses.langCd})
+            				END)
+            ,EMAIL = <include refid="com.sql.nvl"/>(#{EMAIL}, EMAIL)
+            ,TEL_NUM = <include refid="com.sql.nvl"/>(#{PHONE_NO}, TEL_NUM)
+            ,CELL_NUM = <include refid="com.sql.nvl"/>(#{MOBILE_NO}, CELL_NUM)
+            ,FAX_NUM = <include refid="com.sql.nvl"/>(#{FAX_NO}, FAX_NUM)
+            ,EMPLOYEE_NUM = <include refid="com.sql.nvl"/>(#{EMPLOYEE_NO}, EMPLOYEE_NUM)
+            ,IF_USER_FLAG = '1'	-- 데이터 생성방식 : I/F
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,USER_ID
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,USE_FLAG
+			,COMPANY_CD
+			,PLANT_CD
+			,USER_TYPE
+			,USER_NM
+			,PASSWORD
+			,EMPLOYEE_NUM
+			,DIVISION_CD
+			,DEPT_CD
+			,DEPT_NM
+			,PART_CD
+			,POSITION_NM
+			,TEL_NUM
+			,FAX_NUM
+			,CELL_NUM
+			,EMAIL
+			,LANG_CD
+			,COUNTRY_CD
+			,GMT_CD
+			,IF_USER_FLAG
+			,SMS_FLAG
+			,MAIL_FLAG
+			,PW_WRONG_CNT
+			,PW_RESET_FLAG
+			,PW_RESET_DATE
+			,LAST_LOGIN_DATE
+			,PROGRESS_CD
+        ) VALUES (
+             #{ses.gateCd}
+			,#{USER_ID}
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END) --DEL_FLAG
+			,(CASE WHEN #{STATUS} = 'F' THEN '0' ELSE '1' END) --USE_FLAG
+			,#{COMPANY_CODE}
+			,#{DIVISION_CODE}
+			,'C' --USER_TYPE
+			,#{USER_NAME_LOC}
+			,#{PASSWORD}
+			,#{EMPLOYEE_NO}
+			,#{PLANT_CODE}
+			,#{DEPT}
+			,#{VEN_DEPT_NAME} --DEPT_NM
+			,#{PART_CODE}
+			,<include refid="com.sql.dbo"/>getCodeName(#{ses.gateCd}, 'M172', #{POSITION}, #{ses.langCd})
+			,#{PHONE_NO}
+			,#{FAX_NO}
+			,#{MOBILE_NO}
+			,#{EMAIL}
+			,'KO'	--LANG_CD
+			,'KR'	--COUNTRY_CD
+			,'GMT+09:00'	--GMT_CD
+			,'1'	--IF_USER_FLAG
+			,'1'	--SMS_FLAG
+			,'1'	--MAIL_FLAG
+			,'0' 	--PW_WRONG_CNT
+			,'1' 	--PW_RESET_FLAG
+			,<include refid="com.sql.sysdate"/> --PW_RESET_DATE
+			,<include refid="com.sql.sysdate"/> --LAST_LOGIN_DATE
+			,(CASE WHEN #{SIGN_STATUS} = 'A' THEN 'E' ELSE 'R' END) --PROGRESS_CD
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+    
+    <!-- 고객사 사용자 기본권한(STOCUSAP) 등록 -->
+    <insert id="setComUserUSAP" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCUSAP<include refid="com.sql.mergeAs"/>USAP
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+	                , #{USER_ID}    AS USER_ID
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (USAP.GATE_CD = B.GATE_CD
+	         AND USAP.USER_ID = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = 'MASTER'
+            ,AUTH_CD = #{AUTH_CD}		--고객사 : PF0131, 운영사 : PF0112
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,USER_ID
+			,AUTH_CD
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,VALID_FROM_DATE
+			,VALID_TO_DATE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{USER_ID}
+            ,#{AUTH_CD}		--고객사 : PF0131, 운영사 : PF0112
+            ,<include refid="com.sql.sysdate"/>
+            ,'MASTER' --REG_USER_ID
+            ,'0'
+            ,<include refid="com.sql.sysdate"/>
+            ,<include refid="com.sql.toDate"/>'99991231235959', 'YYYYMMDDHH24MISS')
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+    
+    <!-- 운영사 사용자 기본직무(STOCBACP) 등록 -->
+    <insert id="setComUserBACP" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCBACP<include refid="com.sql.mergeAs"/>BACP
+        USING (SELECT #{ses.gateCd} 	AS GATE_CD
+        			, #{COMPANY_CODE} 	AS BUYER_CD
+	                , #{USER_ID}    	AS USER_ID
+	                , 'BASIC'			AS CTRL_CD
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (BACP.GATE_CD  = B.GATE_CD
+	         AND BACP.BUYER_CD = B.BUYER_CD
+	         AND BACP.CTRL_USER_ID = B.USER_ID
+	         AND BACP.CTRL_CD  = B.CTRL_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = 'MASTER'
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,BUYER_CD
+            ,CTRL_CD
+			,CTRL_USER_ID
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,USE_FLAG
+			,PLANT_CD
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{COMPANY_CODE}
+            ,'BASIC'
+            ,#{USER_ID}
+            ,<include refid="com.sql.sysdate"/>
+            ,'MASTER' --REG_USER_ID
+            ,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,'1'
+            ,#{COMPANY_CODE}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+	
+	<!-- 고객사 사용자 삭제 -->
+    <update id="delComUserCVUR" parameterType="hashMap">
+		
+		DELETE FROM STOCCVUR
+  		 WHERE GATE_CD = #{ses.gateCd}
+		   AND USER_ID = #{USER_ID}
+    </update>
+    
+    <!-- 운영사 사용자 삭제 -->
+    <update id="delComUserUSER" parameterType="hashMap">
+		
+		DELETE FROM STOCUSER
+  		 WHERE GATE_CD = #{ses.gateCd}
+		   AND USER_ID = #{USER_ID}
+    </update>
+    
+	<!-- ICOMLUSR_IF: 인터페이스 결과 Update (0: 고객요청, 1: 접수) -->
+    <update id="doUpdateIfResultUser" parameterType="hashMap">
+		
+		UPDATE ICOMLUSR_IF
+  		   SET IF_FLAG = '1'
+  		 WHERE HOUSE_CODE = #{HOUSE_CODE}
+		   AND USER_ID    = #{USER_ID}
+    </update>
+    
+</mapper>

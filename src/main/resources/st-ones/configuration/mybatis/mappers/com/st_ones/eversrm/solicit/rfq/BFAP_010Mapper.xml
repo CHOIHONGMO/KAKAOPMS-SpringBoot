@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.BFAP_010Mapper">
+
+	<update id="dummyAction" parameterType="hashmap">
+		UPDATE STOCCNVD SET
+		 	   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , SIGN_STATUS = 'T'
+			 , APP_DOC_NUM = #{APP_DOC_NUM}
+			 , APP_DOC_CNT = #{APP_DOC_CNT}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND EXEC_NUM = #{EXEC_NUM}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT DISTINCT
+        	  CNHD.GATE_CD       
+			, CNHD.SIGN_STATUS
+			, CNHD.EXEC_NUM
+			, CNHD.EXEC_SUBJECT
+			, CNHD.EXEC_TYPE
+			, CNHD.PURCHASE_TYPE
+			, <include refid="com.sql.dbo"/>GETGMTDATE( CNHD.EXEC_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EXEC_DATE
+			, <include refid="com.sql.dbo"/>GETGMTDATE( CNHD.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SIGN_DATE
+			, CNVD.CUR
+			-- 품의구분이 단가변경품의일 경우 CNDT의 단가를 보여준다.
+			, CASE WHEN CNHD.EXEC_TYPE != 'C' THEN CNVD.EXEC_AMT ELSE CNDT.UNIT_PRC END AS EXEC_AMT
+			, <include refid="com.sql.dbo"/>getUserName(CNHD.GATE_CD, CNHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			, CNHD.CTRL_USER_ID
+			, CNVD.VENDOR_CD
+			, <include refid="com.sql.dbo"/>getVendorName(CNVD.GATE_CD, CNVD.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			, CNDT.RFX_NUM
+			, CNDT.RFX_CNT
+			, CNDT.QTA_NUM
+			, CNHD.EXEC_DATE EXEC_DATE2
+			, RQHD.RFX_SUBJECT
+			, <include refid="com.sql.dbo"/>GETGMTDATE( (SELECT SEND_DATE FROM STOCQTHD WHERE GATE_CD = CNDT.GATE_CD AND QTA_NUM = CNDT.QTA_NUM) , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) SEND_DATE
+			, CNVD.APP_DOC_NUM
+			, CNVD.APP_DOC_CNT
+			, CNVD.SIGN_STATUS AS CNVD_SIGN_STATUS
+			, <include refid="com.sql.dbo"/>GETGMTDATE( CNVD.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CNVD_SIGN_DATE
+		FROM STOCCNHD CNHD JOIN STOCCNVD CNVD
+		                        ON (CNHD.GATE_CD = CNVD.GATE_CD 
+							    AND CNHD.EXEC_NUM = CNVD.EXEC_NUM
+								AND CNVD.DEL_FLAG = '0')
+						   JOIN STOCCNDT CNDT
+						        ON (CNDT.GATE_CD = CNVD.GATE_CD
+						   		AND CNDT.EXEC_NUM = CNVD.EXEC_NUM
+						   		AND CNDT.VENDOR_CD = CNVD.VENDOR_CD
+						   		AND CNDT.DEL_FLAG = '0')
+						   LEFT JOIN STOCRQHD RQHD
+						        ON (RQHD.GATE_CD = CNDT.GATE_CD
+						        AND RQHD.RFX_NUM = CNDT.RFX_NUM
+						        AND RQHD.RFX_CNT = CNDT.RFX_CNT
+						        AND RQHD.DEL_FLAG = '0') 
+		WHERE CNHD.GATE_CD = #{ses.gateCd}
+		  AND CNHD.DEL_FLAG = '0'
+      	  <!-- 
+        	PF0055 : 부품구매 OR 구매원가
+         	PF0054 : 일반구매
+         	부품구매 / 일반구매 구분해서 조회한다.
+ 		  -->
+ 		  <!-- 
+ 		  AND CASE WHEN #{ses.grantedAuthCd} = 'PF0055' or #{ses.grantedAuthCd} = 'PF0057' THEN
+ 			            CASE WHEN CNHD.PURCHASE_TYPE = 'NORMAL' THEN '1' ELSE '0' END
+ 			 	   WHEN #{ses.grantedAuthCd} = 'PF0054' THEN
+ 			 		    CASE WHEN CNHD.PURCHASE_TYPE != 'NORMAL' THEN '1' ELSE '0' END
+ 			 	   ELSE '1'
+ 			  END = '1' -->
+
+		<if test="EXEC_DATE_FROM !='' and EXEC_DATE_FROM !=null">
+			<if test="EXEC_DATE_TO !='' and EXEC_DATE_TO !=null">                 
+				AND CNHD.EXEC_DATE 
+                BETWEEN <include refid="com.sql.toDate"/>#{EXEC_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{EXEC_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+		</if> 
+		<if test="EXEC_NUM != '' and EXEC_NUM != null">
+			AND CNHD.EXEC_NUM <include refid="com.sql.likeL"/> #{EXEC_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="EXEC_SUBJECT != '' and EXEC_SUBJECT != null">
+			AND CNHD.EXEC_SUBJECT <include refid="com.sql.likeL"/> #{EXEC_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="EXEC_TYPE != '' and EXEC_TYPE != null">
+			AND CNHD.EXEC_TYPE = #{EXEC_TYPE} 
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+			AND CNHD.SIGN_STATUS = #{SIGN_STATUS} 
+        </if>
+		<if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+        	AND UPPER(CNHD.CTRL_USER_ID) <include refid="com.sql.likeL"/> #{CTRL_USER_ID} <include refid="com.sql.likeR"/>
+		</if>
+        <if test="CTRL_USER_NM != '' and CTRL_USER_NM != null">
+        	AND <include refid="com.sql.dbo"/>getUserName(CNHD.GATE_CD, CNHD.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+            AND <include refid="com.sql.dbo"/> GETVENDORNAME(CNHD.GATE_CD, CNVD.VENDOR_CD, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+       	</if>
+		<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+			AND CNHD.PURCHASE_TYPE = #{PURCHASE_TYPE}
+		</if>
+        <if test="RFX_NUM != '' and RFX_NUM != null">
+			AND CNDT.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+			AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+         ORDER BY CNHD.EXEC_DATE DESC, CNHD.EXEC_NUM DESC          
+    </select>
+
+	<select id="doSearchGeneralData" parameterType="hashmap" resultType="java.util.Map">
+
+		SELECT DISTINCT
+			   CNVD.VENDOR_CD
+			 , <include refid="com.sql.dbo"/>GETVENDORNAME(CNVD.GATE_CD, CNVD.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			 , CNDT.PLANT_CD
+			 , <include refid="com.sql.dbo"/>GETPLANTNAME(CNDT.GATE_CD, CNHD.BUYER_CD, CNDT.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+
+		<if test='_databaseId=="oracle"'>
+			 , <include refid="com.sql.nvl"/>((SELECT <include refid="com.sql.subStr"/>(XMLAGG(XMLELEMENT(A, ',' || (CASE WHEN A.MAT_GROUP IS NULL OR A.MAT_GROUP = '' THEN B.MAT_GROUP ELSE A.MAT_GROUP END)) ORDER BY A.MAT_GROUP).EXTRACT('//text()'), 2)
+							   FROM STOCCNDT A
+							   JOIN STOCMTGL B
+							  	 ON (A.GATE_CD = B.GATE_CD
+							 	AND A.ITEM_CD = B.ITEM_CD
+							 	AND B.DEL_FLAG = '0')
+						   	  WHERE A.GATE_CD = CNHD.GATE_CD
+							 	AND A.EXEC_NUM = CNHD.EXEC_NUM
+                			), '') AS MAT_GRP
+		</if>
+		
+		<if test='_databaseId=="mssql"'>
+			 , <include refid="com.sql.nvl"/>(STUFF((SELECT DISTINCT ',' + CAST(CASE WHEN A.MAT_GROUP IS NULL OR A.MAT_GROUP = '' THEN B.MAT_GROUP ELSE A.MAT_GROUP END AS NVARCHAR(500))
+							   FROM STOCCNDT A
+							   JOIN STOCMTGL B
+							  	 ON (A.GATE_CD = B.GATE_CD
+							 	AND A.ITEM_CD = B.ITEM_CD
+							 	AND B.DEL_FLAG = '0')
+						   	  WHERE A.GATE_CD = CNHD.GATE_CD
+							 	AND A.EXEC_NUM = CNHD.EXEC_NUM
+							 	FOR XML PATH('')
+                			), 1, 1, ''), '') AS MAT_GRP
+		</if>
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.sysdate"/>, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd') AS ApplyDate
+		  FROM STOCCNHD CNHD
+    	  JOIN STOCCNVD CNVD
+    		ON(CNHD.GATE_CD = CNVD.GATE_CD
+		   AND CNHD.EXEC_NUM = CNVD.EXEC_NUM
+		   AND CNVD.DEL_FLAG = '0')
+		  JOIN STOCCNDT CNDT
+    		ON (CNDT.GATE_CD = CNVD.GATE_CD
+		   AND CNDT.EXEC_NUM = CNVD.EXEC_NUM
+		   AND CNDT.VENDOR_CD = CNVD.VENDOR_CD
+		   AND CNDT.DEL_FLAG = '0')
+    	 WHERE CNHD.GATE_CD = #{ses.gateCd}
+    	   AND CNHD.EXEC_NUM = #{EXEC_NUM}
+	  	   AND CNHD.DEL_FLAG = '0'
+	</select>
+
+	<select id="doSearchDetailData" parameterType="hashmap" resultType="java.util.Map">
+		SELECT CNDT.ITEM_CD
+             , CNDT.ITEM_DESC AS ITEM_NM
+             , CNDT.EXEC_QT AS ITEM_QT
+		  FROM STOCCNHD CNHD
+		  JOIN STOCCNVD CNVD
+			ON(CNHD.GATE_CD = CNVD.GATE_CD
+		   AND CNHD.EXEC_NUM = CNVD.EXEC_NUM
+		   AND CNVD.DEL_FLAG = '0')
+		  JOIN STOCCNDT CNDT
+			ON (CNDT.GATE_CD = CNVD.GATE_CD
+		   AND CNDT.EXEC_NUM = CNVD.EXEC_NUM
+		   AND CNDT.VENDOR_CD = CNVD.VENDOR_CD
+		   AND CNDT.DEL_FLAG = '0')
+		 WHERE CNHD.GATE_CD = #{ses.gateCd}
+		   AND CNHD.EXEC_NUM = #{EXEC_NUM}
+		   AND CNHD.DEL_FLAG = '0'
+	</select>
+
+	<select id="getSignStatus" parameterType="hashmap" resultType="string">
+        SELECT <include refid="com.sql.nvl"/>(SCTM.SIGN_STATUS, CNVD.SIGN_STATUS) AS SIGN_STATUS
+        FROM STOCCNVD CNVD LEFT JOIN STOCSCTM SCTM
+             ON (CNVD.GATE_CD = SCTM.GATE_CD
+             AND CNVD.APP_DOC_NUM = SCTM.APP_DOC_NUM
+             AND CNVD.APP_DOC_CNT = SCTM.APP_DOC_CNT
+             AND SCTM.DEL_FLAG = '0')
+        WHERE CNVD.GATE_CD = #{ses.gateCd}
+          AND CNVD.EXEC_NUM = #{EXEC_NUM}
+          AND CNVD.DEL_FLAG = '0'
+	</select>
+
+	<select id="doSearchCarDate" parameterType="hashmap" resultType="java.util.Map">
+		<if test="carDateList != null">
+			SELECT MIN(C.P1_DATE) AS P1_DATE
+				 , MIN(C.P2_DATE) AS P2_DATE
+				 , MIN(C.M_DATE) AS M_DATE
+				 , MIN(C.SOP_DATE) AS SOP_DATE
+			  FROM (<foreach collection="carDateList" open="(" item="cd" close=")" separator=" UNION ALL">
+						SELECT <include refid="com.sql.dbo"/>GETGMTDATE(#{cd.P1_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{dateFormat}) AS P1_DATE
+							 , <include refid="com.sql.dbo"/>GETGMTDATE(#{cd.P2_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{dateFormat}) AS P2_DATE
+							 , <include refid="com.sql.dbo"/>GETGMTDATE(#{cd.M_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{dateFormat})  AS M_DATE
+							 , <include refid="com.sql.dbo"/>GETGMTDATE(#{cd.SOP_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{dateFormat})  AS SOP_DATE
+					</foreach>
+				   ) C
+		</if>
+	</select>
+
+	<update id="updateSignStatus" parameterType="hashmap">
+		UPDATE STOCCNVD SET
+			   SIGN_STATUS   = #{SIGN_STATUS}
+			<if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+			 , SIGN_DATE     = <include refid="com.sql.sysdate"/>
+			</if>
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = #{APP_DOC_CNT}
+		   AND DEL_FLAG = '0'
+	</update>
+
+
+
+	<select id="doSearchBomaTarget" parameterType="hashmap" resultType="java.util.Map">
+		SELECT
+		C.*
+		FROM STOCCNVD A 
+		JOIN STOCCNDT B 
+		  ON A.GATE_CD = B.GATE_CD
+		  AND A.EXEC_NUM = B.EXEC_NUM
+		  AND A.VENDOR_CD = B.VENDOR_CD
+		JOIN STOCBOMM C 
+		  ON B.GATE_CD = C.GATE_CD
+		  AND B.ITEM_CD = C.ITEM_CD
+		WHERE A.GATE_CD   = #{ses.gateCd}
+		AND A.APP_DOC_NUM   = #{APP_DOC_NUM}
+		AND A.APP_DOC_CNT   = #{APP_DOC_CNT}
+		AND C.BOM_REV = (SELECT MAX(BOM_REV) FROM <include refid="com.sql.dbo"/>STOCBOMM WHERE GATE_CD = C.GATE_CD AND BOM_ID = C.BOM_ID)
+	</select>
+
+	<update id="upsBoma" parameterType="hashmap">
+		UPDATE STOCBOMA SET
+			   DEV_REQ_DATE   = <include refid="com.sql.sysdate"/>
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BOM_ID  = #{BOM_ID}
+		   AND BOM_REV = #{BOM_REV}
+	</update>
+</mapper>
+

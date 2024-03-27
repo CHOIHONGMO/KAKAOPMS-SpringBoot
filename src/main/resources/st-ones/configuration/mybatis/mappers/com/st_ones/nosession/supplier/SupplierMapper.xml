@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.nosession.supplier.SupplierMapper">
+
+    <insert id="insertFileInfo" parameterType="hashMap">
+
+        <selectKey keyProperty="fileSeq" resultType="int" order="BEFORE">
+            SELECT <include refid="com.sql.nvl"/>(MAX(FILE_SQ) + 1, 0) FILESQ FROM STOCATCH
+            WHERE GATE_CD = '100' AND UUID = #{UUID}
+        </selectKey>
+
+        INSERT INTO STOCATCH (
+            GATE_CD, UUID, UUID_SQ,
+            FILE_SQ, FILE_NM, FILE_PATH,
+
+            FILE_SIZE, FILE_EXTENSION, REAL_FILE_NM,
+            BIZ_TYPE, REG_DATE,
+
+            REG_USER_ID, MOD_DATE,
+            MOD_USER_ID, DEL_FLAG,
+
+            ENC_FLAG
+        ) VALUES (
+            '100', #{UUID}, #{UUID_SQ},
+            #{fileSeq}, #{fileName}, #{FILE_PATH},
+
+            #{FILE_SIZE}, #{EXTENSION}, #{REAL_FILE_NM},
+            'CSR', <include refid="com.sql.sysdate"/>,
+
+            'Anonymous', <include refid="com.sql.sysdate"/>,
+            'Anonymous', '0',
+
+            #{ENC_FLAG}
+        )
+    </insert>
+
+    <insert id="reportCSR" parameterType="hashmap">
+        INSERT INTO STOCCSRH (
+             GATE_CD
+            ,SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,HOLN_CLS_1
+            ,HOLN_CLS_2
+            ,HOLN_PROGRESS_CD
+            ,HOLN_NM
+            ,HOLN_EMAIL
+            ,HOLN_TEL_NO
+            ,HOLN_SUBJECT
+            ,HOLN_TEXT_NUM
+            ,HOLN_ATT_FILE_NUM
+            ,HOLN_RETURN_USER_ID
+            ,HOLN_RETURN_TEXT_NUM
+            ,HOLN_RETURN_DATE
+        ) VALUES (
+             '100'
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(SEQ), 0)+1
+                FROM STOCCSRH)
+            ,<include refid="com.sql.sysdate"/>
+            ,'Anonymous'
+            ,<include refid="com.sql.sysdate"/>
+            ,'Anonymous'
+            ,'0'
+            ,#{HOLN_CLS_1}
+            ,#{HOLN_CLS_2}
+            ,'R0'
+            ,#{HOLN_NM}
+            ,#{HOLN_EMAIL} 
+            ,#{HOLN_TEL_NO} 
+            ,#{HOLN_SUBJECT}
+            ,#{HOLN_TEXT_NUM}
+            ,#{HOLN_ATT_FILE_NUM}
+            , #{HOLN_RETURN_USER_ID}
+            ,#{HOLN_RETURN_TEXT_NUM}
+            ,#{HOLN_RETURN_DATE}
+        )
+    </insert>
+
+    <select id="getUserBACP" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+              BACP.CTRL_USER_ID AS USER_ID
+            , USR.USER_NM AS USER_NM
+            , USR.EMAIL  AS EMAIL
+            ,USR.USER_TYPE
+		  FROM STOCBACP BACP
+		  JOIN STOCUSER USR
+		   ON (BACP.CTRL_USER_ID = USR.USER_ID
+		   AND BACP.GATE_CD = USR.GATE_CD)
+		 WHERE BACP.GATE_CD = '100'
+		   AND BACP.DEL_FLAG = '0'
+		   AND <include refid="com.sql.nvl"/>(USR.MAIL_FLAG, '0') = '1'
+		   AND USR.DEL_FLAG = '0'
+		   AND BACP.BUYER_CD = '1000'
+		   AND BACP.CTRL_CD = 'CSR'
+		 ORDER BY BACP.CTRL_USER_ID
+    </select>
+	
+	<!-- 공급사 유효성 체크 -->
+    <select id="doIrsNumCheck" resultType="java.util.Map">
+        SELECT COUNT(*) AS CNT
+        	 , PROGRESS_CD
+        	 , REJECT_RMK
+        	 ,<include refid="com.sql.nvl"/>(BLOCK_FLAG, '0') AS BLOCK_FLAG
+        	 , BLOCK_REASON
+          FROM STOCVNGL
+         WHERE GATE_CD  = <include refid="com.sql.gateCd"/>
+           AND IRS_NO   = #{IRS_NUM}
+           AND DEL_FLAG = '0'
+         GROUP BY PROGRESS_CD
+	        	, REJECT_RMK
+	        	, BLOCK_FLAG
+	        	, BLOCK_REASON
+    </select>
+    
+    <!-- 고객사 유효성 체크 -->
+    <select id="doIrsNumCheckCust" resultType="java.util.Map">
+        SELECT COUNT(*) AS CNT
+        	 , PROGRESS_CD
+        	 , REJECT_RMK
+        	 ,<include refid="com.sql.nvl"/>(STOP_FLAG, '0') AS BLOCK_FLAG
+        	 , STOP_REMARK AS BLOCK_REASON
+          FROM STOCCUST
+         WHERE GATE_CD  = <include refid="com.sql.gateCd"/>
+           AND IRS_NUM  = #{IRS_NUM}
+           AND DEL_FLAG = '0'
+         GROUP BY PROGRESS_CD
+	        	, REJECT_RMK
+	        	, STOP_FLAG
+	        	, STOP_REMARK
+    </select>
+	
+	<!-- 비밀번호 찾기 -->
+    <select id="doPwInfo" resultType="java.util.Map">
+        SELECT MAX(A.CNT) AS CNT
+             , MAX(A.USER_TYPE) AS USER_TYPE
+             , MAX(A.ISPOSSIBLE_FLAG) AS ISPOSSIBLE_FLAG
+             , MAX(A.EMAIL) AS EMAIL
+          FROM (
+          	  SELECT COUNT(*) AS CNT
+                   , USR.USER_TYPE
+                   , '0' AS ISPOSSIBLE_FLAG
+                   , USR.EMAIL
+                FROM STOCUSER USR
+                JOIN STOCOGCM OGCM
+                     ON (USR.GATE_CD   = OGCM.GATE_CD
+                     AND USR.COMPANY_CD = OGCM.BUYER_CD
+                     AND OGCM.DEL_FLAG = '0')
+               WHERE USR.USER_ID = #{P_USER_ID}
+                 AND USR.USER_NM = #{P_USER_NM}
+			<if test="P_EMAIL != '' and P_EMAIL != null">
+                 AND USR.EMAIL = #{P_EMAIL}
+			</if>
+                 AND REPLACE(USR.CELL_NUM, '-', '') = REPLACE(#{P_CELL_NO}, '-', '')
+                 AND OGCM.IRS_NUM = #{P_IRS_NO}
+               GROUP BY USR.USER_TYPE, USR.EMAIL
+              
+              UNION ALL
+              
+        	  SELECT COUNT(*) AS CNT
+                   , CVUR.USER_TYPE
+                   , '1' AS ISPOSSIBLE_FLAG
+                   , CVUR.EMAIL
+                FROM STOCCVUR CVUR
+                JOIN STOCVNGL VNGL
+                     ON (CVUR.GATE_CD  = VNGL.GATE_CD
+                     AND CVUR.COMPANY_CD = VNGL.VENDOR_CD
+                     AND VNGL.DEL_FLAG = '0')
+               WHERE CVUR.USER_ID = #{P_USER_ID}
+                 AND CVUR.USER_NM = #{P_USER_NM}
+			<if test="P_EMAIL != '' and P_EMAIL != null">
+                 AND CVUR.EMAIL   = #{P_EMAIL}
+			</if>
+                 AND REPLACE(CVUR.CELL_NUM, '-', '') = REPLACE(#{P_CELL_NO}, '-', '')
+                 AND VNGL.IRS_NO  = #{P_IRS_NO}
+               GROUP BY CVUR.USER_TYPE, CVUR.EMAIL
+              
+              UNION ALL
+              
+              SELECT COUNT(*) AS CNT
+                   , CVUR.USER_TYPE
+                   ,(CASE WHEN CUST.ERP_IF_FLAG = '1' THEN '0' ELSE '1' END) AS ISPOSSIBLE_FLAG
+                   , CVUR.EMAIL
+                FROM STOCCVUR CVUR
+                JOIN STOCCUST CUST
+                     ON (CVUR.GATE_CD  = CUST.GATE_CD
+                     AND CVUR.COMPANY_CD = CUST.CUST_CD
+                     AND CUST.DEL_FLAG = '0')
+               WHERE CVUR.USER_ID = #{P_USER_ID}
+                 AND CVUR.USER_NM = #{P_USER_NM}
+			<if test="P_EMAIL != '' and P_EMAIL != null">
+                 AND CVUR.EMAIL   = #{P_EMAIL}
+			</if>
+                 AND REPLACE(CVUR.CELL_NUM, '-', '') = REPLACE(#{P_CELL_NO}, '-', '')
+                 AND CUST.IRS_NUM = #{P_IRS_NO}
+               GROUP BY CVUR.USER_TYPE, CUST.ERP_IF_FLAG, CVUR.EMAIL
+             ) A
+    </select>
+	
+	<!-- 운영사 사용자 -->
+    <select id="operIdSearch" resultType="java.util.Map">
+        SELECT USR.USER_ID
+          FROM STOCUSER USR
+          JOIN STOCOGCM OGCM
+               ON (USR.GATE_CD   = OGCM.GATE_CD
+               AND USR.COMPANY_CD = OGCM.BUYER_CD
+               AND OGCM.DEL_FLAG = '0')
+         WHERE USR.USER_NM  = #{I_USER_NM}
+           AND USR.EMAIL    = #{I_EMAIL}
+           AND REPLACE(USR.CELL_NUM, '-', '') = REPLACE(#{I_CELL_NO}, '-', '')
+           AND OGCM.IRS_NUM = #{I_IRS_NO}
+    </select>
+	
+	<!-- 협력사 사용자 -->
+    <select id="vendorIdSearch" resultType="java.util.Map">
+        SELECT CVUR.USER_ID
+          FROM STOCCVUR CVUR
+          JOIN STOCVNGL VNGL
+               ON (CVUR.GATE_CD  = VNGL.GATE_CD
+               AND CVUR.COMPANY_CD = VNGL.VENDOR_CD
+               AND VNGL.DEL_FLAG = '0')
+         WHERE CVUR.USER_NM = #{I_USER_NM}
+           AND CVUR.EMAIL   = #{I_EMAIL}
+           AND REPLACE(CVUR.CELL_NUM, '-', '') = REPLACE(#{I_CELL_NO}, '-', '')
+           AND VNGL.IRS_NO  = #{I_IRS_NO}
+    </select>
+	
+	<!-- 고객사 사용자 -->
+    <select id="custIdSearch" resultType="java.util.Map">
+        SELECT CVUR.USER_ID
+          FROM STOCCVUR CVUR
+          JOIN STOCCUST CUST
+	           ON (CVUR.GATE_CD = CUST.GATE_CD
+	           AND CVUR.COMPANY_CD = CUST.CUST_CD
+	           AND CUST.DEL_FLAG = '0')
+         WHERE CVUR.USER_NM = #{I_USER_NM}
+           AND CVUR.EMAIL = #{I_EMAIL}
+           AND REPLACE(CVUR.CELL_NUM, '-', '') = REPLACE(#{I_CELL_NO}, '-', '')
+           AND CUST.IRS_NUM = #{I_IRS_NO}
+    </select>
+
+    <update id="doUpdateCVUR">
+
+        UPDATE STOCCVUR SET
+             PASSWORD = #{PPDD}
+            ,PW_WRONG_CNT = 0
+            ,PW_RESET_FLAG = '1'
+            ,PW_RESET_DATE = <include refid="com.sql.sysdate"/>
+         WHERE USER_ID = #{P_USER_ID}
+    </update>
+
+    <update id="doUpdateUSER">
+
+        UPDATE STOCUSER SET
+             PASSWORD = #{PPDD}
+            ,PW_WRONG_CNT = 0
+            ,PW_RESET_FLAG = '1'
+            ,PW_RESET_DATE = <include refid="com.sql.sysdate"/>
+         WHERE USER_ID = #{P_USER_ID}
+    </update>
+
+</mapper>

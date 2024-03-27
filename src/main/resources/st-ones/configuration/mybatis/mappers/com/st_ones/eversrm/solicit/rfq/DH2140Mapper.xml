@@ -1,0 +1,1011 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.DH2140Mapper">
+
+
+<!--      qtaCreation - SPX_020 , SPX_060 , BPX_180    -->
+
+	<select id="getVendorQtaCreation" parameterType="hashMap"  resultType="hashMap">
+       SELECT
+            RQVN.VENDOR_CD AS "value" ,
+            <include refid="com.sql.dbo"/>GETVENDORNAME(RQVN.GATE_CD , RQVN.VENDOR_CD , #{ses.langCd}) AS "text"
+        FROM STOCRQVN RQVN
+        LEFT JOIN STOCRQHD RQHD
+           ON RQVN.GATE_CD=RQHD.GATE_CD
+          AND RQVN.RFX_NUM=RQHD.RFX_NUM
+          AND RQVN.RFX_CNT=RQHD.RFX_CNT
+        WHERE RQVN.GATE_CD = #{ses.gateCd}
+        <choose>
+        	<when test="QTA_NUM != '' and QTA_NUM != null">
+				<if test="_databaseId == 'oracle' ">		
+                	AND (RQVN.RFX_NUM, RQVN.RFX_CNT) IN (SELECT RFX_NUM, RFX_CNT FROM STOCQTHD WHERE GATE_CD = #{ses.gateCd} AND QTA_NUM = #{QTA_NUM})
+				</if>
+				<if test="_databaseId == 'mssql' ">
+                	AND EXISTS (  
+                			SELECT '1' FROM STOCQTHD 
+                			WHERE GATE_CD = #{ses.gateCd} 
+                			AND QTA_NUM = #{QTA_NUM}
+                	        AND RFX_NUM = RQVN.RFX_NUM
+                	        AND RFX_CNT = RQVN.RFX_CNT
+                	        AND DEL_FLAG ='0'
+                	)
+				</if>
+            </when>
+            <otherwise>
+                AND RQVN.RFX_NUM = #{RFX_NUM}
+           		AND RQVN.RFX_CNT = #{RFX_CNT}
+            </otherwise>
+        </choose>
+           AND RQVN.DEL_FLAG = '0'
+           AND 1 = <if test="_databaseId == 'oracle' ">CASE WHEN RQHD.SUBMIT_TYPE='RT' THEN TO_NUMBER(<include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, 0)) ELSE 1 END</if>
+                   <if test="_databaseId == 'mssql' ">CASE WHEN RQHD.SUBMIT_TYPE='RT' THEN CAST(<include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, 0) AS INT) ELSE 1 END</if>
+    </select>
+
+	<select id="doCheckRfqCloseDate"  resultType="hashMap">
+		SELECT
+		<if test="_databaseId == 'oracle' ">		
+			  TO_CHAR(RFQ_CLOSE_DATE, 'YYYYMMDDHH24MISS') AS RFQ_CLOSE_DATE
+			, TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYYMMDDHH24MISS') AS SYS_DATE
+		</if>
+		<if test="_databaseId == 'mssql' ">
+			replace(replace(replace(convert(varchar, RFQ_CLOSE_DATE,20),'-',''),':',''),' ','') RFQ_CLOSE_DATE
+			,replace(replace(replace(convert(varchar, <include refid="com.sql.sysdate"/>,20),'-',''),':',''),' ','')		 SYS_DATE	
+		</if>
+		FROM STOCRQHD RQHD
+		WHERE RQHD.GATE_CD = #{ses.gateCd}
+		  AND RQHD.RFX_NUM = #{RFX_NUM}
+		  AND RQHD.RFX_CNT = #{RFX_CNT}
+	</select>
+
+    <select id="doSearchQtaCreation_F"  resultType="hashMap">
+
+         SELECT RQVN.VENDOR_CD
+         	  , <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, RQVN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NAME
+         	  , RQHD.RFX_NUM
+         	  , RQHD.RFX_CNT
+         	  , RQHD.BUYER_CD
+         	  , RQHD.SETTLE_TYPE
+         	  , <include refid="com.sql.dbo"/>GETBUYERNAME(RQHD.GATE_CD,RQHD.BUYER_CD,#{ses.langCd}) AS BUYER_NAME
+         	  , RQHD.RFX_SUBJECT
+         	  , RQHD.CUR
+         	  , RQHD.VAT_TYPE
+         	  , QTHD.QTA_NUM
+         	  , QTHD.PIC_USER_NM
+         	  , QTHD.PIC_TEL_NUM
+         	  , QTHD.QTA_AMT
+         	  , QTHD.QTA_RMK_TEXT_NUM
+         	  , QTHD.ATT_FILE_NUM
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(QTHD.VALID_TO_DATE , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS VALID_TO_DATE
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(QTHD.SEND_DATE , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS SEND_DATE
+         	  , RQVN.GATE_CD
+         	  , RQHD.VENDOR_OPEN_TYPE
+         	  , RQHD.SETTLE_TYPE
+         	  
+         	  , RQHD.PURCHASE_TYPE
+         	  , RQHD.SUBMIT_TYPE
+         	  , RQHD.PRC_STL_TYPE
+         	  
+         	  
+         	  , RQHD.PUB_CERT_YN
+			 , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS')
+			   <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> 
+			   <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') 
+			   AS RFQ_START_END_DATE
+         	  
+         	  , (CASE WHEN RQVN.RFQ_GIVEUP_DATE IS NOT NULL THEN 'N'
+         	  		  WHEN QTHD.QTA_NUM IS NULL THEN 'Y'
+         	  		  WHEN #{ses.userType} = 'S' THEN 'Y'
+              		  ELSE (CASE WHEN <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, QTHD.MOD_USER_ID, 'COMPANY_CD') = #{ses.companyCd}
+                                      THEN 'Y'
+                                      ELSE 'N'
+                            END)
+                 END) SAVE_FLAG
+                 
+            <if test="_databaseId == 'oracle' ">
+              ,CASE WHEN #{ses.userType} = 'B' THEN 'N'
+                    WHEN replace(replace(replace(TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYY-MM-DD HH:MM:SS'),'-',''),':',''),' ','')  >
+                         replace(replace(replace(TO_CHAR(RFQ_CLOSE_DATE, 'YYYY-MM-DD HH:MM:SS'),'-',''),':',''),' ','') THEN 'N'
+                    WHEN RQVN.RFQ_PROGRESS_CD = '300' THEN 'N'
+					WHEN RQVN.RFQ_GIVEUP_DATE IS NOT NULL THEN 'N'                              
+                    ELSE 'Y' END QT_YN
+            </if>
+            <if test="_databaseId == 'mssql' ">
+              ,CASE WHEN #{ses.userType} = 'B' THEN 'N'
+                    WHEN replace(replace(replace(convert(varchar, <include refid="com.sql.sysdate"/>,20),'-',''),':',''),' ','')  >
+                         replace(replace(replace(convert(varchar, RFQ_CLOSE_DATE,20),'-',''),':',''),' ','') THEN 'N'
+                    WHEN RQVN.RFQ_PROGRESS_CD = '300' THEN 'N'
+					WHEN RQVN.RFQ_GIVEUP_DATE IS NOT NULL THEN 'N'                              
+                    ELSE 'Y' END QT_YN
+            </if>
+                 
+              ,RQHD.RFX_TYPE
+              ,RQHD.ITEM_CLASS_CD
+              ,(SELECT IRS_NUM FROM STOCVNGL WHERE GATE_CD = RQVN.GATE_CD AND VENDOR_CD = RQVN.VENDOR_CD) AS IRS_NUM
+              ,QTHD.ENC_QTA_AMT
+              ,RQHD.PROGRESS_CD
+              ,RQHD.MOLD_YN
+			  ,RQHD.CTRL_USER_ID
+         FROM STOCRQHD RQHD
+         LEFT OUTER JOIN STOCRQVN RQVN
+          ON (RQVN.GATE_CD = RQHD.GATE_CD
+          AND RQVN.RFX_NUM = RQHD.RFX_NUM
+          AND RQVN.RFX_CNT = RQHD.RFX_CNT
+          <if test="ses.userType eq'S'.toString()">
+          	AND RQVN.VENDOR_CD = #{ses.companyCd}
+          </if>
+
+          <if test="QTA_NUM == '' or QTA_NUM == null">
+          AND RQVN.VENDOR_CD = #{VENDOR_CD}
+          </if>
+          AND RQVN.DEL_FLAG = '0')
+         LEFT JOIN STOCQTHD QTHD
+          ON (RQVN.GATE_CD = QTHD.GATE_CD
+          AND RQVN.RFX_NUM = QTHD.RFX_NUM
+          AND RQVN.RFX_CNT = QTHD.RFX_CNT
+          AND RQVN.VENDOR_CD = QTHD.VENDOR_CD
+          AND QTHD.DEL_FLAG = '0')
+         LEFT JOIN STOCUSER US
+          ON (US.GATE_CD = QTHD.GATE_CD
+          AND US.USER_ID = QTHD.REG_USER_ID)
+          
+        WHERE RQHD.GATE_CD = #{ses.gateCd}
+	      AND RQHD.DEL_FLAG = '0'
+	      <choose>
+	           <when test="QTA_NUM != '' and QTA_NUM != null">
+	               AND QTHD.QTA_NUM = #{QTA_NUM}
+	           </when>
+	           <otherwise>
+	               AND RQHD.RFX_NUM = #{RFX_NUM}
+                   AND RQHD.RFX_CNT = #{RFX_CNT}
+	           </otherwise>
+	      </choose>
+	      AND CASE WHEN #{ses.userType} = 'S' THEN '1'
+                   WHEN US.USER_TYPE = 'B' THEN '1'
+                   WHEN #{ses.userType} = 'B' THEN
+                      CASE
+                         WHEN QTHD.REG_USER_ID IS NOT NULL THEN '1'
+                         WHEN QTHD.REG_USER_ID IS NULL THEN '1'
+                         WHEN RQHD.RFX_OPEN_TYPE = 'SEL' THEN
+                           CASE WHEN RQHD.RFQ_OPEN_DATE IS NOT NULL THEN '1' ELSE '0' END
+                         WHEN RQHD.RFX_OPEN_TYPE = 'ONE' THEN
+                           CASE WHEN <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) >= '2400' THEN '1' ELSE '0' END
+                         WHEN RQHD.RFX_OPEN_TYPE = 'SEQ' THEN
+                             CASE WHEN RQVN.RFQ_PROGRESS_CD = '300' THEN '1' ELSE '0' END
+                         ELSE '1'
+                      END
+              END = '1'
+
+     </select>
+
+
+
+     <select id="doSearchQtaCreation_G" parameterType="hashMap" resultType="hashMap">
+
+         SELECT QTDT.GIVEUP_FLAG
+              , CASE WHEN RQDT.NEGO_VENDOR_CD = #{VENDOR_CD} THEN '1' ELSE '0' END AS AWARD_FLAG
+         	  , RQDT.ITEM_CD
+         	  , RQDT.ITEM_DESC
+         	  , RQDT.ITEM_SPEC
+         	  , RQDT.RFX_QT
+         	  , RQDT.UNIT_CD
+
+
+<!-- 
+              , CASE WHEN QTDT.QTA_NUM IS NOT NULL THEN
+	              	CASE WHEN RQDT.ITEM_CD IS NULL THEN <include refid="com.sql.dbo"/>getLastQtaPriceByDescByQtaNum(RQHD.GATE_CD, RQHD.BUYER_CD, #{VENDOR_CD}, RQDT.ITEM_DESC, QTDT.QTA_NUM)
+	                     ELSE <include refid="com.sql.dbo"/>getLastQtaPriceByQtaNum(RQHD.GATE_CD, RQHD.BUYER_CD, #{VENDOR_CD}, RQDT.ITEM_CD, QTDT.QTA_NUM)
+	                END
+	            ELSE
+	              	CASE WHEN PQTDT.QTA_NUM IS NOT NULL THEN PQTDT.UNIT_PRC
+	                     ELSE
+	                        CASE WHEN RQDT.ITEM_CD IS NULL THEN <include refid="com.sql.dbo"/>getLastQtaPriceByDesc(RQHD.GATE_CD, RQHD.BUYER_CD, #{VENDOR_CD}, RQDT.ITEM_DESC)
+	                             ELSE <include refid="com.sql.dbo"/>getLastQtaPrice(RQHD.GATE_CD, RQHD.BUYER_CD, #{VENDOR_CD}, RQDT.ITEM_CD)
+	                        END
+	                END
+                END AS LAST_PRC
+ -->
+			  ,CASE WHEN RQDT.RFX_CNT = 1 THEN 0 ELSE (
+			  	SELECT A.UNIT_PRC
+			  	FROM STOCQTDT A
+			  	WHERE A.GATE_CD  = RQDT.GATE_CD
+			  	AND A.RFX_NUM    = RQDT.RFX_NUM
+			  	AND A.RFX_CNT    = 1
+			  	AND A.RFX_SQ     = RQDT.RFX_SQ
+			    AND A.DEL_FLAG = '0'
+			    AND A.VENDOR_CD  = #{VENDOR_CD}
+			  ) END FIRST_UNIT_PRC
+
+         	  , QTDT.UNIT_PRC
+			  , QTDT.ITEM_AMT
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(QTDT.QTA_DUE_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS QTA_DUE_DATE
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(RQDT.DUE_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE
+         	  , (SELECT CASE WHEN COUNT(*) = 0 THEN 0 ELSE COUNT(*) END FROM STOCATCH ATCH
+         	                     WHERE ATCH.GATE_CD = RQDT.GATE_CD AND ATCH.UUID = RQDT.ATT_FILE_NUM
+         	                     AND ATCH.DEL_FLAG = '0') AS RC_ATT_FILE_NUM
+         	  ,( SELECT CASE WHEN( COUNT(*) = 0) THEN 0 ELSE COUNT (*) END FROM STOCATCH ATCH
+         	                     WHERE ATCH.GATE_CD = QTDT.GATE_CD AND ATCH.UUID = QTDT.ATT_FILE_NUM
+         	                     AND ATCH.DEL_FLAG = '0') AS QC_ATT_FILE_NUM
+              <!--, (0) AS RC_ATT_FILE_NUM_IMAGE-->
+              <!--, (0) AS QC_ATT_FILE_NUM_IMAGE-->
+              <!--, (0) AS SUB_ITEM_IMAGE-->
+              , RQDT.ATT_FILE_NUM AS R_ATT_FILE_NUM
+              , QTDT.ATT_FILE_NUM AS Q_ATT_FILE_NUM
+              , (SELECT CASE WHEN COUNT(*)= 0 THEN 0 ELSE COUNT(*) END FROM STOCRQSI RQSI
+                                 WHERE RQSI.GATE_CD = RQDT.GATE_CD AND RQSI.RFX_NUM = RQDT.RFX_NUM AND RQSI.RFX_CNT = RQDT.RFX_CNT
+                                 AND RQSI.RFX_SQ = RQDT.RFX_SQ AND RQSI.DEL_FLAG = '0') AS SUB_ITEM
+<!--               , (SELECT SUM(QTSI.UNIT_PRC)  -->
+<!--                     FROM STOCQTSI QTSI  -->
+<!--                         JOIN STOCQTDT QTDT_A ON QTSI.GATE_CD = QTDT_A.GATE_CD AND QTSI.QTA_NUM = QTDT_A.QTA_NUM AND QTSI.QTA_SQ = QTDT_A.QTA_SQ AND QTDT_A.DEL_FLAG = '0' -->
+<!--                         JOIN STOCQTHD QTHD_A ON QTHD_A.GATE_CD = QTDT_A.GATE_CD AND QTHD_A.QTA_NUM = QTDT_A.QTA_NUM AND QTHD_A.VENDOR_CD = #{VENDOR_CD} AND QTHD_A.DEL_FLAG = '0' -->
+<!--                     WHERE QTSI.GATE_CD = RQDT.GATE_CD -->
+<!--                       AND QTSI.DEL_FLAG = '0' -->
+<!--                       AND RQDT.RFX_NUM = QTDT_A.RFX_NUM  -->
+<!--                       AND RQDT.RFX_CNT = QTDT_A.RFX_CNT  -->
+<!--                       AND RQDT.RFX_SQ = QTDT_A.RFX_SQ -->
+<!--                  ) AS SUB_ITEM_JSON -->
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(RQDT.VALID_FROM_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+         	  , <include refid="com.sql.dbo"/>GETGMTDATE(RQDT.VALID_TO_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+         	  , RQDT.ITEM_RMK AS R_ITEM_RMK
+			  , QTDT.ITEM_RMK AS Q_ITEM_RMK
+			  , <include refid="com.sql.dbo"/>GETDELYTOCODENAME(RQDT.GATE_CD, RQDT.BUYER_REQ_CD, RQDT.DELY_TO_CD, #{ses.langCd}) AS DELY_TO_CD
+			  , RQDT.DELY_TO_NM
+			  , <include refid="com.sql.dbo"/>GETBUYERNAME(RQDT.GATE_CD,RQDT.BUYER_REQ_CD,#{ses.langCd}) AS BUYER_REG_NM
+			  , RQDT.BUYER_REQ_CD
+			  , <include refid="com.sql.dbo"/>GETPLANTNAME(RQDT.GATE_CD,RQDT.BUYER_REQ_CD,RQDT.PLANT_CD,#{ses.langCd}) AS PLANT_NM
+			  , RQDT.GATE_CD
+			  , RQDT.RFX_NUM
+              , RQDT.RFX_CNT
+              , RQDT.RFX_SQ
+              , RQDT.PR_NUM
+              , RQDT.PR_SQ
+              , QTDT.QTA_NUM
+              , QTDT.QTA_SQ
+              , #{VENDOR_CD} AS VENDOR_CD
+			  ,RQDT.DPRC_QT
+	    	  , CASE WHEN RQDT.COST_ITEM_NEED_FLAG = '1' THEN 'Yes' ELSE 'No' END COST_ITEM_NEED_FLAG
+	    	  
+	    	  , QTCH.COST_NUM
+              , QTCH.COST_CD
+              , CASE WHEN <include refid="com.sql.length"/>(QTCH.COST_NUM) > 0  THEN 'Yes' ELSE 'No' END COST_ITEM_NEED
+
+			  , QTDT.ENC_INVEST_AMT
+			  , QTDT.ENC_UNIT_PRC
+			  , QTDT.ENC_Y1_UNIT_PRC
+			  , QTDT.ENC_Y2_UNIT_PRC
+			  , QTDT.ENC_Y3_UNIT_PRC
+			  , <include refid="com.sql.nvl"/>(QTDT.INVEST_CD, RQDT.INVEST_CD) AS INVEST_CD
+			  , QTDT.ENC_ITEM_AMT
+
+			  ,<include refid="com.sql.dbo"/>GETRFQSETTLEFLAGSUPPLIER(QTDT.GATE_CD, QTDT.QTA_NUM, QTDT.QTA_SQ, QTDT.RFX_NUM, QTDT.RFX_CNT, QTDT.RFX_SQ) SETTLE_YN
+
+			  ,RQDT.COST_TEXT
+			 ,QTDT.QTA_DUE_DATE_TEXT
+         FROM STOCRQDT RQDT
+                    LEFT JOIN STOCQTDT QTDT ON RQDT.GATE_CD = QTDT.GATE_CD
+                                      AND RQDT.RFX_NUM = QTDT.RFX_NUM
+                                      AND RQDT.RFX_CNT = QTDT.RFX_CNT
+                                      AND RQDT.RFX_SQ = QTDT.RFX_SQ
+                                      <if test="QTA_NUM == '' or QTA_NUM == null">
+                                      AND QTDT.VENDOR_CD = #{VENDOR_CD}
+                                      </if>
+                                      <if test="QTA_NUM != '' or QTA_NUM != null">
+                                      	AND QTDT.QTA_NUM = #{QTA_NUM}
+                                      </if>
+
+							          <if test="ses.userType eq'S'.toString()">
+							          	AND QTDT.VENDOR_CD = #{ses.companyCd}
+							          </if>
+
+                                      AND QTDT.DEL_FLAG = '0'
+                    JOIN STOCRQHD RQHD ON RQHD.GATE_CD = RQDT.GATE_CD
+                                      AND RQDT.RFX_NUM = RQHD.RFX_NUM
+                                      AND RQDT.RFX_CNT = RQHD.RFX_CNT
+                                      AND RQHD.DEL_FLAG = '0'
+	                JOIN STOCRQSE RQSE ON RQDT.GATE_CD = RQSE.GATE_CD
+	                                  AND RQDT.RFX_NUM = RQSE.RFX_NUM
+	                                  AND RQDT.RFX_CNT = RQSE.RFX_CNT
+	                                  AND RQDT.RFX_SQ = RQSE.RFX_SQ
+	                                  AND RQSE.DEL_FLAG = '0'
+
+									  <if test="QTA_NUM == '' or QTA_NUM == null">
+                                      AND RQSE.VENDOR_CD = #{VENDOR_CD}
+                                      </if>
+
+									  <if test="VENDOR_CD != '' and VENDOR_CD != null">
+									  AND RQSE.VENDOR_CD = #{VENDOR_CD}
+									  </if>
+
+							          <if test="ses.userType eq'S'.toString()">
+							          	AND RQSE.VENDOR_CD = #{ses.companyCd}
+							          </if>
+
+                    LEFT OUTER JOIN STOCQTDT PQTDT
+                        ON (PQTDT.GATE_CD = QTDT.GATE_CD
+                        AND PQTDT.RFX_NUM = QTDT.RFX_NUM
+                        AND PQTDT.RFX_CNT = QTDT.RFX_CNT-1
+                        AND PQTDT.RFX_SQ = QTDT.RFX_SQ
+                        AND PQTDT.VENDOR_CD = QTDT.VENDOR_CD
+                        AND PQTDT.DEL_FLAG = '0')
+
+                    LEFT OUTER JOIN STOCQTCH QTCH
+						ON (QTCH.GATE_CD = QTDT.GATE_CD
+							AND QTCH.COST_NUM = QTDT.COST_NUM
+							--AND ROWNUM = 1
+							)
+
+         WHERE  RQDT.GATE_CD = #{ses.gateCd}
+	            <choose>
+	               <when test="QTA_NUM != '' and QTA_NUM != null">
+	                   AND QTDT.QTA_NUM = #{QTA_NUM}
+	               </when>
+	               <otherwise>
+	                   AND RQDT.RFX_NUM = #{RFX_NUM}
+	                   AND RQDT.RFX_CNT = #{RFX_CNT}
+	               </otherwise>
+	           </choose>
+               AND RQDT.DEL_FLAG = '0'
+     </select>
+    <!--AND (CASE WHEN EXISTS (SELECT 1 FROM STOCRQDT-->
+    <!--WHERE GATE_CD = #{ses.gateCd}-->
+    <!--AND RFX_NUM = #{RFX_NUM}-->
+    <!--AND RFX_CNT = #{RFX_CNT}-->
+    <!--AND DEL_FLAG = '0'-->
+    <!--AND NEGO_VENDOR_CD IS NOT NULL)-->
+    <!--THEN #{VENDOR_CD} ELSE '1' END)-->
+    <!--= (CASE WHEN RQDT.NEGO_PROGRESS_CD = '100' AND RQDT.NEGO_VENDOR_CD = #{VENDOR_CD}-->
+    <!--THEN #{VENDOR_CD} ELSE '1' END)-->
+
+
+     <select id="checkExistsQtaCreation_QTHD" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCQTHD
+        WHERE GATE_CD = #{ses.gateCd}
+          AND QTA_NUM = #{QTA_NUM}
+     </select>
+
+     <update id="doUpdatePreviousLastFlag_QTHD" parameterType="hashMap">
+        <![CDATA[
+        UPDATE STOCQTHD
+           SET LAST_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+           AND QTA_NUM < #{QTA_NUM}
+        ]]>
+     </update>
+
+     <update id="doUpdatePreviousQTHD" parameterType="hashMap">
+         UPDATE STOCQTHD
+            SET DEL_FLAG = '1'
+          WHERE GATE_CD = #{ses.gateCd}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+            AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+     </update>
+
+     <update id="doUpdatePreviousQTDT" parameterType="hashMap">
+         UPDATE STOCQTDT
+            SET DEL_FLAG = '1'
+          WHERE GATE_CD = #{ses.gateCd}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+            AND RFX_SQ = #{RFX_SQ}
+            AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+     </update>
+
+    <update id="doUpdateRQDTNegoProgressCode" parameterType="hashMap">
+        UPDATE STOCRQDT
+          SET NEGO_PROGRESS_CD = '200'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+           AND RFX_SQ = #{RFX_SQ}
+           AND DEL_FLAG = '0'
+    </update>
+
+     <insert id="doInsertQtaCreation_QTHD" parameterType="hashMap">
+
+        INSERT INTO STOCQTHD (
+			    GATE_CD
+			  ,	QTA_NUM
+			  ,	REG_DATE
+			  ,	REG_USER_ID
+			  , MOD_DATE
+              , MOD_USER_ID
+			  ,	DEL_FLAG
+			  ,	RFX_NUM
+			  ,	RFX_CNT
+			  ,	VENDOR_CD
+			  ,	PIC_USER_NM
+			  ,	PIC_TEL_NUM
+			  ,	VALID_TO_DATE
+			  ,	ATT_FILE_NUM
+			  ,	QTA_AMT
+			  , FIRST_FLAG
+			  , LAST_FLAG
+			  , IP_ADDR
+              , QTA_RMK_TEXT_NUM
+              , ENC_QTA_AMT
+
+        ) VALUES (
+        	  #{ses.gateCd}
+			, #{QTA_NUM}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{RFX_NUM}
+			, CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+			, CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+			, #{PIC_USER_NM}
+			, #{PIC_TEL_NUM}
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			, #{ATT_FILE_NUM}
+			, CASE WHEN #{QTA_AMT} = '' THEN NULL ELSE #{QTA_AMT} END
+			, CASE
+				    WHEN <include refid="com.sql.nvl"/>((SELECT COUNT(*) FROM STOCQTHD
+				                          WHERE GATE_CD = #{ses.gateCd}
+				                            AND RFX_NUM = #{RFX_NUM}
+				                            AND DEL_FLAG = '0'
+				                            AND VENDOR_CD = #{VENDOR_CD}), 0) = 0
+				    THEN '1'
+				    ELSE '0'
+			  END
+			, '1'
+			, #{ses.ipAddress}
+			, #{QTA_RMK_TEXT_NUM}
+			, #{ENC_QTA_AMT}
+        )
+    </insert>
+
+    <update id="doUpdateQtaCreation_QTHD" parameterType="hashmap">
+        UPDATE  STOCQTHD
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '0'
+         , RFX_NUM = #{RFX_NUM}
+         , RFX_CNT = CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+		 , VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+		 , PIC_USER_NM = #{PIC_USER_NM}
+		 , PIC_TEL_NUM = #{PIC_TEL_NUM}
+		 , VALID_TO_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+		 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+		 , QTA_AMT = CASE WHEN #{QTA_AMT} = '' THEN NULL ELSE #{QTA_AMT} END
+         , IP_ADDR = #{ses.ipAddress}
+		 , QTA_RMK_TEXT_NUM = #{QTA_RMK_TEXT_NUM}
+		 , ENC_QTA_AMT = #{ENC_QTA_AMT}
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+     </update>
+
+     <select id="checkExistsQtaCreation_QTDT" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCQTDT
+        WHERE GATE_CD = #{ses.gateCd}
+          AND QTA_NUM = #{QTA_NUM}
+          AND QTA_SQ = #{QTA_SQ}
+     </select>
+
+     <select id="checkExistsPrevQta_QTDT" parameterType="hashMap" resultType="java.lang.Integer">
+        <![CDATA[
+        SELECT COUNT(*) AS CNT
+          FROM STOCQTDT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_SQ = #{RFX_SQ}
+           AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+           AND QTA_NUM < #{QTA_NUM}
+        ]]>
+     </select>
+
+    <update id="doUpdatePrevLastFlagQTDT" parameterType="hashMap">
+        <![CDATA[
+        UPDATE STOCQTDT
+           SET LAST_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_SQ = #{RFX_SQ}
+           AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+           AND QTA_NUM < #{QTA_NUM}
+        ]]>
+    </update>
+
+     <select id="getQtaSq" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT <include refid="com.sql.nvl"/>(MAX(QTA_SQ), 0)+1
+        FROM STOCQTDT
+        WHERE GATE_CD = #{ses.gateCd}
+          AND QTA_NUM = #{QTA_NUM}
+     </select>
+
+     <insert id="doInsertQtaCreation_QTDT" parameterType="hashMap">
+        INSERT INTO STOCQTDT (
+				  GATE_CD
+				, QTA_NUM
+				, QTA_SQ
+				, REG_DATE
+				, REG_USER_ID
+				, MOD_DATE
+				, MOD_USER_ID
+				, DEL_FLAG
+				, RFX_NUM
+				, RFX_CNT
+				, RFX_SQ
+				, VENDOR_CD
+				, UNIT_PRC
+				, ITEM_AMT
+				, QTA_DUE_DATE
+				, ATT_FILE_NUM
+				, VALID_FROM_DATE
+				, VALID_TO_DATE
+				, ITEM_RMK
+				, GIVEUP_FLAG
+				, COST_NUM
+				
+				,INVEST_CD
+				,INVEST_AMT
+				,ENC_INVEST_AMT
+				,ENC_UNIT_PRC
+				,PRC_SCORE
+				,Y1_UNIT_PRC
+				,Y2_UNIT_PRC
+				,Y3_UNIT_PRC
+				,ENC_Y1_UNIT_PRC
+				,ENC_Y2_UNIT_PRC	
+				,ENC_Y3_UNIT_PRC
+				,ENC_ITEM_AMT
+				,QTA_DUE_DATE_TEXT
+				,LAST_FLAG
+        ) VALUES (
+        	  #{ses.gateCd}
+			, #{QTA_NUM}
+			, #{QTA_SQ}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{RFX_NUM}
+			, CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+			, CASE WHEN #{RFX_SQ} = '' THEN NULL ELSE #{RFX_SQ} END
+			, CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+			, CASE WHEN #{UNIT_PRC} = '' THEN NULL ELSE #{UNIT_PRC} END
+			, CASE WHEN #{ITEM_AMT} = '' THEN NULL ELSE #{ITEM_AMT} END
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{QTA_DUE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+			, #{Q_ATT_FILE_NUM}
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+			, #{Q_ITEM_RMK}
+			, #{GIVEUP_FLAG}
+			, #{COST_NUM}
+			
+			, #{INVEST_CD}
+			, #{INVEST_AMT}
+			, #{ENC_INVEST_AMT}
+			, #{ENC_UNIT_PRC}
+			, #{PRC_SCORE}
+			, #{Y1_UNIT_PRC}
+			, #{Y2_UNIT_PRC}
+			, #{Y3_UNIT_PRC}
+			, #{ENC_Y1_UNIT_PRC}
+			, #{ENC_Y2_UNIT_PRC}
+			, #{ENC_Y3_UNIT_PRC}
+		    , #{ENC_ITEM_AMT}
+			, #{QTA_DUE_DATE_TEXT}	
+			, '1'
+        )
+    </insert>
+
+    <update id="doUpdateQtaCreation_QTDT" parameterType="hashmap">
+        UPDATE  STOCQTDT
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '0'
+         , RFX_NUM = #{RFX_NUM}
+         , RFX_CNT = CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+         , RFX_SQ = CASE WHEN #{RFX_SQ} = '' THEN NULL ELSE #{RFX_SQ} END
+		 , VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+		 , UNIT_PRC = CASE WHEN #{UNIT_PRC} = '' THEN NULL ELSE #{UNIT_PRC} END
+		 , ITEM_AMT = CASE WHEN #{ITEM_AMT} = '' THEN NULL ELSE #{ITEM_AMT} END
+		 , QTA_DUE_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{QTA_DUE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+		 , ATT_FILE_NUM = #{Q_ATT_FILE_NUM}
+		 , VALID_FROM_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+		 , VALID_TO_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+		 , ITEM_RMK = #{Q_ITEM_RMK}
+		 , GIVEUP_FLAG = #{GIVEUP_FLAG}
+		 , COST_NUM = #{COST_NUM}
+		 , INVEST_CD =  #{INVEST_CD}
+		 , INVEST_AMT =  #{INVEST_AMT}
+		 , ENC_INVEST_AMT =  #{ENC_INVEST_AMT}
+		 , ENC_UNIT_PRC =  #{ENC_UNIT_PRC}
+		 , PRC_SCORE =  #{PRC_SCORE}
+		 , Y1_UNIT_PRC =  #{Y1_UNIT_PRC}
+		 , Y2_UNIT_PRC =  #{Y2_UNIT_PRC}
+		 , Y3_UNIT_PRC =  #{Y3_UNIT_PRC}
+		 , ENC_Y1_UNIT_PRC =  #{ENC_Y1_UNIT_PRC}
+		 , ENC_Y2_UNIT_PRC =  #{ENC_Y2_UNIT_PRC}
+		 , ENC_Y3_UNIT_PRC =  #{ENC_Y3_UNIT_PRC}
+		 , ENC_ITEM_AMT = #{ENC_ITEM_AMT}
+		 , QTA_DUE_DATE_TEXT = #{QTA_DUE_DATE_TEXT}
+		 <!-- 2016.03.09 HMCHOI 추가 -->
+		 <!-- 협력회사선정품의서 작성시에만 사용함 -->
+		 , LAST_FLAG = '1'
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+            AND QTA_SQ = #{QTA_SQ}
+     </update>
+
+     <update id="doUpdateQtaCost_QTCH" parameterType="hashmap">
+        UPDATE  STOCQTCH
+        SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+         , DEL_FLAG = '0'
+         , QTA_NUM = #{QTA_NUM}
+         , QTA_SQ = #{QTA_SQ}
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND COST_NUM = #{COST_NUM}
+     </update>
+
+     <insert id="doInsertQtaCreation_DONU" parameterType="hashMap">
+        INSERT INTO STOCDONU (
+				 GATE_CD
+				, PR_NUM
+				, PR_SQ
+				, RFX_NUM
+				, RFX_CNT
+				, RFX_SQ
+				, QTA_NUM
+				, QTA_SQ
+				<if test="_databaseId == 'oracle'">
+				  , DOC_SQ
+				</if>
+        ) VALUES (
+			 #{ses.gateCd}
+			, #{PR_NUM}
+			, CASE WHEN #{PR_SQ} = '' THEN NULL ELSE #{PR_SQ} END
+			, #{RFX_NUM}
+			, CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+			, CASE WHEN #{RFX_SQ} = '' THEN NULL ELSE #{RFX_SQ} END
+			, #{QTA_NUM}
+			, CASE WHEN #{QTA_SQ} = '' THEN NULL ELSE #{QTA_SQ} END
+        	  <if test="_databaseId == 'oracle'">
+	        	  , SEQ_STOCDONU.NEXTVAL
+			  </if>
+        )
+    </insert>
+
+    <select id="checkValidVendor" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT CASE WHEN RQVN.RFQ_GIVEUP_DATE IS NOT NULL THEN 0
+<!--                     ELSE TO_NUMBER(	 -->
+<!--                     		CASE WHEN RQHD.RFX_TYPE = 'RFP' THEN <include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, '0') ELSE '1' END -->
+<!--                     ) -->
+						ELSE
+                    		<if test="_databaseId == 'oracle' ">CASE WHEN RQHD.RFX_TYPE = 'RFP' AND RQHD.SUBMIT_TYPE='RT' THEN TO_NUMBER(<include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, 0)) ELSE 1 END</if>
+                    		<if test="_databaseId == 'mssql' ">CASE WHEN RQHD.RFX_TYPE = 'RFP' AND RQHD.SUBMIT_TYPE='RT' THEN CAST(<include refid="com.sql.nvl"/>(RQVN.NOT_PRC_RESULT_FLAG, 0) AS INT) ELSE 1 END</if>
+
+               END
+          FROM STOCRQVN RQVN
+               INNER JOIN STOCRQHD RQHD ON RQVN.GATE_CD=RQHD.GATE_CD AND RQVN.RFX_NUM=RQHD.RFX_NUM AND RQVN.RFX_CNT=RQHD.RFX_CNT
+         WHERE RQVN.GATE_CD = #{ses.gateCd}
+           AND RQVN.RFX_NUM = #{RFX_NUM}
+           AND RQVN.RFX_CNT = #{RFX_CNT}
+           AND RQVN.DEL_FLAG='0'
+           AND RQHD.DEL_FLAG='0'
+           AND RQVN.VENDOR_CD=#{VENDOR_CD}
+    </select>
+
+    <select id="checkRfqCloseDate" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT (CASE WHEN RFQ_CLOSE_DATE > <include refid="com.sql.sysdate"/> THEN 1 ELSE 0 END)
+          FROM STOCRQHD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+           AND DEL_FLAG='0'
+    </select>
+
+    <select id="checkCompanyCode" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT
+        	(CASE WHEN #{ses.userType} = 'S' THEN 1
+    	  		  ELSE (CASE WHEN <include refid="com.sql.dbo"/>GETUSERINFO(GATE_CD, REG_USER_ID, 'COMPANY_CD') = #{ses.companyCd} THEN 1 ELSE 0 END) END) AS AUTH_FLAG
+          FROM STOCQTHD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND QTA_NUM = #{QTA_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="checkSUB_ITEM" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT (CASE WHEN <include refid="com.sql.nvl"/>((SELECT COUNT(*) FROM STOCQTSI
+                                           WHERE RFX_NUM = RQDT.RFX_NUM AND RFX_CNT = RQDT.RFX_CNT AND RFX_SQ = RQDT.RFX_SQ
+                                                 AND DEL_FLAG='0' AND GATE_CD = RQDT.GATE_CD), 0)
+
+                        >= <include refid="com.sql.nvl"/>((SELECT COUNT(*) FROM STOCRQSI
+                                           WHERE RFX_NUM = RQDT.RFX_NUM AND RFX_CNT = RQDT.RFX_CNT AND RFX_SQ = RQDT.RFX_SQ
+                                                 AND DEL_FLAG='0' AND GATE_CD = RQDT.GATE_CD), 0)
+                THEN 1 ELSE 0 END)
+        FROM STOCRQDT RQDT
+         WHERE RQDT.GATE_CD = #{ses.gateCd}
+           AND RQDT.RFX_NUM = #{RFX_NUM}
+           AND RQDT.RFX_CNT = #{RFX_CNT}
+           AND RQDT.RFX_SQ = #{RFX_SQ}
+           AND DEL_FLAG='0'
+    </select>
+
+    <update id="doUpdateQtaCreation_RQVN" parameterType="hashmap">
+
+        UPDATE STOCRQVN SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+		 , RFQ_PROGRESS_CD = <choose><when test='_SAVE_TYPE == "0"'>'250'</when><otherwise>'300'</otherwise></choose>
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+		   AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+
+    </update>
+
+    <select id="checkSEND_DATE" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT (CASE WHEN SEND_DATE IS NULL THEN 1 ELSE 0 END)
+          FROM STOCQTHD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND QTA_NUM = #{QTA_NUM}
+           AND DEL_FLAG != 1
+    </select>
+
+    <update id="doUpdateQtaCreation_SendDate" parameterType="hashmap">
+
+        UPDATE STOCQTHD SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+		 , SEND_DATE = <include refid="com.sql.sysdate"/>
+		 , SIGN_VALUE = #{SIGN_VALUE}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND QTA_NUM = #{QTA_NUM}
+
+    </update>
+
+    <update id="doUpdateQtaCreation_Submit" parameterType="hashmap">
+
+        UPDATE STOCRQVN SET
+           MOD_DATE = <include refid="com.sql.sysdate"/>
+         , MOD_USER_ID = #{ses.userId}
+		 , RFQ_PROGRESS_CD = '300'
+         WHERE  GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+		   AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+
+    </update>
+
+    <insert id="doInsertQtaSubItem" parameterType="hashMap">
+
+         INSERT INTO STOCQTSI (
+              GATE_CD
+            , QTA_NUM
+            , QTA_SQ
+            , QTA_SUB_SQ
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , RFX_NUM
+            , RFX_CNT
+            , RFX_SQ
+            , RFX_SUB_SQ
+            , UNIT_PRC
+         ) VALUES (
+              #{ses.gateCd}
+            , #{QTA_NUM}
+            , #{QTA_SQ}
+            , (SELECT <include refid="com.sql.nvl"/>(MAX(QTA_SUB_SQ), 0)+1 FROM STOCQTSI
+                                                 WHERE GATE_CD = #{ses.gateCd}
+                                                   AND QTA_NUM = #{QTA_NUM}
+                                                   AND QTA_SQ = #{QTA_SQ} )
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{RFX_NUM}
+            , CASE WHEN #{RFX_CNT} = '' THEN NULL ELSE #{RFX_CNT} END
+            , CASE WHEN #{RFX_SQ} = '' THEN NULL ELSE #{RFX_SQ} END
+            , CASE WHEN #{RFX_SUB_SQ} = '' THEN NULL ELSE #{RFX_SUB_SQ} END
+            , CASE WHEN #{UNIT_PRC} = '' THEN NULL ELSE #{UNIT_PRC} END
+         )
+    </insert>
+
+    <select id="checkExistsRqse" parameterType="hashMap" resultType="java.lang.Integer">
+
+     	SELECT
+     		COUNT(VENDOR_CD)
+     	FROM STOCRQSE
+     	WHERE GATE_CD = #{ses.gateCd}
+     	  AND RFX_NUM = #{RFX_NUM}
+     	  AND RFX_CNT = #{RFX_CNT}
+     	  AND RFX_SQ = #{RFX_SQ}
+     	  AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+
+    </select>
+
+    <insert id="doInsertRQSE" parameterType="hashMap">
+
+     	INSERT INTO STOCRQSE(
+     		 VENDOR_CD
+			,RFX_SQ
+			,RFX_CNT
+			,RFX_NUM
+			,GATE_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+     	) VALUES (
+     		 CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+			,#{RFX_SQ}
+			,#{RFX_CNT}
+			,#{RFX_NUM}
+			,#{ses.gateCd}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+     	)
+
+    </insert>
+
+    <update id="doUpdateRQSE" parameterType="hashMap">
+
+        UPDATE STOCRQSE
+            SET DEL_FLAG = '0'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+           AND RFX_SQ = #{RFX_SQ}
+           AND VENDOR_CD = CASE WHEN #{ses.userType} = 'S' THEN #{ses.companyCd} ELSE #{VENDOR_CD} END
+
+    </update>
+
+    <update id="doUpdateRqvnReceipt" parameterType="hashmap">
+         UPDATE STOCRQVN
+                SET    RFQ_PROGRESS_CD = '200'
+                     , MOD_DATE = <include refid="com.sql.sysdate"/>
+                     , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND RFX_CNT = #{RFX_CNT}
+           AND VENDOR_CD = #{ses.companyCd}
+    </update>
+
+    <update id="doUpdateQthdFirstFlag" parameterType="hashmap">
+         UPDATE STOCQTHD
+                SET FIRST_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND VENDOR_CD = #{ses.companyCd}
+           AND QTA_NUM = (SELECT MAX(QTA_NUM) FROM STOCQTHD WHERE GATE_CD=#{ses.gateCd} AND RFX_NUM = #{RFX_NUM} AND VENDOR_CD = #{ses.companyCd} AND DEL_FLAG='0')
+    </update>
+
+    <update id="doUpdateQthdLastFlag" parameterType="hashmap">
+         UPDATE STOCQTHD
+                SET LAST_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND VENDOR_CD = #{ses.companyCd}
+           AND QTA_NUM = (SELECT MIN(QTA_NUM) FROM STOCQTHD WHERE GATE_CD=#{ses.gateCd} AND RFX_NUM = #{RFX_NUM} AND VENDOR_CD = #{ses.companyCd} AND DEL_FLAG='0')
+    </update>
+
+    <update id="doUpdateQtdtLastFlag" parameterType="hashmap">
+         UPDATE STOCQTDT
+                SET LAST_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND RFX_NUM = #{RFX_NUM}
+           AND VENDOR_CD = #{ses.companyCd}
+           AND QTA_NUM = (SELECT MIN(QTA_NUM) FROM STOCQTHD WHERE GATE_CD=#{ses.gateCd} AND RFX_NUM = #{RFX_NUM} AND VENDOR_CD = #{ses.companyCd} AND DEL_FLAG='0')
+    </update>
+
+    <delete id="doDeleteQta_QTHD" parameterType="hashmap">
+         UPDATE STOCQTHD
+            SET DEL_FLAG='1'
+              , MOD_USER_ID = #{ses.userId}
+              , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+    </delete>
+
+    <delete id="doDeleteQta_QTDT" parameterType="hashmap">
+         UPDATE STOCQTDT
+            SET DEL_FLAG='1'
+              , MOD_USER_ID = #{ses.userId}
+              , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+    </delete>
+
+    <delete id="doDeleteQta_QTSI" parameterType="hashmap">
+         UPDATE STOCQTSI
+            SET DEL_FLAG='1'
+              , MOD_USER_ID = #{ses.userId}
+              , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+    </delete>
+
+    <delete id="doDeleteQta_DONU" parameterType="hashmap">
+        DELETE  FROM STOCDONU
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND QTA_NUM = #{QTA_NUM}
+    </delete>
+
+    <select id="doSearchQtaSubItem" parameterType="hashMap" resultType="hashMap">
+
+        SELECT RQSI.SUB_TEXT
+        , RQSI.SUB_ITEM_TEXT
+        , RQSI.SUB_ITEM_DESC
+        , RQSI.SUB_ITEM_SPEC
+        , QTSI.UNIT_PRC
+        , RQSI.SUB_RMK
+        , RQSI.GATE_CD
+        , RQSI.RFX_NUM
+        , RQSI.RFX_CNT
+        , RQSI.RFX_SQ
+        , RQSI.RFX_SUB_SQ
+        <!--               , CASE WHEN QTSI.QTA_NUM = NULL THEN #{QTA_NUM} ELSE CAST(QTSI.QTA_NUM AS VARCHAR(20)) END AS QTA_NUM -->
+        , <include refid="com.sql.nvl"/>(QTSI.QTA_NUM, #{QTA_NUM}) AS QTA_NUM
+        , <include refid="com.sql.nvl"/>(QTSI.QTA_SQ, #{QTA_SQ}) AS QTA_SQ
+        <!--               , CASE WHEN QTSI.QTA_SQ = NULL THEN #{QTA_SQ} ELSE CAST(QTSI.QTA_SQ AS VARCHAR(6)) END AS QTA_SQ -->
+        , QTSI.QTA_SUB_SQ
+
+        FROM STOCRQSI RQSI
+        LEFT JOIN STOCQTSI QTSI ON RQSI.GATE_CD = QTSI.GATE_CD
+        AND RQSI.RFX_NUM = QTSI.RFX_NUM
+        AND RQSI.RFX_CNT = QTSI.RFX_CNT
+        AND RQSI.RFX_SQ = QTSI.RFX_SQ
+        AND RQSI.RFX_SUB_SQ = QTSI.RFX_SUB_SQ
+        AND QTSI.DEL_FLAG = '0'
+        AND QTSI.QTA_NUM = #{QTA_NUM}
+        AND QTSI.QTA_SQ = #{QTA_SQ}
+
+        WHERE  RQSI.GATE_CD = #{ses.gateCd}
+        AND RQSI.RFX_NUM = #{RFX_NUM}
+        AND RQSI.RFX_CNT = #{RFX_CNT}
+        AND RQSI.RFX_SQ = #{RFX_SQ}
+        AND RQSI.DEL_FLAG = '0'
+    </select>
+
+    <update id="doUpdateQtaSubItem" parameterType="hashmap">
+        UPDATE  STOCQTSI
+        SET
+        MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        , UNIT_PRC = CASE WHEN #{UNIT_PRC} = '' THEN NULL ELSE #{UNIT_PRC} END
+        , DEL_FLAG = '0'
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND QTA_NUM = #{QTA_NUM}
+        AND QTA_SQ =  #{QTA_SQ}
+        AND QTA_SUB_SQ = #{QTA_SUB_SQ}
+    </update>
+
+    <select id="checkExistsQtaSubItem" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCQTSI
+        WHERE GATE_CD = #{ses.gateCd}
+        AND QTA_NUM = #{QTA_NUM}
+        AND QTA_SQ = #{QTA_SQ}
+        AND QTA_SUB_SQ = #{QTA_SUB_SQ}
+    </select>
+
+
+
+
+
+
+
+
+
+</mapper>

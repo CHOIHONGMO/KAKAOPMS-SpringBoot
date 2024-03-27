@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.board.email.BBOE_Mapper">
+
+    <insert id="doSendLetterMSGE" parameterType="hashMap">
+
+        INSERT
+        INTO   STOCMSGE (
+               GATE_CD
+             , MSG_NUM
+             , REG_DATE
+             , REG_USER_ID
+             , DEL_FLAG
+             , SUBJECT
+             , ATT_FILE_NUM
+             , MSG_TEXT_NUM
+             , OUTBOX_DEL_FLAG
+             )
+        VALUES (UPPER(#{ses.gateCd})
+             , #{MSG_NUM}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{SUBJECT}
+             , #{CAPTION_ATTACH}
+             , #{MSG_TEXT_NUM}
+             , '0'
+             )
+    </insert>
+
+    <insert id="doSendLetterMSRD" parameterType="hashMap">
+
+        INSERT
+        INTO   STOCMSRD (
+               GATE_CD
+             , MSG_NUM
+             , RECV_USER_ID
+             , REG_DATE
+             , REG_USER_ID
+             , DEL_FLAG
+             , RECV_DATE
+             , VENDOR_CD
+             ) VALUES (
+               #{ses.gateCd}
+             , #{MSG_NUM}
+             , #{USER_ID}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , NULL
+             , #{COMPANY_CD}
+             )
+    </insert>
+
+    <select id="doSearchUserMulti" parameterType="hashMap" resultType="hashMap">
+    	SELECT
+            #{MSG_NUM}  MSG_NUM
+          , USER_ID
+          , COMPANY_CD
+    	FROM STOCUSER
+    	WHERE GATE_CD = #{ses.gateCd}
+    	  AND DEL_FLAG = '0'
+    	  AND USE_FLAG = '1'
+    	<if test="USER_IDS != '' and USER_IDS != null">
+      AND USER_ID in
+      <foreach collection="list" item="item" index="index" separator="," open="(" close=")">
+          #{item.value}
+      </foreach>
+           </if>
+    </select>
+
+
+        <select id="doSearchUserMulti2" parameterType="hashMap" resultType="hashMap">
+        	SELECT
+	              USER_ID AS RECV_USER_ID
+	             ,USER_NM AS RECV_USER_NM
+	             ,<include refid="com.sql.dbo"/>GETDECTEL(CELL_NUM) as RECV_TEL_NUM
+	             ,COMPANY_CD  VENDOR_CD
+	             ,(SELECT <include refid="com.sql.dbo"/>GETDECTEL(A.CELL_NUM)
+	                 FROM STOCUSER A
+	                WHERE A.GATE_CD = #{ses.gateCd} AND A.USER_ID = #{ses.userId}) as SEND_TEL_NUM
+	             --, 'divinestone@naver.com'              RECEIVER_EMAIL
+	             ,<include refid="com.sql.dbo"/>GETDECEMAIL(EMAIL) as RECEIVER_EMAIL
+	             ,USER_NM RECEIVER_NM
+	             ,USER_ID RECEIVER_USER_ID
+	             ,(SELECT <include refid="com.sql.dbo"/>GETDECEMAIL(A.EMAIL)
+	                 FROM STOCUSER A
+	                WHERE A.GATE_CD = #{ses.gateCd} AND A.USER_ID = #{ses.userId}) as SENDER_EMAIL
+        	FROM STOCUSER K
+        	WHERE GATE_CD = #{ses.gateCd}
+        	  AND DEL_FLAG = '0'
+        	  AND USE_FLAG = '1'
+        	<if test="USER_IDS != '' and USER_IDS != null">
+		        AND USER_ID in
+		        <foreach collection="list" item="item" index="index" separator="," open="(" close=")">
+		            #{item.value}
+		        </foreach>
+               </if>
+    </select>
+
+    <select  id="doSearchInbox" parameterType="hashMap" resultType="hashMap">
+         SELECT MSGE.SUBJECT
+          , <include refid="com.sql.dbo"/>getGmtDate(MSGE.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi:ss') AS SEND_DATE
+          , <include refid="com.sql.dbo"/>getGmtDate(MSRD.RECV_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi:ss') AS RECV_DATE
+          , <include refid="com.sql.dbo"/>getUserName(USER_T.GATE_CD, USER_T.USER_ID, #{ses.langCd}) AS USER_NM
+          , <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.USER_TYPE, #{ses.langCd}) AS SENDER_COMPANY_NM
+          --, USER_T.DEPT_CD
+          , <include refid="com.sql.dbo"/>GETDEPTNAME(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+          , MSGE.MSG_NUM AS MSG_NUM
+          , MSGE.GATE_CD
+          FROM STOCMSGE MSGE JOIN STOCMSRD MSRD
+           ON (MSGE.GATE_CD = MSRD.GATE_CD
+           AND MSGE.MSG_NUM = MSRD.MSG_NUM)
+          JOIN STOCUSER USER_T
+           ON (MSGE.GATE_CD = USER_T.GATE_CD
+           AND MSGE.REG_USER_ID = USER_T.USER_ID)
+         WHERE MSGE.DEL_FLAG = '0'
+           AND MSRD.DEL_FLAG = '0'
+           AND USER_T.DEL_FLAG = '0'
+           AND MSRD.RECV_USER_ID = #{ses.userId}
+           AND MSGE.GATE_CD = #{ses.gateCd}
+
+       <if test="addDateFrom != '' and addDateFrom != null">
+            <if test="addDateTo != '' and addDateTo != null">
+                AND MSGE.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{addDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{addDateTo}<include refid="com.sql.dateTo"/>
+            </if>
+       </if>
+
+       <if test="SUBJECT != '' and SUBJECT != null">
+           AND SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+       </if>
+
+       <if test="USER_NM != '' and USER_NM != null">
+           AND ${USER_NM_L} <include refid="com.sql.dbo"/>getUserName(USER_T.GATE_CD, USER_T.USER_ID, #{ses.langCd}) ${USER_NM_R }
+       </if>
+
+       <if test="RECIPIENT_COMPANY_NM != '' and RECIPIENT_COMPANY_NM != null">
+           AND ${RECIPIENT_COMPANY_NM_L} <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.USER_TYPE, #{ses.langCd}) ${RECIPIENT_COMPANY_NM_R }
+       </if>
+
+         ORDER BY MSGE.MSG_NUM DESC
+
+    </select>
+
+    <update id="doDeleteInbox" parameterType="hashMap">
+
+        UPDATE STOCMSRD
+           SET  DEL_FLAG = '1'
+              , MOD_DATE = <include refid="com.sql.sysdate"/>
+              , MOD_USER_ID = #{ses.userId}
+         WHERE RECV_USER_ID = #{ses.userId}
+           AND GATE_CD = #{ses.gateCd}
+           AND MSG_NUM = #{MSG_NUM}
+
+    </update>
+
+    <select  id="doSearchOutbox" parameterType="hashMap" resultType="hashMap">
+     SELECT
+           MSGE.SUBJECT,
+           <include refid="com.sql.dbo"/>getGmtDate(MSGE.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi:ss') AS SEND_DATE,
+           <include refid="com.sql.dbo"/>getGmtDate(MSRD.RECV_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi:ss') AS RECV_DATE,
+           <include refid="com.sql.dbo"/>getUserName(USER_T.GATE_CD, USER_T.USER_ID, #{ses.langCd}) AS RECEIPIENT_NM,
+           <include refid="com.sql.dbo"/>getUserCompanyName(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.USER_TYPE, #{ses.langCd}) AS BUYER_NM,
+           <include refid="com.sql.dbo"/>getDeptName(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.DEPT_CD, #{ses.langCd}) AS DEPT_NM,
+           MSGE.MSG_NUM AS MSG_NUM,
+           MSRD.GATE_CD,
+           MSRD.REG_USER_ID,
+           MSRD.RECV_USER_ID
+          FROM STOCMSGE MSGE
+               JOIN STOCMSRD MSRD
+                  ON MSGE.GATE_CD = MSRD.GATE_CD AND MSGE.MSG_NUM = MSRD.MSG_NUM
+               JOIN STOCUSER USER_T
+                  ON MSRD.GATE_CD = USER_T.GATE_CD
+                     AND MSRD.RECV_USER_ID = USER_T.USER_ID
+         WHERE MSGE.GATE_CD = #{ses.gateCd}
+           AND MSGE.DEL_FLAG = '0'
+           AND MSRD.DEL_FLAG = '0'
+           AND USER_T.DEL_FLAG = '0'
+           AND MSGE.REG_USER_ID = #{ses.userId}
+
+       <if test="addDateFrom != '' and addDateFrom != null">
+            <if test="addDateTo != '' and addDateTo != null">
+                AND MSGE.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{addDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{addDateTo}<include refid="com.sql.dateTo"/>
+            </if>
+        </if>
+
+       <if test="SUBJECT != '' and SUBJECT != null">
+            AND SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+
+       <if test="USER_NM != '' and USER_NM != null">
+           AND ${USER_NM_L} <include refid="com.sql.dbo"/>getUserName(USER_T.GATE_CD, USER_T.USER_ID, #{ses.langCd}) ${USER_NM_R }
+       </if>
+
+       <if test="RECIPIENT_COMPANY_NM != '' and RECIPIENT_COMPANY_NM != null">
+           AND ${RECIPIENT_COMPANY_NM_L} <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USER_T.GATE_CD, USER_T.COMPANY_CD, USER_T.USER_TYPE, #{ses.langCd}) ${RECIPIENT_COMPANY_NM_R }
+       </if>
+
+         ORDER BY MSGE.MSG_NUM DESC
+
+    </select>
+
+    <update id="doDeleteOutbox" parameterType="hashMap">
+        UPDATE STOCMSRD
+           SET DEL_FLAG = '1'
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE RECV_USER_ID = #{RECV_USER_ID}
+           AND GATE_CD = #{ses.gateCd}
+           AND MSG_NUM = #{MSG_NUM}
+    </update>
+
+    <update id="doUpdateReceiveDate" parameterType="hashMap">
+          UPDATE STOCMSRD
+           SET  DEL_FLAG = '0'
+              , MOD_DATE = <include refid="com.sql.sysdate"/>
+              , MOD_USER_ID = #{ses.userId}
+              , RECV_DATE = <include refid="com.sql.sysdate"/>
+         WHERE     RECV_USER_ID = #{ses.userId}
+               AND GATE_CD = #{ses.gateCd}
+               AND MSG_NUM = #{MSG_NUM}
+               AND RECV_DATE IS NULL
+
+    </update>
+
+    <select id="selectUserSearch" parameterType="hashmap" resultType="hashmap">
+
+         SELECT DISTINCT
+             USER_TBL.USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(USER_TBL.GATE_CD, USER_TBL.USER_ID, #{ses.langCd}) AS USER_NM
+             , USER_TBL.COMPANY_CD
+             , <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.USER_TYPE, #{ses.langCd}) AS COMPANY_NM
+             , <include refid="com.sql.dbo"/>GETDEPTNAME(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+             , <include refid="com.sql.dbo"/>GETDECEMAIL(USER_TBL.EMAIL) as EMAIL
+         FROM STOCUSER USER_TBL
+         WHERE USER_TBL.GATE_CD = #{ses.gateCd}
+           AND USER_TBL.DEL_FLAG = '0'
+           AND USER_TBL.USER_TYPE = #{USER_TYPE}
+        <if test="COMPANY_CD != '' and COMPANY_CD != null">
+           AND USER_TBL.COMPANY_CD <include refid="com.sql.likeL"/> #{USER_TBL.COMPANY_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="COMPANY_NM != '' and COMPANY_NM != null">
+           AND <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.USER_TYPE, #{ses.langCd}) <include refid="com.sql.likeL"/> #{COMPANY_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+           AND <include refid="com.sql.dbo"/>GETUSERNAME(USER_TBL.GATE_CD, USER_TBL.USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+           AND <include refid="com.sql.dbo"/>GETDEPTNAME(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+     <select id="doSelectPopupLetter" parameterType="hashmap" resultType="hashMap">
+
+        SELECT MSGE.SUBJECT
+             , <include refid="com.sql.dbo"/>getUserName(#{GATE_CD}, MSGE.REG_USER_ID, #{ses.langCd}) AS SEND_USER_NM
+             <if test="_databaseId == 'oracle'">
+             , (SELECT <include refid="com.sql.subStr"/>(SYS_CONNECT_BY_PATH(RECV_USER_NM, ' , '),3) NAME_LIST
+                    FROM
+                        (SELECT MSG_NUM
+                              , <include refid="com.sql.dbo"/>getUserName(#{GATE_CD}, RECV_USER_ID, #{ses.langCd}) AS RECV_USER_NM
+                              , COUNT(RECV_USER_ID) OVER ( PARTITION BY MSG_NUM ) CNT
+                              , ROW_NUMBER () OVER ( PARTITION BY MSG_NUM ORDER BY RECV_USER_ID) SEQ
+                         FROM STOCMSRD
+                         WHERE MSG_NUM = #{MSG_NUM} AND GATE_CD=#{GATE_CD}
+                        )
+                    WHERE SEQ=CNT
+                    START WITH SEQ=1
+                    CONNECT BY PRIOR SEQ+1=SEQ AND PRIOR MSG_NUM=MSG_NUM
+               ) RECV_USER_NM
+             </if>
+             , ATT_FILE_NUM
+             , MSG_TEXT_NUM AS MAIL_TEXT_NUM
+             , REG_USER_ID
+             , (SELECT COUNT(*)
+                FROM STOCMSRD MSRD
+                WHERE MSRD.GATE_CD = MSGE.GATE_CD
+                  AND MSRD.MSG_NUM = MSGE.MSG_NUM
+                  AND MSRD.DEL_FLAG = '0'
+                  AND MSRD.RECV_DATE IS NULL
+                  AND MSRD.RECV_USER_ID = #{ses.userId}) AS READ_USER_CNT
+        FROM STOCMSGE MSGE
+        WHERE  MSGE.GATE_CD = #{GATE_CD}
+          AND MSGE.MSG_NUM = #{MSG_NUM}
+          AND MSGE.DEL_FLAG = '0'
+
+    </select>
+
+     <select id="doRecvUserNameByMssql" parameterType="hashmap" resultType="String">
+	     WITH TBL_TEMP (MSG_NUM,RECV_USER_NM,CNT,SEQ)
+		 AS
+		(
+			SELECT TOP 1
+				MSG_NUM
+			    , CONVERT(VARCHAR(100),<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, RECV_USER_ID, #{ses.langCd})) AS RECV_USER_NM
+			    , COUNT(RECV_USER_ID) OVER ( PARTITION BY MSG_NUM ) CNT
+			    , ROW_NUMBER () OVER ( PARTITION BY MSG_NUM ORDER BY RECV_USER_ID) SEQ
+			FROM STOCMSRD
+			WHERE MSG_NUM = #{MSG_NUM} AND GATE_CD=#{GATE_CD}
+			 ORDER BY RECV_USER_ID
+            UNION ALL
+            SELECT A.MSG_NUM
+                   ,CONVERT(VARCHAR(100),B.RECV_USER_NM+','+A.RECV_USER_NM) AS RECV_USER_NM
+                   ,A.CNT
+                   ,A.SEQ FROM
+                   (
+		            SELECT MSG_NUM
+		                  , CONVERT(VARCHAR(100),<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, RECV_USER_ID, #{ses.langCd})) AS RECV_USER_NM
+		                  , COUNT(RECV_USER_ID) OVER ( PARTITION BY MSG_NUM ) CNT
+		                  , ROW_NUMBER () OVER ( PARTITION BY MSG_NUM ORDER BY RECV_USER_ID) SEQ
+		             FROM STOCMSRD
+		             WHERE MSG_NUM = #{MSG_NUM} AND GATE_CD=#{GATE_CD}
+		           ) A
+             JOIN TBL_TEMP B  ON B.SEQ+1=A.SEQ
+           )
+		   SELECT RECV_USER_NM FROM TBL_TEMP WHERE SEQ = CNT
+     </select>
+</mapper>

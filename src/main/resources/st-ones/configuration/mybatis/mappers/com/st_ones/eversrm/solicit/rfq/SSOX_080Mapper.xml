@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.SSOX_080Mapper">
+
+    <select id="doSearch" resultType="hashMap">
+		
+		SELECT DISTINCT
+                <include refid="com.sql.dbo"/>GETRFQSETTLEFLAGSUPPLIER(QTDT.GATE_CD, QTDT.QTA_NUM, QTDT.QTA_SQ, QTDT.RFX_NUM, QTDT.RFX_CNT, QTDT.RFX_SQ) AS SETTLE_FLAG                 
+	          , RQHD.RFX_NUM
+			  ,	RQHD.RFX_CNT
+			  , RQHD.RFX_TYPE
+			  ,	RQHD.RFX_SUBJECT
+	          ,	RQHD.CTRL_USER_ID
+			  , <include refid="com.sql.dbo"/>GETUSERNAME( RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			  , QTHD.QTA_NUM
+			  , <include refid="com.sql.dbo"/>GETGMTDATE( QTHD.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+              , <include refid="com.sql.dbo"/>GETGMTDATE( QTHD.SEND_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SEND_DATE
+              , <include refid="com.sql.dbo"/>GETGMTDATE( CNHD.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SETTLE_NOTICE_DATE
+
+			  , RQHD.SETTLE_TYPE
+			  , QTHD.VENDOR_CD
+			  , RQVN.RFQ_PROGRESS_CD
+			  , RQHD.PURCHASE_TYPE
+			  , RQHD.PRC_STL_TYPE
+			  , RQHD.VENDOR_OPEN_TYPE
+			  , RQHD.SUBMIT_TYPE			  
+			  , CASE WHEN RQHD.ANN_FLAG = '1' THEN 'Y' ELSE 'N' END ANN_FLAG
+			  , RQVN.ANN_PASS_YN
+			  , <include refid="com.sql.dbo"/>GETGMTDATE( RQVN.RFQ_RECEIPT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS RFQ_RECEIPT_DATE
+			  , <include refid="com.sql.dbo"/>GETGMTDATE(QTHD.VALID_TO_DATE , #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) VALID_TO_DATE
+			  , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') AS RFQ_START_DATE
+			  , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS') AS RFQ_CLOSE_DATE
+			  , RQVN.QTA_GIVEUP_RMK
+			  , QTHD.REG_DATE ddd
+
+		<if test='_databaseId=="oracle"'>
+			  ,(SELECT <include refid="com.sql.subStr"/>(XMLAGG(XMLELEMENT(A, ',' || OGPL.PLANT_NM) ORDER BY OGPL.PLANT_NM).EXTRACT('//text()'), 2)
+					  FROM STOCOGPL OGPL
+					  WHERE OGPL.GATE_CD = #{ses.gateCd}
+					  AND OGPL.PLANT_CD IN (SELECT DISTINCT PLANT_CD
+					  						  FROM STOCRQDT
+					  						 WHERE GATE_CD = #{ses.gateCd}
+					  						   AND RFX_NUM = RQHD.RFX_NUM
+					  						   AND RFX_CNT = RQHD.RFX_CNT
+					  						   AND DEL_FLAG = '0')) AS PLANT_NM
+		</if>
+		
+		<if test='_databaseId=="mssql"'>
+			  ,STUFF(	(SELECT ', ' + CAST(OGPL.PLANT_NM AS NVARCHAR(500))
+					  FROM STOCOGPL OGPL
+					  WHERE OGPL.GATE_CD = #{ses.gateCd}
+					  AND OGPL.PLANT_CD IN (
+					  SELECT DISTINCT PLANT_CD 
+					  FROM STOCRQDT
+					  WHERE GATE_CD = #{ses.gateCd}
+					  AND RFX_NUM = RQHD.RFX_NUM
+					  AND RFX_CNT = RQHD.RFX_CNT
+					  AND DEL_FLAG = '0'
+					  )
+						FOR XML PATH('')
+					), 1,1,'') AS PLANT_NM		
+		</if>	
+			
+		FROM STOCRQHD RQHD
+			JOIN STOCRQVN RQVN
+				ON RQHD.GATE_CD = RQVN.GATE_CD
+			   AND RQHD.RFX_NUM = RQVN.RFX_NUM
+			   AND RQHD.RFX_CNT = RQVN.RFX_CNT
+			   AND RQVN.VENDOR_CD = #{ses.companyCd}
+			LEFT OUTER JOIN STOCQTHD QTHD
+				ON RQVN.GATE_CD = QTHD.GATE_CD
+			   AND RQVN.RFX_NUM = QTHD.RFX_NUM
+			   AND RQVN.RFX_CNT = QTHD.RFX_CNT
+			   AND RQVN.VENDOR_CD = QTHD.VENDOR_CD
+			   AND QTHD.DEL_FLAG = '0'
+            LEFT OUTER JOIN STOCQTDT QTDT
+            	ON QTHD.GATE_CD = QTDT.GATE_CD
+            	AND QTHD.QTA_NUM = QTDT.QTA_NUM
+         	LEFT OUTER JOIN STOCCNDT CNDT
+            	ON QTDT.GATE_CD = CNDT.GATE_CD
+               AND QTDT.QTA_NUM = CNDT.QTA_NUM
+               AND QTDT.QTA_SQ = CNDT.QTA_SQ
+               AND CNDT.DEL_FLAG = '0'
+			LEFT OUTER JOIN STOCCNHD CNHD
+            	ON CNHD.GATE_CD = CNDT.GATE_CD
+                AND CNHD.EXEC_NUM = CNDT.EXEC_NUM
+                AND CNHD.DEL_FLAG = '0'
+
+         WHERE      RQHD.GATE_CD = #{ses.gateCd}
+                AND RQHD.DEL_FLAG = '0'
+                AND RQHD.RFX_TYPE IN ('RFP', 'RFQ')
+			    AND RQHD.SIGN_STATUS = 'E'
+			    <!-- 견적/입찰 마감 및 선정대기, 선정완료, 재견적, 유찰건을 조회함 -->
+			    AND (
+			        RQHD.PROGRESS_CD IN ('2325','2335','2355','2375','1300')
+			     OR RQHD.PROGRESS_CD >= '2400')
+			    AND RQVN.VENDOR_CD = #{ses.companyCd}
+                AND RQVN.DEL_FLAG = '0'
+
+			    <if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null">
+		            <if test="ADD_DATE_TO !='' and ADD_DATE_TO != null">
+		                AND RQHD.RFQ_CLOSE_DATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}, 'YYYYMMDD HH24:MI:SS')  AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		            </if>
+		        </if>
+
+		        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+	                AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+	            </if>
+	            
+		        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+	                AND RQVN.RFQ_PROGRESS_CD <include refid="com.sql.likeL"/> #{RFQ_PROGRESS_CD} <include refid="com.sql.likeR"/>
+	            </if>
+	            
+	            
+
+
+		        <if test="SUBMIT_TYPE != '' and SUBMIT_TYPE != null">
+	                AND RQHD.SUBMIT_TYPE <include refid="com.sql.likeL"/> #{SUBMIT_TYPE} <include refid="com.sql.likeR"/>
+	            </if>
+
+
+		        <if test="RFX_NUM != '' and RFX_NUM != null">
+	                AND RQHD.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+	            </if>
+
+		        <if test="SETTLE_FLAG != '' and SETTLE_FLAG != null">
+		            AND (CASE WHEN (<include refid="com.sql.nvl"/>(QTDT.SETTLE_AMT,0) = 0 ) THEN 'N'
+                      		 	ELSE CASE WHEN (QTDT.QTA_NUM = CNDT.QTA_NUM ) THEN 'Y'
+                             	ELSE 'A' END
+                	END) = #{SETTLE_FLAG}
+		        </if>
+		        
+                <if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+                     AND RQHD.PURCHASE_TYPE <include refid="com.sql.likeL"/> #{PURCHASE_TYPE} <include refid="com.sql.likeR"/>
+                </if>
+        ORDER BY QTHD.REG_DATE DESC, QTHD.QTA_NUM DESC
+
+    </select>
+
+
+</mapper>

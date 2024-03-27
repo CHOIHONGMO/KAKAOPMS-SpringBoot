@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS02.BS0201_Mapper">
+
+    <select id="bs02001_doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+              CUBD.CUST_CD
+            , CUST.CUST_NM
+            , CUBD.YEAR_MONTH
+            , CUBD.DIVISION_CD
+            , <include refid="com.sql.dbo"/>GETDIVISIONNM(CUBD.GATE_CD, CUBD.CUST_CD, CUBD.PLANT_CD,CUBD.DIVISION_CD, #{ses.langCd}) AS DIVISION_NM
+            , CUBD.PLANT_CD
+            , <include refid="com.sql.dbo"/>GETPLANTNAME(CUBD.GATE_CD, CUBD.CUST_CD, CUBD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+            , CUBD.DEPT_CD
+            , <include refid="com.sql.dbo"/>GETDEPTNM(CUBD.GATE_CD, CUBD.CUST_CD, CUBD.PLANT_CD,CUBD.DIVISION_CD,CUBD.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+            , CUBD.ACCOUNT_CD
+            , CUBD.ACCOUNT_CD AS ACCOUNT_CD_ORI
+            , CUAC.ACCOUNT_NM
+            , <include refid="com.sql.nvl"/>(CUBD.TRANSFERED_AMT, 0) AS TRANSFERED_AMT
+            , CUBD.TRANSFERED_REASON
+            , CASE WHEN CUBD.TRANSFERED_REASON IS NULL THEN '1' ELSE '0' END AS TRANSFERED_REASON_ICON
+            , <include refid="com.sql.nvl"/>(CUBD.BUDGET_AMT, 0) AS BUDGET_AMT
+            , <include refid="com.sql.nvl"/>(CUBD.ADDITIONAL_AMT, 0) AS ADDITIONAL_AMT
+            , <include refid="com.sql.nvl"/>(CUBD.EXHAUST_AMT, 0) AS EXHAUST_AMT
+            ,(<include refid="com.sql.nvl"/>(CUBD.TRANSFERED_AMT, 0) + <include refid="com.sql.nvl"/>(CUBD.BUDGET_AMT, 0) + <include refid="com.sql.nvl"/>(CUBD.ADDITIONAL_AMT, 0)) - <include refid="com.sql.nvl"/>(CUBD.EXHAUST_AMT, 0) AS REMAIN_AMT
+            , <include refid="com.sql.nvl"/>(CUBD.BLOCK_FLAG, '0') AS BLOCK_FLAG
+            , CUBD.BLOCK_REMARK
+            , <include refid="com.sql.toDateChar"/>(CUBD.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+            , '0' AS CLOSE_FLAG -- 차후 마감여부로 활용
+         FROM STOCCUBD CUBD
+         JOIN STOCCUAC CUAC
+              ON (CUBD.GATE_CD = CUAC.GATE_CD
+              AND CUBD.CUST_CD = CUAC.CUST_CD
+              AND CUBD.ACCOUNT_CD =  CUAC.ACCOUNT_CD
+              AND CUAC.DEL_FLAG = '0')
+         JOIN STOCCUST CUST
+              ON (CUBD.GATE_CD = CUST.GATE_CD
+              AND CUBD.CUST_CD = CUST.CUST_CD
+              AND CUST.DEL_FLAG = '0')
+         JOIN STOCCUPL CUPL
+              ON (CUBD.GATE_CD = CUPL.GATE_CD
+              AND CUBD.CUST_CD = CUPL.CUST_CD
+              AND CUBD.PLANT_CD = CUPL.PLANT_CD
+              AND CUPL.DEL_FLAG = '0')
+        WHERE CUBD.GATE_CD = #{ses.gateCd}
+              AND CUBD.DEL_FLAG = '0'
+        <if test="YEAR_MONTH != '' and YEAR_MONTH != null">
+            AND CUBD.YEAR_MONTH = #{YEAR_MONTH}
+        </if>
+        <if test="IN_CUST_CD != '' and IN_CUST_CD != null">
+            AND UPPER(CUBD.CUST_CD) <include refid="com.sql.likeL"/> UPPER(#{IN_CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IN_CUST_NM != '' and IN_CUST_NM != null">
+            AND UPPER(CUST.CUST_NM) <include refid="com.sql.likeL"/> UPPER(#{IN_CUST_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <!--<if test="IN_PARENT_DEPT_CD != '' and IN_PARENT_DEPT_CD != null">
+            AND CUBD.DIVISION_CD = #{IN_PARENT_DEPT_CD}
+        </if>-->
+        <if test="IN_PLANT_CD != '' and IN_PLANT_CD != null">
+            AND CUBD.PLANT_CD = #{IN_PLANT_CD}
+        </if>
+        <if test="IN_DIVISION_CD != '' and IN_DIVISION_CD != null">
+            AND CUBD.DIVISION_CD = #{IN_DIVISION_CD}
+        </if>
+        <if test="IN_DEPT_CD != '' and IN_DEPT_CD != null">
+            AND CUBD.DEPT_CD = #{IN_DEPT_CD}
+        </if>
+        <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+            AND UPPER(CUBD.ACCOUNT_CD) <include refid="com.sql.likeL"/> UPPER(#{ACCOUNT_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACCOUNT_NM != '' and ACCOUNT_NM != null">
+            AND UPPER(CUAC.ACCOUNT_NM) <include refid="com.sql.likeL"/> UPPER(#{ACCOUNT_NM}) <include refid="com.sql.likeR"/>
+        </if>
+
+    </select>
+
+	<!-- BS02_001 -->
+	<!-- 예산 마감여부 체크 -->
+	<select id="isBudgetCloseFlag" parameterType="hashmap" resultType="java.lang.String">
+		SELECT 'N' AS isBudgetCloseFlag <include refid="com.sql.dual"/>
+	</select>
+	
+	<!-- 기준정보 > 고객사 계정/예산 > 예산 관리 (BS02_001) : 예산 관리 => 사업부, 부서 단위로 예산 관리함 -->
+    <select id="doSelect_budgetDeptTree" parameterType="hashMap" resultType="java.util.Map">
+
+        SELECT DISTINCT
+              B.tree AS "tree"
+            , B.DEPT_NM
+            , B.DEPT_NM AS ITEM_CLS_NM
+            , B.ITEM_CLS1
+            , B.ITEM_CLS2
+            , B.ITEM_CLS3
+            , B.ITEM_CLS4
+            , B.ITEM_CLS_PATH_NM
+            , B.LVL
+            , B.INDEPT
+            , B.DEPT_CD
+            , B.UP_DEPT_CD
+            , B.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+            , B.ACC_CODE
+            , <include refid="com.sql.nvl"/>(B.PARENTS_YN,'') AS PARENTS_YN
+            , B.CUST_CD
+            , B.PLANT_NM
+            , B.DIVISION_NM
+            , B.PART_NM
+            , B.SEQ
+        FROM
+        (
+	        SELECT
+	            (CASE WHEN A.LVL=0 THEN A.DEPT_CD
+	                  WHEN A.LVL=1 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2
+	                  WHEN A.LVL=2 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3
+	                  WHEN A.LVL=3 THEN A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3 <include refid="com.sql.stringMerge"/> A.ITEM_CLS4
+	                  ELSE              A.ITEM_CLS1 <include refid="com.sql.stringMerge"/> A.ITEM_CLS2 <include refid="com.sql.stringMerge"/> A.ITEM_CLS3 <include refid="com.sql.stringMerge"/> A.ITEM_CLS4 END) AS tree
+	            , A.DEPT_NM
+	            , A.ITEM_CLS1
+	            , A.ITEM_CLS2
+	            , A.ITEM_CLS3
+	            , A.ITEM_CLS4
+	            , (CASE WHEN A.LVL=0 THEN A.V_PLANT_NM
+	                    WHEN A.LVL=1 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM
+	                    WHEN A.LVL=2 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM
+	                    WHEN A.LVL=3 THEN A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_PART_NM
+	                    ELSE              A.V_PLANT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DIVISION_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_DEPT_NM <include refid="com.sql.stringMerge"/>' > '<include refid="com.sql.stringMerge"/>  <include refid="com.sql.dbo"/>V_PART_NM END) AS ITEM_CLS_PATH_NM
+	            , A.LVL
+	            , A.INDEPT
+	            , A.SEQ
+	            , A.DEPT_CD
+	            , A.PARENT_DEPT_CD AS UP_DEPT_CD
+	            , A.TEAM_LEADER_USER_ID
+	            , A.ACC_CODE
+	            , A.PARENTS_YN
+	            , A.BUYER_CD AS CUST_CD
+	            , V_PLANT_NM AS PLANT_NM
+		        , V_DIVISION_NM AS DIVISION_NM
+		        , V_PART_NM  AS PART_NM
+	        FROM(
+				SELECT
+	                  OGDP.GATE_CD
+	                , OGDP.BUYER_CD
+	                , (CASE OGDP.DEPT_TYPE WHEN '100' THEN DIVISION_CD
+										   WHEN '200' THEN DEPT_CD
+										   WHEN '300' THEN PART_CD END) AS DEPT_CD
+	                , OGDP.DEPT_NM
+	                , OGDP.PLANT_CD AS ITEM_CLS1		-- 사업장
+					, OGDP.DIVISION_CD AS ITEM_CLS2		-- 사업부
+					, OGDP.DEPT_CD  AS ITEM_CLS3		-- 부서
+					, OGDP.PART_CD  AS ITEM_CLS4		-- 파트(영업장)
+	                , OGDP.PARENT_DEPT_CD
+	                , OGDP.LVL
+	                , OGDP.INDEPT
+	                , OGDP.SEQ
+	                , OGDP.TEAM_LEADER_USER_ID
+	                , OGDP.ACC_CODE
+	                ,(CASE WHEN OGDP.DEPT_TYPE = '200' THEN ''
+	                	   ELSE 'N' END) AS PARENTS_YN	-- 최하위 부서여부
+		            ,<include refid="com.sql.dbo"/>getPlantName(OGDP.GATE_CD,OGDP.BUYER_CD,OGDP.PLANT_CD,#{ses.langCd}) AS V_PLANT_NM
+		            ,<include refid="com.sql.dbo"/>getDivisionNm(OGDP.GATE_CD,OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,#{ses.langCd}) AS V_DIVISION_NM
+		            ,<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd},OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,OGDP.DEPT_CD,#{ses.langCd}) AS V_DEPT_NM
+		            ,<include refid="com.sql.dbo"/>getPartNm(#{ses.gateCd},OGDP.BUYER_CD,OGDP.PLANT_CD,OGDP.DIVISION_CD,OGDP.DEPT_CD,OGDP.PART_CD,#{ses.langCd}) AS V_PART_NM
+	             FROM STOCOGDP OGDP
+	            WHERE OGDP.GATE_CD  = #{ses.gateCd}
+	              AND OGDP.BUYER_CD = #{CUST_CD}
+			<if test="PLANT_CD != '' and PLANT_CD != null">
+				  AND OGDP.PLANT_CD = #{PLANT_CD}
+			</if>
+	              AND OGDP.DEL_FLAG = '0'
+				  AND (OGDP.DEPT_TYPE IN ('100', '200') OR OGDP.LVL IN (1, 2))	-- 예산은 사업부 하위의 부서 단위로 관리
+			    
+			    UNION ALL
+			    
+			    SELECT
+			   		  CUPL.GATE_CD
+				    , CUPL.CUST_CD  AS BUYER_CD
+				    , CUPL.PLANT_CD AS DEPT_CD
+				    , CUPL.PLANT_NM AS DEPT_NM
+				    , CUPL.PLANT_CD AS ITEM_CLS1
+			        , '*' AS ITEM_CLS2
+			        , '*' AS ITEM_CLS3
+			        , '*' AS ITEM_CLS4
+				    , ''  AS PARENT_DEPT_CD
+				    , 0   AS LVL
+				    , ''  AS INDEPT
+				    , ''  AS SEQ
+				    , ''  AS TEAM_LEADER_USER_ID
+				    , ''  AS ACC_CODE
+				    , 'N' AS PARENTS_YN	-- 최하위 부서여부
+				    , CUPL.PLANT_NM AS V_PLANT_NM
+				    , ''  AS V_DIVISION_NM
+				    , ''  AS V_DEPT_NM
+				    , ''  AS V_PART_NM
+			  	 FROM STOCCUPL CUPL
+			  	 JOIN STOCCUST CUST
+			  		  ON (CUPL.GATE_CD  = CUST.GATE_CD
+					  AND CUPL.CUST_CD  = CUST.CUST_CD
+					  AND CUST.DEL_FLAG = '0')
+				WHERE CUPL.GATE_CD  = #{ses.gateCd}
+				  AND CUPL.CUST_CD  = #{CUST_CD}
+			<if test="PLANT_CD != '' and PLANT_CD != null">
+				  AND CUPL.PLANT_CD = #{PLANT_CD}
+			</if>
+				  AND CUPL.DEL_FLAG = '0'
+	        ) A
+        ) B
+        WHERE 1=1
+        ORDER BY tree asc
+    </select>
+    
+	<!-- BS02_001 : 예산관리 -->
+    <insert id="bs02001_mergeData" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUBD<include refid="com.sql.mergeAs"/>CUBD
+        USING (SELECT #{ses.gateCd}  AS GATE_CD
+                    , #{CUST_CD}     AS CUST_CD
+                    , #{PLANT_CD}    AS PLANT_CD
+                    , #{DIVISION_CD} AS DIVISION_CD
+                    , #{DEPT_CD}     AS DEPT_CD
+                    , #{ACCOUNT_CD}  AS ACCOUNT_CD
+                    , #{YEAR_MONTH}  AS YEAR_MONTH <include refid="com.sql.dual"/>
+              )<include refid="com.sql.mergeAs"/>B
+	          ON (CUBD.GATE_CD = B.GATE_CD
+	          AND CUBD.CUST_CD = B.CUST_CD
+	          AND CUBD.PLANT_CD = B.PLANT_CD
+	          AND CUBD.DIVISION_CD = B.DIVISION_CD
+	          AND CUBD.DEPT_CD = B.DEPT_CD
+	          AND CUBD.ACCOUNT_CD = B.ACCOUNT_CD
+	          AND CUBD.YEAR_MONTH = B.YEAR_MONTH
+	        )
+        WHEN MATCHED THEN
+        UPDATE SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '0'
+            , TRANSFERED_AMT = <include refid="com.sql.nvl"/>(#{TRANSFERED_AMT}, 0) -- 이월예산
+            , TRANSFERED_REASON = #{TRANSFERED_REASON}
+            , BUDGET_AMT = <include refid="com.sql.nvl"/>(#{BUDGET_AMT}, 0) -- 당해예산
+            , ADDITIONAL_AMT = <include refid="com.sql.nvl"/>(#{ADDITIONAL_AMT}, 0) -- 추가예산
+            , REQ_USER_NAME = #{REQ_USER_NAME}
+            , BLOCK_FLAG = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            , BLOCK_REMARK = #{BLOCK_REMARK}
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , CUST_CD
+            , PLANT_CD
+            , DIVISION_CD
+            , DEPT_CD
+            , ACCOUNT_CD
+            , YEAR_MONTH
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , TRANSFERED_AMT
+            , TRANSFERED_REASON
+            , BUDGET_AMT
+            , ADDITIONAL_AMT
+            , REQ_USER_NAME
+            , BLOCK_FLAG
+            , BLOCK_REMARK
+            , BD_DEPT_CD
+
+        ) VALUES (
+              #{ses.gateCd}
+            , #{CUST_CD}
+            , #{PLANT_CD}
+            , #{DIVISION_CD}
+            , #{DEPT_CD}
+            , #{ACCOUNT_CD}
+            , #{YEAR_MONTH}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , <include refid="com.sql.nvl"/>(#{TRANSFERED_AMT}, 0) -- 이월예산
+            , #{TRANSFERED_REASON}
+            , <include refid="com.sql.nvl"/>(#{BUDGET_AMT}, 0) -- 당월예산
+            , <include refid="com.sql.nvl"/>(#{ADDITIONAL_AMT}, 0) -- 추가예산
+            , #{REQ_USER_NAME}
+            , <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            , #{BLOCK_REMARK}
+            , #{CUST_CD}<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>#{PLANT_CD}<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>#{DIVISION_CD}<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>#{DEPT_CD}
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs02001_doDelete" parameterType="hashmap">
+        UPDATE STOCCUBD SET
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CUST_CD = #{CUST_CD}
+           AND DIVISION_CD = #{DIVISION_CD}
+           AND DEPT_CD = #{DEPT_CD}
+           AND ACCOUNT_CD= #{ACCOUNT_CD}
+           AND YEAR_MONTH = #{YEAR_MONTH}
+    </update>
+
+    <select id="bs02002_doSearch" parameterType="hashmap" resultType="hashMap">
+
+		SELECT  A.GATE_CD
+		       ,A.CUST_CD
+		       ,A.CUST_NM
+		       ,A.ACCOUNT_CD
+		       ,A.ACCOUNT_CD_ORI
+		       ,A.ACCOUNT_NM
+		       ,A.USE_FLAG
+		       ,A.MOD_USER_NM
+		       ,A.MOD_USER_ID
+		       ,A.MOD_DATE
+		       ,A.INSERT_FLAG
+		FROM (
+            SELECT CUAC.GATE_CD
+                     , CUAC.CUST_CD
+                     , OGCM.BUYER_NM AS CUST_NM
+                     , CUAC.ACCOUNT_CD
+                     , CUAC.ACCOUNT_CD AS ACCOUNT_CD_ORI
+                     , CUAC.ACCOUNT_NM
+                     , CUAC.USE_FLAG
+                     , <include refid="com.sql.dbo"/> GETUSERNAME(CUAC.GATE_CD, CUAC.MOD_USER_ID, #{ses.langCd})  AS MOD_USER_NM
+                     , CUAC.MOD_USER_ID
+                     , <include refid="com.sql.toDateChar"/>(CUAC.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+                     , 'U' AS INSERT_FLAG
+                 FROM STOCCUAC CUAC
+                 JOIN STOCOGCM OGCM
+                      ON (OGCM.GATE_CD = CUAC.GATE_CD AND OGCM.BUYER_CD = CUAC.CUST_CD)
+                WHERE CUAC.GATE_CD = #{ses.gateCd}
+                  AND CUAC.DEL_FLAG = '0'
+                  AND OGCM.DEL_FLAG = '0'
+
+            UNION ALL
+
+            SELECT CUAC.GATE_CD
+                 , CUAC.CUST_CD
+                 , CUST.CUST_NM
+                 , CUAC.ACCOUNT_CD
+                 , CUAC.ACCOUNT_CD AS ACCOUNT_CD_ORI
+                 , CUAC.ACCOUNT_NM
+                 , CUAC.USE_FLAG
+                 , <include refid="com.sql.dbo"/> GETUSERNAME(CUAC.GATE_CD, CUAC.MOD_USER_ID, #{ses.langCd})  AS MOD_USER_NM
+                 , CUAC.MOD_USER_ID
+                 , <include refid="com.sql.toDateChar"/>(CUAC.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+                 , 'U' AS INSERT_FLAG
+             FROM STOCCUAC CUAC
+             JOIN STOCCUST CUST
+                  ON (CUST.GATE_CD = CUAC.GATE_CD AND CUST.CUST_CD = CUAC.CUST_CD)
+            WHERE CUAC.GATE_CD = #{ses.gateCd}
+              AND CUAC.DEL_FLAG = '0'
+              AND CUST.DEL_FLAG = '0'
+          ) A WHERE A.GATE_CD = #{ses.gateCd}
+
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND UPPER(A.CUST_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND UPPER(A.CUST_NM) <include refid="com.sql.likeL"/> UPPER(#{CUST_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+            AND UPPER(A.ACCOUNT_CD) <include refid="com.sql.likeL"/> UPPER(#{ACCOUNT_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACCOUNT_NM != '' and ACCOUNT_NM != null">
+            AND UPPER(A.ACCOUNT_NM) <include refid="com.sql.likeL"/> UPPER(#{ACCOUNT_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY A.CUST_CD, A.ACCOUNT_CD
+
+    </select>
+
+    <insert id="bs02002_mergeData" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUAC<include refid="com.sql.mergeAs"/>CUAC
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS CUST_CD
+                    , #{ACCOUNT_CD} AS ACCOUNT_CD<include refid="com.sql.dual"/>
+                    )<include refid="com.sql.mergeAs"/> B
+                            ON (CUAC.GATE_CD = B.GATE_CD
+          AND CUAC.CUST_CD = B.CUST_CD
+          AND CUAC.ACCOUNT_CD = B.ACCOUNT_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+            ,ACCOUNT_NM =#{ACCOUNT_NM}
+            ,USE_FLAG =#{USE_FLAG}
+        WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,CUST_CD
+            ,ACCOUNT_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,ACCOUNT_NM
+            ,USE_FLAG
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{ACCOUNT_CD}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{ACCOUNT_NM}
+            ,#{USE_FLAG}
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs02002_doDelete" parameterType="hashmap">
+        UPDATE STOCCUAC SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND ACCOUNT_CD = #{ACCOUNT_CD_ORI}
+    </update>
+</mapper>

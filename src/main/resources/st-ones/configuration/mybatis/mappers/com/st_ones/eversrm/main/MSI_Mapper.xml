@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.main.MSI_Mapper">
+
+    <select  id="doFindIDFindIdPassword" parameterType="hashMap" resultType="hashMap">
+	    SELECT
+		      A.USER_ID
+		    , A.PASSWORD
+		    , A.EMAIL
+		    , A.USER_NM
+		FROM (
+		    SELECT
+		          USER_ID
+		        , PASSWORD
+		        , EMAIL
+		        , USER_NM
+		    FROM STOCUSER US JOIN STOCVNGL VN ON
+		        (US.GATE_CD = VN.GATE_CD AND
+		         US.COMPANY_CD = VN.VENDOR_CD AND
+		         US.USER_TYPE = 'S')
+		    WHERE US.GATE_CD  = <include refid="com.sql.gateCd"/>
+		      AND US.DEL_FLAG = '0'
+		      AND VN.DEL_FLAG = '0'
+		      AND US.USE_FLAG = '1'
+		      AND US.PROGRESS_CD = 'E'
+
+	      <if test="USER_NM !='' and USER_NM !=null">
+	      	  AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME(US.GATE_CD, US.USER_ID, <include refid="com.sql.langCd"/>)) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+	      </if>
+	      <if test="EMAIL != '' and EMAIL != null">
+	          AND UPPER(US.EMAIL) = UPPER(#{EMAIL})
+	      </if>
+	      <if test="CELL_NUM != '' and CELL_NUM != null">
+	          AND REPLACE(REPLACE(REPLACE(US.CELL_NUM, '-', ''), '(', ''), ')', '') = #{CELL_NUM}
+	      </if>
+	      <if test="COMPANY_NM != '' and COMPANY_NM != null">
+   		      AND (UPPER(VN.VENDOR_NM) = UPPER(#{COMPANY_NM}) OR UPPER(VN.VENDOR_NM_ENG) = UPPER(#{COMPANY_NM}))
+   		  </if>
+   		  <if test="IRS_NUM != '' and IRS_NUM != null">
+	          AND REPLACE(VN.IRS_NUM, '-', '') <include refid="com.sql.likeL"/>#{IRS_NUM}<include refid="com.sql.likeR"/>
+	      </if>
+		) A
+
+    </select>
+
+    <select  id="doFindPasswordFindIdPassword" parameterType="hashMap" resultType="hashMap">
+	    SELECT
+		      A.USER_ID
+		    , A.PASSWORD
+		    , A.USER_NM
+			, A.EMAIL
+			, A.CELL_NUM
+		FROM (
+		    SELECT
+		          USER_ID
+		        , PASSWORD
+		        , USER_NM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(MAIL_FLAG, '0') = '1' THEN EMAIL ELSE '' END) AS EMAIL
+				, (CASE WHEN <include refid="com.sql.nvl"/>(SMS_FLAG, '0') = '1' THEN CELL_NUM ELSE '' END) AS CELL_NUM
+		    FROM STOCUSER US JOIN STOCVNGL VN ON
+		        (US.GATE_CD = VN.GATE_CD AND
+		         US.COMPANY_CD = VN.VENDOR_CD AND
+		         US.USER_TYPE = 'S')
+		    WHERE US.GATE_CD  = <include refid="com.sql.gateCd"/>
+		      AND US.DEL_FLAG = '0'
+		      AND VN.DEL_FLAG = '0'
+		      AND US.USE_FLAG = '1'
+		      AND US.PROGRESS_CD = 'E'
+
+	      <if test="USER_NM !='' and USER_NM !=null">
+	      	  AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME(US.GATE_CD, US.USER_ID, <include refid="com.sql.langCd"/>)) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+	      </if>
+	      <if test="EMAIL != '' and EMAIL != null">
+	          AND UPPER(US.EMAIL) = UPPER(#{EMAIL})
+	      </if>
+	      <if test="CELL_NUM != '' and CELL_NUM != null">
+	          AND REPLACE(REPLACE(REPLACE(US.CELL_NUM, '-', ''), '(', ''), ')', '') = #{CELL_NUM}
+	      </if>
+	      <if test="COMPANY_NM != '' and COMPANY_NM != null">
+	          AND (UPPER(VN.VENDOR_NM) = UPPER(#{COMPANY_NM}) OR UPPER(VN.VENDOR_NM_ENG) = UPPER(#{COMPANY_NM}))
+	      </if>
+	      <if test="IRS_NUM != '' and IRS_NUM != null">
+	          AND REPLACE(VN.IRS_NUM, '-', '') = #{IRS_NUM}
+	      </if>
+		) A
+		WHERE A.USER_ID = #{USER_ID}
+    </select>
+
+    <select id="getPostNoticeList" parameterType="hashMap" resultType="hashMap">
+         SELECT
+	          NOTC.SUBJECT
+	        , NOTC.GATE_CD
+	        , <include refid="com.sql.dbo"/>getGmtDate(NOTC.REG_DATE,#{ses.userGmt},#{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+	        , NOTC.NOTICE_NUM
+	        , NOTC.VIEW_CNT
+	        , <include refid="com.sql.dbo"/>GETUSERNAME(#{GATE_CD},NOTC.REG_USER_ID,#{LANG_CD})  AS REG_USER_ID
+	        , NOTC.NOTICE_TEXT_NUM
+	     FROM STOCNOTC NOTC
+	    WHERE NOTC.GATE_CD  = #{GATE_CD}
+	      AND NOTC.DEL_FLAG = '0'
+	      AND NOTC.NOTICE_TYPE = #{NOTICE_TYPE}
+	      AND NOTC.USER_TYPE IN ('USNA', 'USNE')
+
+	    <if test="SUBJECT != '' and SUBJECT != null">
+          AND NOTC.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+	    <if test="TEXT_CONTENTS != '' and TEXT_CONTENTS != null">
+          AND EXISTS (SELECT TXTD.TEXT_NUM, TXTD.TEXT_CONTENTS FROM STOCTXTD TXTD <include refid="com.sql.noLock"/>
+                       WHERE TXTD.GATE_CD = NOTC.GATE_CD
+                         AND TXTD.TEXT_NUM = NOTC.NOTICE_TEXT_NUM
+                         AND TEXT_CONTENTS <include refid="com.sql.likeL"/> #{TEXT_CONTENTS} <include refid="com.sql.likeR"/>)
+		</if>
+
+	    ORDER BY NOTC.NOTICE_NUM DESC
+    </select>
+
+    <select id="checkVendor" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  DEL_FLAG
+            , PROGRESS_CD
+            , VENDOR_CD
+         FROM STOCVNGL
+        WHERE GATE_CD = #{ses.gateCd}
+          AND IRS_NUM = #{IRS_NUM}
+    </select>
+
+    <select id="checkUser" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  DEL_FLAG
+            , PROGRESS_CD
+            , USE_FLAG
+            , USER_ID
+         FROM STOCUSER
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND USER_ID  = #{USER_ID}
+          AND PASSWORD = #{PASSWORD}
+    </select>
+
+    <select id="getBaseLoginInfo" resultType="hashMap">
+		SELECT USRS.USER_ID, USRS.USER_TYPE, <include refid="com.sql.nvl"/>(VNGL.IRS_NUM, 'NOT_REGISTERED') AS IRS_NUM
+		  FROM STOCUSER USRS
+		  LEFT OUTER JOIN STOCVNGL VNGL
+			   ON (USRS.GATE_CD  = VNGL.GATE_CD
+			   AND USRS.COMPANY_CD = VNGL.VENDOR_CD
+			   AND USRS.DEL_FLAG = '0'
+			   AND VNGL.DEL_FLAG = '0'
+			   AND USRS.USE_FLAG = '1'
+			   AND USRS.USE_FLAG = '1'
+			   AND USRS.PROGRESS_CD = 'E')
+		WHERE USRS.USER_ID = #{userId}
+    </select>
+
+    <select id="selectEncPassword" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  <include refid="com.sql.dbo"/>SETENCPASSWORD(UPPER(#{P_PASSWORD})) AS ENC_PASSWORD
+        	, <include refid="com.sql.dbo"/>SETENCPASSWORD(UPPER(#{PASSWORD_CHECK2})) AS NEW_ENC_PASSWORD
+        	, CASE WHEN <include refid="com.sql.dbo"/>SETENCPASSWORD(UPPER(#{P_PASSWORD})) = PASSWORD THEN '1' ELSE '0' END AS EQUAL_PASSWORD
+         FROM STOCUSER
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND DEL_FLAG = '0'
+          AND USER_ID  = #{ses.userId}
+    </select>
+
+    <select id="selectUser" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	  USER_ID
+            , USER_NM
+            , USER_NM_ENG
+            , PASSWORD
+            , EMAIL
+            , TEL_NUM
+            , CELL_NUM
+            , FAX_NUM
+            , LANG_CD
+            , COUNTRY_CD
+            , COMPANY_CD
+            , <include refid="com.sql.dbo"/>getCompanyName(GATE_CD, COMPANY_CD, #{ses.langCd}) AS COMPANY_NM
+			, PLANT_CD
+            , DEPT_CD
+		    , <include refid="com.sql.dbo"/>getUserDeptName(GATE_CD, USER_ID, #{ses.langCd}) AS DEPT_NM
+		    , CHIEF_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(GATE_CD, CHIEF_USER_ID, #{ses.langCd}) AS CHIEF_USER_NM
+			, <include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M044', <include refid="com.sql.nvl"/>(AGREE_YN, '0'), 0, #{ses.langCd}) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(AGREE_YN_DATE, 'YYYYMMDD HH24:MI:SS') AS AGREE_YN
+			, <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(MOD_DATE, 'YYYYMMDD HH24:MI:SS') AS MOD_INFO
+            , GMT_CD
+            , USER_DATE_FORMAT_CD
+            , USER_NUMBER_FORMAT_CD
+            , POSITION_NM
+            , DUTY_NM
+            , PW_RESET_FLAG
+        	, SMS_FLAG
+        	, MAIL_FLAG
+        	, EMPLOYEE_NUM AS EMPLOYEE_NO
+		<if test="_databaseId == 'mssql'">
+		    , (CASE WHEN PW_RESET_DATE <![CDATA[<=]]> DATEADD(dd, -90, <include refid="com.sql.sysdate"/>) THEN 'N'
+                    WHEN PW_RESET_DATE IS NULL THEN 'N'
+                    ELSE 'Y'
+               END) AS RESET_VALIDATE_FLAG
+		</if>
+		<if test="_databaseId == 'oracle'">
+		    , (CASE WHEN PW_RESET_DATE <![CDATA[<=]]> <include refid="com.sql.sysdate"/> - 90 THEN 'N'
+                    WHEN PW_RESET_DATE IS NULL THEN 'N'
+                    ELSE 'Y'
+               END) AS RESET_VALIDATE_FLAG
+		</if>
+        	,<include refid="com.sql.nvl"/>(IF_USER_FLAG, '0') AS IF_USER_FLAG
+        FROM STOCUSER
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND USER_ID  = #{ses.userId}
+		<if test="P_PASSWORD != '' and P_PASSWORD != null">
+		  AND PASSWORD = #{P_PASSWORD}
+		</if>
+          AND DEL_FLAG = '0'
+
+    </select>
+
+	<!-- 사용자 로그인 이후 전화번호, EMAIL, 헨드폰 번호가 없으면 수정하도록 함 -->
+	<select id="selectUserCS" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  CVUR.GATE_CD
+			, UPPER(<include refid="com.sql.trim"/>(CVUR.USER_ID)) AS USER_ID
+			, CVUR.USER_NM
+			, CVUR.USER_NM AS USER_NM_ENG
+			, CVUR.PASSWORD
+			, CVUR.EMAIL
+			, CVUR.TEL_NUM
+			, CVUR.CELL_NUM
+			, CVUR.FAX_NUM
+			, 'KO' AS LANG_CD
+			, 'KR' AS COUNTRY_CD
+			, 'GMT+09:00' AS GMT_CD
+			, '01' AS USER_DATE_FORMAT_CD
+			, '01' AS USER_NUMBER_FORMAT_CD
+			, CVUR.POSITION_NM
+			, CVUR.DUTY_NM
+			, CVUR.PW_RESET_FLAG
+			, CASE WHEN  <include refid="com.sql.toDate"/><include refid="com.sql.sysdate"/>)- <include refid="com.sql.toDate"/>PW_RESET_DATE)  <![CDATA[>=]]>90 THEN 'Y' ELSE 'N' END PW_RESET_TYPE
+			,(CASE WHEN CVUR.PW_RESET_DATE <![CDATA[<=]]> <include refid="com.sql.sysdate"/> - 90 THEN 'N'
+				   WHEN CVUR.PW_RESET_DATE IS NULL THEN 'N'
+				   ELSE 'Y'
+		      END) AS RESET_VALIDATE_FLAG
+			, CVUR.EMPLOYEE_NO
+			,<include refid="com.sql.dbo"/>GETCOMCODE(CVUR.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(CVUR.AGREE_YN, '0'), 0, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.AGREE_YN_DATE, 'YYYYMMDD HH24:MI:SS') AS AGREE_YN
+			,<include refid="com.sql.dbo"/>GETUSERNAME(CVUR.GATE_CD, CVUR.MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.MOD_DATE, 'YYYYMMDD HH24:MI:SS') AS MOD_INFO
+			, CVUR.CHIEF_USER_ID
+			,<include refid="com.sql.dbo"/>getUserName(CVUR.GATE_CD, CVUR.CHIEF_USER_ID, #{ses.langCd}) AS CHIEF_USER_NM
+			, CVUR.SMS_FLAG
+			, CVUR.MAIL_FLAG
+			/*배송지*/
+			, CVUR.CSDM_SEQ
+			, CSDM.DELY_NM AS DELY_NM
+			, CSDM.RECIPIENT_NM AS DELY_RECIPIENT_NM
+			,'('<include refid="com.sql.stringMerge"/>CSDM.DELY_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CSDM.DELY_ADDR_1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CSDM.DELY_ADDR_2,'') AS DELY_ADDR
+			, CSDM.DELY_ZIP_CD AS DELY_ZIP_CD
+			, CSDM.DELY_ADDR_1 AS DELY_ADDR_1
+			, CSDM.DELY_ADDR_2 AS DELY_ADDR_2
+			, CSDM.RECIPIENT_TEL_NUM AS DELY_RECIPIENT_TEL_NUM
+			, CSDM.RECIPIENT_FAX_NUM AS DELY_RECIPIENT_FAX_NUM
+			, CSDM.RECIPIENT_CELL_NUM AS DELY_RECIPIENT_CELL_NUM
+			, CSDM.RECIPIENT_EMAIL AS DELY_RECIPIENT_EMAIL
+			, CSDM.RECIPIENT_DEPT_NM AS DELY_RECIPIENT_DEPT_NM
+			, CSDM.DELY_RMK AS DELY_RMK
+			/*청구지*/
+			, CVUR.CUBL_SEQ AS CUBL_SQ
+			, CUBL.CUBL_NM  AS CUBL_NM
+			, CUBL.COMPANY_NM  AS CUBL_COMPANY_NM
+			,'('<include refid="com.sql.stringMerge"/>CUBL.CUBL_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>CUBL.CUBL_ADDR1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(CUBL.CUBL_ADDR2,'') AS CUBL_ADDR
+			, CUBL.CEO_USER_NM AS CUBL_CEO_USER_NM
+			, CUBL.IRS_NUM     AS CUBL_IRS_NUM
+			, CUBL.BUSINESS_TYPE      AS CUBL_BUSINESS_TYPE
+			, CUBL.INDUSTRY_TYPE      AS CUBL_INDUSTRY_TYPE
+			, CUBL.CUBL_BANK_NM       AS CUBL_BANK_NM
+			, CUBL.CUBL_ACCOUNT_NUM   AS CUBL_ACCOUNT_NUM
+			, CUBL.CUBL_ACCOUNT_NM    AS CUBL_ACCOUNT_NM
+			, CUBL.CUBL_USER_NM       AS CUBL_USER_NM
+			, CUBL.CUBL_USER_TEL_NUM  AS CUBL_USER_TEL_NUM
+			, CUBL.CUBL_USER_FAX_NUM  AS CUBL_USER_FAX_NUM
+			, CUBL.CUBL_USER_CELL_NUM AS CUBL_USER_CELL_NUM
+			, CUBL.CUBL_USER_EMAIL    AS CUBL_USER_EMAIL
+			, CUST.AUTO_PO_FLAG
+            , CVUR.COMPANY_CD
+			, CVUR.PLANT_CD
+			, CVUR.DIVISION_CD
+			, CVUR.DEPT_CD
+            ,(CASE WHEN CVUR.USER_TYPE = 'B' THEN CUST.CUST_NM ELSE VNGL.VENDOR_NM END) AS COMPANY_NM
+			,<include refid="com.sql.dbo"/>GETDIVISIONNM(CVUR.GATE_CD, CVUR.COMPANY_CD, CVUR.PLANT_CD, CVUR.DIVISION_CD, #{ses.langCd}) AS DIVISION_NM
+            ,<include refid="com.sql.dbo"/> getUserPartName(CVUR.GATE_CD, CVUR.USER_ID, #{ses.langCd}) AS DEPT_NM
+		FROM STOCCVUR CVUR
+		LEFT OUTER JOIN STOCCUST CUST
+             ON (CUST.GATE_CD = CVUR.GATE_CD
+             AND CUST.CUST_CD = CVUR.COMPANY_CD)
+        LEFT OUTER JOIN STOCVNGL VNGL
+             ON (VNGL.GATE_CD = CVUR.GATE_CD
+             AND VNGL.VENDOR_CD = CVUR.COMPANY_CD)
+        LEFT OUTER JOIN STOCCSDM CSDM
+			 ON (CSDM.GATE_CD  = CVUR.GATE_CD
+			 AND CSDM.CUST_CD  = CVUR.COMPANY_CD
+			 AND CSDM.SEQ      = CVUR.CSDM_SEQ
+			 AND CSDM.DEL_FLAG = '0'
+			 AND CSDM.USE_FLAG = '1')
+		LEFT OUTER JOIN STOCCUBL CUBL
+			 ON (CUBL.GATE_CD  = CVUR.GATE_CD
+		     AND CUBL.CUST_CD  = CVUR.COMPANY_CD
+		     AND CUBL.CUBL_SQ  = CVUR.CUBL_SEQ
+		     AND CUBL.DEL_FLAG = '0'
+		     AND CUBL.USE_FLAG = '1')
+		WHERE CVUR.GATE_CD  = #{ses.gateCd}
+		  AND CVUR.DEL_FLAG = '0'
+		  AND CVUR.USER_ID  = #{ses.userId}
+		<if test="P_PASSWORD != '' and P_PASSWORD != null">
+		  AND CVUR.PASSWORD = #{P_PASSWORD}
+		</if>
+	</select>
+
+	<!-- 운영사 사용자 변경 -->
+    <update id="doUpdate" parameterType="hashMap">
+
+        UPDATE STOCUSER SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+        	,MOD_USER_ID = #{ses.userId}
+            ,USER_NM = #{USER_NM}
+		    ,USER_NM_ENG = #{USER_NM_ENG}
+		<if test="PASSWORD != '' and PASSWORD != null">
+			,PASSWORD = #{PASSWORD}
+			,PW_RESET_FLAG = '1'
+			,PW_RESET_DATE = <include refid="com.sql.sysdate"/>
+			,PW_WRONG_CNT = 0
+			,COMPULSION_PW_RESET_FLAG = '0'
+		</if>
+			,TEL_NUM = #{TEL_NUM}
+			,CELL_NUM = #{CELL_NUM}
+			,FAX_NUM = #{FAX_NUM}
+			,EMAIL = #{EMAIL}
+			,POSITION_NM = #{POSITION_NM}
+			,DUTY_NM = #{DUTY_NM}
+		<if test="DEPT_CD != null and DEPT_CD != ''">,DEPT_CD = #{DEPT_CD}</if>
+		<if test="DEPT_NM != null and DEPT_NM != ''">,DEPT_NM = #{DEPT_NM}</if>
+            ,CHIEF_USER_ID = #{CHIEF_USER_ID}
+        <if test="SMS_FLAG != null and SMS_FLAG != ''">,SMS_FLAG = #{SMS_FLAG}</if>
+        <if test="MAIL_FLAG != null and MAIL_FLAG != ''">,MAIL_FLAG = #{MAIL_FLAG}</if>
+        <if test="EMPLOYEE_NO != null and EMPLOYEE_NO != ''">,EMPLOYEE_NUM = #{EMPLOYEE_NO}</if>
+		 WHERE USER_ID  = #{USER_ID}
+		   AND DEL_FLAG = '0'
+		   AND GATE_CD  = #{ses.gateCd}
+
+	</update>
+
+	<update id="doUpdateCS" parameterType="hashMap">
+
+		UPDATE STOCCVUR SET
+        	 MOD_DATE = <include refid="com.sql.sysdate"/>
+        	,MOD_USER_ID = #{ses.userId}
+        	,USER_NM = #{USER_NM}
+		<if test="PASSWORD !='' and PASSWORD !=null">
+			,PASSWORD = #{PASSWORD}
+			,PW_RESET_FLAG = '1'
+			,PW_RESET_DATE = <include refid="com.sql.sysdate"/>
+			,PW_WRONG_CNT = 0
+		</if>
+		<if test="DEPT_CD != null and DEPT_CD != ''">,DEPT_CD = #{DEPT_CD}</if>
+        <if test="DEPT_NM != null and DEPT_NM != ''">,DEPT_NM = #{DEPT_NM}</if>
+        	,POSITION_NM = #{POSITION_NM}
+        	,DUTY_NM = #{DUTY_NM}
+        	,TEL_NUM = #{TEL_NUM}
+        	,FAX_NUM = #{FAX_NUM}
+        	,CELL_NUM = #{CELL_NUM}
+        	,EMAIL = #{EMAIL}
+        	,CHIEF_USER_ID = #{CHIEF_USER_ID}
+		<if test="CSDM_SEQ != null and CSDM_SEQ != ''">,CSDM_SEQ = #{CSDM_SEQ}</if>
+		<if test="CUBL_SQ != null and CUBL_SQ != ''">,CUBL_SEQ = #{CUBL_SQ}</if>
+        <if test="EMPLOYEE_NO != null and EMPLOYEE_NO != ''">,EMPLOYEE_NO = #{EMPLOYEE_NO}</if>
+		<if test="SMS_FLAG != null and SMS_FLAG != ''">,SMS_FLAG = #{SMS_FLAG}</if>
+        <if test="MAIL_FLAG != null and MAIL_FLAG != ''">,MAIL_FLAG = #{MAIL_FLAG}</if>
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND USER_ID = #{USER_ID}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<select id="getDateFormatValue" parameterType="hashMap" resultType="hashMap">
+	    SELECT <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M054', #{USER_DATE_FORMAT_CD}, '0', #{ses.langCd}) as USER_DATE_FORMAT_VALUE
+	    FROM STOCUSER
+	    WHERE USER_ID = #{ses.userId}
+	    AND DEL_FLAG = '0'
+	    AND GATE_CD = #{ses.gateCd}
+	</select>
+
+	<select id="getNumberFormatValue" parameterType="hashMap" resultType="hashMap">
+	    SELECT <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'M055', #{USER_NUMBER_FORMAT_CD}, '0', #{ses.langCd})  as USER_NUMBER_FORMAT_VALUE
+	    FROM STOCUSER
+	    WHERE USER_ID = #{ses.userId}
+	    AND DEL_FLAG = '0'
+	    AND GATE_CD = #{ses.gateCd}
+	</select>
+
+	<select id="getCTRLInfo" parameterType="com.st_ones.common.login.domain.UserInfo" resultType="hashMap">
+	    SELECT
+	        BACO.CTRL_CD
+	    <if test="langCd =='KO'">
+	        , BACO.CTRL_NM
+	    </if>
+	    <if test="langCd !='KO'">
+	        , BACO.CTRL_NM_ENG AS CTRL_NM
+	    </if>
+	    FROM
+	        STOCBACO BACO
+	        , STOCBACP BACP
+	    WHERE
+	        BACP.GATE_CD = BACO.GATE_CD
+	        AND BACP.BUYER_CD = BACO.BUYER_CD
+	        AND BACP.CTRL_CD = BACO.CTRL_CD
+	        AND BACP.CTRL_USER_ID = #{userId}
+	        AND BACP.GATE_CD = #{gateCd}
+	</select>
+
+	<update id="doSavePassword" parameterType="hashMap">
+	    UPDATE STOCUSER
+	       SET MOD_DATE = <include refid="com.sql.sysdate"/>
+	          ,MOD_USER_ID = <choose>
+	                            <when test="ses.userId == null or ses.userId == ''">'SYSTEM'</when>
+	                            <otherwise>#{ses.userId}</otherwise>
+	                         </choose>
+	          ,PASSWORD = <include refid="com.sql.dbo"/>SETENCPASSWORD(UPPER(#{PASSWORD}))
+	    WHERE GATE_CD = <choose>
+	                        <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+	                        <otherwise>#{ses.gateCd}</otherwise>
+	                    </choose>
+	    AND USER_ID = #{USER_ID}
+	</update>
+</mapper>

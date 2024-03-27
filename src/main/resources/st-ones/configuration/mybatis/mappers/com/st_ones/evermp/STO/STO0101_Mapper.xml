@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.STO.STO0101_Mapper">
+
+  <update id="sto0101_doSave" parameterType="hashmap">
+        MERGE INTO STOCOGWH OGWH
+        USING (SELECT #{ses.gateCd}     AS GATE_CD
+                     ,#{WAREHOUSE_CODE} AS WH_CD
+        <include refid="com.sql.dual"/> ) DATA
+           ON (OGWH.GATE_CD 	   = DATA.GATE_CD
+           AND OGWH.WAREHOUSE_CODE = DATA.WH_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             STR_CTRL_CODE  = #{STR_CTRL_CODE}
+            ,USE_FLAG 		= #{USE_FLAG}
+            ,WH_NM 			= #{WH_NM}
+            ,WAREHOUSE_TYPE = #{WAREHOUSE_TYPE}
+            ,MOD_DATE		= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID 	= #{ses.userId}
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,AGENT_CODE
+            ,STR_CTRL_CODE
+            ,WAREHOUSE_CODE
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,WAREHOUSE_TYPE
+            ,WH_NM
+            ,USE_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{ses.companyCd}
+            ,#{STR_CTRL_CODE}
+            ,#{WAREHOUSE_CODE}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{WAREHOUSE_TYPE}
+            ,#{WH_NM}
+            ,#{USE_FLAG}
+        )
+    </update>
+
+     <select id="sto0101_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT  OGWH.STR_CTRL_CODE
+              , OGWH.WAREHOUSE_TYPE
+              , OGWH.WAREHOUSE_CODE
+              , OGWH.WH_NM
+              , OGWH.USE_FLAG
+	    	  , OGWH.REG_USER_ID
+              , <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, OGWH.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+              , <include refid="com.sql.toDateChar"/>(OGWH.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+	    	  , OGWH.MOD_USER_ID
+              , <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, OGWH.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+              , <include refid="com.sql.toDateChar"/>(OGWH.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+          FROM STOCOGWH OGWH
+        WHERE OGWH.GATE_CD = #{ses.gateCd}
+       <if test="STR_CTRL_CODE != null and STR_CTRL_CODE != ''">
+           AND OGWH.STR_CTRL_CODE = #{STR_CTRL_CODE}
+       </if>
+       <if test="WAREHOUSE_TYPE != null and WAREHOUSE_TYPE != ''">
+           AND OGWH.WAREHOUSE_TYPE =#{WAREHOUSE_TYPE}
+       </if>
+        <if test="USE_FLAG != null and USE_FLAG != ''">
+           AND OGWH.USE_FLAG =#{USE_FLAG}
+       </if>
+       	   AND OGWH.DEL_FLAG = '0'
+       	ORDER BY OGWH.WH_NM
+    </select>
+
+
+     <select id="sto0102_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+		     A.ITEM_CD
+		    ,A.VENDOR_CD
+		    ,A.VENDOR_NM
+		    ,A.VALID_FROM_DATE
+			,A.VALID_TO_DATE
+			,A.CONT_UNIT_PRICE
+			,A.DEAL_CD
+			,MAX(A.ITEM_STATUS       )           ITEM_STATUS
+			,MAX(A.CUST_ITEM_CD      )           CUST_ITEM_CD
+			,MAX(A.ITEM_DESC         )           ITEM_DESC
+			,MAX(A.ITEM_SPEC         )           ITEM_SPEC
+			,MAX(A.MAKER_CD			 )			 MAKER_CD
+			,MAX(A.MAKER_NM          )           MAKER_NM
+			,MAX(A.UNIT_PRC_VALID_YN )           UNIT_PRC_VALID_YN
+			,MAX(A.BRAND_CD          )           BRAND_CD
+			,MAX(A.ORIGIN_CD         )           ORIGIN_CD
+			,MAX(A.UNIT_CD           )           UNIT_CD
+			,MAX(A.SAFE_QTY          )			 SAFE_QTY
+			,MAX(A.SAVE_QTY          )			 SAVE_QTY
+			,MAX(A.MOD_DATE          )           MOD_DATE
+			,MAX(A.MOD_USER_NM       )           MOD_USER_ID
+			,MAX(A.BRAND_NM          )           BRAND_NM
+			,MAX(A.CONT_NO           )           CONT_NO
+			,MAX(A.PACK_UNIT_CD      )			 PACK_UNIT_CD --포장단위
+			,MAX(A.UNIT_CD			 )	     	 UNIT_CD
+			,MAX(A.TAX_CD			 )	         TAX_CD
+			,MAX(A.LEAD_TIME		 )			 LEAD_TIME
+			,MAX(A.DELY_TYPE		 )			 DELY_TYPE
+			,MAX(A.CONT_UNIT_PRICE	 )			 CONT_UNIT_PRICE
+			,MAX(A.MOQ_QTY			 ) 			 MOQ_QTY
+			,MAX(A.RV_QTY			 )			 RV_QTY
+			,MAX(A.CONT_NO			 )  	 	 CONT_NO
+			,MAX(A.CONT_SEQ			 )			 CONT_SEQ
+		FROM (
+			SELECT
+				 MTGL.GATE_CD
+				,MTGL.CUST_ITEM_CD
+				,MTGL.ITEM_CD
+				,MTGL.ITEM_DESC
+				,MTGL.ITEM_SPEC
+				,MTGL.ITEM_STATUS
+				,MTGL.MAKER_CD
+				,MTGL.BRAND_CD
+				,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) AS MAKER_NM
+				,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+				,MTGL.ORIGIN_CD
+				,MTGL.UNIT_CD
+				,MTGL.MOD_USER_ID
+				,<include refid="com.sql.dbo"/>getUserName(MTGL.GATE_CD, MTGL.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+				,<include refid="com.sql.toDateChar"/>(MTGL.MOD_DATE, 'YYYYMMDD') AS MOD_DATE
+				<!-- STOYINFO : 공급사 단가테이블 조인 -->
+				,INFO.VENDOR_CD
+				,<include refid="com.sql.dbo"/>GETVENDORNAME(MTGL.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+				,INFO.APPLY_COM
+				,<include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(INFO.GATE_CD, INFO.APPLY_COM, #{ses.langCd}), <include refid="com.sql.dbo"/>getBuyerInfo(INFO.GATE_CD, INFO.APPLY_COM, 'CUST_NM')), '') AS APPLY_NM
+				,INFO.DEAL_CD
+				,INFO.DELY_TYPE
+				,<include refid="com.sql.toDateChar"/>(INFO.VALID_FROM_DATE, 'YYYYMMDD') as VALID_FROM_DATE
+				,<include refid="com.sql.toDateChar"/>(INFO.VALID_TO_DATE, 'YYYYMMDD') as VALID_TO_DATE
+				,MTGL.SAFE_QTY
+				,MTGL.SAVE_QTY
+				,<include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE,0) AS CONT_UNIT_PRICE
+				,CASE WHEN <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/>(VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd') THEN '유효'
+				 ELSE '만료' END AS UNIT_PRC_VALID_YN
+				,MTGL.PACK_UNIT_CD
+		      	,INFO.CONT_SEQ
+			,MTGL.SG_CTRL_USER_ID
+			,INFO.TAX_CD
+			,INFO.MOQ_QTY
+			,INFO.RV_QTY
+			,INFO.LEAD_TIME
+			,INFO.CONT_NO
+
+			FROM STOCMTGL MTGL
+			JOIN STOYINFO INFO
+			   ON (MTGL.GATE_CD = INFO.GATE_CD
+			   AND MTGL.ITEM_CD = INFO.ITEM_CD
+			   AND <include refid="com.sql.nvl"/>(INFO.SIGN_STATUS, 'E') = 'E'
+			   AND INFO.DEL_FLAG = '0')
+			WHERE MTGL.GATE_CD = #{ses.gateCd}
+			   AND INFO.DEAL_CD IN('100','400')
+			   AND MTGL.DEL_FLAG  = '0'
+			  AND <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/>(VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd')
+
+			<if test="MAKER_CD != null and MAKER_CD != ''">
+				AND MTGL.MAKER_CD <include refid="com.sql.likeL"/>#{MAKER_CD}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="MAKER_NM != null and MAKER_NM != ''">
+				AND MTGL.MAKER_NM <include refid="com.sql.likeL"/>#{MAKER_NM}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="ITEM_CD != null and ITEM_CD != ''">
+					AND MTGL.ITEM_CD||<include refid="com.sql.nvl"/>(MTGL.CUST_ITEM_CD,' ') <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			</if>
+	        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+				AND ${ITEM_DESC}
+	        </if>
+			<if test="VENDOR_CD != null and VENDOR_CD != ''">
+				AND INFO.VENDOR_CD <include refid="com.sql.likeL"/>#{VENDOR_CD}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="VENDOR_NM != null and VENDOR_NM != ''">
+				AND <include refid="com.sql.dbo"/>GETVENDORNAME(MTGL.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/>#{VENDOR_NM}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="DEAL_CD != null and DEAL_CD !=''">
+				AND INFO.DEAL_CD = #{DEAL_CD}
+			</if>
+		) A
+	GROUP BY
+		 A.ITEM_CD
+		,A.VENDOR_CD
+		,A.VENDOR_NM
+		,A.VALID_FROM_DATE
+		,A.VALID_TO_DATE
+		,A.CONT_UNIT_PRICE
+		,A.DEAL_CD
+	ORDER BY A.ITEM_CD
+     </select>
+
+     	<update id="sto0102_doSave" parameterType="hashMap">
+
+		UPDATE STOCMTGL SET
+		     MOD_DATE 	  = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID  = #{ses.userId}
+			,SAFE_QTY 	  = #{SAFE_QTY}
+			,SAVE_QTY 	  = #{SAVE_QTY}
+			,PACK_UNIT_CD = #{PACK_UNIT_CD}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND ITEM_CD = #{ITEM_CD}
+
+	</update>
+
+</mapper>

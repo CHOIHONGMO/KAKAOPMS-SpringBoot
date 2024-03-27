@@ -1,0 +1,3787 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.cn.CN0100Mapper">
+
+    <select id="checkCn" resultType="string">
+
+		SELECT count(*) cou
+		  FROM STOPCNDT A JOIN (
+			<foreach item="item" index="index" collection="ITEM_LIST" separator="UNION ALL" >
+				SELECT #{item.QTA_NUM} as QTA_NUM , #{item.QTA_SQ} as QTA_SQ
+				FROM DUAL
+			</foreach>
+			) B
+			ON (A.QTA_NUM = B.QTA_NUM
+			AND A.QTA_SQ  = B.QTA_SQ)
+		WHERE A.DEL_FLAG = '0'
+		  AND EXEC_NUM  != #{EXEC_NUM}
+		  AND EXEC_CNT  != #{EXEC_CNT}
+		  AND A.PREV_EXEC_NUM IS NULL
+	</select>
+
+	<!-- 계약관리 > 품의관리 > 품의현황 (CN0130) -->
+    <select id="getExecList" resultType="hashMap">
+		SELECT
+			 A.EXEC_NUM
+			,A.EXEC_CNT
+			,A.BUYER_CD AS PR_BUYER_CD
+			,<include refid="com.sql.dbo"/>GETBUYERNAME(#{ses.gateCd},A.BUYER_CD,#{ses.langCd}) AS PR_BUYER_NM
+			,A.PLANT_CD PR_PLANT_CD
+			,<include refid="com.sql.dbo"/>GETPLANTNAME(#{ses.gateCd},A.BUYER_CD,A.PLANT_CD,#{ses.langCd}) AS PR_PLANT_NM
+			,A.PR_TYPE
+			,A.PROGRESS_CD
+			,CASE WHEN C.ELCT_CONFM_IF_SEQ IS NULL  THEN A.SIGN_STATUS
+				  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND (C.ELCT_CONFM_STAT_CD = '1' OR C.ELCT_CONFM_STAT_CD ='2') THEN 'P'
+				  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND C.ELCT_CONFM_STAT_CD = '3' THEN 'E'
+			 	  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND C.ELCT_CONFM_STAT_CD = '9' THEN 'R'
+		      END SIGN_STATUS
+			,A.EXEC_SUBJECT
+			,(SELECT LISTAGG(T.VENDOR_NM, ',')
+				FROM (
+					SELECT DISTINCT
+					<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, K.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+					FROM STOPCNVD K
+					WHERE GATE_CD = #{ses.gateCd}
+					AND EXEC_NUM  = A.EXEC_NUM
+					AND EXEC_CNT  = A.EXEC_CNT
+					AND DEL_FLAG  = '0'
+				) T
+			 ) AS VENDOR_NM
+			,C.CPO_UNIT_AMT
+			,C.CPO_UNIT_RATE
+			,C.QTA_UNIT_AMT
+			,C.SALES_UNIT_AMT
+			,C.SALES_PROFIT_RATE
+			,A.EXEC_DATE
+			,(SELECT MAX(CUR) FROM STOPCNDT
+			   WHERE GATE_CD  = A.GATE_CD
+				 AND EXEC_NUM = A.EXEC_NUM
+				 AND DEL_FLAG = '0'
+			 ) CUR
+			,A.SHIPPER_TYPE
+			,CASE WHEN C.ELCT_CONFM_IF_SEQ IS NULL  THEN A.SIGN_STATUS
+				  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND (C.ELCT_CONFM_STAT_CD = '1' OR C.ELCT_CONFM_STAT_CD ='2') THEN 'P'
+				  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND C.ELCT_CONFM_STAT_CD = '3' THEN 'E'
+			 	  WHEN C.ELCT_CONFM_IF_SEQ IS NOT NULL AND C.ELCT_CONFM_STAT_CD = '9' THEN 'R'
+			 END SIGN_STATUS
+			,CASE WHEN D.ELCT_CONFM_IF_SEQ IS NULL  THEN A.SIGN_STATUS2
+				  WHEN D.ELCT_CONFM_IF_SEQ IS NOT NULL AND (D.ELCT_CONFM_STAT_CD = '1' OR D.ELCT_CONFM_STAT_CD ='2') THEN 'P'
+				  WHEN D.ELCT_CONFM_IF_SEQ IS NOT NULL AND D.ELCT_CONFM_STAT_CD = '3' THEN 'E'
+			 	  WHEN D.ELCT_CONFM_IF_SEQ IS NOT NULL AND D.ELCT_CONFM_STAT_CD = '9' THEN 'R'
+			 END SIGN_STATUS2
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			,A.COST_REDUCE_TYPE
+		FROM STOPCNHD A
+		LEFT JOIN COM_ELCT_CONFM_IF C
+	 	  	ON A.APP_DOC_NUM||A.APP_DOC_CNT =C.ELCT_CONFM_IF_SEQ
+		LEFT JOIN COM_ELCT_CONFM_IF D
+		 	ON A.APP_DOC_NUM2||A.APP_DOC_CNT2 =D.ELCT_CONFM_IF_SEQ
+		INNER JOIN (
+				   SELECT
+						  GATE_CD
+						, EXEC_NUM
+						, EXEC_CNT
+						, SUM(CPO_UNIT_AMT) AS CPO_UNIT_AMT
+						, TRUNC(SUM(CPO_UNIT_RATE)/(CASE WHEN CNT = 0 THEN 1 ELSE CNT END)) AS CPO_UNIT_RATE
+						, SUM(QTA_UNIT_AMT) AS QTA_UNIT_AMT
+						, SUM(SALES_UNIT_AMT) AS SALES_UNIT_AMT
+						, SUM(SALES_PROFIT_RATE)/(CASE WHEN CNT = 0 THEN 1 ELSE CNT END) AS SALES_PROFIT_RATE
+
+					FROM(
+						SELECT GATE_CD
+							 , A.EXEC_NUM
+							 , A.EXEC_CNT
+							    , A.CPO_UNIT_PRICE
+							 , A.ITEM_QT * A.CPO_UNIT_PRICE AS CPO_UNIT_AMT
+							 ,(A.SALES_UNIT_PRC / (CASE WHEN <include refid="com.sql.nvl"/>(CPO_UNIT_PRICE,0) = 0 THEN 1 ELSE CPO_UNIT_PRICE END))*100 AS CPO_UNIT_RATE
+							 , A.QTA_UNIT_PRC
+							 , A.ITEM_QT * A.QTA_UNIT_PRC AS QTA_UNIT_AMT
+							 , A.SALES_UNIT_PRC
+							 , A.ITEM_QT * A.SALES_UNIT_PRC AS SALES_UNIT_AMT
+							 , A.ITEM_QT
+							 ,((SALES_UNIT_PRC-QTA_UNIT_PRC) / (CASE WHEN <include refid="com.sql.nvl"/>(SALES_UNIT_PRC,0) = 0 THEN 1 ELSE SALES_UNIT_PRC END))*100 AS SALES_PROFIT_RATE--매입단가-매출단가/매출단가*100 매출이익율
+							 , COUNT(*) OVER(PARTITION BY EXEC_NUM,EXEC_CNT) AS CNT
+						FROM STOPCNDT A
+					)B
+					GROUP BY B.GATE_CD
+							 , EXEC_NUM
+							 , EXEC_CNT
+							 , CNT
+
+		)C ON A.GATE_CD = C.GATE_CD
+		   AND A.EXEC_NUM = C.EXEC_NUM
+		   AND A.EXEC_CNT = C.EXEC_CNT
+		<if test="EXEC_TYPE_D != '' and EXEC_TYPE_D != null">
+			INNER JOIN (
+							SELECT A.EXEC_NUM ,MAX(A.EXEC_CNT) AS  EXEC_CNT
+							FROM STOPCNHD A
+							INNER JOIN STOPCNPY  B
+							ON  A.GATE_CD  = B.GATE_CD
+							AND A.EXEC_NUM = B.EXEC_NUM
+							AND A.EXEC_CNT = B.EXEC_CNT
+							AND A.BUYER_CD = B.VENDOR_CD
+							AND A.DEL_FLAG = '0'
+							AND A.GATE_CD  = #{ses.gateCd}
+							GROUP BY  A.EXEC_NUM
+						)C ON  A.EXEC_NUM  = C.EXEC_NUM
+						   AND A.EXEC_CNT  = C.EXEC_CNT
+
+		</if>
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.DEL_FLAG = '0'
+		<if test="START_DATE != '' and START_DATE != null">
+		   AND A.EXEC_DATE
+				   <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{START_DATE} <include refid="com.sql.dateFrom"/>
+		</if>
+		<if test="END_DATE != '' and END_DATE != null">
+		   AND A.EXEC_DATE
+					<![CDATA[<=]]> <include refid="com.sql.toDate"/> #{END_DATE} <include refid="com.sql.dateTo"/>
+		</if>
+		<if test="PR_BUYER_CD != '' and PR_BUYER_CD != null">
+			AND UPPER(A.BUYER_CD) <include refid="com.sql.likeL"/> #{PR_BUYER_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PR_BUYER_NM != '' and PR_BUYER_NM != null">
+			AND UPPER(GETBUYERINFO(A.GATE_CD,A.BUYER_CD,'CUST_NM')) <include refid="com.sql.likeL"/> #{PR_BUYER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PR_PLANT_CD != '' and PR_PLANT_CD != null">
+			AND UPPER(A.PLANT_CD) <include refid="com.sql.likeL"/> #{PR_PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PR_PLANT_NM != '' and PR_PLANT_NM != null">
+			AND UPPER(getPlantName(A.GATE_CD,A.BUYER_CD,A.PLANT_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{PR_PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND EXISTS (
+			SELECT '1' FROM STOPCNVD K
+			WHERE K.GATE_CD = #{ses.gateCd}
+			AND K.EXEC_NUM = A.EXEC_NUM
+			AND K.VENDOR_CD = #{VENDOR_CD}
+			)
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND EXISTS (
+			SELECT '1' FROM STOPCNVD K
+			WHERE K.GATE_CD  = #{ses.gateCd}
+			AND  K.EXEC_NUM = A.EXEC_NUM
+			AND UPPER(GETVENDORNAME(K.GATE_CD,K.VENDOR_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+			)
+		</if>
+		<if test="EXEC_NUM != '' and EXEC_NUM != null">
+		   AND UPPER(A.EXEC_NUM) <include refid="com.sql.likeL"/> #{EXEC_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EXEC_SUBJECT != '' and EXEC_SUBJECT != null">
+		    AND UPPER(A.EXEC_SUBJECT) <include refid="com.sql.likeL"/>#{EXEC_SUBJECT}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND A.PROGRESS_CD IN
+			<foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+		    	#{item}
+		    </foreach>
+		</if>
+		<if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+			AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+		</if>
+		ORDER BY A.EXEC_NUM DESC
+	</select>
+
+    <select id="doSearchTargetExec" resultType="hashMap">
+		SELECT
+			 <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, K.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,<include refid="com.sql.dbo"/>GETBUYERNAME(#{ses.gateCd},K.PR_BUYER_CD,#{ses.langCd}) AS PR_BUYER_NM
+			,K.PR_BUYER_CD
+			,K.PR_PLANT_CD
+			,<include refid="com.sql.dbo"/>GETPLANTNAME(#{ses.gateCd},K.PR_BUYER_CD,PR_PLANT_CD,#{ses.langCd}) AS PR_PLANT_NM
+			,K.PR_TYPE
+			,K.RFX_NUM
+			,K.RFX_CNT
+			,K.RFX_SUBJECT
+			,K.RFX_TYPE
+			,K.VENDOR_OPEN_TYPE
+			,K.PRC_SLT_TYPE
+			,K.VENDOR_SLT_TYPE
+			,K.VENDOR_CD
+			,K.CUR
+			,K.QTA_NUM
+			,K.SUBMIT_DATE
+			,K.SLT_DATE
+			,K.SHIPPER_TYPE
+			,K.BUYER_CD
+			,K.GUBUN
+			,K.QTA_CNT
+			,K.PR_NUM
+			,K.CTRL_USER_ID
+			,K.CTRL_USER_NM
+			,(SELECT COUNT(*) FROM STOPCNDT WHERE RFX_NUM = K.RFX_NUM AND DEL_FLAG = '0') AS CN_NUM
+			,(SELECT CASE WHEN COUNT(*) = 0 THEN 'N' ELSE 'Y' END
+			    FROM STOCVNGL
+			   WHERE PROGRESS_CD = 'E'
+			     AND GATE_CD = #{ses.gateCd}
+			     AND VENDOR_CD = K.VENDOR_CD) AS RIGHT_V_YN -- 적격업체여부
+			,A.CPO_USER_ID AS REQ_USER_ID
+			,GETUSERNAME(#{ses.gateCd},A.CPO_USER_ID,#{ses.langCd}) || '('||A.CPO_USER_CELL_NUM || ')' AS  REQ_USER_NM
+			,GETUSERDIVISIONNAME(#{ses.gateCd},A.CPO_USER_ID,#{ses.langCd}) ||'-'|| GETUSERDEPTNAME(#{ses.gateCd},A.CPO_USER_ID,#{ses.langCd}) AS REQ_DEPT_INFO
+		FROM (
+			SELECT
+				 A.PR_TYPE
+				,A.RFX_NUM
+				,A.GATE_CD
+				,A.RFX_CNT
+				,A.RFX_SUBJECT
+				,A.RFX_TYPE
+				,A.VENDOR_OPEN_TYPE
+				,A.PRC_SLT_TYPE
+				,A.VENDOR_SLT_TYPE
+				,A.CTRL_USER_ID
+				,A.CTRL_USER_NM
+				,C.VENDOR_CD
+				,B.CUR
+				,C.QTA_NUM
+				,1 QTA_CNT
+				,MAX(D.SUBMIT_DATE) SUBMIT_DATE
+				,MAX(C.SLT_DATE) SLT_DATE
+				,A.SHIPPER_TYPE
+				,A.BUYER_CD
+				,'RQ' GUBUN
+				,B.PR_BUYER_CD
+				,B.PR_PLANT_CD
+				,B.PR_NUM
+			FROM STOPRQHD A JOIN STOPRQDT B ON (A.GATE_CD  = B.GATE_CD
+											AND A.RFX_NUM  = B.RFX_NUM
+											AND A.RFX_CNT  = B.RFX_CNT
+											AND B.DEL_FLAG = '0'
+											AND B.RP_NO  IS NULL	-- 공급사 상품제안(STOYMTRP)은 제외(2022.10.05)
+											AND B.RP_SEQ IS NULL)
+							JOIN STOPQTDT C ON (B.GATE_CD  = C.GATE_CD
+							                AND B.RFX_NUM  = C.RFX_NUM
+							                AND B.RFX_CNT  = C.RFX_CNT
+							                AND B.RFX_SQ   = C.RFX_SQ
+							                AND C.DEL_FLAG ='0'
+							                AND C.SLT_FLAG = '1')
+						    JOIN STOPQTHD D ON (C.GATE_CD  = D.GATE_CD
+						                    AND C.QTA_NUM  = D.QTA_NUM
+						                    AND D.DEL_FLAG = '0')
+			WHERE A.GATE_CD  = #{ses.gateCd}
+			  AND A.DEL_FLAG = '0'
+			  AND A.PROGRESS_CD = '2500' -- 선정완료 [P005]
+
+			<if test="START_DATE != '' and START_DATE != null">
+			   AND A.RFX_TO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{START_DATE} <include refid="com.sql.dateFrom"/>
+			</if>
+			<if test="END_DATE != '' and END_DATE != null">
+			   AND A.RFX_TO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{END_DATE} <include refid="com.sql.dateTo"/>
+			</if>
+			<if test="PR_BUYER_CD != '' and PR_BUYER_CD != null">
+				AND UPPER(B.PR_BUYER_CD) <include refid="com.sql.likeL"/> #{PR_BUYER_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_BUYER_NM != '' and PR_BUYER_NM != null">
+				AND UPPER(GETBUYERINFO(B.GATE_CD,B.PR_BUYER_CD,'CUST_NM')) <include refid="com.sql.likeL"/> #{PR_BUYER_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_PLANT_CD != '' and PR_PLANT_CD != null">
+				AND UPPER(B.PR_PLANT_CD) <include refid="com.sql.likeL"/> #{PR_PLANT_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_PLANT_NM != '' and PR_PLANT_NM != null">
+				AND UPPER(getPlantName(B.GATE_CD,B.PR_BUYER_CD,B.PR_PLANT_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{PR_PLANT_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFQ_BD_NUM != '' and RFQ_BD_NUM != null">
+			   AND UPPER(A.RFX_NUM) <include refid="com.sql.likeL"/> #{RFQ_BD_NUM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFQ_BD_NM != '' and RFQ_BD_NM != null">
+			  AND UPPER(A.RFX_SUBJECT) <include refid="com.sql.likeL"/>#{RFQ_BD_NM}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+			   AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+			</if>
+			<if test="VENDOR_CD != '' and VENDOR_CD != null">
+				AND UPPER(C.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			   AND UPPER(GETVENDORNAME(C.GATE_CD,C.VENDOR_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFX_TYPE != '' and RFX_TYPE != null">
+			   AND A.RFX_TYPE = #{RFX_TYPE}
+			</if>
+
+			group by
+			 A.PR_TYPE
+			,A.RFX_NUM
+			,A.GATE_CD
+			,A.RFX_CNT
+			,A.RFX_SUBJECT
+			,A.RFX_TYPE
+			,A.VENDOR_OPEN_TYPE
+			,A.PRC_SLT_TYPE
+			,A.VENDOR_SLT_TYPE
+			,C.VENDOR_CD
+			,B.CUR
+			,C.QTA_NUM
+			,A.SHIPPER_TYPE
+			,A.BUYER_CD
+			,B.PR_BUYER_CD
+			,B.PR_PLANT_CD
+			,B.PR_NUM
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+
+			UNION ALL
+
+			SELECT
+			 A.PR_TYPE
+			,A.RFX_NUM
+			,A.GATE_CD
+			,A.RFX_CNT
+			,A.RFX_SUBJECT
+			,A.RFX_TYPE
+			,A.VENDOR_OPEN_TYPE
+			,A.PRC_SLT_TYPE
+			,A.VENDOR_SLT_TYPE
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			,C.VENDOR_CD
+			,B.CUR
+			,C.QTA_NUM
+			,C.QTA_CNT
+			,MAX(D.SUBMIT_DATE) SUBMIT_DATE
+			,MAX(C.SLT_DATE) SLT_DATE
+			,A.SHIPPER_TYPE
+			,A.BUYER_CD
+			,'BD' GUBUN
+			,B.PR_BUYER_CD
+			,B.PR_PLANT_CD
+			,B.PR_NUM
+			FROM STOPBDHD A JOIN STOPBDDT B ON A.GATE_CD = B.GATE_CD
+											AND A.RFX_NUM  = B.RFX_NUM
+											AND A.RFX_CNT = B.RFX_CNT
+											AND B.DEL_FLAG = '0'
+							JOIN STOPBQDT C ON B.GATE_CD = C.GATE_CD
+							                AND B.RFX_NUM = C.RFX_NUM
+							                AND B.RFX_CNT = C.RFX_CNT
+							                AND B.RFX_SQ = C.RFX_SQ
+							                AND C.DEL_FLAG  ='0'
+							                AND C.SLT_FLAG = '1'
+						    JOIN STOPBQHD D ON C.GATE_CD = D.GATE_CD
+						                    AND C.QTA_NUM = D.QTA_NUM
+						                    AND D.DEL_FLAG = '0'
+			WHERE A.GATE_CD  = #{ses.gateCd}
+			  AND A.DEL_FLAG = '0'
+			  AND A.PROGRESS_CD = '2900' -- 선정완료 [P005]
+
+			<if test="START_DATE != '' and START_DATE != null">
+			   AND A.RFX_TO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{START_DATE} <include refid="com.sql.dateFrom"/>
+			</if>
+			<if test="END_DATE != '' and END_DATE != null">
+			   AND A.RFX_TO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{END_DATE} <include refid="com.sql.dateTo"/>
+			</if>
+			<if test="PR_BUYER_CD != '' and PR_BUYER_CD != null">
+				AND UPPER(B.PR_BUYER_CD) <include refid="com.sql.likeL"/> #{PR_BUYER_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_BUYER_NM != '' and PR_BUYER_NM != null">
+				AND UPPER(GETBUYERINFO(B.GATE_CD,B.PR_BUYER_CD,'CUST_NM')) <include refid="com.sql.likeL"/> #{PR_BUYER_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_PLANT_CD != '' and PR_PLANT_CD != null">
+				AND UPPER(B.PR_PLANT_CD) <include refid="com.sql.likeL"/> #{PR_PLANT_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="PR_PLANT_NM != '' and PR_PLANT_NM != null">
+				AND UPPER(getPlantName(B.GATE_CD,B.PR_BUYER_CD,B.PR_PLANT_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{PR_PLANT_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFQ_BD_NUM != '' and RFQ_BD_NUM != null">
+			   AND UPPER(A.RFX_NUM) <include refid="com.sql.likeL"/> #{RFQ_BD_NUM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFQ_BD_NM != '' and RFQ_BD_NM != null">
+			  AND UPPER(A.RFX_SUBJECT) <include refid="com.sql.likeL"/>#{RFQ_BD_NM}<include refid="com.sql.likeR"/>
+			</if>
+			<if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+			   AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+			</if>
+			<if test="VENDOR_CD != '' and VENDOR_CD != null">
+				AND UPPER(C.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="VENDOR_NM != '' and VENDOR_NM != null">
+				AND UPPER(GETVENDORNAME(C.GATE_CD,C.VENDOR_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+			</if>
+			<if test="RFX_TYPE != '' and RFX_TYPE != null">
+			   AND A.RFX_TYPE = #{RFX_TYPE}
+			</if>
+			group by
+			 A.PR_TYPE
+			,A.RFX_NUM
+			,A.GATE_CD
+			,A.RFX_CNT
+			,A.RFX_SUBJECT
+			,A.RFX_TYPE
+			,A.VENDOR_OPEN_TYPE
+			,A.PRC_SLT_TYPE
+			,A.VENDOR_SLT_TYPE
+			,C.VENDOR_CD
+			,B.CUR
+			,C.QTA_NUM
+			,C.QTA_CNT
+			,A.SHIPPER_TYPE
+			,A.BUYER_CD
+			,B.PR_BUYER_CD
+			,B.PR_PLANT_CD
+			,B.PR_NUM
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+		) K
+		LEFT OUTER JOIN STOUPOHD A ON  K.GATE_CD = A.GATE_CD
+								   AND K.PR_BUYER_CD = A.CUST_CD
+								   AND K.PR_NUM = A.CPO_NO
+		WHERE NOT EXISTS (
+			SELECT '1' FROM STOPCNDT
+			WHERE GATE_CD = #{ses.gateCd}
+			AND QTA_NUM = K.QTA_NUM
+			AND DEL_FLAG = '0'
+		)
+		<if test="SHIPPER_TYPE != '' and SHIPPER_TYPE != null">
+			AND K.SHIPPER_TYPE = #{SHIPPER_TYPE}
+		</if>
+		group by
+		 K.PR_TYPE
+		,K.RFX_NUM
+		,K.RFX_CNT
+		,K.RFX_SUBJECT
+		,K.RFX_TYPE
+		,K.VENDOR_OPEN_TYPE
+		,K.PRC_SLT_TYPE
+		,K.VENDOR_SLT_TYPE
+		,K.VENDOR_CD
+		,K.CUR
+		,K.QTA_NUM
+		,K.QTA_CNT
+		,K.SUBMIT_DATE
+		,K.SLT_DATE
+		,K.SHIPPER_TYPE
+		,K.BUYER_CD
+		,K.GUBUN
+		,K.PR_BUYER_CD
+		,K.PR_PLANT_CD
+		,K.PR_NUM
+		,A.CPO_USER_ID
+    	,A.CPO_USER_CELL_NUM
+    	,K.CTRL_USER_ID
+    	,K.CTRL_USER_NM
+
+		ORDER BY K.SLT_DATE DESC
+    </select>
+
+    <select id="getBaseRfqVendor" resultType="hashMap">
+			SELECT
+				 VENDOR_CD
+				,PR_BUYER_CD
+				,VENDOR_NM
+				,IRS_NUM
+				,CEO_NM
+				,CUR
+				,MAKER_NM
+				,APAR_TYPE
+				,MAX(DELY_DATE) DELY_DATE
+				,PR_TYPE
+				,0  AS CONT_GUAR_PERCENT --디폴트값추가
+				,0  AS ADV_GUAR_PERCENT
+				,0  AS WARR_GUAR_PERCENT
+			FROM
+			(
+				SELECT
+						 C.VENDOR_CD
+						,B.PR_BUYER_CD
+						,E.VENDOR_NM
+						,E.IRS_NO IRS_NUM
+						,E.CEO_USER_NM CEO_NM
+						,B.CUR
+						,E.MAKER_NM
+						,'P' AS APAR_TYPE
+						,TO_CHAR(MAX(B.DELY_DATE),'YYYY-MM-DD') AS DELY_DATE
+						,A.PR_TYPE
+				FROM STOPRQHD A JOIN STOPRQDT B ON A.GATE_CD = B.GATE_CD
+												AND A.RFX_NUM  = B.RFX_NUM
+												AND A.RFX_CNT = B.RFX_CNT
+												AND B.DEL_FLAG = '0'
+								JOIN STOPQTDT C ON B.GATE_CD = C.GATE_CD
+								                AND B.RFX_NUM = C.RFX_NUM
+								                AND B.RFX_CNT = C.RFX_CNT
+								                AND B.RFX_SQ = C.RFX_SQ
+								                AND C.DEL_FLAG  ='0'
+								                AND C.SLT_FLAG = '1'
+							    JOIN STOPQTHD D ON C.GATE_CD = D.GATE_CD
+							                    AND C.QTA_NUM = D.QTA_NUM
+							                    AND D.DEL_FLAG = '0'
+							    JOIN STOCVNGL E ON D.GATE_CD = E.GATE_CD
+							                    AND D.VENDOR_CD = E.VENDOR_CD
+							    JOIN STOPRQVN F ON F.GATE_CD = B.GATE_CD
+												AND F.RFX_NUM  = B.RFX_NUM
+												AND F.RFX_CNT = B.RFX_CNT
+												AND F.RFX_SQ = B.RFX_SQ
+												AND F.VENDOR_CD = D.VENDOR_CD
+												AND F.DEL_FLAG = '0'
+				WHERE A.GATE_CD  = #{ses.gateCd}
+				  AND A.DEL_FLAG = '0'
+				  AND A.PROGRESS_CD = '2500' -- 선정완료 [P005]
+				<if test="QTA_NUM_LIST != '' and QTA_NUM_LIST != null">
+				  AND D.QTA_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</if>
+				group by
+					 C.VENDOR_CD
+					,E.VENDOR_NM
+					,E.IRS_NO
+					,E.CEO_USER_NM
+					,B.CUR
+					,E.MAKER_NM
+					,B.PR_BUYER_CD
+					,A.PR_TYPE
+
+				UNION ALL
+
+				SELECT
+					 C.VENDOR_CD
+					,B.PR_BUYER_CD
+					,E.VENDOR_NM
+					,E.IRS_NO IRS_NUM
+					,E.CEO_USER_NM CEO_NM
+					,B.CUR
+					,E.MAKER_NM
+					,'P' AS APAR_TYPE
+					,TO_CHAR(MAX(B.DELY_DATE),'YYYY-MM-DD') AS DELY_DATE
+					,A.PR_TYPE
+				FROM STOPBDHD A JOIN STOPBDDT B ON A.GATE_CD = B.GATE_CD
+												AND A.RFX_NUM  = B.RFX_NUM
+												AND A.RFX_CNT = B.RFX_CNT
+												AND B.DEL_FLAG = '0'
+								JOIN STOPBQDT C ON B.GATE_CD = C.GATE_CD
+								                AND B.RFX_NUM = C.RFX_NUM
+								                AND B.RFX_CNT = C.RFX_CNT
+								                AND B.RFX_SQ = C.RFX_SQ
+								                AND C.DEL_FLAG  ='0'
+								                AND C.SLT_FLAG = '1'
+							    JOIN STOPBQHD D ON C.GATE_CD = D.GATE_CD
+							                    AND C.QTA_NUM = D.QTA_NUM
+							                    AND D.DEL_FLAG = '0'
+							    JOIN STOCVNGL E ON D.GATE_CD = E.GATE_CD
+							                    AND D.VENDOR_CD = E.VENDOR_CD
+							    JOIN STOPBDVN F ON F.GATE_CD = B.GATE_CD
+												AND F.RFX_NUM  = B.RFX_NUM
+												AND F.RFX_CNT = B.RFX_CNT
+												AND F.RFX_SQ = B.RFX_SQ
+												AND F.VENDOR_CD = D.VENDOR_CD
+												AND F.DEL_FLAG = '0'
+
+				WHERE A.GATE_CD  = #{ses.gateCd}
+				  AND A.DEL_FLAG = '0'
+				  AND A.PROGRESS_CD = '2900' -- 선정완료 [P005]
+				<if test="QTA_NUM_LIST != '' and QTA_NUM_LIST != null">
+				  AND D.QTA_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</if>
+				group by
+					 C.VENDOR_CD
+					,E.VENDOR_NM
+					,E.IRS_NO
+					,E.CEO_USER_NM
+					,B.CUR
+					,E.MAKER_NM
+					,B.PR_BUYER_CD
+					,A.PR_TYPE
+
+				UNION ALL
+
+				SELECT
+					 B.VENDOR_CD
+					,B.PR_BUYER_CD
+					,E.VENDOR_NM
+					,E.IRS_NO IRS_NUM
+					,E.CEO_USER_NM CEO_NM
+					,B.CUR
+					,E.MAKER_NM
+					,'P' AS APAR_TYPE
+					,TO_CHAR(MAX(B.DELY_DATE),'YYYY-MM-DD') AS DELY_DATE
+					,A.PR_TYPE
+				FROM STOPCNHD A JOIN STOPCNDT B ON A.GATE_CD = B.GATE_CD
+									AND A.EXEC_NUM  = B.EXEC_NUM
+									AND A.EXEC_CNT = B.EXEC_CNT
+									AND B.DEL_FLAG = '0'
+								JOIN STOCVNGL E ON B.GATE_CD = E.GATE_CD
+									AND B.VENDOR_CD = E.VENDOR_CD
+				WHERE A.GATE_CD  = #{ses.gateCd}
+				  AND A.DEL_FLAG = '0'
+				<!-- AND A.PROGRESS_CD = '2900'  -->-- 선정완료 [P005]
+				<if test="QTA_NUM_LIST != '' and QTA_NUM_LIST != null">
+				  AND A.EXEC_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</if>
+				group by
+					 B.VENDOR_CD
+					,E.VENDOR_NM
+					,E.IRS_NO
+					,E.CEO_USER_NM
+					,B.CUR
+					,E.MAKER_NM
+					,B.PR_BUYER_CD
+					,A.PR_TYPE
+			)AA
+			GROUP BY VENDOR_CD
+				,PR_BUYER_CD
+				,VENDOR_NM
+				,IRS_NUM
+				,CEO_NM
+				,CUR
+				,MAKER_NM
+				,APAR_TYPE
+				,PR_TYPE
+			ORDER BY VENDOR_CD
+	</select>
+
+    <select id="doSearchCnvd" resultType="hashMap">
+    	SELECT
+			AA.GATE_CD
+			,AA.EXEC_NUM
+			,AA.EXEC_CNT
+			,AA.PR_BUYER_CD
+			,AA.VENDOR_CD
+			,AA.REG_DATE
+			,AA.REG_USER_ID
+			,AA.MOD_DATE
+			,AA.MOD_USER_ID
+			,AA.DEL_FLAG
+			,AA.APAR_TYPE
+			,AA.CUR
+			,AA.SUPPLY_AMT
+			,AA.VAT_AMT
+			,AA.EXEC_AMT
+			,AA.VAT_TYPE
+			,TO_CHAR(AA.DELY_DATE,'YYYY-MM-DD') DELY_DATE
+			,AA.INFO_FLAG	-- 단가생성여부(1:공통단가, 0:개별단가, X:미생성)
+			,AA.CT_PO_TYPE
+			,AA.GR_IV_DIV
+			,AA.PAY_METHOD
+			,AA.DELY_TERMS
+			,AA.CONT_GUAR_PERCENT
+			,AA.ADV_GUAR_PERCENT
+			,AA.WARR_GUAR_PERCENT
+			,AA.WARR_GUAR_QT
+			,AA.USER_ID
+			,AA.CELL_NO
+			,AA.EMAIL
+			,AA.PAY_TYPE
+			,AA.PAY_CNT
+			,AA.PAY_RMK
+			,AA.RMKS
+			,AA.VENDOR_NM
+			,AA.IRS_NUM
+			,AA.CEO_NM
+			,AA.MAKER_NM
+			,D.CONT_GUAR_AMT
+			,D.ADV_GUAR_AMT
+			,D.WARR_GUAR_AMT
+			,D.PAY_METHOD_NM
+			,AA.PR_TYPE
+		FROM(
+			SELECT
+			     A.GATE_CD
+				,A.EXEC_NUM
+				,A.EXEC_CNT
+				,C.BUYER_CD AS PR_BUYER_CD
+				,A.VENDOR_CD
+				,A.REG_DATE
+				,A.REG_USER_ID
+				,A.MOD_DATE
+				,A.MOD_USER_ID
+				,A.DEL_FLAG
+				,A.APAR_TYPE
+				,A.CUR
+				,A.SUPPLY_AMT
+				,A.VAT_AMT
+				,A.EXEC_AMT
+				,A.VAT_TYPE
+				,A.DELY_DATE
+				,A.INFO_FLAG
+				,A.CT_PO_TYPE
+				,A.GR_IV_DIV
+				,A.PAY_METHOD
+				,A.DELY_TERMS
+				,A.CONT_GUAR_PERCENT
+				,A.ADV_GUAR_PERCENT
+				,A.WARR_GUAR_PERCENT
+				,A.WARR_GUAR_QT
+				,A.USER_ID
+				,A.CELL_NO
+				,A.EMAIL
+				,A.PAY_TYPE
+				,A.PAY_CNT
+				,A.PAY_RMK
+				,A.RMKS
+				,B.VENDOR_NM
+				,B.IRS_NO IRS_NUM
+				,B.CEO_USER_NM CEO_NM
+				,B.MAKER_NM
+				,C.PR_TYPE
+			FROM STOPCNVD A
+			JOIN STOCVNGL B ON   A.GATE_CD 	 = B.GATE_CD
+			                AND A.VENDOR_CD = B.VENDOR_CD
+			JOIN STOPCNHD C ON   A.GATE_CD	 = C.GATE_CD
+							AND A.EXEC_NUM  = C.EXEC_NUM
+							AND A.EXEC_CNT  = C.EXEC_CNT
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.EXEC_NUM  = #{EXEC_NUM}
+			AND A.EXEC_CNT  = #{EXEC_CNT}
+			AND A.DEL_FLAG  = '0'
+			AND A.APAR_TYPE ='P'
+		) AA
+		LEFT OUTER JOIN (
+			 SELECT
+	            VENDOR_CD
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'DP',A.PAY_AMT,0))AS CONT_GUAR_AMT
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'PP',A.PAY_AMT,0))AS ADV_GUAR_AMT
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'BP',A.PAY_AMT,0))AS WARR_GUAR_AMT
+			  , MAX(A.PAY_METHOD_NM) AS  PAY_METHOD_NM
+			FROM STOPCNPY A
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.EXEC_NUM  = #{EXEC_NUM}
+			AND A.EXEC_CNT  = #{EXEC_CNT}
+			AND A.APAR_TYPE = 'P'
+			AND A.DEL_FLAG  = '0'
+			GROUP BY VENDOR_CD
+		)D ON D.VENDOR_CD = AA.VENDOR_CD
+	</select>
+
+	<!-- 물품구매대비표 (CN0120P03) -->
+    <select id="getBaseRfqItem" resultType="hashMap">
+    		SELECT
+				  A.*
+				,(A.SALES_UNIT_PRC / (CASE WHEN <include refid="com.sql.nvl"/>(CPO_UNIT_PRICE,0)=0 THEN 1 ELSE CPO_UNIT_PRICE END))*100  CPO_UNIT_RATE --예산대비율
+				, ITEM_QT * SALES_UNIT_PRC AS SALES_UNIT_AMT --매출금액
+				,((SALES_UNIT_PRC - QTA_UNIT_PRC) / (CASE WHEN <include refid="com.sql.nvl"/>(SALES_UNIT_PRC,0) = 0 THEN 1 ELSE SALES_UNIT_PRC END))*100 AS SALES_PROFIT_RATE--매입단가-매출단가/매출단가*100 매출이익율
+				, ROW_NUMBER() OVER(ORDER BY VENDOR_CD, RFX_NUM, RFX_CNT, RNK) AS EXEC_SQ
+				,(ITEM_QT * SALES_UNIT_PRC) - (QTA_UNIT_AMT) AS PROFIT_AMT
+				,(((ITEM_QT * SALES_UNIT_PRC) - (QTA_UNIT_AMT)) / (ITEM_QT * SALES_UNIT_PRC)) * 100  AS PROFIT_RATE
+				,((ITEM_QT * SALES_UNIT_PRC) / (CASE WHEN <include refid="com.sql.nvl"/>(CPO_UNIT_AMT,0) = 0 THEN 1 ELSE CPO_UNIT_AMT END)) * 100  AS SALES_RATE
+				,(QTA_UNIT_AMT/(CASE WHEN <include refid="com.sql.nvl"/>(CPO_UNIT_AMT,0) = 0 THEN 1 ELSE CPO_UNIT_AMT END)) * 100  AS QTA_RATE
+			FROM(
+				SELECT *
+				  FROM(
+					SELECT
+						(SELECT MAX(CUST_ITEM_CD) FROM STOCMTGB
+						  WHERE GATE_CD = B.GATE_CD
+						    AND ITEM_CD = B.ITEM_CD
+						    AND CUST_CD = B.PR_BUYER_CD) AS BUYER_ITEM_CD
+						,B.ITEM_CD
+						,B.ITEM_DESC
+						,B.ITEM_SPEC
+						,B.RFX_QT AS ITEM_QT
+						,B.RFX_QT AS S_ITEM_QT
+						,B.UNIT_CD
+						,B.UNIT_CD AS S_UNIT_CD
+						,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, D.VENDOR_CD, #{ses.langCd}) VENDOR_NM
+						,C.QTA_AMT ITEM_AMT
+						,TO_CHAR(B.VALID_FROM_DATE,'YYYY/MM/DD') AS VALID_FROM_DATE
+						,TO_CHAR(B.VALID_TO_DATE,'YYYY/MM/DD') AS VALID_TO_DATE
+						,B.PR_PLANT_CD
+						,B.WH_CD
+						,<include refid="com.sql.dbo"/>getPlantName(B.GATE_CD, B.PR_BUYER_CD, B.PR_PLANT_CD,#{ses.langCd}) AS PLANT_NM
+						,B.DELY_PLACE_NM
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'E1' ELSE null END VAT_CD
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END VAT_DTL_CD
+					    ,<include refid="com.sql.dbo"/>GETCODENAME(A.GATE_CD, 'M214', CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END, #{ses.langCd}) AS VAT_DTL_NM
+						,B.CUR
+						,B.PR_NUM
+						,B.PR_SQ
+						,C.RFX_NUM
+						,C.RFX_CNT
+						,C.RFX_SQ
+						,C.QTA_NUM
+						,1 AS QTA_CNT	-- 견적의 QTA_CNT는 없음
+						,C.QTA_SQ
+						,D.VENDOR_CD
+						,TO_CHAR(B.DELY_DATE, 'YYYY-MM-DD HH24:MI:SS') AS DELY_DATE
+						,null PROGRESS_CD
+						,B.PR_BUYER_CD
+						,null INFO_FLAG
+						,null CT_PO_TYPE
+						,null GR_IV_DIV
+						,B.CTRL_CD
+						,B.DEAL_CD
+						,B.UNIT_PRC AS CPO_UNIT_PRICE   --예상 고객사 매입 단가
+						,B.UNIT_PRC*B.RFX_QT AS CPO_UNIT_AMT  --예상 고객사 매입 금액
+						,C.UNIT_PRC*B.RFX_QT AS QTA_UNIT_AMT-- 공급사 매입 금액
+						,C.UNIT_PRC AS QTA_UNIT_PRC  --견적 공급사 매입 단가
+						,CASE WHEN TRUNC_TYPE ='RU' THEN CEIL(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 WHEN TRUNC_TYPE='TC' THEN TRUNC(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 ELSE ROUND(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 END SALES_UNIT_PRC --매출단가
+						,<include refid="com.sql.nvl"/>(PROFIT_RATIO,0) AS PROFIT_RATIO -- 고객사이익율
+						,TRUNC_TYPE  --절삭타입
+						,B.DELY_TYPE --배송유형
+						,null AS PREV_EXEC_CNT
+						,null AS PREV_EXEC_NUM
+						,null AS PREV_EXEC_SQ
+						,'RFQ' AS EXEC_CREATE_TYPE	-- 품의생성유형(견적)
+						,ROWNUM AS RNK
+					FROM STOPRQHD A JOIN STOPRQDT B ON A.GATE_CD = B.GATE_CD
+													AND A.RFX_NUM  = B.RFX_NUM
+													AND A.RFX_CNT = B.RFX_CNT
+													AND B.DEL_FLAG = '0'
+									JOIN STOPQTDT C ON B.GATE_CD = C.GATE_CD
+									                AND B.RFX_NUM = C.RFX_NUM
+									                AND B.RFX_CNT = C.RFX_CNT
+									                AND B.RFX_SQ = C.RFX_SQ
+									                AND C.DEL_FLAG  ='0'
+									                AND C.SLT_FLAG = '1'
+								    JOIN STOPQTHD D ON C.GATE_CD = D.GATE_CD
+								                    AND C.QTA_NUM = D.QTA_NUM
+								                    AND D.DEL_FLAG = '0'
+								    JOIN STOCVNGL E ON D.GATE_CD = E.GATE_CD
+								                    AND D.VENDOR_CD = E.VENDOR_CD
+								    JOIN STOPRQVN F ON F.GATE_CD = B.GATE_CD
+													AND F.RFX_NUM  = B.RFX_NUM
+													AND F.RFX_CNT = B.RFX_CNT
+													AND F.RFX_SQ = B.RFX_SQ
+													AND F.VENDOR_CD = D.VENDOR_CD
+													AND F.DEL_FLAG = '0'
+									JOIN STOCCUST G ON  G.GATE_CD = B.GATE_CD
+													AND G.CUST_CD = B.PR_BUYER_CD
+													AND G.DEL_FLAG ='0'
+
+					WHERE A.GATE_CD  = #{ses.gateCd}
+					  AND A.DEL_FLAG = '0'
+					  AND A.PROGRESS_CD = '2500' -- 선정완료 [P005]
+					  AND D.QTA_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+							#{item}
+					</foreach>
+					ORDER BY b.RFX_SQ
+				)
+				
+				UNION ALL
+				
+				SELECT *
+				  FROM(
+					SELECT
+						(SELECT MAX(CUST_ITEM_CD) FROM STOCMTGB
+						  WHERE GATE_CD = B.GATE_CD
+						    AND ITEM_CD = B.ITEM_CD
+						    AND CUST_CD = B.PR_BUYER_CD) AS BUYER_ITEM_CD
+						,B.ITEM_CD
+						,B.ITEM_DESC
+						,B.ITEM_SPEC
+						,B.RFX_QT AS ITEM_QT
+						,B.RFX_QT AS S_ITEM_QT
+						,B.UNIT_CD
+						,B.UNIT_CD AS S_UNIT_CD
+						,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, D.VENDOR_CD, #{ses.langCd}) VENDOR_NM
+						,C.QTA_AMT ITEM_AMT
+						,TO_CHAR(B.VALID_FROM_DATE,'YYYY/MM/DD') AS VALID_FROM_DATE
+						,TO_CHAR(B.VALID_TO_DATE,'YYYY/MM/DD') AS VALID_TO_DATE
+						,B.PR_PLANT_CD
+						,B.WH_CD
+						,<include refid="com.sql.dbo"/>getPlantName(B.GATE_CD, B.PR_BUYER_CD, B.PR_PLANT_CD, #{ses.langCd}) AS PLANT_NM
+						,B.DELY_PLACE_NM
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'E1' ELSE null END VAT_CD
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END VAT_DTL_CD
+					    ,<include refid="com.sql.dbo"/>GETCODENAME(A.GATE_CD, 'M214', CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END, #{ses.langCd}) AS VAT_DTL_NM
+						,B.CUR
+						,B.PR_NUM
+						,B.PR_SQ
+						,C.RFX_NUM
+						,C.RFX_CNT
+						,C.RFX_SQ
+						,C.QTA_NUM
+						,C.QTA_CNT
+						,C.QTA_SQ
+						,D.VENDOR_CD
+						,TO_CHAR(B.DELY_DATE, 'YYYY-MM-DD HH24:MI:SS') AS DELY_DATE
+						,null PROGRESS_CD
+						,B.PR_BUYER_CD
+						,null INFO_FLAG
+						,null CT_PO_TYPE
+						,null GR_IV_DIV
+						,B.CTRL_CD
+						,B.DEAL_CD
+						,B.UNIT_PRC AS CPO_UNIT_PRICE   --예상 고객사 매입 단가
+						,B.UNIT_PRC*B.RFX_QT AS CPO_UNIT_AMT  --예상 고객사 매입 금액
+						,C.UNIT_PRC*B.RFX_QT AS QTA_UNIT_AMT-- 공급사 매입 금액
+						,C.UNIT_PRC AS QTA_UNIT_PRC  --견적 공급사 매입 단가
+						,CASE WHEN TRUNC_TYPE ='RU' THEN CEIL(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 WHEN TRUNC_TYPE='TC' THEN TRUNC(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 ELSE ROUND(C.UNIT_PRC*(<include refid="com.sql.nvl"/>(PROFIT_RATIO,0)/100+1.0))
+						 END SALES_UNIT_PRC --매출단가
+						,<include refid="com.sql.nvl"/>(G.PROFIT_RATIO,0) AS PROFIT_RATIO -- 고객사이익율
+						,TRUNC_TYPE  --절삭타입
+						,B.DELY_TYPE --배송유형
+						,null AS PREV_EXEC_CNT
+						,null AS PREV_EXEC_NUM
+						,null AS PREV_EXEC_SQ
+						,'BID' AS EXEC_CREATE_TYPE	-- 품의생성유형(입찰)
+						,ROWNUM AS RNK
+					FROM STOPBDHD A JOIN STOPBDDT B ON A.GATE_CD = B.GATE_CD
+													AND A.RFX_NUM  = B.RFX_NUM
+													AND A.RFX_CNT = B.RFX_CNT
+													AND B.DEL_FLAG = '0'
+									JOIN STOPBQDT C ON B.GATE_CD = C.GATE_CD
+									                AND B.RFX_NUM = C.RFX_NUM
+									                AND B.RFX_CNT = C.RFX_CNT
+									                AND B.RFX_SQ = C.RFX_SQ
+									                AND C.DEL_FLAG  ='0'
+									                AND C.SLT_FLAG = '1'
+								    JOIN STOPBQHD D ON C.GATE_CD = D.GATE_CD
+								                    AND C.QTA_NUM = D.QTA_NUM
+								                    AND C.QTA_CNT = D.QTA_CNT
+								                    AND D.DEL_FLAG = '0'
+								    JOIN STOCVNGL E ON D.GATE_CD = E.GATE_CD
+								                    AND D.VENDOR_CD = E.VENDOR_CD
+								    JOIN STOPBDVN F ON F.GATE_CD = B.GATE_CD
+													AND F.RFX_NUM  = B.RFX_NUM
+													AND F.RFX_CNT = B.RFX_CNT
+													AND F.RFX_SQ = B.RFX_SQ
+													AND F.VENDOR_CD = D.VENDOR_CD
+													AND F.DEL_FLAG = '0'
+									JOIN STOCCUST G ON  G.GATE_CD = B.GATE_CD
+													AND G.CUST_CD = B.PR_BUYER_CD
+													AND G.DEL_FLAG ='0'
+					WHERE A.GATE_CD  = #{ses.gateCd}
+					  AND A.DEL_FLAG = '0'
+					  AND A.PROGRESS_CD = '2900' -- 선정완료 [P005]
+					  AND D.QTA_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+							#{item}
+					</foreach>
+					ORDER BY b.RFX_SQ
+				)
+				
+				UNION ALL
+				
+				SELECT *
+				  FROM(
+					SELECT
+						(SELECT MAX(CUST_ITEM_CD) FROM STOCMTGB
+						  WHERE GATE_CD = B.GATE_CD
+						    AND ITEM_CD = B.ITEM_CD
+						    AND CUST_CD = B.PR_BUYER_CD) AS BUYER_ITEM_CD
+						,B.ITEM_CD
+						,B.ITEM_DESC
+						,B.ITEM_SPEC
+						,B.ITEM_QT AS ITEM_QT
+						,B.ITEM_QT AS S_ITEM_QT
+						,B.UNIT_CD
+						,B.UNIT_CD AS S_UNIT_CD
+						,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, B.VENDOR_CD, #{ses.langCd}) VENDOR_NM
+						,B.ITEM_QT*B.QTA_UNIT_PRC ITEM_AMT
+						,TO_CHAR(B.VALID_FROM_DATE,'YYYY/MM/DD') AS VALID_FROM_DATE
+						,TO_CHAR(B.VALID_TO_DATE,'YYYY/MM/DD') AS VALID_TO_DATE
+						,B.PR_PLANT_CD
+						,B.WH_CD
+						,<include refid="com.sql.dbo"/>getPlantName(B.GATE_CD, B.PR_BUYER_CD, B.PR_PLANT_CD, #{ses.langCd}) AS PLANT_NM
+						,B.DELY_PLACE_NM
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'E1' ELSE null END VAT_CD
+						,CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END VAT_DTL_CD
+					    ,<include refid="com.sql.dbo"/>GETCODENAME(A.GATE_CD, 'M214', CASE WHEN A.SHIPPER_TYPE !='D' THEN 'Y1' ELSE null END, #{ses.langCd}) AS VAT_DTL_NM
+						,B.CUR
+						,B.PR_NUM
+						,B.PR_SQ
+						,B.RFX_NUM
+						,B.RFX_CNT
+						,B.RFX_SQ
+						,B.QTA_NUM
+						,B.QTA_CNT
+						,B.QTA_SQ
+						,B.VENDOR_CD
+						,TO_CHAR(B.DELY_DATE, 'YYYY-MM-DD HH24:MI:SS') AS DELY_DATE
+						,null PROGRESS_CD
+						,B.PR_BUYER_CD
+						,null INFO_FLAG
+						,null CT_PO_TYPE
+						,null GR_IV_DIV
+						,B.CTRL_CD
+						,B.DEAL_CD
+						,B.CPO_UNIT_PRICE   --예상 고객사 매입 단가
+						,B.CPO_UNIT_PRICE*B.ITEM_QT AS CPO_UNIT_AMT  --예상 고객사 매입 금액
+						,B.QTA_UNIT_PRC*B.ITEM_QT AS QTA_UNIT_AMT-- 공급사 매입 금액
+						,B.QTA_UNIT_PRC AS QTA_UNIT_PRC  --견적 공급사 매입 단가
+						,SALES_UNIT_PRC --매출단가
+						,<include refid="com.sql.nvl"/>(G.PROFIT_RATIO,0) AS PROFIT_RATIO -- 고객사이익율
+						,TRUNC_TYPE  --절삭타입
+						,B.DELY_TYPE --배송유형
+						,B.EXEC_CNT AS PREV_EXEC_CNT --이전차수
+						,B.EXEC_NUM AS PREV_EXEC_NUM --이전차수
+						,B.EXEC_SQ  AS PREV_EXEC_SQ  --이전차수
+						,B.EXEC_CREATE_TYPE	-- 품의생성유형
+						,ROWNUM AS RNK
+					FROM STOPCNHD A JOIN STOPCNDT B ON A.GATE_CD = B.GATE_CD
+												AND A.EXEC_NUM   = B.EXEC_NUM
+												AND A.EXEC_CNT   = B.EXEC_CNT
+												AND B.DEL_FLAG = '0'
+							    JOIN STOCCUST G ON  G.GATE_CD = B.GATE_CD
+												AND G.CUST_CD = B.PR_BUYER_CD
+												AND G.DEL_FLAG ='0'
+					WHERE A.GATE_CD  = #{ses.gateCd}
+					  AND A.DEL_FLAG = '0'
+					  AND A.EXEC_NUM IN
+					<foreach item="item" index="index" collection="OQTA_NUM_LIST" open="(" separator="," close=")">
+							#{item}
+					</foreach>
+					  AND A.EXEC_CNT = #{EXEC_CNT}
+					ORDER BY B.EXEC_SQ
+				    )
+				) A
+	</select>
+
+    <select id="getCnhd" resultType="hashMap">
+		SELECT
+			 A.GATE_CD
+			,A.EXEC_NUM
+			,A.EXEC_CNT
+			,A.REG_DATE
+			,A.REG_USER_ID
+			,A.MOD_DATE
+			,A.MOD_USER_ID
+			,A.DEL_FLAG
+			,BUYER_CD AS PR_BUYER_CD
+			,<include refid="com.sql.dbo"/>GETBUYERNAME(A.GATE_CD,A.BUYER_CD,#{ses.langCd}) AS PR_BUYER_NM
+			,PLANT_CD AS PR_PLANT_CD
+			,<include refid="com.sql.dbo"/>GETPLANTNAME(A.GATE_CD,A.BUYER_CD,A.PLANT_CD,#{ses.langCd}) AS PR_PLANT_NM
+			,A.PROGRESS_CD
+			,A.EXEC_TYPE
+			,A.PR_TYPE
+			,A.EXEC_SUBJECT
+			,A.REP_ITEM_NM
+			,A.EXEC_AMT
+			,A.COST_REDUCE_TYPE
+			,A.SHIPPER_TYPE
+			,<include refid="com.sql.toDateChar"/>(EXEC_DATE,'YYYY-MM-DD') EXEC_DATE
+			,<include refid="com.sql.toDateChar"/>(A.DELY_DATE,'YYYY-MM-DD') DELY_DATE
+			,<include refid="com.sql.toDateChar"/>(A.BUDGET_EXE_DATE,'YYYY-MM-DD') BUDGET_EXE_DATE
+			,A.CTRL_USER_ID
+			,A.CTRL_USER_NM
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.SIGN_STATUS
+			,A.SIGN_DATE
+			,A.ATT_FILE_NUM
+			,A.SEL_CAUSE
+			,A.PR_RMK
+			,A.EX_RMK
+			,A.REQ_USER_ID
+			,A.REQ_USER_NM
+			,A.REQ_DEPT_INFO
+			,<include refid="com.sql.nvl"/>(B.CONT_GUAR_PERCENT,0) AS CONT_GUAR_PERCENT
+			,<include refid="com.sql.nvl"/>(B.ADV_GUAR_PERCENT,0)  AS ADV_GUAR_PERCENT
+			,<include refid="com.sql.nvl"/>(B.WARR_GUAR_PERCENT,0) AS WARR_GUAR_PERCENT
+			,B.WARR_GUAR_QT
+			,B.CT_PO_TYPE
+			,A.COST_REDUCE_TYPE
+			,B.SUPPLY_AMT
+			,B.VAT_TYPE
+			,B.PAY_TYPE
+			,B.PAY_CNT
+			,B.PAY_RMK
+			,A.IF_SIGN_FLAG
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.APP_DOC_NUM2
+			,A.APP_DOC_CNT2
+			,A.SIGN_STATUS2
+			,(SELECT MAX(PAY_METHOD_NM)
+			  FROM STOPCNPY
+			  WHERE GATE_CD = #{ses.gateCd}
+			  AND EXEC_NUM = A.EXEC_NUM
+			  AND EXEC_CNT = A.EXEC_CNT
+			  AND APAR_TYPE = 'S'
+			  AND DEL_FLAG='0'
+
+			 ) AS PAY_METHOD_NM
+			,(
+		      SELECT USER_NM || '  '|| TEL_NUM
+		      FROM USERCVUR_VW V
+		      WHERE V.GATE_CD = A.GATE_CD
+		      AND  V.USER_ID = CTRL_USER_ID
+		     ) CTRL_USER_INFO  <!-- 본사품의서 -->
+		    ,(
+			   SELECT LISTAGG(GETVENDORNAME(#{ses.gateCd},D.VENDOR_CD,#{ses.langCd}) , ',') WITHIN GROUP(ORDER BY D.VENDOR_CD) AS VENDOR_NAMES
+			   FROM STOPCNVD D
+			   WHERE D.GATE_CD  = A.GATE_CD
+			     AND D.EXEC_NUM = A.EXEC_NUM
+			     AND D.EXEC_CNT = A.EXEC_CNT
+			     AND D.APAR_TYPE ='P'
+			 ) VENDOR_NAMES <!-- 구매품의서 -->
+			,(CASE WHEN C.ELCT_CONFM_IF_SEQ IS NULL OR C.ELCT_CONFM_STAT_CD = '9' THEN 'N' ELSE 'Y' END) AS GW_FLAG
+		    ,(CASE WHEN D.ELCT_CONFM_IF_SEQ IS NULL OR D.ELCT_CONFM_STAT_CD = '9' THEN 'N' ELSE 'Y' END) AS GW_FLAG2
+			,A.ETC_RMK <!-- 시행품의번호 -->
+		FROM STOPCNHD A
+		INNER JOIN STOPCNVD B ON (B.GATE_CD   = A.GATE_CD
+						 	  AND B.EXEC_NUM  = A.EXEC_NUM
+						 	  AND B.EXEC_CNT  = A.EXEC_CNT
+						 	  AND B.APAR_TYPE = 'S')
+		LEFT JOIN COM_ELCT_CONFM_IF C
+					 	  ON A.APP_DOC_NUM||A.APP_DOC_CNT = C.ELCT_CONFM_IF_SEQ
+		LEFT JOIN COM_ELCT_CONFM_IF D
+					 	  ON A.APP_DOC_NUM2||A.APP_DOC_CNT2 = D.ELCT_CONFM_IF_SEQ
+		WHERE A.GATE_CD  = #{ses.gateCd}
+		  AND A.DEL_FLAG = '0'
+
+		<if test="EXEC_NUM != '' and EXEC_NUM != null">
+			AND A.EXEC_NUM = #{EXEC_NUM}
+			AND A.EXEC_CNT = #{EXEC_CNT}
+		</if>
+		<if test="APP_DOC_NUM != '' and APP_DOC_NUM != null">
+			AND APP_DOC_NUM = #{APP_DOC_NUM}
+			AND APP_DOC_CNT = #{APP_DOC_CNT}
+		</if>
+
+	</select>
+
+	<!-- 구매품의서작성 (CN0120) : 품목정보 -->
+    <select id="doSearchCndt" resultType="hashMap">
+		SELECT
+			   GATE_CD
+			 , A.EXEC_NUM
+			 , A.EXEC_CNT
+			 , A.EXEC_SQ
+			 , A.REG_DATE
+			 , A.REG_USER_ID
+			 , A.MOD_DATE
+			 , A.MOD_USER_ID
+			 , A.DEL_FLAG
+			 , A.EXEC_CREATE_TYPE
+			 , A.PR_NUM
+			 , A.PR_SQ
+			 , A.RFX_NUM
+			 , A.RFX_CNT
+			 , A.RFX_SQ
+			 , A.QTA_NUM
+			 , A.QTA_CNT
+			 , A.QTA_SQ
+			 , A.PROGRESS_CD
+			 , A.VENDOR_CD
+			 , A.PR_TYPE
+			 , A.ITEM_CD
+			 , A.ITEM_DESC
+			 , A.ITEM_SPEC
+			 , A.UNIT_CD
+			 , A.UNIT_CD AS S_UNIT_CD -- CN0120P03 물품대비표 컬럼
+			 , A.ITEM_QT
+			 , A.ITEM_QT AS S_ITEM_QT -- CN0120P03 물품대비표 컬럼
+			 , ((ITEM_QT*SALES_UNIT_PRC) / ROUND(<include refid="com.sql.nvl"/>(A.ITEM_QT,0) * (CASE WHEN <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE, 0) = 0 THEN 1 ELSE A.CPO_UNIT_PRICE END))) * 100  AS SALES_RATE -- CN0120P03 물품대비표 컬럼
+			 , (ITEM_QT*SALES_UNIT_PRC) - (ROUND(<include refid="com.sql.nvl"/>(A.ITEM_QT,0) * <include refid="com.sql.nvl"/>(A.QTA_UNIT_PRC,0))) AS PROFIT_AMT -- CN0120P03 물품대비표 컬럼
+			 , A.CUR
+			 , <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE,0) AS CPO_UNIT_PRICE
+			 , ROUND(<include refid="com.sql.nvl"/>(A.ITEM_QT,0) * <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE,0)) AS CPO_UNIT_AMT
+			 , (<include refid="com.sql.nvl"/>(A.SALES_UNIT_PRC,0) / (CASE WHEN <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE, 0) = 0 THEN 1 ELSE A.CPO_UNIT_PRICE END)) * 100 AS CPO_UNIT_RATE
+			 , (<include refid="com.sql.nvl"/>(A.SALES_UNIT_PRC,0) / (CASE WHEN <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE, 0) = 0 THEN 1 ELSE A.CPO_UNIT_PRICE END)) * 100 AS SALES_RATE --CN0120P03 물품대비표칼럼
+			 , (<include refid="com.sql.nvl"/>(A.QTA_UNIT_PRC,0)   / (CASE WHEN <include refid="com.sql.nvl"/>(A.CPO_UNIT_PRICE, 0) = 0 THEN 1 ELSE A.CPO_UNIT_PRICE END)) * 100 AS QTA_RATE --CN0120P03 물품대비표칼럼
+			 , A.QTA_UNIT_PRC
+			 , ROUND(<include refid="com.sql.nvl"/>(A.ITEM_QT,0) * <include refid="com.sql.nvl"/>(A.QTA_UNIT_PRC,0)) AS QTA_UNIT_AMT
+			 , A.CONT_UNIT_PRC
+			 , A.STD_UNIT_PRC
+			 , A.STD_PROFIT_RATE
+			 , A.SALES_UNIT_PRC
+			 , ROUND(<include refid="com.sql.nvl"/>(A.ITEM_QT,0) * <include refid="com.sql.nvl"/>(A.SALES_UNIT_PRC,0)) AS SALES_UNIT_AMT
+			 , A.SALES_PROFIT_RATE
+			 , A.SALES_PROFIT_RATE AS PROFIT_RATE --CN0120P03 물품대비표 칼럼
+			 , A.CPO_PROFIT_RATE
+			 , A.MOQ_QT
+			 , A.RV_QT
+			 , A.DEAL_CD
+			 , A.LOG_CD
+			 , A.WH_CD
+			 , A.DELY_TYPE
+			 , A.LEAD_TIME
+			 , A.TAX_CD
+			 ,<include refid="com.sql.toDateChar"/>(A.DELY_DATE,'YYYY-MM-DD') AS DELY_DATE
+			 , A.DELY_PLACE_NM
+			 ,<include refid="com.sql.toDateChar"/>(A.VALID_FROM_DATE,'YYYY-MM-DD') AS VALID_FROM_DATE
+			 ,<include refid="com.sql.toDateChar"/>(A.VALID_TO_DATE,'YYYY-MM-DD') AS VALID_TO_DATE
+			 , A.INFO_FLAG
+			 , A.CT_PO_TYPE
+			 , A.PR_BUYER_CD
+			 , A.PR_PLANT_CD
+			 , A.PREV_EXEC_CNT			   -- 이전 품의번호[이전품의가 있는 경우 발주생성 안됨]
+			 , A.PREV_EXEC_NUM			   -- 이전 품의번호[이전품의가 있는 경우 발주생성 안됨]
+			 , A.PREV_EXEC_SQ			   -- 이전 품의번호[이전품의가 있는 경우 발주생성 안됨]
+			 , A.CTRL_CD
+			 ,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			 ,(
+				SELECT UNIT_PRC
+				FROM STOPQTDT T
+				WHERE T.GATE_CD = #{ses.gateCd}
+				AND T.RFX_NUM = A.RFX_NUM
+				AND T.RFX_CNT = 1
+				AND T.RFX_SQ = A.RFX_SQ
+				AND T.VENDOR_CD = A.VENDOR_CD
+				AND T.SLT_FLAG = '1'
+				UNION
+				SELECT UNIT_PRC
+				FROM STOPBQDT T
+				WHERE T.GATE_CD = #{ses.gateCd}
+				AND T.RFX_NUM = A.RFX_NUM
+				AND T.RFX_CNT = 1
+				AND T.RFX_SQ = A.RFX_SQ
+				AND T.VENDOR_CD = A.VENDOR_CD
+				AND T.SLT_FLAG = '1'
+			 ) F_RFQ_PRC
+			,(SELECT MAX(CUST_ITEM_CD) FROM STOCMTGB
+			   WHERE GATE_CD = A.GATE_CD
+			     AND ITEM_CD = A.ITEM_CD
+			     AND CUST_CD = A.PR_BUYER_CD) AS BUYER_ITEM_CD
+		FROM STOPCNDT A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.DEL_FLAG  = '0'
+	</select>
+
+
+    <select id="getCnpyList" resultType="hashMap">
+		SELECT
+			   GATE_CD
+			 , EXEC_NUM
+			 , EXEC_CNT
+			 , VENDOR_CD
+			 , PAY_CNT
+			 , REG_DATE
+			 , REG_USER_ID
+			 , MOD_DATE
+			 , MOD_USER_ID
+			 , DEL_FLAG
+			 , APAR_TYPE
+			 , PAY_CNT_TYPE
+			 , PAY_CNT_NM
+			 , PAY_PERCENT
+			 , SUPPLY_AMT
+			 , VAT_AMT
+			 , PAY_AMT
+			 , VAT_TYPE
+			 , PAY_METHOD_TYPE
+			 , PAY_METHOD_NM
+			,<include refid="com.sql.toDateChar"/>(PAY_DUE_DATE,'YYYYMMDD') PAY_DUE_DATE
+		FROM STOPCNPY A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.VENDOR_CD = #{VENDOR_CD}
+		AND A.DEL_FLAG  = '0'
+	</select>
+
+
+    <select id="getOldSignStatus" parameterType="hashMap" resultType="java.lang.String">
+
+        SELECT <include refid="com.sql.nvl"/>(SIGN_STATUS, 'T') AS SIGN_STATUS FROM STOCSCTM
+         WHERE GATE_CD = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = (CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END)
+           AND DEL_FLAG = '0'
+
+    </select>
+
+
+    <select id="getChkExec" resultType="integer">
+             SELECT COUNT(*) AS CNDT_CNT
+             FROM STOPCNDT A
+            WHERE A.GATE_CD = #{ses.gateCd}
+            AND A.RFX_NUM = #{RFX_NUM}
+            AND A.RFX_CNT = #{RFX_CNT}
+            AND A.DEL_FLAG = '0'
+    </select>
+
+
+
+
+	<update id="doRQExcept" parameterType="hashMap">
+		UPDATE STOPRQHD SET PROGRESS_CD = '2400'
+                           ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		                   ,MOD_USER_ID = #{ses.userId}
+		                   ,SIGN_STATUS2 = 'C'
+		                   ,SIGN_DATE2 = null
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+	<!-- 업체선정대기 : 2400 -->
+	<update id="doRQExceptRqdt" parameterType="hashmap">
+		UPDATE STOPRQDT SET PROGRESS_CD = '2400'
+						   ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		                   ,MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+
+	</update>
+
+	<update id="doRQExceptDt" parameterType="hashMap">
+		UPDATE STOPQTDT SET SLT_FLAG = null
+					       ,QTA_AMT = null
+					       ,SLT_DATE = null
+					       ,SLT_RMK = null
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND RFX_NUM = #{RFX_NUM}
+		   AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+
+
+
+	<!-- 낙찰자 선정대기 : 2800 -->
+	<update id="doBDExcept" parameterType="hashMap">
+		UPDATE STOPBDHD SET PROGRESS_CD = '2800'
+                           ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		                   ,MOD_USER_ID = #{ses.userId}
+		                   ,SIGN_STATUS2 = 'C'
+		                   ,SIGN_DATE2 = null
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+	<update id="doBDExceptRqdt" parameterType="hashmap">
+		UPDATE STOPBDDT SET PROGRESS_CD = '2400'
+						   ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		                   ,MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+
+	</update>
+
+	<update id="doBDExceptDt" parameterType="hashMap">
+		UPDATE STOPBQDT SET SLT_FLAG = null
+					       ,SLT_RMK = null
+					       ,SLT_DATE = null
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND RFX_NUM = #{RFX_NUM}
+		   AND RFX_CNT = #{RFX_CNT}
+	</update>
+
+
+
+
+	<update id="saveCnhd" parameterType="hashMap">
+
+        MERGE <include refid="com.sql.mergeInto"/> STOPCNHD <include refid="com.sql.mergeAs"/> A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{EXEC_NUM} AS EXEC_NUM
+                    , #{EXEC_CNT} AS EXEC_CNT
+          <include refid="com.sql.dual"/>) <include refid="com.sql.mergeAs"/> B
+          ON (A.GATE_CD = B.GATE_CD
+          AND A.EXEC_NUM = B.EXEC_NUM
+          AND A.EXEC_CNT = B.EXEC_CNT)
+        WHEN MATCHED THEN
+
+      UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID 	  = #{ses.userId}
+ 			,BUYER_CD 		  = #{PR_BUYER_CD} --BUYER_CD
+ 			,PLANT_CD 		  = #{PR_PLANT_CD} --PLANT_CD
+			,EXEC_SUBJECT 	  = #{EXEC_SUBJECT} --EXEC_SUBJECT
+			,EXEC_DATE 		  = #{EXEC_DATE} --EXEC_DATE
+			,CTRL_USER_ID 	  = #{CTRL_USER_ID} --CTRL_USER_ID
+			,CTRL_USER_NM 	  = #{CTRL_USER_NM} --CTRL_USER_NM
+			,PR_RMK 		  = #{PR_RMK} --PR_RMK
+			,EX_RMK 		  = #{EX_RMK} --EX_RMK
+			,ATT_FILE_NUM 	  = #{ATT_FILE_NUM} --ATT_FILE_NUM
+			,APP_DOC_NUM 	  = #{APP_DOC_NUM} --APP_DOC_NUM
+			,IF_SIGN_FLAG 	  = #{IF_SIGN_FLAG} --IF_SIGN_FLAG
+			<if test="APP_DOC_CNT != '' and APP_DOC_CNT != null">
+				,APP_DOC_CNT = #{APP_DOC_CNT} --APP_DOC_CNT
+			</if>
+			,SIGN_STATUS 		= #{SIGN_STATUS} --SIGN_STATUS
+			,SIGN_DATE 			= #{SIGN_DATE} --SIGN_DATE
+			,SHIPPER_TYPE 		= 'D' --SHIPPER_TYPE
+			,PR_TYPE			= #{PR_TYPE} --PR_TYPE
+			,EXEC_AMT 			= #{EXEC_AMT} --EXEC_AMT
+			,PROGRESS_CD 		= #{PROGRESS_CD} --PROGRESS_CD
+			,COST_REDUCE_TYPE 	= #{COST_REDUCE_TYPE} --COST_REDUCE_TYPE
+			,REP_ITEM_NM		= #{REP_ITEM_NM} --COST_REDUCE_TYPE
+			,REQ_DEPT_INFO 		= #{REQ_DEPT_INFO} --COST_REDUCE_TYPE
+			,REQ_USER_NM 		= #{REQ_USER_NM} --COST_REDUCE_TYPE
+			,DELY_DATE		  	= #{DELY_DATE} --DELY_DATE
+			,BUDGET_EXE_DATE  	= #{BUDGET_EXE_DATE} --BUDGET_EXE_DATE
+			,SEL_CAUSE          = #{SEL_CAUSE} --SEL_CAUSE
+			,REQ_USER_ID        = #{REQ_USER_ID} --REQ_USER_ID
+			,ETC_RMK        	= #{ETC_RMK} --ETC_RMK
+        WHEN NOT MATCHED THEN
+      INSERT (
+			 GATE_CD
+			,EXEC_NUM
+			,EXEC_CNT
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,BUYER_CD
+			,PLANT_CD
+			,EXEC_SUBJECT
+			,EXEC_DATE
+			,CTRL_USER_ID
+			,CTRL_USER_NM
+			,PR_RMK
+			,EX_RMK
+			,ATT_FILE_NUM
+			,APP_DOC_NUM
+
+			<if test="APP_DOC_CNT != '' and APP_DOC_CNT != null">
+				,APP_DOC_CNT
+			</if>
+			,SIGN_STATUS
+			,SIGN_DATE
+			,SHIPPER_TYPE
+			,PR_TYPE
+			,EXEC_AMT
+			,PROGRESS_CD
+			,COST_REDUCE_TYPE
+			,REP_ITEM_NM
+			,REQ_DEPT_INFO
+			,REQ_USER_NM
+			,DELY_DATE
+			,BUDGET_EXE_DATE
+			,SEL_CAUSE
+			,REQ_USER_ID
+			,ETC_RMK
+        ) VALUES (
+			 #{ses.gateCd} --GATE_CD
+			,#{EXEC_NUM} --EXEC_NUM
+			,#{EXEC_CNT} -- EXEC_CNT
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+			,'0' --DEL_FLAG
+			,#{PR_BUYER_CD} --BUYER_CD
+			,#{PR_PLANT_CD} --PLANT_CD
+			,#{EXEC_SUBJECT} --EXEC_SUBJECT
+			,#{EXEC_DATE} --EXEC_DATE
+			,#{CTRL_USER_ID} --CTRL_USER_ID
+			,#{CTRL_USER_NM} --CTRL_USER_NM
+			,#{PR_RMK} --RMK
+			,#{EX_RMK} --RMK
+			,#{ATT_FILE_NUM} --ATT_FILE_NUM
+			,#{APP_DOC_NUM} --APP_DOC_NUM
+
+			<if test="APP_DOC_CNT != '' and APP_DOC_CNT != null">
+				,#{APP_DOC_CNT} --APP_DOC_CNT
+			</if>
+			,#{SIGN_STATUS} --SIGN_STATUS
+			,#{SIGN_DATE} --SIGN_DATE
+			,'D' --SHIPPER_TYPE
+			,#{PR_TYPE} --PR_TYPE
+			,#{EXEC_AMT} --EXEC_AMT
+			,#{PROGRESS_CD} -- PROGRESS_CD
+			,#{COST_REDUCE_TYPE} -- COST_REDUCE_TYPE
+			,#{REP_ITEM_NM} -- COST_REDUCE_TYPE
+			,#{REQ_DEPT_INFO} -- REQ_DEPT_INFO
+			,#{REQ_USER_NM} -- REQ_USER_NM
+			,#{DELY_DATE} --DELY_DATE
+			,#{BUDGET_EXE_DATE} --BUDGET_EXE_DATE
+			,#{SEL_CAUSE} --SEL_CAUSE
+			,#{REQ_USER_ID} --REQ_USER_ID
+			,#{ETC_RMK} --ETC_RMK
+
+        <include refid="com.sql.mergeEnd"/>
+
+	</update>
+
+	<update id="delCndt" parameterType="hashMap">
+		DELETE STOPCNDT
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="deleteCnhd" parameterType="hashMap">
+		UPDATE STOPCNHD SET DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="deleteCndt" parameterType="hashMap">
+		UPDATE STOPCNDT SET DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="deleteCnpy" parameterType="hashMap">
+		UPDATE STOPCNPY SET DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="deleteCnvd" parameterType="hashMap">
+		UPDATE STOPCNVD SET DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="saveCndt" parameterType="hashMap">
+		INSERT INTO STOPCNDT
+		(
+			  GATE_CD
+			, EXEC_NUM
+			, EXEC_CNT
+			, EXEC_SQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, EXEC_CREATE_TYPE
+			, PR_NUM
+			, PR_SQ
+			, RFX_NUM
+			, RFX_CNT
+			, RFX_SQ
+			, QTA_NUM
+			, QTA_CNT
+			, QTA_SQ
+			, PROGRESS_CD
+			, VENDOR_CD
+			, PR_TYPE
+			, ITEM_CD
+			, ITEM_DESC
+			, ITEM_SPEC
+			, UNIT_CD
+			, ITEM_QT
+			, CUR
+			, CPO_UNIT_PRICE
+			, QTA_UNIT_PRC
+			, CONT_UNIT_PRC
+			, STD_UNIT_PRC
+			, STD_PROFIT_RATE
+			, SALES_UNIT_PRC
+			, SALES_PROFIT_RATE
+			, CPO_PROFIT_RATE
+			, MOQ_QT
+			, RV_QT
+			, DEAL_CD
+			, LOG_CD
+			, WH_CD
+			, DELY_TYPE
+			, LEAD_TIME
+			, TAX_CD
+			, DELY_DATE
+			, DELY_PLACE_NM
+			, INFO_FLAG
+			, CT_PO_TYPE
+			, PR_BUYER_CD
+			, PR_PLANT_CD
+			, CTRL_CD
+			, VALID_FROM_DATE
+			, VALID_TO_DATE
+			, PREV_EXEC_CNT
+			, PREV_EXEC_NUM
+			, PREV_EXEC_SQ
+			, APPLY_COM
+			, APPLY_PLANT
+		 )
+		VALUES(
+			 #{ses.gateCd} --gateCd
+			, #{EXEC_NUM} --EXEC_NUM
+			, #{EXEC_CNT} --EXEC_CNT
+			, #{EXEC_SQ} --EXEC_SQ
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId} --id
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId} --id
+			, 0
+			, #{EXEC_CREATE_TYPE} --EXEC_CREATE_TYPE
+			, #{PR_NUM} 	--PR_NUM
+			, #{PR_SQ} 		--PR_SQ
+			, #{RFX_NUM} 	--RFX_NUM
+			, #{RFX_CNT} 	--RFX_CNT
+			, #{RFX_SQ} 	--RFX_SQ
+			, #{QTA_NUM} 	--QTA_NUM
+			, #{QTA_CNT}	--QTA_CNT
+			, #{QTA_SQ} 	--QTA_SQ
+			, #{PROGRESS_CD} --PROGRESS_CD
+			, #{VENDOR_CD} --VENDOR_CD
+			, #{PR_TYPE} --PR_TYPE
+			, #{ITEM_CD} --ITEM_CD
+			, #{ITEM_DESC} --ITEM_DESC
+			, #{ITEM_SPEC} --ITEM_SPEC
+			, #{UNIT_CD} --UNIT_CD
+			, #{ITEM_QT} --ITEM_QT
+			, #{CUR} 				--CUR
+			, #{CPO_UNIT_PRICE} 	--CPO_UNIT_PRICE
+			, #{QTA_UNIT_PRC} 		--QTA_UNIT_PRC
+			, #{QTA_UNIT_PRC} 		--CONT_UNIT_PRC
+			, #{STD_UNIT_PRC} 		--STD_UNIT_PRC
+			, #{STD_PROFIT_RATE} 	--STD_PROFIT_RATE
+			, #{SALES_UNIT_PRC} 	--SALES_UNIT_PRC
+			, #{SALES_PROFIT_RATE} 	--SALES_PROFIT_RATE
+			, #{CPO_UNIT_RATE} 		--CPO_PROFIT_RATE
+			, #{MOQ_QT} 			--MOQ_QT
+			, #{RV_QT} 				--RV_QT
+			, #{DEAL_CD} 			--DEAL_CD
+			, #{LOG_CD} 			--LOG_CD
+			, #{WH_CD} 				--WH_CD
+			, #{DELY_TYPE} 			--DELY_TYPE
+			, #{LEAD_TIME} 			--LEAD_TIME
+			, #{TAX_CD} 			--TAX_CD
+			, TO_DATE(#{DELY_DATE},'YYYY-MM-DD HH24:MI:SS') --DELY_DATE
+			, #{DELY_PLACE_NM} 		--DELY_PLACE_NM
+			, #{INFO_FLAG} 			--INFO_FLAG
+			, #{CT_PO_TYPE} 		--CT_PO_TYPE
+			, #{PR_BUYER_CD} 		--PR_BUYER_CD
+			, #{PR_PLANT_CD} 		--PR_PLANT_CD
+			, #{CTRL_CD} 			--CTRL_CD
+			, #{VALID_FROM_DATE} 	--VALID_FROM_DATE
+			, #{VALID_TO_DATE} 		--VALID_TO_DATE
+			, #{PREV_EXEC_CNT}   	--PREV_EXEC_CNT
+			, #{PREV_EXEC_NUM}   	--PREV_EXEC_NUM
+			, #{PREV_EXEC_SQ}   	--PREV_EXEC_SQ
+			, #{PR_BUYER_CD}		--APPLY_COM
+			,(CASE WHEN #{COMMON_FLAG} = '1' THEN '*' ELSE #{PR_PLANT_CD} END)     --APPLY_PLANT
+		)
+	</update>
+
+	<update id="delCnvd" parameterType="hashMap">
+			DELETE STOPCNVD
+			WHERE GATE_CD = #{ses.gateCd}
+			AND EXEC_NUM  = #{EXEC_NUM}
+			AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="saveCnvd" parameterType="hashMap">
+			INSERT INTO STOPCNVD (
+				 GATE_CD
+				,EXEC_NUM
+				,EXEC_CNT
+				,VENDOR_CD
+				,REG_DATE
+				,REG_USER_ID
+				,MOD_DATE
+				,MOD_USER_ID
+				,DEL_FLAG
+				,CUR
+				,EXEC_AMT
+				,INFO_FLAG
+				,CT_PO_TYPE
+				,GR_IV_DIV
+				,DELY_TERMS
+				,USER_ID
+				,CELL_NO
+				,EMAIL
+				,PAY_TYPE
+				,PAY_CNT
+				,PAY_RMK
+				,VAT_TYPE
+				,SUPPLY_AMT
+				,APAR_TYPE
+				,CONT_GUAR_PERCENT
+				,ADV_GUAR_PERCENT
+				,WARR_GUAR_PERCENT
+				,WARR_GUAR_QT
+				,DELY_DATE
+				,RMKS
+			) SELECT
+				 #{ses.gateCd} -- GATE_CD
+				,#{EXEC_NUM} -- EXEC_NUM
+				,#{EXEC_CNT} -- EXEC_CNT
+				,#{VENDOR_CD} -- VENDOR_CD
+				, <include refid="com.sql.sysdate"/> -- REG_DATE
+				,#{ses.userId} -- REG_USER_ID
+				, <include refid="com.sql.sysdate"/> -- MOD_DATE
+				,#{ses.userId} -- MOD_USER_ID
+				,'0' -- DEL_FLAG
+				,#{CUR} -- CUR
+				,#{EXEC_AMT} 	-- EXEC_AMT
+				,#{INFO_FLAG} 	-- INFO_FLAG(단가생성여부: 1(공통), 0(개별), X(미생성))
+				,#{CT_PO_TYPE} 	-- CT_PO_TYPE
+				,#{GR_IV_DIV} 	-- GR_IV_DIV
+				,#{DELY_TERMS} -- DELY_TERMS
+				,#{USER_ID} -- USER_ID
+				,#{CELL_NO} -- CELL_NO
+				,#{EMAIL} -- EMAIL
+				,#{PAY_TYPE} -- PAY_TYPE
+				,#{PAY_CNT} -- PAY_CNT
+				,#{PAY_RMK} -- PAY_RMK
+				,#{VAT_TYPE} -- VAT_TYPE
+				,#{SUPPLY_AMT}  -- SUPPLY_AMT
+				,#{APAR_TYPE} -- SUPPLY_AMT
+				,#{CONT_GUAR_PERCENT} -- CONT_GUAR_PERCENT
+				,#{ADV_GUAR_PERCENT} -- ADV_GUAR_PERCENT
+				,#{WARR_GUAR_PERCENT} -- WARR_GUAR_PERCENT
+				,#{WARR_GUAR_QT} -- WARR_GUAR_QT
+				,#{DELY_DATE}-- DELY_DATE
+				,#{RMKS} --RMKS
+				FROM DUAL
+	</update>
+
+	<!-- 구매품의서 대금지급정보 삭제 -->
+	<update id="delCnpy" parameterType="hashMap">
+		DELETE STOPCNPY
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+		AND EXEC_CNT  = #{EXEC_CNT}
+	</update>
+
+	<update id="upsSignResult" parameterType="hashMap">
+		UPDATE STOPCNHD SET
+			 SIGN_STATUS 	 = #{SIGN_STATUS}
+			,PROGRESS_CD	 = #{PROGRESS_CD}
+			,SIGN_DATE 	 	 = CASE WHEN #{SIGN_STATUS} = 'E' THEN <include refid="com.sql.sysdate"/> else null end
+		WHERE GATE_CD 	 = #{ses.gateCd}
+		AND APP_DOC_NUM  = #{APP_DOC_NUM}
+		AND APP_DOC_CNT  = #{APP_DOC_CNT}
+	</update>
+
+	<!-- 구매품의서 대금지급정보 복사하기 -->
+	<update id="saveCnpy" parameterType="hashMap">
+			INSERT INTO STOPCNPY (
+				 GATE_CD
+				,EXEC_NUM
+				,EXEC_CNT
+<!-- 				,PAY_SQ -->
+				,REG_DATE
+				,REG_USER_ID
+				,MOD_DATE
+				,MOD_USER_ID
+				,DEL_FLAG
+<!-- 				,BUYER_CD -->
+				,VENDOR_CD
+				,PAY_CNT
+				,PAY_CNT_TYPE
+				,PAY_PERCENT
+				,PAY_AMT
+				,PAY_METHOD_TYPE
+				,PAY_METHOD_NM
+				,PAY_DUE_DATE
+				,SUPPLY_AMT
+				,VAT_AMT
+<!-- 				,LOC_BUYER_CD -->
+				,PAY_CNT_NM
+				,VAT_TYPE
+				,APAR_TYPE
+			) SELECT
+				 #{ses.gateCd} -- GATE_CD
+				,#{EXEC_NUM} -- EXEC_NUM
+				,#{EXEC_CNT} --EXEC_CNT
+<!-- 				,(SELECT COUNT(*)+1 FROM STOPCNPY WHERE GATE_CD=#{ses.gateCd} AND EXEC_NUM = #{EXEC_NUM}  ) PAY_SQ -->
+				, <include refid="com.sql.sysdate"/> -- REG_DATE
+				,#{ses.userId} -- REG_USER_ID
+				, <include refid="com.sql.sysdate"/> -- MOD_DATE
+				,#{ses.userId} -- MOD_USER_ID
+				,'0' -- DEL_FLAG
+<!-- 				,#{ses.companyCd}  BUYER_CD -->
+				,#{VENDOR_CD} -- VENDOR_CD
+				,#{PAY_CNT} -- PAY_CNT
+				,#{PAY_CNT_TYPE} -- PAY_CNT_TYPE
+				,#{PAY_PERCENT} -- PAY_PERCENT
+				,ROUND(#{PAY_AMT}) -- PAY_AMT
+				,#{PAY_METHOD_TYPE} -- PAY_METHOD_TYPE
+				,#{PAY_METHOD_NM} -- PAY_METHOD_NM
+				,#{PAY_DUE_DATE} -- PAY_DUE_DATE
+				,#{SUPPLY_AMT} -- SUPPLY_AMT
+				,#{VAT_AMT} -- VAT_AMT
+<!-- 				,#{LOC_BUYER_CD}  LOC_BUYER_CD -->
+				,#{PAY_CNT_NM}
+				,#{VAT_TYPE}
+				,#{APAR_TYPE}
+				FROM DUAL
+	</update>
+
+	<!-- 구매품의서 결재승인(E) 후 발주대상 가져오기 -->
+    <select id="getPoTargetCnvd" resultType="hashMap">
+		SELECT
+		  A.BUYER_CD						--고객사코드[STOCCUST]
+		, A.PLANT_CD						--고객사 사업장코드[STOCCUPL]
+		, '5100' AS PROGRESS_CD				--발주확정대기
+		, A.PR_TYPE						 --구매유형 [M061]
+		, A.CTRL_USER_ID					--구매담당자
+		, B.ITEM_CD						 --품목코드 - (Item Code)
+		, B.ITEM_DESC					   --품명 - (Item Name)
+		, B.ITEM_SPEC					   --규격 - (Item Specification)
+--		, B.MAKER_CD						--제조사코드[STOCMKBR]
+--		, B.MAKER_NM						--제조사명 - [Maker Name]
+--		, B.MAKER_PART_NO				   --제조모델번호
+--		, B.BRAND_CD						--브랜드코드[STOCMKBR-BR]
+--		, B.BRAND_NM						--브랜드명
+--		, B.ORIGIN_CD					   --원산지코드  - [Origin Country Code]
+		, B.UNIT_CD						 --기본단위[M037]
+		, B.VENDOR_CD					   --공급사코드
+		, B.MOQ_QT						 --최소주문수량 - [MOQ]
+		, B.RV_QT						  --주문배수량 - [Rounding Value Quantity]
+		, B.ITEM_QT AS CPO_QTY			  --주문수량 - [C. PO Quantity]
+		, B.CUR								--통화 - [Currency]
+		, B.SALES_UNIT_PRC AS CPO_UNIT_PRICE			--주문단가(=매출단가) - [C. PO Unit Price]
+		, B.ITEM_QT * B.SALES_UNIT_PRC AS CPO_ITEM_AMT  --주문금액(=매출금액) - [C. PO Amount]
+		, C.BD_DEPT_CD 						--예산부서코드 - [Budget Department Code]
+		, C.ACCOUNT_CD					  --계정코드 - [Account Code]
+		, B.LEAD_TIME						--표준납기L/T - Lead Time Day
+		, C.HOPE_DUE_DATE				   --희망납기일 - [Hope Delivery Date]
+		, C.RECIPIENT_NM					--인수자명 - [Recipient Name]
+		, C.RECIPIENT_DEPT_NM			   --인수자 부서명 - [Recipient Department Name]
+		, C.RECIPIENT_TEL_NUM			   --인수자 전화번호 - [Recipient Telephone No.]
+		, C.RECIPIENT_CELL_NUM			  --인수자 휴대전화번호 - [Recipient Cell Phone No.]
+		, C.RECIPIENT_FAX_NUM			   --인수자팩스번호
+		, C.RECIPIENT_EMAIL				 --인수자이메일
+		, C.REQ_TEXT						--요청사항 - [Request Text]
+		, C.DELY_ZIP_CD					 --납품장소 우편번호 - (Delivery Location Zip Code)
+		, C.DELY_ADDR_1					 --납품장소 주소 1/2 - (Delivery Location Address 1/2)
+		, C.DELY_ADDR_2					 --납품장소 주소 2/2 - [Delivery Location Address 2/2]
+		, B.DEAL_CD						 --거래유형[MP021]
+		, B.LOG_CD						  --물류센터코드 [MP105]
+		, B.WH_CD						   --창고코드 [MP107]
+--		, B.TC_FLAG						 --TC/DC구분 [MP104
+		, C.SG_CTRL_USER_ID				 --품목담당자ID
+		, C.AM_USER_ID					  --구매담당자ID
+		, C.DOC_TYPE						--문서 Type[MP017]
+		, B.TAX_CD						  --과세구분[M036]
+		, C.SHIPPER_TYPE					--내/외자구분[M015]
+		, B.QTA_UNIT_PRC AS PO_UNIT_PRICE   			--매입단가 - [P/O Unit Price]
+		, B.ITEM_QT * B.QTA_UNIT_PRC AS PO_ITEM_AMT 	--매입금액 - [P/O Amount]
+		, C.CPO_NO						  --주문번호 - [C. P/O No.]
+		, C.CPO_SEQ						 --주문항번 - [C. P/O Sequence]
+		, C.RETURN_REMARK	  				--반품사유
+		, B.APPLY_COM		   			--단가적용 고객사코드
+		, B.CONT_NO			 			--계약번호 - [Contract No.]
+		, B.CONT_SEQ						--계약항번 - [Contract Sequnce No.]
+		, B.APPLY_PLANT		 			--단가적용 사업장코드
+		, C.AUTO_PO_FLAG					--공급사 자동발주여부[M044]
+		, C.IF_CPO_NO		   			--구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+		, C.IF_CPO_SEQ						--구매사 I/F 주문항번 - [Buyer I/F P/O Sequence]
+		, B.DELY_TYPE		   			--납품방법[MP041-직접배송,택배]
+		, C.DELY_NM							--배송지명
+		, C.CSDM_SEQ						--배송지코드
+		, C.CUBL_SQ			 			--청구지코드
+		, C.ACC_CD			  			--회계코드(운영사)
+		, C.CUBL_NM			 			--청구지명
+		, C.CUBL_ZIP_CD		 			--청구지우편번호
+		, C.CUBL_ADDR1		  			--청구지기본주소
+		, C.CUBL_ADDR2		  			--청구지상세주소
+		, C.CUBL_COMPANY_NM	 			--청구지회사명
+		, C.CUBL_IRS_NUM					--청구지사업자번호
+		, C.CUBL_CEO_USER_NM				--청구지대표이사명
+		, C.CUBL_BUSINESS_TYPE  			--청구지업태
+		, C.CUBL_INDUSTRY_TYPE  			--청구지종목
+		, C.CUBL_IRS_SUB_NUM				--청구지종사업장번호
+		, C.CUBL_IRS_SUB_ADDR   			--청구지종사업장주소
+		, C.CUBL_BANK_NM					--청구지은행및지점명
+		, C.CUBL_ACCOUNT_NUM				--청구지계좌번호
+		, C.CUBL_ACCOUNT_NM	 			--청구지예금주
+		, C.CUBL_USER_NM					--청구지담당자명
+		, C.CUBL_USER_TEL_NUM   			--청구지담당자전화번호
+		, C.CUBL_USER_FAX_NUM   			--청구지담당자팩스번호
+		, C.CUBL_USER_CELL_NUM  			--청구지담당자휴대전화
+		, C.CUBL_USER_EMAIL	 			--청구지담당자이메일
+		, C.CUBL_IRS_SUB_ZIP_CD 			--청구지종사업장우편번호
+		, C.COST_CENTER_CD	  			--코스트센터코드
+		, C.COST_CENTER_NM_KOR  			--코스트센터명
+		, C.DELY_PLACE		  			--배송장소[SEQ, STOCCSDM.CUST_CD=2518]
+		, C.AGENT_MEMO		  			--운영사메모
+		, C.REQ_USER_NM		 			--요청자명-IF용
+		, C.REQ_USER_TEL_NUM				--요청자연락처-IF용
+		, D.CPO_USER_ID						--주문자 ID
+		, D.CPO_USER_DIVISION_CD	   		--주문자 사업부코드
+		, D.CPO_USER_DEPT_CD		   		--주문자 부서코드
+		, D.CPO_USER_PART_CD		   		--주문자 파트코드
+		, D.CPO_USER_TEL_NUM		   		--주문자 전화번호
+		, D.CPO_USER_CELL_NUM		  		--주문자 휴대전화번호
+		, D.CPO_DATE                       --주문일자
+		, D.RMKS					   		--비고
+		, SYSDATE AS REG_DATE
+		, #{ses.userId} AS REG_USER_ID
+		FROM STOPCNHD A
+		JOIN STOPCNDT B
+			 ON (A.GATE_CD  = B.GATE_CD
+			 AND A.EXEC_NUM = B.EXEC_NUM
+			 AND A.EXEC_CNT = B.EXEC_CNT
+			 AND B.DEL_FLAG = '0')
+		JOIN STOUPODT C
+			 ON (B.GATE_CD  = C.GATE_CD
+			 AND B.PR_NUM   = C.CPO_NO
+			 AND B.PR_SQ    = C.CPO_SEQ
+			 AND C.DEL_FLAG = '0')
+		JOIN STOUPOHD D
+			 ON (C.GATE_CD  = D.GATE_CD
+			 AND C.CPO_NO   = D.CPO_NO
+			 AND D.DEL_FLAG = '0')
+		WHERE A.GATE_CD     = #{ses.gateCd}
+		  AND A.APP_DOC_NUM = #{APP_DOC_NUM}
+		  AND A.APP_DOC_CNT = #{APP_DOC_CNT}
+		  AND B.PREV_EXEC_NUM IS NULL	-- 변경품의시 신규 추가된 품목만 PO서 생성
+	</select>
+
+	<!-- 구매품의서 결재승인(E) 후 단가생성 대상 가져오기 -->
+    <select id="getInfoTargetCnvd" resultType="hashMap">
+		SELECT
+              B.ITEM_CD
+			,(CASE WHEN B.ITEM_CD IS NULL THEN ''
+			  	   ELSE (SELECT CUST_ITEM_CD FROM STOCMTGB
+						  WHERE GATE_CD  = A.GATE_CD
+						    AND CUST_CD  = A.BUYER_CD
+						    AND ITEM_CD  = B.ITEM_CD
+						    AND DEL_FLAG = '0')
+			  END) AS CUST_ITEM_CD
+			, B.ITEM_DESC
+			, B.ITEM_SPEC
+			, NULL AS MAKER_CD
+			, NULL AS MAKER_PART_NO
+			, NULL AS ORIGIN_CD
+			, B.UNIT_CD
+			, B.UNIT_CD AS ORD_UNIT_CD
+			, '1' AS CONV_QT
+			, B.MOQ_QT
+			, B.LEAD_TIME
+			, B.TAX_CD
+			, '0'  AS STD_FLAG			-- 표준화여부
+			, '1'  AS TEMP_CD_FLAG		-- 임시코드
+			, '0'  AS ORDER_HALT_FLAG	-- 구매중지여부
+			, '10' AS ITEM_STATUS		-- 품목상태(10:사용)
+			, <include refid="com.sql.sysdate"/> AS REQ_DATE
+			, D.CPO_USER_ID  AS REQ_USER_ID
+			, D.CPO_DATE     AS CONF_DATE
+			, A.CTRL_USER_ID AS CONF_USER_ID
+			, '시행구매 임시품목코드 단가 생성에 따른 임시품목 등록' AS CONF_REMARK
+			, 'S'  AS DATA_CREATE_TYPE
+			, B.DEAL_CD
+			, B.LOG_CD
+			, B.WH_CD
+			, B.DELY_TYPE
+			, B.VENDOR_CD
+			, TO_CHAR(B.VALID_FROM_DATE, 'YYYYMMDD') AS VALID_FROM_DATE
+			, TO_CHAR(B.VALID_TO_DATE, 'YYYYMMDD') AS VALID_TO_DATE
+			, B.CUR
+			, B.CONT_UNIT_PRC		-- 계약단가
+			, B.STD_UNIT_PRC		-- 표준단가
+			, B.QTA_UNIT_PRC		-- 견적단가
+			, B.SALES_UNIT_PRC		-- 판매단가
+			, B.SALES_PROFIT_RATE	-- 판매이익율
+			, A.CTRL_USER_ID AS CMS_CTRL_USER_ID
+			, A.CTRL_USER_ID AS SG_CTRL_USER_ID
+			, '대행사 임시 품목코드' AS ITEM_RMK
+			-- 기존 품목인 경우 DGNS I/F 고객사 전체 단가 생성 ELSE 해당 고객사 및 사업장만 단가 생성
+		    ,(CASE WHEN (SELECT <include refid="com.sql.nvl"/>(MAX(INFO_FLAG), '0')
+		    			   FROM STOPCNVD K
+						  WHERE K.GATE_CD   = B.GATE_CD
+							AND K.EXEC_NUM  = B.EXEC_NUM
+							AND K.EXEC_CNT  = B.EXEC_CNT
+							AND K.VENDOR_CD = B.VENDOR_CD
+							AND K.APAR_TYPE = 'P') = '0' THEN A.BUYER_CD
+	          	   ELSE (
+	                 CASE WHEN B.APPLY_PLANT = '*' THEN <include refid="com.sql.nvl"/>(
+							 								(SELECT LISTAGG(CUST_CD, ',') FROM STOCCUST
+															  WHERE GATE_CD  = #{ses.gateCd}
+															    AND DEL_FLAG = '0'
+															    AND PROGRESS_CD = 'E'
+															    AND <include refid="com.sql.nvl"/>(STOP_FLAG,'0') = '0'	-- 거래중지 제외
+																AND ERP_IF_FLAG = (SELECT ERP_IF_FLAG FROM STOCCUST
+																					WHERE GATE_CD = #{ses.gateCd}
+																					  AND CUST_CD = A.BUYER_CD
+																					  AND ERP_IF_FLAG = '1')
+															 ), A.BUYER_CD)
+					 	  ELSE A.BUYER_CD
+			          END)
+		 	   END
+		 	  ) AS APPLY_TARGET_CD
+			, <include refid="com.sql.nvl"/>(B.APPLY_PLANT, <include refid="com.sql.nvl"/>(A.PLANT_CD, '*')) AS APPLY_PLANT
+			, B.RFX_NUM
+			, B.RFX_CNT
+			, B.RFX_SQ
+			, B.QTA_NUM
+			, B.QTA_SQ
+			, B.EXEC_NUM
+			, B.EXEC_CNT
+            , B.EXEC_SQ
+		FROM STOPCNHD A
+		JOIN STOPCNDT B
+			 ON (A.GATE_CD   = B.GATE_CD
+			 AND A.EXEC_NUM  = B.EXEC_NUM
+			 AND A.EXEC_CNT  = B.EXEC_CNT
+			 AND B.DEL_FLAG  = '0')
+		LEFT JOIN STOUPODT C
+			 ON (B.GATE_CD   = C.GATE_CD
+			 AND B.PR_NUM    = C.CPO_NO
+			 AND B.PR_SQ     = C.CPO_SEQ
+			 AND C.DEL_FLAG  = '0')
+		LEFT JOIN STOUPOHD D
+			 ON (C.GATE_CD   = D.GATE_CD
+			 AND C.CPO_NO    = D.CPO_NO
+			 AND D.DEL_FLAG  = '0')
+		WHERE A.GATE_CD  = #{ses.gateCd}
+		  AND A.APP_DOC_NUM = #{APP_DOC_NUM}
+		  AND A.APP_DOC_CNT = #{APP_DOC_CNT}
+		  AND B.INFO_FLAG  	IN ('1', '0')	--MP034: 1(공통단가), 0(개별단가), X(미생성)
+		  AND A.DEL_FLAG = '0'
+	</select>
+
+	<!-- 매입단가 생성 -->
+	<insert id="createStoYInfo" parameterType="hashMap">
+		 INSERT INTO STOYINFO(
+ 			  GATE_CD
+            , APPLY_COM
+            , CONT_NO
+            , CONT_SEQ
+            , APPLY_PLANT
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , VENDOR_CD
+            , ORIGIN_VENDOR_CD
+            , ITEM_CD
+            , AGENT_CD
+            , CUR
+            , MOQ_QTY
+            , RV_QTY
+            , CONT_UNIT_PRICE
+            , STD_UNIT_PRICE
+            , QTA_UNIT_PRICE
+            , DEAL_CD
+            , LEAD_TIME
+            , TAX_CD
+            , VALID_FROM_DATE
+            , VALID_TO_DATE
+            , SIGN_DATE
+            , SIGN_STATUS
+            , RFX_NUM
+            , RFX_CNT
+            , RFX_SQ
+            , QTA_NUM
+            , QTA_SQ
+            , EXEC_NUM
+            , EXEC_SQ
+	     )
+	     VALUES(
+     		  #{ses.gateCd}
+            , #{APPLY_COM}
+            , #{CONT_NO}
+            , #{CONT_SEQ}
+            , #{APPLY_PLANT}
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'					--DEL_FLAG
+            , #{VENDOR_CD}
+            , #{ORIGIN_VENDOR_CD}
+            , #{ITEM_CD}
+            , #{ses.manageCd}		--AGENT_CD
+            , #{CUR}
+            , #{MOQ_QT}
+            , #{RV_QT}
+            , #{CONT_UNIT_PRC} 	--견적단가
+            , #{SALES_UNIT_PRC} 	--매출단가
+            , #{QTA_UNIT_PRC}  	--매입단가
+            , #{DEAL_CD}
+            , #{LEAD_TIME}
+            , #{TAX_CD}
+            , TO_DATE(#{VALID_FROM_DATE})
+            , TO_DATE(#{VALID_TO_DATE})
+            ,<include refid="com.sql.sysdate"/>
+            , NULL -- SIGN_STATUS
+            , #{RFX_NUM}
+            , #{RFX_CNT}
+            , #{RFX_SQ}
+            , #{QTA_NUM}
+            , #{QTA_SQ}
+            , #{EXEC_NUM}
+            , #{EXEC_SQ}
+	     )
+	</insert>
+
+	 <!-- 매출단가 생성 -->
+	<insert id="createStoUInfo" parameterType="hashMap">
+		INSERT INTO STOUINFO (
+              GATE_CD
+            , CUST_CD
+            , CONT_NO
+            , CONT_SEQ
+            , PLANT_CD
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , ITEM_CD
+            , CUR
+            , SALES_UNIT_PRICE
+            , PROFIT_RATIO
+            , CHANGE_CD
+            , CHANGE_REASON
+            , SIGN_DATE
+            , SIGN_STATUS
+        )
+        VALUES (
+        	  #{ses.gateCd}
+            , #{APPLY_COM}
+            , #{CONT_NO}
+            , #{CONT_SEQ}
+            , #{APPLY_PLANT}
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'				--DEL_FLAG
+            , #{ITEM_CD}
+            , #{CUR}
+            , #{SALES_UNIT_PRC}
+            , #{SALES_PROFIT_RATE}
+            , '60'				--CHANGE_CD(신규:60)
+            , '신규단가 생성'	--CHANGE_REASON
+            ,<include refid="com.sql.sysdate"/>
+            , NULL				--SIGN_STATUS
+        )
+	</insert>
+
+	<!-- 구매품의 결재승인(E) 후 직발주건(200) 발주서 생성 -->
+	<update id="createPohd" parameterType="hashMap">
+		INSERT INTO STOYPOHD
+		(
+			  GATE_CD              --게이트코드
+			, PO_NO                --발주번호[PO+년(2)+월(2)+000000(6)]
+			, REG_DATE             --등록일자 - (Registration Date)
+			, REG_USER_ID          --등록자ID - (Registerer ID)
+			, DEL_FLAG             --삭제여부
+			, CUST_CD              --고객사코드[STOCCUST]
+			, PLANT_CD             --고객사 사업장코드[STOCCUP
+			, PR_TYPE              --구매유형 [M061]
+			, VENDOR_CD            --공급사코드
+			, CPO_DATE             --주문일자
+			, CPO_USER_ID          --주문자ID
+			, CPO_USER_DIVISION_CD --주문자 사업부코드
+			, CPO_USER_DEPT_CD     --주문자 부서코드
+			, CPO_USER_PART_CD     --주문자 파트코드
+			, CPO_USER_TEL_NUM     --주문자 전화번호
+			, CPO_USER_CELL_NUM    --주문자 휴대전화번호
+			, SHIPPER_TYPE         --내/외자구분[M015]
+			, SIGN_STATUS          --문서결재상태 - (Document Approval Status)
+			, SIGN_DATE            --문서결재일자 - (Document Approval Date)
+			, APP_DOC_NO           --결재문서번호 - [Approval Document No.]
+			, APP_DOC_CNT          --결재문서차수 - [Approval Document Ordinal No.]
+			, BUDGET_FLAG          --예산체크여부[M044]
+			, IF_CPO_NO            --구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			, CPO_NO               --주문번호
+		)
+		VALUES (
+			  #{ses.gateCd			} 	--게이트코드
+			, #{PO_NO} 	--발주번호[PO+년(2)+월(2)+000000(6)]
+			,<include refid="com.sql.sysdate"/>	--등록일자 - (Registration Date)
+			, #{REG_USER_ID} 	--등록자ID - (Registerer ID)
+			, '0'						-- DEL_FLAG
+			, #{BUYER_CD} 	--고객사코드[STOCCUST]
+			, #{PLANT_CD} 	--고객사 사업장코드[STOCCUP
+			, #{PR_TYPE} 	--구매유형 [M061]
+			, #{VENDOR_CD} 	--공급사코드
+			, #{CPO_DATE} 	--주문일자
+			, #{CPO_USER_ID} 	--주문자ID
+			, #{CPO_USER_DIVISION_CD} 	--주문자 사업부코드
+			, #{CPO_USER_DEPT_CD} 	--주문자 부서코드
+			, #{CPO_USER_PART_CD} 	--주문자 파트코드
+			, #{CPO_USER_TEL_NUM} 	--주문자 전화번호
+			, #{CPO_USER_CELL_NUM} 	--주문자 휴대전화번호
+			, #{SHIPPER_TYPE} 	--내/외자구분[M015]
+			, 'E' 						-- SIGN_STATUS
+			, NULL						-- SIGN_DATE
+			, NULL						-- APP_DOC_NO
+			, NULL						-- APP_DOC_CNT
+			, #{BUDGET_FLAG} 	--예산체크여부[M044]
+			, #{IF_CPO_NO} 	--구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			, #{CPO_NO} 	--주문번호
+		)
+	</update>
+
+	<!-- 구매품의 결재승인(E) 후 재고(100), VMI(400) 납입지시 생성 -->
+	<update id="createDohd" parameterType="hashMap">
+		INSERT INTO STOUDOHD
+		(
+			  GATE_CD              --게이트코드
+			, PO_NO                --발주번호[PO+년(2)+월(2)+000000(6)]
+			, REG_DATE             --등록일자 - (Registration Date)
+			, REG_USER_ID          --등록자ID - (Registerer ID)
+			, DEL_FLAG             --삭제여부
+			, CUST_CD              --고객사코드[STOCCUST]
+			, PLANT_CD             --고객사 사업장코드[STOCCUP
+			, PR_TYPE              --구매유형 [M061]
+			, VENDOR_CD            --공급사코드
+			, CPO_DATE             --주문일자
+			, CPO_USER_ID          --주문자ID
+			, CPO_USER_DIVISION_CD --주문자 사업부코드
+			, CPO_USER_DEPT_CD     --주문자 부서코드
+			, CPO_USER_PART_CD     --주문자 파트코드
+			, CPO_USER_TEL_NUM     --주문자 전화번호
+			, CPO_USER_CELL_NUM    --주문자 휴대전화번호
+			, SHIPPER_TYPE         --내/외자구분[M015]
+			, SIGN_STATUS          --문서결재상태 - (Document Approval Status)
+			, SIGN_DATE            --문서결재일자 - (Document Approval Date)
+			, APP_DOC_NO           --결재문서번호 - [Approval Document No.]
+			, APP_DOC_CNT          --결재문서차수 - [Approval Document Ordinal No.]
+			, BUDGET_FLAG          --예산체크여부[M044]
+			, IF_CPO_NO            --구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			, CPO_NO               --주문번호
+		)
+		VALUES
+		(
+			  #{GATE_CD} --게이트코드
+			, #{PO_NO} --발주번호[PO+년(2)+월(2)+000000(6)]
+			, #{REG_DATE} --등록일자 - (Registration Date)
+			, #{REG_USER_ID} --등록자ID - (Registerer ID)
+			, #{MOD_DATE} --수정일자 - (Update  Date)
+			, #{MOD_USER_ID} --수정자ID - (Updater  ID)
+			, #{DEL_FLAG} --삭제여부
+			, #{BUYER_CD} --고객사코드[STOCCUST]
+			, #{PLANT_CD} --고객사 사업장코드[STOCCUP
+			, #{PR_TYPE} --구매유형 [M061]
+			, #{VENDOR_CD} --공급사코드
+			, #{CPO_DATE} --주문일자
+			, #{CPO_USER_ID} --주문자ID
+			, #{CPO_USER_DIVISION_CD} --주문자 사업부코드
+			, #{CPO_USER_DEPT_CD} --주문자 부서코드
+			, #{CPO_USER_PART_CD} --주문자 파트코드
+			, #{CPO_USER_TEL_NUM} --주문자 전화번호
+			, #{CPO_USER_CELL_NUM} --주문자 휴대전화번호
+			, #{SHIPPER_TYPE} --내/외자구분[M015]
+			, 'T' 					  -- 문서결재상태 - (Document Approval Status)
+			, NULL					  -- 문서결재일자 - (Document Approval Date)
+			, NULL					  -- 결재문서번호
+			, NULL					  -- 결재문서차수
+			, #{BUDGET_FLAG} --예산체크여부[M044]
+			, #{IF_CPO_NO} --구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			, #{CPO_NO} --주문번호
+		)
+	</update>
+
+	<!-- 공급사 발주 Detail : 직발주 -->
+	<update id="createPodt" parameterType="hashMap">
+		INSERT INTO STOYPODT
+		(
+			   GATE_CD             --게이트코드
+			 , PO_NO               --발주번호[PO+년(2)+월(2)+000000(6)]
+			 , PO_SEQ              --발주항번
+			 , REG_DATE            --등록일자 - (Registration Date)
+			 , REG_USER_ID         --등록자ID - (Registerer ID)
+			 , DEL_FLAG            --삭제여부
+			 , CUST_CD             --고객사코드[STOCCUST]
+			 , PLANT_CD            --고객사 사업장코드[STOCCUPL]
+			 , PROGRESS_CD         --진행상태코드
+			 , PR_TYPE             --구매유형 [M061]
+			 , CUST_ITEM_CD        --고객사품목코드
+			 , ITEM_CD             --품목코드 - (Item Code)
+			 , ITEM_DESC           --품명 - (Item Name)
+			 , ITEM_SPEC           --규격 - (Item Specification)
+			 , MAKER_CD            --제조사코드[STOCMKBR]
+			 , MAKER_NM            --제조사명 - [Maker Name]
+			 , MAKER_PART_NO       --제조모델번호
+			 , BRAND_CD            --브랜드코드[STOCMKBR-BR]
+			 , BRAND_NM            --브랜드명
+			 , ORIGIN_CD           --원산지코드  - [Origin Country Code]
+			 , UNIT_CD             --기본단위[M037]
+			 , VENDOR_CD           --공급사코드
+			 , MOQ_QTY             --최소주문수량 - [MOQ]
+			 , RV_QTY              --주문배수량 - [Rounding Value Quantity]
+			 , CPO_QTY             --주문수량 - [C. PO Quantity]
+			 , CUR                 --통화 - [Currency]
+			 , CPO_UNIT_PRICE      --주문단가 - [C. PO Unit Price]
+			 , CPO_ITEM_AMT        --주문금액 - [C. PO Amount]
+			 , BD_DEPT_CD          --예산부서코드 - [Budget Department Code]
+			 , ACCOUNT_CD          --계정코드 - [Account Code]
+			 , LEAD_TIME           --표준납기L/T - Lead Time Day
+			 , HOPE_DUE_DATE       --희망납기일 - [Hope Delivery Date]
+			 , RECIPIENT_NM        --인수자명 - [Recipient Name]
+			 , RECIPIENT_DEPT_NM   --인수자 부서명 - [Recipient Department Name]
+			 , RECIPIENT_TEL_NUM   --인수자 전화번호 - [Recipient Telephone No.]
+			 , RECIPIENT_CELL_NUM  --인수자 휴대전화번호 - [Recipient Cell Phone No.]
+			 , RECIPIENT_FAX_NUM   --인수자팩스번호
+			 , RECIPIENT_EMAIL     --인수자이메일
+			 , REQ_TEXT            --요청사항 - [Request Text]
+			 , DELY_ZIP_CD         --납품장소 우편번호 - (Delivery Location Zip Code)
+			 , DELY_ADDR_1         --납품장소 주소 1/2 - (Delivery Location Address 1/2)
+			 , DELY_ADDR_2         --납품장소 주소 2/2 - [Delivery Location Address 2/2]
+			 , ATTACH_FILE_NO      --첨부파일번호 - (Attached File No.)
+			 , GR_COMPLETE_FLAG    --입고완료여부[M044]
+			 , INV_QTY             --납품수량 - [Invoice Quantity]
+			 , GR_QTY              --입고수량 - [G/R Quantity]
+			 , DEAL_CD             --거래유형[MP021]
+			 , LOG_CD              --물류센터코드 [MP105]
+			 , WH_CD               --창고코드 [MP107]
+			 , TC_FLAG             --TC/DC구분 [MP104]
+			 , SG_CTRL_USER_ID     --품목담당자ID
+			 , AM_USER_ID          --구매담당자ID
+			 , DOC_TYPE            --문서 Type[MP017]
+			 , TAX_CD              --과세구분[M036]
+			 , SHIPPER_TYPE        --내/외자구분[M015]
+			 , PRIOR_GR_FLAG       --선입고 여부[M044]
+			 , PO_UNIT_PRICE       --매입단가 - [P/O Unit Price]
+			 , PO_ITEM_AMT         --매입금액 - [P/O Amount]
+			 , CPO_NO              --주문번호 - [C. P/O No.]
+			 , CPO_SEQ             --주문항번 - [C. P/O Sequence]
+			 , RETURN_REMARK       --반품사유
+			 , FORCE_CLOSE_DATE    --주문종결일자 - [Order Forced Close Date]
+			 , FORCE_CLOSE_USER_ID --주문종결자ID - [Order Forced Close User ID]
+			 , FORCE_CLOSE_REASON  --주문종결사유 - [Order Forced Close Reason]
+			 , APPLY_COM           --단가적용 고객사코드
+			 , CONT_NO             --계약번호 - [Contract No.]
+			 , CONT_SEQ            --계약항번 - [Contract Sequnce No.]
+			 , APPLY_PLANT         --단가적용 사업장코드
+			 , AUTO_PO_FLAG        --공급사 자동발주여부[M044]
+			 , IF_CPO_NO           --구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			 , IF_CPO_SEQ          --구매사 I/F 주문항번 - [Buyer I/F P/O Sequence]
+			 , SIGN_STATUS         --문서결재상태
+			 , DELY_TYPE           --납품방법[MP041-직접배송,택배]
+			 , DELY_NM             --배송지명
+			 , CSDM_SEQ            --배송지코드
+			 , CUBL_SQ             --청구지코드
+			 , ACC_CD              --회계코드(운영사)
+			 , CUBL_NM             --청구지명
+			 , CUBL_ZIP_CD         --청구지우편번호
+			 , CUBL_ADDR1          --청구지기본주소
+			 , CUBL_ADDR2          --청구지상세주소
+			 , CUBL_COMPANY_NM     --청구지회사명
+			 , CUBL_IRS_NUM        --청구지사업자번호
+			 , CUBL_CEO_USER_NM    --청구지대표이사명
+			 , CUBL_BUSINESS_TYPE  --청구지업태
+			 , CUBL_INDUSTRY_TYPE  --청구지종목
+			 , CUBL_IRS_SUB_NUM    --청구지종사업장번호
+			 , CUBL_IRS_SUB_ADDR   --청구지종사업장주소
+			 , CUBL_BANK_NM        --청구지은행및지점명
+			 , CUBL_ACCOUNT_NUM    --청구지계좌번호
+			 , CUBL_ACCOUNT_NM     --청구지예금주
+			 , CUBL_USER_NM        --청구지담당자명
+			 , CUBL_USER_TEL_NUM   --청구지담당자전화번호
+			 , CUBL_USER_FAX_NUM   --청구지담당자팩스번호
+			 , CUBL_USER_CELL_NUM  --청구지담당자휴대전화
+			 , CUBL_USER_EMAIL     --청구지담당자이메일
+			 , CUBL_IRS_SUB_ZIP_CD --청구지종사업장우편번호
+			 , COST_CENTER_CD      --코스트센터코드
+			 , COST_CENTER_NM_KOR  --코스트센터명
+			 , DELY_PLACE          --배송장소[SEQ, STOCCSDM.CUST_CD=2518]
+			 , AM_USER_CHANGE_RMK  --운영사담당자이관사유
+			 , AGENT_MEMO          --운영사메모
+			 , REQ_USER_NM         --요청자명-IF용
+			 , REQ_USER_TEL_NUM    --요청자연락처-IF용
+			 , PO_DATE             --발주일자
+		)
+		SELECT
+			   #{ses.gateCd}  	--게이트코드
+			 , #{PO_NO} AS PO_NO
+			 , '1' AS PO_SEQ	--발주항번
+			 ,<include refid="com.sql.sysdate"/> AS REG_DATE  --등록일자 - (Registration Date)
+			 , #{CTRL_USER_ID}  	--등록자ID - (Registerer ID)
+			 , '0' AS DEL_FLAG
+			 , #{BUYER_CD}  	--고객사코드[STOCCUST]
+			 , #{PLANT_CD}  	--고객사 사업장코드[STOCCUPL]
+			 , '5100' AS PROGRESS_CD  	--발주확정대기
+			 , #{PR_TYPE}  	--구매유형 [M061]
+			 , #{CUST_ITEM_CD}  	--고객사품목코드
+			 , #{ITEM_CD}  	--품목코드 - (Item Code)
+			 , #{ITEM_DESC}  	--품명 - (Item Name)
+			 , #{ITEM_SPEC}  	--규격 - (Item Specification)
+			 , #{MAKER_CD}  	--제조사코드[STOCMKBR]
+			 , #{MAKER_NM}  	--제조사명 - [Maker Name]
+			 , #{MAKER_PART_NO}  	--제조모델번호
+			 , #{BRAND_CD}  	--브랜드코드[STOCMKBR-BR]
+			 , #{BRAND_NM}  	--브랜드명
+			 , #{ORIGIN_CD}  	--원산지코드 - [Origin Country Code]
+			 , #{UNIT_CD}  	--기본단위[M037]
+			 , #{VENDOR_CD}  	--공급사코드
+			 , #{MOQ_QTY}  	--최소주문수량 - [MOQ]
+			 , #{RV_QTY}  	--주문배수량 - [Rounding Value Quantity]
+			 , #{CPO_QTY}  	--주문수량 - [C. PO Quantity]
+			 , #{CUR}  	--통화 - [Currency]
+			 , #{CPO_UNIT_PRICE}  	--주문단가 - [C. PO Unit Price]
+			 , #{CPO_ITEM_AMT}  	--주문금액 - [C. PO Amount]
+			 , #{BD_DEPT_CD}  	--예산부서코드 - [Budget Department Code]
+			 , #{ACCOUNT_CD}  	--계정코드 - [Account Code]
+			 , #{LEAD_TIME}  	--표준납기L/T - Lead Time Day
+			 , #{HOPE_DUE_DATE}  	--희망납기일 - [Hope Delivery Date]
+			 , #{RECIPIENT_NM}  	--인수자명 - [Recipient Name]
+			 , #{RECIPIENT_DEPT_NM}  	--인수자 부서명 - [Recipient Department Name]
+			 , #{RECIPIENT_TEL_NUM}  	--인수자 전화번호 - [Recipient Telephone No.]
+			 , #{RECIPIENT_CELL_NUM}  	--인수자 휴대전화번호 - [Recipient Cell Phone No.]
+			 , #{RECIPIENT_FAX_NUM}  	--인수자팩스번호
+			 , #{RECIPIENT_EMAIL}  	--인수자이메일
+			 , #{REQ_TEXT}  	--요청사항 - [Request Text]
+			 , #{DELY_ZIP_CD}  	--납품장소 우편번호 - (Delivery Location Zip Code)
+			 , #{DELY_ADDR_1}  	--납품장소 주소 1/2 - (Delivery Location Address 1/2)
+			 , #{DELY_ADDR_2}  	--납품장소 주소 2/2 - [Delivery Location Address 2/2]
+			 , #{ATTACH_FILE_NO}  	--첨부파일번호 - (Attached File No.)
+			 , '0' AS GR_COMPLETE_FLAG	--입고완료여부[M044]
+			 , 0   AS INV_QTY           --납품수량 - [Invoice Quantity]
+			 , 0   AS GR_QTY            --입고수량 - [G/R Quantity]
+			 , #{DEAL_CD}  	--거래유형[MP021]
+			 , #{LOG_CD}  	--물류센터코드 [MP105]
+			 , #{WH_CD}  	--창고코드 [MP107]
+			 , #{TC_FLAG}  	--TC/DC구분 [MP104]
+			 , #{SG_CTRL_USER_ID}  	--품목담당자ID
+			 , #{AM_USER_ID}  	--구매담당자ID
+			 , #{DOC_TYPE}  	--문서 Type[MP017]
+			 , #{TAX_CD}  	--과세구분[M036]
+			 , #{SHIPPER_TYPE}  	--내/외자구분[M015]
+			 , #{PRIOR_GR_FLAG}  	--선입고 여부[M044]
+			 , #{PO_UNIT_PRICE}  	--매입단가 - [P/O Unit Price]
+			 , #{PO_ITEM_AMT}  	--매입금액 - [P/O Amount]
+			 , #{CPO_NO}  	--주문번호 - [C. P/O No.]
+			 , #{CPO_SEQ}  	--주문항번 - [C. P/O Sequence]
+			 , #{RETURN_REMARK}  	--반품사유
+			 , #{FORCE_CLOSE_DATE}  	--주문종결일자 - [Order Forced Close Date]
+			 , #{FORCE_CLOSE_USER_ID} 	--주문종결자ID - [Order Forced Close User ID]
+			 , #{FORCE_CLOSE_REASON}  	--주문종결사유 - [Order Forced Close Reason]
+			 , #{APPLY_COM}  	--단가적용 고객사코드
+			 , #{CONT_NO}  	--계약번호 - [Contract No.]
+			 , #{CONT_SEQ}  	--계약항번 - [Contract Sequnce No.]
+			 , #{APPLY_PLANT}  	--단가적용 사업장코드
+			 , #{AUTO_PO_FLAG}  	--공급사 자동발주여부[M044]
+			 , #{IF_CPO_NO}  	--구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			 , #{IF_CPO_SEQ}  	--구매사 I/F 주문항번 - [Buyer I/F P/O Sequence]
+			 , 'E' AS SIGN_STATUS       --문서결재상태
+			 , #{DELY_TYPE}  --납품방법[MP041-직접배송,택배]
+			 , #{DELY_NM}  --배송지명
+			 , #{CSDM_SEQ}  --배송지코드
+			 , #{CUBL_SQ}  --청구지코드
+			 , #{ACC_CD}  --회계코드(운영사)
+			 , #{CUBL_NM}  --청구지명
+			 , #{CUBL_ZIP_CD}  --청구지우편번호
+			 , #{CUBL_ADDR1}  --청구지기본주소
+			 , #{CUBL_ADDR2}  --청구지상세주소
+			 , #{CUBL_COMPANY_NM}  --청구지회사명
+			 , #{CUBL_IRS_NUM}  --청구지사업자번호
+			 , #{CUBL_CEO_USER_NM}  --청구지대표이사명
+			 , #{CUBL_BUSINESS_TYPE}  --청구지업태
+			 , #{CUBL_INDUSTRY_TYPE}  --청구지종목
+			 , #{CUBL_IRS_SUB_NUM}  --청구지종사업장번호
+			 , #{CUBL_IRS_SUB_ADDR}  --청구지종사업장주소
+			 , #{CUBL_BANK_NM}  --청구지은행및지점명
+			 , #{CUBL_ACCOUNT_NUM}  --청구지계좌번호
+			 , #{CUBL_ACCOUNT_NM}  --청구지예금주
+			 , #{CUBL_USER_NM}  --청구지담당자명
+			 , #{CUBL_USER_TEL_NUM}  --청구지담당자전화번호
+			 , #{CUBL_USER_FAX_NUM}  --청구지담당자팩스번호
+			 , #{CUBL_USER_CELL_NUM}  --청구지담당자휴대전화
+			 , #{CUBL_USER_EMAIL}  --청구지담당자이메일
+			 , #{CUBL_IRS_SUB_ZIP_CD} --청구지종사업장우편번호
+			 , #{COST_CENTER_CD}  --코스트센터코드
+			 , #{COST_CENTER_NM_KOR}  --코스트센터명
+			 , #{DELY_PLACE}  --배송장소[SEQ, STOCCSDM.CUST_CD=2518]
+			 , #{AM_USER_CHANGE_RMK}  --운영사담당자이관사유
+			 , #{AGENT_MEMO}  --운영사메모
+			 , #{REQ_USER_NM}  --요청자명-IF용
+			 , #{REQ_USER_TEL_NUM}  --요청자연락처-IF용
+			 , #{PO_DATE}             --발주일자
+		FROM DUAL
+	</update>
+
+	<!-- 납입지시 Detail : 재고, VMI -->
+	<update id="createDodt" parameterType="hashMap">
+		INSERT INTO STOUDODT
+		(
+			   GATE_CD             --게이트코드
+			 , PO_NO               --발주번호[PO+년(2)+월(2)+000000(6)]
+			 , PO_SEQ              --발주항번
+			 , REG_DATE            --등록일자 - (Registration Date)
+			 , REG_USER_ID         --등록자ID - (Registerer ID)
+			 , DEL_FLAG            --삭제여부
+			 , CUST_CD             --고객사코드[STOCCUST]
+			 , PLANT_CD            --고객사 사업장코드[STOCCUPL]
+			 , PROGRESS_CD         --진행상태코드
+			 , PR_TYPE             --구매유형 [M061]
+			 , CUST_ITEM_CD        --고객사품목코드
+			 , ITEM_CD             --품목코드 - (Item Code)
+			 , ITEM_DESC           --품명 - (Item Name)
+			 , ITEM_SPEC           --규격 - (Item Specification)
+			 , MAKER_CD            --제조사코드[STOCMKBR]
+			 , MAKER_NM            --제조사명 - [Maker Name]
+			 , MAKER_PART_NO       --제조모델번호
+			 , BRAND_CD            --브랜드코드[STOCMKBR-BR]
+			 , BRAND_NM            --브랜드명
+			 , ORIGIN_CD           --원산지코드  - [Origin Country Code]
+			 , UNIT_CD             --기본단위[M037]
+			 , VENDOR_CD           --공급사코드
+			 , MOQ_QTY             --최소주문수량 - [MOQ]
+			 , RV_QTY              --주문배수량 - [Rounding Value Quantity]
+			 , CPO_QTY             --주문수량 - [C. PO Quantity]
+			 , CUR                 --통화 - [Currency]
+			 , CPO_UNIT_PRICE      --주문단가 - [C. PO Unit Price]
+			 , CPO_ITEM_AMT        --주문금액 - [C. PO Amount]
+			 , BD_DEPT_CD          --예산부서코드 - [Budget Department Code]
+			 , ACCOUNT_CD          --계정코드 - [Account Code]
+			 , LEAD_TIME           --표준납기L/T - Lead Time Day
+			 , HOPE_DUE_DATE       --희망납기일 - [Hope Delivery Date]
+			 , RECIPIENT_NM        --인수자명 - [Recipient Name]
+			 , RECIPIENT_DEPT_NM   --인수자 부서명 - [Recipient Department Name]
+			 , RECIPIENT_TEL_NUM   --인수자 전화번호 - [Recipient Telephone No.]
+			 , RECIPIENT_CELL_NUM  --인수자 휴대전화번호 - [Recipient Cell Phone No.]
+			 , RECIPIENT_FAX_NUM   --인수자팩스번호
+			 , RECIPIENT_EMAIL     --인수자이메일
+			 , REQ_TEXT            --요청사항 - [Request Text]
+			 , DELY_ZIP_CD         --납품장소 우편번호 - (Delivery Location Zip Code)
+			 , DELY_ADDR_1         --납품장소 주소 1/2 - (Delivery Location Address 1/2)
+			 , DELY_ADDR_2         --납품장소 주소 2/2 - [Delivery Location Address 2/2]
+			 , ATTACH_FILE_NO      --첨부파일번호 - (Attached File No.)
+			 , GR_COMPLETE_FLAG    --입고완료여부[M044]
+			 , INV_QTY             --납품수량 - [Invoice Quantity]
+			 , GR_QTY              --입고수량 - [G/R Quantity]
+			 , DEAL_CD             --거래유형[MP021]
+			 , LOG_CD              --물류센터코드 [MP105]
+			 , WH_CD               --창고코드 [MP107]
+			 , TC_FLAG             --TC/DC구분 [MP104]
+			 , SG_CTRL_USER_ID     --품목담당자ID
+			 , AM_USER_ID          --구매담당자ID
+			 , DOC_TYPE            --문서 Type[MP017]
+			 , TAX_CD              --과세구분[M036]
+			 , SHIPPER_TYPE        --내/외자구분[M015]
+			 , PRIOR_GR_FLAG       --선입고 여부[M044]
+			 , PO_UNIT_PRICE       --매입단가 - [P/O Unit Price]
+			 , PO_ITEM_AMT         --매입금액 - [P/O Amount]
+			 , CPO_NO              --주문번호 - [C. P/O No.]
+			 , CPO_SEQ             --주문항번 - [C. P/O Sequence]
+			 , RETURN_REMARK       --반품사유
+			 , FORCE_CLOSE_DATE    --주문종결일자 - [Order Forced Close Date]
+			 , FORCE_CLOSE_USER_ID --주문종결자ID - [Order Forced Close User ID]
+			 , FORCE_CLOSE_REASON  --주문종결사유 - [Order Forced Close Reason]
+			 , APPLY_COM           --단가적용 고객사코드
+			 , CONT_NO             --계약번호 - [Contract No.]
+			 , CONT_SEQ            --계약항번 - [Contract Sequnce No.]
+			 , APPLY_PLANT         --단가적용 사업장코드
+			 , AUTO_PO_FLAG        --공급사 자동발주여부[M044]
+			 , IF_CPO_NO           --구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			 , IF_CPO_SEQ          --구매사 I/F 주문항번 - [Buyer I/F P/O Sequence]
+			 , SIGN_STATUS         --문서결재상태
+			 , DELY_TYPE           --납품방법[MP041-직접배송,택배]
+			 , DELY_NM             --배송지명
+			 , CSDM_SEQ            --배송지코드
+			 , CUBL_SQ             --청구지코드
+			 , ACC_CD              --회계코드(운영사)
+			 , CUBL_NM             --청구지명
+			 , CUBL_ZIP_CD         --청구지우편번호
+			 , CUBL_ADDR1          --청구지기본주소
+			 , CUBL_ADDR2          --청구지상세주소
+			 , CUBL_COMPANY_NM     --청구지회사명
+			 , CUBL_IRS_NUM        --청구지사업자번호
+			 , CUBL_CEO_USER_NM    --청구지대표이사명
+			 , CUBL_BUSINESS_TYPE  --청구지업태
+			 , CUBL_INDUSTRY_TYPE  --청구지종목
+			 , CUBL_IRS_SUB_NUM    --청구지종사업장번호
+			 , CUBL_IRS_SUB_ADDR   --청구지종사업장주소
+			 , CUBL_BANK_NM        --청구지은행및지점명
+			 , CUBL_ACCOUNT_NUM    --청구지계좌번호
+			 , CUBL_ACCOUNT_NM     --청구지예금주
+			 , CUBL_USER_NM        --청구지담당자명
+			 , CUBL_USER_TEL_NUM   --청구지담당자전화번호
+			 , CUBL_USER_FAX_NUM   --청구지담당자팩스번호
+			 , CUBL_USER_CELL_NUM  --청구지담당자휴대전화
+			 , CUBL_USER_EMAIL     --청구지담당자이메일
+			 , CUBL_IRS_SUB_ZIP_CD --청구지종사업장우편번호
+			 , COST_CENTER_CD      --코스트센터코드
+			 , COST_CENTER_NM_KOR  --코스트센터명
+			 , DELY_PLACE          --배송장소[SEQ, STOCCSDM.CUST_CD=2518]
+			 , AM_USER_CHANGE_RMK  --운영사담당자이관사유
+			 , AGENT_MEMO          --운영사메모
+			 , REQ_USER_NM         --요청자명-IF용
+			 , REQ_USER_TEL_NUM    --요청자연락처-IF용
+			 , PO_DATE             --발주일자
+		)
+		SELECT
+			   #{ses.gateCd}  	--게이트코드
+			 , #{PO_NO} AS PO_NO
+			 , '1' AS PO_SEQ	--발주항번
+			 ,<include refid="com.sql.sysdate"/> AS REG_DATE  --등록일자 - (Registration Date)
+			 , #{CTRL_USER_ID}  	--등록자ID - (Registerer ID)
+			 , '0' AS DEL_FLAG
+			 , #{BUYER_CD}  	--고객사코드[STOCCUST]
+			 , #{PLANT_CD}  	--고객사 사업장코드[STOCCUPL]
+			 , '5100' AS PROGRESS_CD  	--발주확정대기
+			 , #{PR_TYPE}  	--구매유형 [M061]
+			 , #{CUST_ITEM_CD}  	--고객사품목코드
+			 , #{ITEM_CD}  	--품목코드 - (Item Code)
+			 , #{ITEM_DESC}  	--품명 - (Item Name)
+			 , #{ITEM_SPEC}  	--규격 - (Item Specification)
+			 , #{MAKER_CD}  	--제조사코드[STOCMKBR]
+			 , #{MAKER_NM}  	--제조사명 - [Maker Name]
+			 , #{MAKER_PART_NO}  	--제조모델번호
+			 , #{BRAND_CD}  	--브랜드코드[STOCMKBR-BR]
+			 , #{BRAND_NM}  	--브랜드명
+			 , #{ORIGIN_CD}  	--원산지코드 - [Origin Country Code]
+			 , #{UNIT_CD}  	--기본단위[M037]
+			 , #{VENDOR_CD}  	--공급사코드
+			 , #{MOQ_QTY}  	--최소주문수량 - [MOQ]
+			 , #{RV_QTY}  	--주문배수량 - [Rounding Value Quantity]
+			 , #{CPO_QTY}  	--주문수량 - [C. PO Quantity]
+			 , #{CUR}  	--통화 - [Currency]
+			 , #{CPO_UNIT_PRICE}  	--주문단가 - [C. PO Unit Price]
+			 , #{CPO_ITEM_AMT}  	--주문금액 - [C. PO Amount]
+			 , #{BD_DEPT_CD}  	--예산부서코드 - [Budget Department Code]
+			 , #{ACCOUNT_CD}  	--계정코드 - [Account Code]
+			 , #{LEAD_TIME}  	--표준납기L/T - Lead Time Day
+			 , #{HOPE_DUE_DATE}  	--희망납기일 - [Hope Delivery Date]
+			 , #{RECIPIENT_NM}  	--인수자명 - [Recipient Name]
+			 , #{RECIPIENT_DEPT_NM}  	--인수자 부서명 - [Recipient Department Name]
+			 , #{RECIPIENT_TEL_NUM}  	--인수자 전화번호 - [Recipient Telephone No.]
+			 , #{RECIPIENT_CELL_NUM}  	--인수자 휴대전화번호 - [Recipient Cell Phone No.]
+			 , #{RECIPIENT_FAX_NUM}  	--인수자팩스번호
+			 , #{RECIPIENT_EMAIL}  	--인수자이메일
+			 , #{REQ_TEXT}  	--요청사항 - [Request Text]
+			 , #{DELY_ZIP_CD}  	--납품장소 우편번호 - (Delivery Location Zip Code)
+			 , #{DELY_ADDR_1}  	--납품장소 주소 1/2 - (Delivery Location Address 1/2)
+			 , #{DELY_ADDR_2}  	--납품장소 주소 2/2 - [Delivery Location Address 2/2]
+			 , #{ATTACH_FILE_NO}  	--첨부파일번호 - (Attached File No.)
+			 , '0' AS GR_COMPLETE_FLAG	--입고완료여부[M044]
+			 , 0   AS INV_QTY           --납품수량 - [Invoice Quantity]
+			 , 0   AS GR_QTY            --입고수량 - [G/R Quantity]
+			 , #{DEAL_CD}  	--거래유형[MP021]
+			 , #{LOG_CD}  	--물류센터코드 [MP105]
+			 , #{WH_CD}  	--창고코드 [MP107]
+			 , #{TC_FLAG}  	--TC/DC구분 [MP104]
+			 , #{SG_CTRL_USER_ID}  	--품목담당자ID
+			 , #{AM_USER_ID}  	--구매담당자ID
+			 , #{DOC_TYPE}  	--문서 Type[MP017]
+			 , #{TAX_CD}  	--과세구분[M036]
+			 , #{SHIPPER_TYPE}  	--내/외자구분[M015]
+			 , #{PRIOR_GR_FLAG}  	--선입고 여부[M044]
+			 , #{PO_UNIT_PRICE}  	--매입단가 - [P/O Unit Price]
+			 , #{PO_ITEM_AMT}  	--매입금액 - [P/O Amount]
+			 , #{CPO_NO}  	--주문번호 - [C. P/O No.]
+			 , #{CPO_SEQ}  	--주문항번 - [C. P/O Sequence]
+			 , #{RETURN_REMARK}  	--반품사유
+			 , #{FORCE_CLOSE_DATE}  	--주문종결일자 - [Order Forced Close Date]
+			 , #{FORCE_CLOSE_USER_ID} 	--주문종결자ID - [Order Forced Close User ID]
+			 , #{FORCE_CLOSE_REASON}  	--주문종결사유 - [Order Forced Close Reason]
+			 , #{APPLY_COM}  	--단가적용 고객사코드
+			 , #{CONT_NO}  	--계약번호 - [Contract No.]
+			 , #{CONT_SEQ}  	--계약항번 - [Contract Sequnce No.]
+			 , #{APPLY_PLANT}  	--단가적용 사업장코드
+			 , #{AUTO_PO_FLAG}  	--공급사 자동발주여부[M044]
+			 , #{IF_CPO_NO}  	--구매사 I/F 주문번호 - [Buyer I/F P/O No.]
+			 , #{IF_CPO_SEQ}  	--구매사 I/F 주문항번 - [Buyer I/F P/O Sequence]
+			 , 'E' AS SIGN_STATUS       --문서결재상태
+			 , #{DELY_TYPE}  --납품방법[MP041-직접배송,택배]
+			 , #{DELY_NM}  --배송지명
+			 , #{CSDM_SEQ}  --배송지코드
+			 , #{CUBL_SQ}  --청구지코드
+			 , #{ACC_CD}  --회계코드(운영사)
+			 , #{CUBL_NM}  --청구지명
+			 , #{CUBL_ZIP_CD}  --청구지우편번호
+			 , #{CUBL_ADDR1}  --청구지기본주소
+			 , #{CUBL_ADDR2}  --청구지상세주소
+			 , #{CUBL_COMPANY_NM}  --청구지회사명
+			 , #{CUBL_IRS_NUM}  --청구지사업자번호
+			 , #{CUBL_CEO_USER_NM}  --청구지대표이사명
+			 , #{CUBL_BUSINESS_TYPE}  --청구지업태
+			 , #{CUBL_INDUSTRY_TYPE}  --청구지종목
+			 , #{CUBL_IRS_SUB_NUM}  --청구지종사업장번호
+			 , #{CUBL_IRS_SUB_ADDR}  --청구지종사업장주소
+			 , #{CUBL_BANK_NM}  --청구지은행및지점명
+			 , #{CUBL_ACCOUNT_NUM}  --청구지계좌번호
+			 , #{CUBL_ACCOUNT_NM}  --청구지예금주
+			 , #{CUBL_USER_NM}  --청구지담당자명
+			 , #{CUBL_USER_TEL_NUM}  --청구지담당자전화번호
+			 , #{CUBL_USER_FAX_NUM}  --청구지담당자팩스번호
+			 , #{CUBL_USER_CELL_NUM}  --청구지담당자휴대전화
+			 , #{CUBL_USER_EMAIL}  --청구지담당자이메일
+			 , #{CUBL_IRS_SUB_ZIP_CD} --청구지종사업장우편번호
+			 , #{COST_CENTER_CD}  --코스트센터코드
+			 , #{COST_CENTER_NM_KOR}  --코스트센터명
+			 , #{DELY_PLACE}  --배송장소[SEQ, STOCCSDM.CUST_CD=2518]
+			 , #{AM_USER_CHANGE_RMK}  --운영사담당자이관사유
+			 , #{AGENT_MEMO}  --운영사메모
+			 , #{REQ_USER_NM}  --요청자명-IF용
+			 , #{REQ_USER_TEL_NUM}  --요청자연락처-IF용
+			 , #{PO_DATE}             --발주일자
+		FROM DUAL
+	</update>
+
+	<!-- 2020.09.28 제외 : 발주시 기성 미사용 -->
+	<update id="createPopy" parameterType="hashMap">
+		INSERT INTO STOPPOPY (
+			 GATE_CD
+			,PO_NUM
+			,VENDOR_CD
+			,PAY_CNT
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PAY_CNT_TYPE
+			,PAY_CNT_NM
+			,PAY_PERCENT
+			,SUPPLY_AMT
+			,TAX_AMT
+			,PAY_AMT
+			,VAT_TYPE
+			,PAY_METHOD_NM
+		)
+		SELECT
+			 #{ses.gateCd} --GATE_CD
+			,#{PO_NUM} --PO_NUM
+			,C.VENDOR_CD --VENDOR_CD
+			,C.PAY_CNT --PAY_CNT
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+			,'0' --DEL_FLAG
+			,C.PAY_CNT_TYPE --PAY_CNT_TYPE
+			,C.PAY_CNT_NM --PAY_CNT_NM
+			,C.PAY_PERCENT --PAY_PERCENT
+			,C.SUPPLY_AMT --SUPPLY_AMT
+			,C.TAX_AMT --TAX_AMT
+			,C.PAY_AMT --PAY_AMT
+			,C.VAT_TYPE --VAT_TYPE
+			,C.PAY_METHOD_NM --PAY_METHOD_NM
+		FROM STOPCNHD A JOIN STOPCNVD B ON A.GATE_CD = B.GATE_CD
+										AND A.EXEC_NUM = B.EXEC_NUM
+										AND B.VENDOR_CD = #{VENDOR_CD}
+										AND B.LOC_BUYER_CD = #{LOC_BUYER_CD}
+										AND B.DEL_FLAG = '0'
+						JOIN STOPCNPY C ON C.GATE_CD = B.GATE_CD
+					                    AND C.EXEC_NUM = B.EXEC_NUM
+					                    AND C.VENDOR_CD = B.VENDOR_CD
+					                    AND C.LOC_BUYER_CD = B.LOC_BUYER_CD
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM = #{EXEC_NUM}
+	</update>
+
+	<update id="upsErpInfoNum" parameterType="hashMap">
+		UPDATE STOPINFO SET ERP_INFO_NUM = #{ERP_INFO_NUM}
+		,IF_SEND_FLAG = '1'
+		,IF_SEND_DATE = <include refid="com.sql.sysdate"/>
+		WHERE GATE_CD = #{ses.gateCd}
+		AND LOC_BUYER_CD = #{LOC_BUYER_CD}
+		AND ITEM_CD = #{ITEM_CD}
+		AND PLANT_CD = #{PLANT_CD}
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = #{VENDOR_SQ}
+	</update>
+
+
+    <select id="getSapInfoTargetCnvd" resultType="hashMap">
+		SELECT TOP 1000
+			<include refid="com.sql.nvl"/>((SELECT
+			  BUYER_ITEM_CD
+			  FROM STOCMTGC
+			  WHERE GATE_CD = A.GATE_CD
+			  AND ITEM_CD = A.ITEM_CD
+			  AND BUYER_CD = A.LOC_BUYER_CD
+			),'') MATNR
+
+			,<include refid="com.sql.nvl"/>((SELECT
+			  ERP_VENDOR_CD
+			  FROM STOCVNCM
+			  WHERE GATE_CD = A.GATE_CD
+			  AND VENDOR_CD = A.VENDOR_CD
+			  AND BUYER_CD = A.LOC_BUYER_CD
+			),'') LIFNR
+			,<include refid="com.sql.toDateChar"/>(A.VALID_FROM_DATE, 'YYYYMMDD') ERDAT
+			,A.CTRL_USER_ID ERNAM
+			,'1' UMREZ
+			,'1' UMREN
+			,'SY00' EKORG
+			,'0' ESOKZ
+			,A.PLANT_CD WERKS
+			,A.CTRL_CD EKGRP
+			,A.VAT_DTL_CD MWSKZ
+			,CONVERT(NVARCHAR,CONVERT(NUMERIC,A.UNIT_PRC * 1000)) NETPR
+			,'1000' PEINH
+			,A.ITEM_CD
+			,A.PLANT_CD
+			,A.VENDOR_CD
+			,CONVERT(NVARCHAR,A.VENDOR_SQ) VENDOR_SQ
+			,A.LOC_BUYER_CD
+		FROM STOPINFO A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM IS NOT NULL
+		AND <include refid="com.sql.nvl"/>(IF_SEND_FLAG,'0') = '0'
+		AND A.DEL_FLAG = '0'
+<!-- 		AND A.LOC_BUYER_CD = #{ses.gateCd} -->
+
+
+
+
+		--AND (SELECT SHIPPER_TYPE FROM STOPCNHD WHERE GATE_CD = #{ses.gateCd} AND EXEC_NUM=A.EXEC_NUM) = 'D' -- 내자로 만들어진단가만 전송
+
+	</select>
+
+
+	<select id="CN0140_doSearch" resultType="hashmap">
+		SELECT LOC_BUYER_CD
+			  ,VENDOR_CD
+			  ,<include refid="com.sql.dbo"/>getVendorName(GATE_CD, VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			  ,<include refid="com.sql.dbo"/>getPlantName(GATE_CD, LOC_BUYER_CD, PLANT_CD) AS PLANT_NM
+			  ,ITEM_CD
+			  ,ITEM_DESC
+			  ,ITEM_SPEC
+			  ,UNIT_CD
+			  ,CUR
+			  ,UNIT_PRC
+			  ,VALID_FROM_DATE
+			  ,VALID_TO_DATE
+			  ,<include refid="com.sql.dbo"/>GETCODENAME(GATE_CD, 'M214', VAT_DTL_CD, #{ses.langCd}) AS VAT_DTL_NM
+			  ,<include refid="com.sql.dbo"/>getCtrlName(GATE_CD, BUYER_CD, CTRL_CD, #{ses.langCd}) AS CTRL_NM
+			  ,CONT_NUM
+		FROM STOPINFO A
+	   WHERE GATE_CD = #{ses.gateCd}
+		 AND DEL_FLAG = '0'
+		 <if test="BUYER_CD != '' and BUYER_CD != null">
+			 AND LOC_BUYER_CD IN
+				<foreach item="item" index="index" collection="BUYER_CD_LIST" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+		 </if>
+		 <if test="VENDOR_CD != '' and VENDOR_CD != null">
+		 	AND VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="VENDOR_NM != '' and VENDOR_NM != null">
+		 	AND <include refid="com.sql.dbo"/>getVendorName(GATE_CD, VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="EXPIRE_YN == '1'.toString()">
+		 	AND VENDOR_SQ = (SELECT MAX(B.VENDOR_SQ) FROM STOPINFO B
+		 				     WHERE B.GATE_CD = A.GATE_CD AND B.LOC_BUYER_CD = A.LOC_BUYER_CD AND B.ITEM_CD = A.ITEM_CD AND B.PLANT_CD = A.PLANT_CD AND B.VENDOR_CD = A.VENDOR_CD AND B.DEL_FLAG = '0')
+		 </if>
+		 <if test="EXPIRE_YN == '0'.toString()">
+		 	AND VENDOR_SQ != (SELECT MAX(B.VENDOR_SQ) FROM STOPINFO B
+		 				     WHERE B.GATE_CD = A.GATE_CD AND B.LOC_BUYER_CD = A.LOC_BUYER_CD AND B.ITEM_CD = A.ITEM_CD AND B.PLANT_CD = A.PLANT_CD AND B.VENDOR_CD = A.VENDOR_CD AND B.DEL_FLAG = '0')
+		 </if>
+		 <if test="ITEM_CD != '' and ITEM_CD != null">
+		 	AND ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="ITEM_DESC != '' and ITEM_DESC != null">
+		 	AND ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+		 </if>
+	</select>
+
+	<!-- 임시품목 마스터 등록 -->
+	<insert id="createMtgl" parameterType="hashmap">
+		INSERT INTO STOCMTGL (
+			  GATE_CD
+			, ITEM_CD
+			, REG_DATE
+			, REG_USER_ID
+			, DEL_FLAG
+			, PROGRESS_CD
+			, ITEM_DESC
+			, ITEM_SPEC
+			, ITEM_KIND_CD
+			, MAKER_CD
+			, MAKER_PART_NO
+			, ORIGIN_CD
+			, UNIT_CD
+			, ORD_UNIT_CD
+			, CONV_QT
+			, MIN_ORDER_QT
+			, LEADTIME
+			, VAT_CD
+			, STD_FLAG
+			, TEMP_CD_FLAG
+			, ORDER_HALT_FLAG
+			, ITEM_STATUS
+			, REQ_DATE
+			, REQ_USER_ID
+			, CONF_DATE
+			, CONF_USER_ID
+			, CONF_REMARK
+			, DATA_CREATE_TYPE
+			, DEAL_CD
+			, LOG_CD
+			, WH_CD
+			, DELY_TYPE
+			, CMS_CTRL_USER_ID
+			, SG_CTRL_USER_ID
+		)
+		VALUES (
+			  #{ses.gateCd}
+			, #{ITEM_CD}
+			,<include refid="com.sql.sysdate"/> --REG_DATE
+			,<include refid="com.sql.nvl"/>(#{CONF_USER_ID}, #{ses.userId})
+			, '0'
+			, 'E'
+			, #{ITEM_DESC}
+			, #{ITEM_SPEC}
+			, #{ITEM_KIND_CD}
+			, #{MAKER_CD}
+			, #{MAKER_PART_NO}
+			, #{ORIGIN_CD}
+			, #{UNIT_CD}
+			, #{ORD_UNIT_CD}
+			, #{CONV_QT}
+			, #{MIN_ORDER_QT}
+			, #{LEAD_TIME}
+			, #{TAX_CD}
+			, #{STD_FLAG}
+			, #{TEMP_CD_FLAG}
+			, #{ORDER_HALT_FLAG}
+			, #{ITEM_STATUS}
+			, #{REQ_DATE}
+			, #{REQ_USER_ID}
+			, #{CONF_DATE}
+			, #{CONF_USER_ID}
+			, #{CONF_REMARK}
+			, #{DATA_CREATE_TYPE}
+			, #{DEAL_CD}
+			, #{LOG_CD}
+			, #{WH_CD}
+			, #{DELY_TYPE}
+			, #{CMS_CTRL_USER_ID}
+			, #{SG_CTRL_USER_ID}
+		)
+	</insert>
+
+	<!-- 임시품목 분류 등록 -->
+	<insert id="createMtgc" parameterType="hashmap">
+		INSERT INTO STOCMTGC (
+			  GATE_CD
+			, BUYER_CD
+			, ITEM_CD
+			, M_CATE_YN
+			, P_CATE_YN
+			, ITEM_CLS1
+			, ITEM_CLS2
+			, ITEM_CLS3
+			, ITEM_CLS4
+			, REG_DATE
+			, REG_USER_ID
+			, DEL_FLAG
+			, USE_FLAG
+		)
+		VALUES(
+			  #{ses.gateCd}
+			, #{ses.manageCd}
+			, #{ITEM_CD}
+			, '1'
+			, '0'
+			, #{ITEM_CLS1}	-- 임시 대분류
+			, #{ITEM_CLS2}	-- 임시 중분류
+			, #{ITEM_CLS3}	-- 임시 소분류
+			, #{ITEM_CLS4}	-- 임시 세분류
+			,<include refid="com.sql.sysdate"/>
+			,<include refid="com.sql.nvl"/>(#{CONF_USER_ID}, #{ses.userId})
+			, '0'
+			, '1'
+		)
+	</insert>
+
+	<!-- YINFH 이력 인설트 -->
+	<insert id="createYINFH" parameterType="hashmap">
+		INSERT INTO STOYINFH (
+			 GATE_CD
+			,APPLY_COM
+			,CONT_NO
+			,CONT_SEQ
+			,APPLY_PLANT
+			,ITEM_CD
+			,VENDOR_CD
+			,VALID_FROM_DATE
+			,VALID_TO_DATE
+			,HIS_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,AGENT_CD
+			,ORIGIN_VENDOR_CD
+			,UNIT_CD
+			,CUR
+			,MOQ_QTY
+			,RV_QTY
+			,AREA_NM
+			,CONT_UNIT_PRICE
+			,STD_UNIT_PRICE
+			,QTA_UNIT_PRICE
+			,DEAL_CD
+			,LOG_CD
+			,WH_CD
+			,TC_FLAG
+			,DELY_TYPE
+			,LEAD_TIME
+			,LEAD_TIME_CD
+			,LEAD_TIME_RMK
+			,TAX_CD
+			,CONT_TYPE_CD
+			,ATTACH_FILE_NUM2
+			,PRICE_CHANGE_REASON
+			,PERIOD_CHANGE_REASON
+			,ERP_IF_ID
+			,ERP_IF_SEND_FLAG
+			,VENDOR_ITEM_CD
+			,SIGN_DATE
+			,SIGN_STATUS
+			,APP_DOC_NUM
+			,APP_DOC_CNT
+			,RFX_TYPE
+			,RFX_NUM
+			,RFX_CNT
+			,RFX_SQ
+			,QTA_NUM
+			,QTA_SQ
+			,EXEC_NUM
+			,EXEC_SQ
+			,CMS_CTRL_USER_ID
+        ) VALUES (
+			 #{ses.gateCd}      --GATE_CD
+			,#{APPLY_COM}       --APPLY_COM
+			,#{CONT_NO}         --CONT_NO
+			,#{CONT_SEQ}        --CONT_SEQ
+			,#{APPLY_PLANT}     --APPLY_PLANT
+			,#{ITEM_CD}         --ITEM_CD
+			,#{VENDOR_CD}       --VENDOR_CD
+			,TO_DATE(#{VALID_FROM_DATE}) --VALID_FROM_DATE
+			,TO_DATE(#{VALID_TO_DATE}) --VALID_TO_DATE
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(HIS_SEQ),0) + 1 FROM STOYINFH
+			   WHERE GATE_CD  = #{ses.gateCd}
+				 AND CONT_NO  = #{CONT_NO}
+				 AND CONT_SEQ = #{CONT_SEQ}) --HIS_SEQ
+			,<include refid="com.sql.sysdate"/> --REG_DATE
+			,<include refid="com.sql.nvl"/>(#{CONF_USER_ID}, #{ses.userId}) --REG_USER_ID
+			,null --AGENT_CD
+			,null --ORIGIN_VENDOR_CD
+			,#{UNIT_CD} --UNIT_CD
+			,#{CUR} --CUR
+			,NULL --MOQ_QTY
+			,NULL --RV_QTY
+			,null --AREA_NM
+			,#{CONT_UNIT_PRC} --계약단가
+			,#{SALES_UNIT_PRC} --매출단가
+			,#{QTA_UNIT_PRC} --견적단가
+			,#{DEAL_CD} --DEAL_CD
+			,null --LOG_CD
+			,null --WH_CD
+			,null --TC_FLAG
+			,#{DELY_TYPE} --DELY_TYPE
+			,#{LEAD_TIME} --LEAD_TIME
+			,null --LEAD_TIME_CD
+			,null --LEAD_TIME_RMK
+			,#{TAX_CD} --TAX_CD
+			,null --CONT_TYPE_CD
+			,null --ATTACH_FILE_NUM2
+			,null --PRICE_CHANGE_REASON
+			,null --PERIOD_CHANGE_REASON
+			,null --ERP_IF_ID
+			,'0' --ERP_IF_SEND_FLAG
+			,null --VENDOR_ITEM_CD
+			,null --SIGN_DATE
+			,#{SIGN_STATUS} --SIGN_STATUS
+			,#{APP_DOC_NUM} --APP_DOC_NUM
+			,#{APP_DOC_CNT} --APP_DOC_CNT
+			,null --RFX_TYPE
+			,null --RFX_NUM
+			,null --RFX_CNT
+			,null --RFX_SQ
+			,null --QTA_NUM
+			,null --QTA_SQ
+			,null --EXEC_NUM
+			,null --EXEC_SQ
+			,#{CMS_CTRL_USER_ID} --CMS_CTRL_USER_ID
+
+        )
+	</insert>
+	<!-- UINFH 이력 인설트 -->
+	<insert id="createUINFH" parameterType="hashmap">
+		 INSERT INTO STOUINFH (
+              GATE_CD
+            , CUST_CD
+            , CONT_NO
+            , CONT_SEQ
+            , PLANT_CD
+            , HIS_SQ
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , ITEM_CD
+            , CUR
+            , AFTER_UNIT_PRICE
+            , AFTER_PROFIT_RATIO
+            , CHANGE_CD
+            , CHANGE_REASON
+            , SIGN_DATE
+            , SIGN_STATUS
+        )
+        VALUES(
+              #{ses.gateCd}
+            , #{APPLY_COM}		--CUST_CD
+            , #{CONT_NO}		--CONT_NUM
+            , 1 				--CONT_SEQ
+            , #{APPLY_PLANT}	--PLANT_CD(공통단가)
+            , (SELECT  <include refid="com.sql.nvl"/>(MAX(HIS_SQ),0) + 1 FROM STOUINFH
+            	WHERE GATE_CD = #{ses.gateCd}
+				 AND CONT_NO  = #{CONT_NO}
+				 AND CONT_SEQ = #{CONT_SEQ} --HIS_SEQ
+              )
+            ,<include refid="com.sql.sysdate"/>
+            ,<include refid="com.sql.nvl"/>(#{CONF_USER_ID}, #{ses.userId})
+            , '0'				--DEL_FLAG
+            , #{ITEM_CD}
+            , #{CUR}
+            , #{SALES_UNIT_PRC}
+            , #{SALES_PROFIT_RATE}
+            , '60'				--CHANGE_CD(신규:60)
+            , '신규단가 생성'	--CHANGE_REASON
+            ,<include refid="com.sql.sysdate"/>
+            , 'E'				--SIGN_STATUS
+
+		)
+	</insert>
+
+	<select id="chkYInfo" parameterType="hashmap" resultType="hashMap">
+		SELECT
+				 *
+		FROM STOYINFO
+        WHERE GATE_CD    = #{ses.gateCd}
+        AND APPLY_COM  = #{APPLY_COM}
+	    AND CONT_NO    = #{CONT_NO}
+	    AND CONT_SEQ    = #{CONT_SEQ}
+	    AND APPLY_PLANT= #{APPLY_PLANT}
+	    AND ITEM_CD    = #{ITEM_CD}
+	    AND VENDOR_CD  = #{VENDOR_CD}
+		AND TO_CHAR(VALID_FROM_DATE,'YYYYMMDD') = #{VALID_FROM_DATE}
+	</select>
+
+	<select id="getTargetYInfhList" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			 GATE_CD
+			,APPLY_COM
+			,CONT_NO
+			,CONT_SEQ
+			,APPLY_PLANT
+			,ITEM_CD
+			,VENDOR_CD
+			,TO_CHAR(VALID_FROM_DATE,'YYYYMMDD') VALID_FROM_DATE
+			,HIS_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,AGENT_CD
+			,ORIGIN_VENDOR_CD
+			,UNIT_CD
+			,CUR
+			,MOQ_QTY
+			,RV_QTY
+			,AREA_NM
+			,CONT_UNIT_PRICE
+			,STD_UNIT_PRICE
+			,QTA_UNIT_PRICE
+			,DEAL_CD
+			,LOG_CD
+			,WH_CD
+			,TC_FLAG
+			,DELY_TYPE
+			,LEAD_TIME
+			,LEAD_TIME_CD
+			,LEAD_TIME_RMK
+			,TAX_CD
+			,TO_CHAR(VALID_TO_DATE,'YYYYMMDD') VALID_TO_DATE
+			,CONT_TYPE_CD
+			,ATTACH_FILE_NUM2
+			,PRICE_CHANGE_REASON
+			,PERIOD_CHANGE_REASON
+			,ERP_IF_ID
+			,ERP_IF_SEND_FLAG
+			,VENDOR_ITEM_CD
+			,SIGN_DATE
+			,SIGN_STATUS
+			,APP_DOC_NUM
+			,APP_DOC_CNT
+			,RFX_TYPE
+			,RFX_NUM
+			,RFX_CNT
+			,RFX_SQ
+			,QTA_NUM
+			,QTA_SQ
+			,EXEC_NUM
+			,EXEC_SQ
+			,CMS_CTRL_USER_ID
+		FROM STOYINFH
+		WHERE GATE_CD = #{ses.gateCd}
+		AND APP_DOC_NUM = #{APP_DOC_NUM}
+		AND APP_DOC_CNT = #{APP_DOC_CNT}
+	</select>
+
+	<!-- 기존 품목의 유효한 단가 만료처리 -->
+	<update id="updateValidTodateYInfo" parameterType="hashMap">
+        UPDATE STOYINFO SET
+        	 VALID_TO_DATE = TO_DATE(#{VALID_FROM_DATE},'YYYYMMDD') - 1
+         WHERE GATE_CD     = #{ses.gateCd}
+           AND APPLY_COM   = #{APPLY_COM}
+		   AND APPLY_PLANT = #{APPLY_PLANT}
+		   AND ITEM_CD     = #{ITEM_CD}
+		   --AND VENDOR_CD   = {VENDOR_CD}
+		   AND VALID_FROM_DATE = (SELECT MAX(VALID_FROM_DATE) FROM STOYINFO A
+								    WHERE GATE_CD     = #{ses.gateCd}
+						              AND APPLY_COM   = #{APPLY_COM}
+								      AND APPLY_PLANT = #{APPLY_PLANT}
+								      AND ITEM_CD     = #{ITEM_CD}
+								      --AND VENDOR_CD   = {VENDOR_CD}
+						 		      AND <include refid="com.sql.sysdate"/> <![CDATA[<=]]> A.VALID_TO_DATE
+								  )
+	</update>
+
+	<!-- 단가 생성 후 KEY값 UPDATE -->
+    <update id="doUpdateContInfoCNDT" parameterType="hashMap">
+
+        UPDATE STOPCNDT SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , ITEM_CD = (CASE WHEN #{ITEM_CD} IS NOT NULL AND #{ITEM_CD} != '' THEN #{ITEM_CD} ELSE ITEM_CD END)
+            , APPLY_COM = #{APPLY_COM}
+            , CONT_NO = #{CONT_NO}
+            , CONT_SEQ = #{CONT_SEQ}
+            , APPLY_PLANT = #{APPLY_PLANT}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND EXEC_NUM = #{EXEC_NUM}
+           AND EXEC_CNT = #{EXEC_CNT}
+           AND EXEC_SQ  = #{EXEC_SQ}
+    </update>
+
+	<update id="doReqConfirmUpo" parameterType="hashMap">
+        UPDATE STOUPODT SET
+              PROGRESS_CD 			= #{PROGRESS_CD_M}
+            , DEAL_CD     			= #{DEAL_CD}
+            , VENDOR_CD     		= #{VENDOR_CD}
+            , CPO_ITEM_AMT 	 		= #{CPO_ITEM_AMT}
+            , CPO_UNIT_PRICE  		= #{CPO_UNIT_PRICE}
+            , TEMP_PO_UNIT_PRICE 	= #{PO_UNIT_PRICE}
+            , TEMP_PO_ITEM_AMT 		= #{PO_ITEM_AMT}
+            , CONT_NO	 			= #{CONT_NO}
+            , CONT_SEQ	 			= #{CONT_SEQ}
+            , MOD_DATE 	  			= <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID 			= #{ses.userId}
+        WHERE GATE_CD 	  = #{ses.gateCd}
+        AND CPO_NO 		  = #{CPO_NO}
+        AND CPO_SEQ 	  = #{CPO_SEQ}
+    </update>
+
+	<select id="checEexeckCnt" resultType="string">
+
+		SELECT MAX(EXEC_CNT)+1
+		FROM STOPCNHD
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EXEC_NUM  = #{EXEC_NUM}
+	</select>
+
+	<!-- 고객사의 ERP I/F 여부 가져오기 -->
+    <select id="getCustErpIfFlag" parameterType="hashMap" resultType="String">
+        SELECT <include refid="com.sql.nvl"/>(ERP_IF_FLAG, '0') AS ERP_IF_FLAG
+        	 , (CASE WHEN <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>,'yyyyMMdd') BETWEEN #{VALID_FROM_DATE} AND #{VALID_TO_DATE}
+						  THEN '1'
+				   	 ELSE '0'
+			  	END) AS UNIT_IF_FLAG -- (주)대명소노시즌 : 내부관계사이고, 현재 유효한 단가인 경우에만 DGNS I/F
+		  FROM STOCCUST
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CUST_CD = #{APPLY_COM}
+    </select>
+
+	<select id="getHtmlCnpyList" resultType="hashMap">
+		SELECT
+			   GATE_CD
+			 , EXEC_NUM
+			 , EXEC_CNT
+			 , VENDOR_CD
+			 , PAY_CNT
+			 , REG_DATE
+			 , REG_USER_ID
+			 , MOD_DATE
+			 , MOD_USER_ID
+			 , DEL_FLAG
+			 , APAR_TYPE
+			 , PAY_CNT_TYPE
+			 , PAY_CNT_NM
+			 , PAY_PERCENT
+			 , SUPPLY_AMT
+			 , VAT_AMT
+			 , PAY_AMT
+			 , VAT_TYPE
+			 , PAY_METHOD_TYPE
+			 , PAY_METHOD_NM
+			,<include refid="com.sql.toDateChar"/>(PAY_DUE_DATE,'YYYYMMDD') PAY_DUE_DATE
+		FROM STOPCNPY A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		AND A.VENDOR_CD = #{VENDOR_CD}
+		</if>
+		AND A.DEL_FLAG  = '0'
+		ORDER BY APAR_TYPE DESC
+	</select>
+
+	<select id="gbunFlag" resultType="int">
+		SELECT COUNT(*)
+		FROM STOPCNHD  A
+		LEFT OUTER JOIN STOCSCTM B
+		<if test=' EXEC_GB == "P" or EXEC_GB =="CP"'>
+		  	ON B.APP_DOC_NUM =A.APP_DOC_NUM
+		 	AND B.APP_DOC_CNT =A.APP_DOC_CNT
+	   </if>
+	   <if test=' EXEC_GB == "H" or EXEC_GB =="CH"'>
+		  	ON B.APP_DOC_NUM =A.APP_DOC_NUM2
+		 	AND B.APP_DOC_CNT =A.APP_DOC_CNT2
+	   </if>
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.DEL_FLAG  = '0'
+	    AND B.APP_DOC_NUM IS NOT NULL
+	    AND IF_SIGN_FLAG IS NOT NULL
+	</select>
+
+	<select id="doHtmlSearchCnvd" resultType="hashMap">
+    	SELECT
+		AA.GATE_CD
+		,AA.EXEC_NUM
+		,AA.EXEC_CNT
+		,AA.PR_BUYER_CD
+		,AA.VENDOR_CD
+		,AA.REG_DATE
+		,AA.REG_USER_ID
+		,AA.MOD_DATE
+		,AA.MOD_USER_ID
+		,AA.DEL_FLAG
+		,AA.APAR_TYPE
+		,AA.CUR
+		,AA.SUPPLY_AMT
+		,AA.VAT_AMT
+		,AA.EXEC_AMT
+		,AA.VAT_TYPE
+		,TO_CHAR(AA.DELY_DATE,'YYYY-MM-DD') DELY_DATE
+		,AA.INFO_FLAG
+		,AA.CT_PO_TYPE
+		,AA.GR_IV_DIV
+		,AA.PAY_METHOD
+		,AA.DELY_TERMS
+		,AA.CONT_GUAR_PERCENT
+		,AA.ADV_GUAR_PERCENT
+		,AA.WARR_GUAR_PERCENT
+		,AA.WARR_GUAR_QT
+		,AA.USER_ID
+		,AA.CELL_NO
+		,AA.EMAIL
+		,AA.PAY_TYPE
+		,AA.PAY_CNT
+		,AA.PAY_RMK
+		,AA.RMKS
+		,CASE WHEN AA.APAR_TYPE='S' THEN GETBUYERNAME(#{ses.gateCd},AA.VENDOR_CD,#{ses.langCd})
+		 	  ELSE GETVENDORNAME(#{ses.gateCd},AA.VENDOR_CD,#{ses.langCd})
+		 END VENDOR_NM
+		,D.CONT_GUAR_AMT
+		,D.ADV_GUAR_AMT
+		,D.WARR_GUAR_AMT
+		,D.PAY_METHOD_NM
+		,AA.PR_TYPE
+	FROM(
+		SELECT
+			 A.GATE_CD
+			,A.EXEC_NUM
+			,A.EXEC_CNT
+			,C.BUYER_CD AS PR_BUYER_CD
+			,A.VENDOR_CD
+			,A.REG_DATE
+			,A.REG_USER_ID
+			,A.MOD_DATE
+			,A.MOD_USER_ID
+			,A.DEL_FLAG
+			,A.APAR_TYPE
+			,A.CUR
+			,A.SUPPLY_AMT
+			,A.VAT_AMT
+			,A.EXEC_AMT
+			,A.VAT_TYPE
+			,A.DELY_DATE
+			,A.INFO_FLAG
+			,A.CT_PO_TYPE
+			,A.GR_IV_DIV
+			,A.PAY_METHOD
+			,A.DELY_TERMS
+			,A.CONT_GUAR_PERCENT
+			,A.ADV_GUAR_PERCENT
+			,A.WARR_GUAR_PERCENT
+			,A.WARR_GUAR_QT
+			,A.USER_ID
+			,A.CELL_NO
+			,A.EMAIL
+			,A.PAY_TYPE
+			,A.PAY_CNT
+			,A.PAY_RMK
+			,A.RMKS
+			,C.PR_TYPE
+		FROM STOPCNVD A
+			JOIN STOPCNHD C ON (A.GATE_CD  = C.GATE_CD
+							AND A.EXEC_NUM = C.EXEC_NUM
+							AND A.EXEC_CNT = C.EXEC_CNT)
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.EXEC_NUM  = #{EXEC_NUM}
+			AND A.EXEC_CNT  = #{EXEC_CNT}
+			AND A.DEL_FLAG  = '0'
+		) AA
+		LEFT OUTER JOIN (
+			 SELECT
+	            VENDOR_CD
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'DP',A.PAY_AMT,0))AS CONT_GUAR_AMT
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'PP',A.PAY_AMT,0))AS ADV_GUAR_AMT
+			  , SUM(DECODE(A.PAY_CNT_TYPE,'BP',A.PAY_AMT,0))AS WARR_GUAR_AMT
+			  , MAX(A.PAY_METHOD_NM) AS  PAY_METHOD_NM
+			FROM STOPCNPY A
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.EXEC_NUM  = #{EXEC_NUM}
+			AND A.EXEC_CNT  = #{EXEC_CNT}
+			AND A.DEL_FLAG  = '0'
+			GROUP BY VENDOR_CD
+		)D ON D.VENDOR_CD = AA.VENDOR_CD
+		ORDER BY APAR_TYPE DESC , VENDOR_CD DESC
+	</select>
+
+	<update id="gwSignResult" parameterType="hashMap">
+		UPDATE STOPCNHD SET
+		     IF_SIGN_FLAG	 = #{IF_SIGN_FLAG}
+
+			<if test="APP_DOC_NUM2 == null">
+				,APP_DOC_NUM	 = #{APP_DOC_NUM}
+				,APP_DOC_CNT	 = #{APP_DOC_CNT}
+				,SIGN_STATUS 	 = #{SIGN_STATUS}
+				,PROGRESS_CD	 = #{PROGRESS_CD}
+				,SIGN_DATE 	 	 = <include refid="com.sql.sysdate"/>
+			</if>
+			<if test=" APP_DOC_NUM2 != null">
+				,APP_DOC_NUM2	 = #{APP_DOC_NUM2}
+				,APP_DOC_CNT2	 = #{APP_DOC_CNT2}
+				,SIGN_STATUS2 	 = #{SIGN_STATUS}
+				,SIGN_DATE2 	 = <include refid="com.sql.sysdate"/>
+			</if>
+
+		WHERE GATE_CD 	 = #{ses.gateCd}
+		AND EXEC_NUM     = #{EXEC_NUM}
+		AND EXEC_CNT     = #{EXEC_CNT}
+
+	</update>
+
+	<select id="getBlsmHtml" resultType="hashMap">
+	 WITH EXAMPLE AS
+	 (
+	 	SELECT
+		    IF_SIGN_FLAG
+		   ,PROGRESS_CD
+		  <if test=' EXEC_GB == "P" or EXEC_GB =="CP"'>
+		  ,APP_DOC_NUM
+		  ,APP_DOC_CNT
+		  </if>
+		  <if test=' EXEC_GB == "H" or EXEC_GB =="CH"'>
+		  ,APP_DOC_NUM2 AS APP_DOC_NUM
+		  ,APP_DOC_CNT2 AS APP_DOC_CNT
+		  </if>
+		FROM STOPCNHD  A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.DEL_FLAG  = '0'
+	    AND IF_SIGN_FLAG IS NOT NULL
+
+	 )
+	SELECT
+		 BLSM_HTML
+		,A.APP_DOC_NUM
+		,A.APP_DOC_CNT
+        ,A.SIGN_STATUS
+        ,B.PROGRESS_CD
+        ,(
+		  SELECT count(*)
+		  FROM COM_ELCT_CONFM_IF
+		  WHERE ELCT_CONFM_IF_SEQ = A.APP_DOC_NUM||A.APP_DOC_CNT
+		  AND ELCT_CONFM_STAT_CD != '9'
+		 ) AS COFM_FLAG
+	FROM STOCSCTM  A
+	JOIN EXAMPLE B
+		ON  A.APP_DOC_NUM = B.APP_DOC_NUM
+		AND A.APP_DOC_CNT = B.APP_DOC_CNT
+	WHERE A.GATE_CD = #{ses.gateCd}
+	</select>
+
+	<select id="getLocalItemInfo" resultType="hashMap">
+		SELECT
+			 ITEM_QT*CPO_UNIT_PRICE  AS CPO_UNIT_AMT
+			,ITEM_QT*SALES_UNIT_PRC  AS SALES_UNIT_AMT
+			,ITEM_QT*QTA_UNIT_PRC    AS QTA_UNIT_AMT
+			,SALES_UNIT_PRC
+			,QTA_UNIT_PRC
+			,ITEM_QT
+		FROM STOPCNDT
+		WHERE EXEC_NUM = #{PREV_EXEC_NUM}
+		  AND EXEC_CNT = #{PREV_EXEC_CNT}
+ 		  AND EXEC_SQ  = #{PREV_EXEC_SQ}
+
+	</select>
+	<select id="getPuVendorList" resultType="hashMap">
+		SELECT
+			 DISTINCT EXEC_NUM
+			,EXEC_CNT
+			,RFX_NUM
+			,RFX_CNT
+			,SUBSTR(RFX_NUM,0,2) AS  GUBN
+			, CASE WHEN SUBSTR(RFX_NUM,0,2) ='BD' THEN (
+														SELECT LISTAGG(DISTINCT  VENDOR_NM , ',') WITHIN GROUP (ORDER BY SLT_FLAG DESC ,QTA_AMT ASC,GIVEUP_FLAG)
+														FROM (
+
+																	 SELECT
+																		 ''''|| GETVENDORNAME(#{ses.gateCd},A.VENDOR_CD,#{ses.langCd}) || '''' AS VENDOR_NM
+																		,MAX(B.SLT_FLAG) SLT_FLAG
+																		,A.RFX_NUM
+																		,A.RFX_CNT
+																		,GIVEUP_FLAG
+																		,SUM(B.QTA_AMT) QTA_AMT
+																	FROM(
+																		SELECT
+																			DISTINCT  VENDOR_CD
+																				,RFX_NUM
+																				,RFX_CNT
+																				,<include refid="com.sql.nvl"/>(GIVEUP_FLAG,1) AS GIVEUP_FLAG
+																		FROM STOPBDVN B
+
+																	)A
+																	LEFT JOIN (
+																				SELECT
+																					DISTINCT  VENDOR_CD,SLT_FLAG,RFX_NUM,RFX_CNT,QTA_AMT
+																				FROM STOPBQDT
+																			 )B ON A.RFX_NUM=B.RFX_NUM
+																			   AND A.RFX_CNT=B.RFX_CNT
+																			   AND A.VENDOR_CD=B.VENDOR_CD
+																	GROUP BY 	A.VENDOR_CD,A.RFX_NUM,A.RFX_CNT,GIVEUP_FLAG
+																	ORDER BY MAX(B.SLT_FLAG)
+																	)B
+																WHERE B.RFX_NUM = A.RFX_NUM
+																AND  B.RFX_CNT = A.RFX_CNT
+															  )
+
+
+												  ELSE (
+															SELECT LISTAGG(DISTINCT VENDOR_NM , ',') WITHIN GROUP (ORDER BY SLT_FLAG DESC ,QTA_AMT ASC ,GIVEUP_FLAG)
+															FROM (
+
+																	 SELECT
+																		 ''''|| GETVENDORNAME(#{ses.gateCd},A.VENDOR_CD,#{ses.langCd}) || '''' AS VENDOR_NM
+																		,MAX(B.SLT_FLAG) SLT_FLAG
+																		,A.RFX_NUM
+																		,A.RFX_CNT
+																		,GIVEUP_FLAG
+																		,SUM(B.QTA_AMT) QTA_AMT
+																	FROM(
+																		SELECT
+																			DISTINCT  VENDOR_CD
+																				,RFX_NUM
+																				,RFX_CNT
+																				,<include refid="com.sql.nvl"/>(GIVEUP_FLAG,1) AS GIVEUP_FLAG
+																		FROM STOPRQVN B
+
+																	)A
+																	LEFT JOIN (
+																				SELECT
+																					DISTINCT  VENDOR_CD,SLT_FLAG,RFX_NUM,RFX_CNT,QTA_AMT
+																				FROM STOPQTDT
+																			 )B ON A.RFX_NUM=B.RFX_NUM
+																			   AND A.RFX_CNT=B.RFX_CNT
+																			   AND A.VENDOR_CD=B.VENDOR_CD
+																	GROUP BY 	A.VENDOR_CD,A.RFX_NUM,A.RFX_CNT,GIVEUP_FLAG
+																	ORDER BY MAX(B.SLT_FLAG)
+																	)B
+																WHERE B.RFX_NUM = A.RFX_NUM
+																AND  B.RFX_CNT = A.RFX_CNT
+
+														   )
+			END VENDOR_LIST
+			, CASE WHEN SUBSTR(RFX_NUM,0,2) ='BD' THEN (
+
+														SELECT COUNT(DISTINCT VENDOR_CD) AS CNT
+														FROM STOPBDVN B
+														WHERE B.RFX_NUM = A.RFX_NUM
+														AND  B.RFX_CNT = A.RFX_CNT
+
+													   )
+												  ELSE (
+
+															SELECT COUNT(DISTINCT VENDOR_CD) AS CNT
+															FROM STOPRQVN B
+															WHERE B.RFX_NUM = A.RFX_NUM
+															AND  B.RFX_CNT = A.RFX_CNT
+
+														)
+			END VENDOR_CNT
+	    FROM STOPCNDT A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.DEL_FLAG  = '0'
+
+	</select>
+	<select id="getPuBdItemList" resultType="hashMap">
+		SELECT *
+		  FROM (
+		        SELECT
+					GETVENDORNAME(BDVN.GATE_CD, BDVN.VENDOR_CD, 'KO') AS VENDOR_NM
+				   ,BDDT.ITEM_DESC
+				   ,BDDT.UNIT_CD
+				   ,BDDT.RFX_QT
+				   ,BQDT.QTA_AMT AS QTA_AMT
+			   	   ,BDDT.RFX_SQ
+				FROM(
+					SELECT
+					   BDVO.VENDOR_CD
+					  ,MAX(BDVO.QTA_CNT) AS QTA_CNT
+					  ,BDVO.GATE_CD
+					  ,BDVO.RFX_NUM
+					  ,BDVO.RFX_CNT
+					FROM STOPBDVO BDVO
+					WHERE BDVO.RFX_NUM  = #{RFX_NUM}
+					AND  BDVO.RFX_CNT  = #{RFX_CNT}
+					AND  BDVO.GATE_CD  = #{ses.gateCd}
+					AND  BDVO.DEL_FLAG = '0'
+					GROUP BY BDVO.VENDOR_CD,BDVO.RFX_NUM,BDVO.RFX_CNT,BDVO.GATE_CD
+					) B
+				LEFT JOIN STOPBDVN BDVN
+					ON  B.RFX_NUM = BDVN.RFX_NUM
+					AND B.RFX_CNT = BDVN.RFX_CNT
+					AND B.VENDOR_CD= BDVN.VENDOR_CD
+				LEFT JOIN STOPBQDT BQDT
+					ON  B.RFX_NUM = BQDT.RFX_NUM
+					AND B.RFX_CNT = BQDT.RFX_CNT
+					AND B.QTA_CNT = BQDT.QTA_CNT
+					AND BDVN.RFX_SQ   = BQDT.QTA_SQ
+					AND B.VENDOR_CD= BQDT.VENDOR_CD
+				LEFT JOIN STOPBDDT BDDT
+					ON  B.RFX_NUM = BDDT.RFX_NUM
+					AND B.RFX_CNT = BDDT.RFX_CNT
+					AND BQDT.RFX_SQ = BDDT.RFX_SQ
+				 ORDER BY SLT_FLAG DESC,	BQDT.QTA_CNT DESC,<include refid="com.sql.nvl"/>(BDVN.GIVEUP_FLAG,1) ASC,BDDT.RFX_SQ
+
+		       )
+		 PIVOT (
+		         MAX ( QTA_AMT)
+		         FOR VENDOR_NM IN (${VENDOR_LIST})
+
+		       )
+		 WHERE ITEM_DESC IS NOT NULL
+		 ORDER BY RFX_SQ
+	</select>
+	<select id="getPuRqItemList" resultType="hashMap">
+			 SELECT *
+			  FROM (
+			         SELECT  B.ITEM_DESC
+			         		,GETVENDORNAME(#{ses.gateCd},VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+			         		,QTA_AMT,B.RFX_SQ
+			         		,B.UNIT_CD
+			         		,B.RFX_QT
+			           FROM STOPQTDT A
+			           LEFT JOIN STOPRQDT B
+			           		ON  B.RFX_NUM = A.RFX_NUM
+			           		AND B.RFX_CNT = A.RFX_CNT
+			           		AND B.RFX_SQ  = A.RFX_SQ
+
+			           WHERE A.RFX_NUM =#{RFX_NUM}
+			           AND  A.RFX_CNT =#{RFX_CNT}
+
+			       )
+			  PIVOT (
+			         MAX ( QTA_AMT)
+			         FOR VENDOR_NM IN (${VENDOR_LIST})
+			       )
+			  ORDER BY RFX_SQ
+	</select>
+
+	<select id="doHtmlChCndt" resultType="hashMap">
+
+		WITH  ITEM_TABLE AS
+		(
+			SELECT
+			 *
+		    FROM(
+			    	SELECT
+						  ITEM_CD
+						, ITEM_DESC
+						, ITEM_SPEC
+					FROM STOPCNDT A
+					WHERE A.GATE_CD = #{ses.gateCd}
+					AND A.EXEC_NUM  = #{EXEC_NUM}
+					AND A.EXEC_CNT  = TO_NUMBER(#{EXEC_CNT})-1
+					AND A.DEL_FLAG  = '0'
+					UNION ALL
+					SELECT
+						  ITEM_CD
+						, ITEM_DESC
+						, ITEM_SPEC
+					FROM STOPCNDT A
+					WHERE A.GATE_CD = #{ses.gateCd}
+					AND A.EXEC_NUM  = #{EXEC_NUM}
+					AND A.EXEC_CNT  = #{EXEC_CNT}
+					AND A.DEL_FLAG  = '0'
+		        ) A
+			 GROUP BY ITEM_CD
+					, ITEM_DESC
+					, ITEM_SPEC
+		)
+		SELECT
+			    ITEM_CD
+			  , ITEM_DESC
+			  , ITEM_SPEC
+			  , UNIT_CD
+			  , DT1_ITEM_QT
+			  , DT2_ITEM_QT
+			  , DT1_CPO_UNIT_AMT
+			  , DT2_CPO_UNIT_AMT
+			  , DT1_SALES_UNIT_AMT
+			  , DT2_SALES_UNIT_AMT
+			  , DT1_QTA_UNIT_AMT
+			  , DT2_QTA_UNIT_AMT
+			  , DT1_SALES_UNIT_PRC
+			  , DT2_SALES_UNIT_PRC
+			  , DT1_QTA_UNIT_PRC
+			  , DT2_QTA_UNIT_PRC
+			  , DT2_ITEM_QT-DT1_ITEM_QT AS DT3_ITEM_QT
+			  , DT2_CPO_UNIT_AMT-DT1_CPO_UNIT_AMT AS DT3_CPO_UNIT_AMT
+			  , DT2_SALES_UNIT_AMT-DT1_SALES_UNIT_AMT AS DT3_SALES_UNIT_AMT
+			  , DT2_QTA_UNIT_AMT-DT1_QTA_UNIT_AMT AS DT3_QTA_UNIT_AMT
+			  , DT2_SALES_UNIT_PRC-DT1_SALES_UNIT_PRC AS DT3_SALES_UNIT_PRC
+			  , DT2_QTA_UNIT_PRC-DT1_QTA_UNIT_PRC AS DT3_QTA_UNIT_PRC
+	  	      , ROUND(<include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(DT2_SALES_UNIT_AMT,null)/DECODE(DT1_SALES_UNIT_AMT, 0, NULL, DT1_SALES_UNIT_AMT),0)*100,2) AS DT3_SALES_UNIT_RATE
+
+
+
+		FROM(
+			SELECT
+			   TB.ITEM_CD
+			  ,TB.ITEM_DESC
+			  ,TB.ITEM_SPEC
+			  ,DT2.UNIT_CD
+			  ,<include refid="com.sql.nvl"/>(DT1.ITEM_QT,0) AS DT1_ITEM_QT
+			  ,<include refid="com.sql.nvl"/>(DT2.ITEM_QT,0) AS DT2_ITEM_QT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT1.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT1.CPO_UNIT_PRICE,0)) AS DT1_CPO_UNIT_AMT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT2.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT2.CPO_UNIT_PRICE,0)) AS DT2_CPO_UNIT_AMT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT1.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT1.SALES_UNIT_PRC,0)) AS DT1_SALES_UNIT_AMT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT2.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT2.SALES_UNIT_PRC,0)) AS DT2_SALES_UNIT_AMT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT1.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT1.QTA_UNIT_PRC,0)) AS DT1_QTA_UNIT_AMT
+			  , ROUND( <include refid="com.sql.nvl"/>(DT2.ITEM_QT,0) *  <include refid="com.sql.nvl"/>(DT2.QTA_UNIT_PRC,0)) AS DT2_QTA_UNIT_AMT
+			  , <include refid="com.sql.nvl"/>(DT1.SALES_UNIT_PRC,0)  AS DT1_SALES_UNIT_PRC
+			  , <include refid="com.sql.nvl"/>(DT2.SALES_UNIT_PRC,0)  AS DT2_SALES_UNIT_PRC
+			  , <include refid="com.sql.nvl"/>(DT1.QTA_UNIT_PRC,0)    AS DT1_QTA_UNIT_PRC
+			  , <include refid="com.sql.nvl"/>(DT2.QTA_UNIT_PRC,0)    AS DT2_QTA_UNIT_PRC
+
+			FROM ITEM_TABLE TB
+			LEFT JOIN STOPCNDT DT1
+				ON  <include refid="com.sql.nvl"/>(DT1.ITEM_CD,'-')   = <include refid="com.sql.nvl"/>(TB.ITEM_CD,'-')
+				AND DT1.ITEM_DESC = TB.ITEM_DESC
+				AND DT1.ITEM_SPEC = TB.ITEM_SPEC
+				AND DT1.EXEC_NUM  = #{EXEC_NUM}
+				AND DT1.EXEC_CNT  = TO_NUMBER(#{EXEC_CNT})-1
+			LEFT JOIN STOPCNDT DT2
+				ON  <include refid="com.sql.nvl"/>(DT2.ITEM_CD,'-')   = <include refid="com.sql.nvl"/>(TB.ITEM_CD,'-')
+				AND DT2.ITEM_DESC = TB.ITEM_DESC
+				AND DT2.ITEM_SPEC = TB.ITEM_SPEC
+				AND DT2.EXEC_NUM  = #{EXEC_NUM}
+				AND DT2.EXEC_CNT  = #{EXEC_CNT}
+		)
+
+
+
+	</select>
+	<select id="getHtmlCnpyListSum" resultType="hashMap">
+		SELECT
+			   VENDOR_CD
+			 , APAR_TYPE
+			 , <include refid="com.sql.nvl"/>(SUM(SUPPLY_AMT),0) AS SUPPLY_AMT
+			 , <include refid="com.sql.nvl"/>(SUM(CASE WHEN PAY_CNT_TYPE ='BP' THEN PAY_PERCENT END ),0) AS BP_PAY_PERCENT
+			 , <include refid="com.sql.nvl"/>(SUM(CASE WHEN PAY_CNT_TYPE ='DP' THEN PAY_PERCENT END ),0) AS DP_PAY_PERCENT
+			 , <include refid="com.sql.nvl"/>(SUM(CASE WHEN PAY_CNT_TYPE ='PP' THEN PAY_PERCENT END ),0) AS PP_PAY_PERCENT
+
+
+		FROM STOPCNPY A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.EXEC_NUM  = #{EXEC_NUM}
+		AND A.EXEC_CNT  = #{EXEC_CNT}
+		AND A.DEL_FLAG  = '0'
+		GROUP BY   VENDOR_CD
+		         , APAR_TYPE
+
+		ORDER BY APAR_TYPE DESC , VENDOR_CD DESC
+	</select>
+</mapper>

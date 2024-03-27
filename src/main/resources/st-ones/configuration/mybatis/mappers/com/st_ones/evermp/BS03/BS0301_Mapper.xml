@@ -1,0 +1,3143 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS03.BS0301_Mapper">
+
+    <select id="bs03001_doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT
+             VNGL.VENDOR_CD
+            ,VNGL.VENDOR_NM
+            ,VNGL.CEO_USER_NM
+            ,VNGL.IRS_NO
+            ,VNGL.HQ_ADDR_1 <include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/> VNGL.HQ_ADDR_2 AS ADDRESS
+            ,VNGL.TEL_NO
+            ,VNGL.BUSINESS_TYPE
+            ,VNGL.INDUSTRY_TYPE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD, 'MP006', VNGL.BLOCK_FLAG, 0,#{ses.langCd}) AS BLOCK_FLAG
+
+            ,VNGL.PROGRESS_CD
+            ,VNGL.SIGN_STATUS
+            ,VNGL.BLOCK_REASON
+            ,VNCP.USER_NM AS PIC_USER_NM
+            ,VNCP.TEL_NUM AS PIC_TEL_NO
+            ,VNCP.CELL_NUM AS PIC_CELL_NO
+            ,VNCP.EMAIL AS PIC_EMAIL
+            ,VNGL.REG_DATE
+            ,VNGL.ACCOUNT_M_NUM
+            ,VNGL.GROUP_YN
+            ,VNGL.APP_DOC_NUM
+            ,VNGL.APP_DOC_CNT
+            ,VNGL.SIGN_STATUS
+			<if test="_databaseId == 'mssql'">
+
+            ,STUFF(( SELECT ',' <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETCOMCODE(RG.GATE_CD, 'MP005', RG.REGION_CD, 0,#{ses.langCd})
+                    FROM STOCVNRG RG
+                    WHERE RG.GATE_CD = VNGL.GATE_CD
+                    AND RG.VENDOR_CD = VNGL.VENDOR_CD
+                    AND RG.DEL_FLAG = '0'
+                    FOR XML PATH('')
+                    ),1,1,'') AS AREA_NM
+			</if>
+			<if test="_databaseId == 'oracle'">
+
+            ,( SELECT LISTAGG(<include refid="com.sql.dbo"/>GETCOMCODE(RG.GATE_CD, 'MP005', RG.REGION_CD, 0,#{ses.langCd}), ',')
+                    FROM STOCVNRG RG
+                    WHERE RG.GATE_CD = VNGL.GATE_CD
+                    AND RG.VENDOR_CD = VNGL.VENDOR_CD
+                    AND RG.DEL_FLAG = '0'
+                    ) AS AREA_NM
+			</if>
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCVNGH WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD)
+        <![CDATA[ > ]]>  1 THEN 'Y' ELSE '' END HISTORY_YN
+
+        ,(SELECT COUNT(*)
+        FROM STOCSPEV K
+        WHERE K.GATE_CD = VNGL.GATE_CD
+        AND K.VENDOR_CD = VNGL.VENDOR_CD
+        AND K.DEL_FLAG = '0') AS EV_CNT
+
+        ,VNGL.BASIC_ATT_FILE_NUM
+        ,VNGL.BIZ_ATT_FILE_NUM
+        ,VNGL.ID_ATT_FILE_NUM
+        ,VNGL.PRICE_ATT_FILE_NUM
+        ,VNGL.CERTIFI_ATT_FILE_NUM
+        ,VNGL.BANKBOOK_ATT_FILE_NUM
+        ,VNGL.SIGN_ATT_FILE_NUM
+        ,VNGL.CONTRACT_ATT_FILE_NUM
+        ,VNGL.SECRET_ATT_FILE_NUM
+        ,VNGL.IMGAGREE_ATT_FILE_NUM
+        ,VNGL.PRIVATE_ATT_FILE_NUM
+        ,VNGL.ATTACH_FILE_NO
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.BASIC_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN '' ELSE
+        'Y' END BASIC_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.BIZ_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN '' ELSE
+        'Y' END BIZ_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.ID_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN '' ELSE
+        'Y' END ID_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.PRICE_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN '' ELSE
+        'Y' END PRICE_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.CERTIFI_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END CERTIFI_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.BANKBOOK_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END BANKBOOK_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.SIGN_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN '' ELSE
+        'Y' END SIGN_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.CONTRACT_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END CONTRACT_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.SECRET_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END SECRET_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.IMGAGREE_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END IMGAGREE_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.PRIVATE_ATT_FILE_NUM )  <![CDATA[ < ]]> 1 THEN ''
+        ELSE 'Y' END PRIVATE_ATT_FILE_YN
+        ,CASE WHEN (SELECT COUNT(*) FROM STOCATCH WHERE UUID = VNGL.ATTACH_FILE_NO )  <![CDATA[ < ]]> 1 THEN '' ELSE 'Y'
+        END ATTACH_FILE_YN
+        ,VNGL.E_BILL_ASP_TYPE
+        ,(SELECT COUNT(*)
+        FROM STOCSPEV SPEV
+        WHERE SPEV.GATE_CD = VNGL.GATE_CD
+        AND SPEV.VENDOR_CD = VNGL.VENDOR_CD
+        AND VNGL.DEL_FLAG = '0') AS SPEV_CNT
+
+
+        ,getUserName( VNGL.GATE_CD, VNGL.REG_USER_ID, #{ses.langCd}) REG_USER_NM
+
+        ,VNGL.MAJOR_ITEM_NM
+        ,VNGL.MAKER_NM
+        ,SPEV.EV_RESULT_SCORE
+        ,(SELECT COUNT(*)
+        FROM STOCSGVN K
+        WHERE K.GATE_CD = VNGL.GATE_CD
+        AND K.VENDOR_CD = VNGL.VENDOR_CD
+        AND K.DEL_FLAG = '0') AS SG_CNT
+        ,VNGL.SIGN_DATE
+        ,(SELECT COUNT(DISTINCT RQVN.RFX_NUM)
+        FROM STOPRQVN RQVN
+        WHERE RQVN.VENDOR_CD = VNGL.VENDOR_CD
+        AND RQVN.GATE_CD = VNGL.GATE_CD
+        AND RQVN.DEL_FLAG = '0'
+        AND RQVN.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) -- 견적참여
+        <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+        (SELECT COUNT(*)
+        FROM STOPQTHD QTHD
+        WHERE QTHD.GATE_CD = VNGL.GATE_CD
+        AND QTHD.VENDOR_CD = VNGL.VENDOR_CD
+        AND QTHD.DEL_FLAG = '0'
+        AND QTHD.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) -- 견적투찰
+        <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+        (SELECT COUNT(*)
+        FROM STOPQTDT QTDT
+        WHERE QTDT.GATE_CD = VNGL.GATE_CD
+        AND QTDT.VENDOR_CD = VNGL.VENDOR_CD
+        AND QTDT.DEL_FLAG = '0'
+        AND QTDT.SLT_FLAG = '1'
+        AND QTDT.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) AS RQ_HIST -- 견적선정
+
+        ,(SELECT COUNT(DISTINCT BDVN.RFX_NUM)
+        FROM STOPBDVN BDVN
+        WHERE BDVN.VENDOR_CD = VNGL.VENDOR_CD
+        AND BDVN.GATE_CD = VNGL.GATE_CD
+        AND BDVN.DEL_FLAG = '0'
+        AND BDVN.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) -- 입찰참여
+        <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+        (SELECT COUNT(*)
+        FROM STOPBQHD BQHD
+        WHERE BQHD.VENDOR_CD = VNGL.VENDOR_CD
+        AND BQHD.GATE_CD = VNGL.GATE_CD
+        AND BQHD.DEL_FLAG = '0'
+        AND BQHD.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) -- 입찰투찰
+        <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/>
+        (SELECT COUNT(*) FROM STOPBQDT BQDT
+	      WHERE BQDT.VENDOR_CD = VNGL.VENDOR_CD
+	        AND BQDT.GATE_CD   = VNGL.GATE_CD
+	        AND BQDT.DEL_FLAG  = '0'
+	        AND BQDT.SLT_FLAG  = '1'
+	        AND BQDT.REG_DATE BETWEEN SYSDATE-730 AND SYSDATE) AS BD_HIST -- 입찰선정
+        ,(SELECT COUNT(*) FROM STOCEVES ES
+	        JOIN STOCEVEM EM
+		         ON (EM.GATE_CD = ES.GATE_CD
+		         AND EM.EV_NUM  = ES.EV_NUM)
+	        WHERE ES.VENDOR_CD = VNGL.VENDOR_CD
+	          AND ES.DEL_FLAG  = '0'
+	          AND EM.EV_TYPE   = 'E') AS EV_HIST	--정기평가
+        FROM STOCVNGL VNGL
+	<if test="SG_NUM !='' and SG_NUM!= null">
+        JOIN (
+	        SELECT
+		        T.*
+		        ,T.CLS01 <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS02 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+		        <include refid="com.sql.nvl"/>(T.CLS02,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS03 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+		        <include refid="com.sql.nvl"/>(T.CLS03,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS04 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+		        <include refid="com.sql.nvl"/>(T.CLS04,'') AS SG_CLS_PATH
+		        ,'Y' AS INSERT_FLAG
+		        ,T.SG_NUM AS P_SG_NUM
+		        ,T.VENDOR_CD AS P_VENDOR_CD
+	        FROM(
+		        SELECT
+			        <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 1, SGVN.SG_NUM) AS CLS01
+			        ,<include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 2, SGVN.SG_NUM) AS CLS02
+			        ,<include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 3, SGVN.SG_NUM) AS CLS03
+			        ,<include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 4, SGVN.SG_NUM) AS CLS04
+			        ,SGVN.VENDOR_CD
+			        ,<include refid="com.sql.dbo"/>GETVENDORNAME(SGVN.GATE_CD, SGVN.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			        ,(SELECT MAJOR_ITEM_NM FROM STOCVNGL WHERE GATE_CD= SGVN.GATE_CD AND VENDOR_CD = SGVN.VENDOR_CD) AS MAJOR_ITEM_TEXT
+			        ,SGVN.GATE_CD AS GATE_CD
+			        ,SGVN.SG_NUM
+		        FROM STOCSGVN SGVN
+		        WHERE SGVN.GATE_CD = #{ses.gateCd}
+		        AND SGVN.DEL_FLAG = '0'
+
+	        <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+	            AND SGVN.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+	            AND <include refid="com.sql.dbo"/>GETVENDORNAME(SGVN.GATE_CD, SGVN.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+	        </if>
+	        ) T
+	        WHERE
+	        <if test="SG_NUM!='' and SG_NUM !=null">
+	            (T.CLS01 <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS02 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	            <include refid="com.sql.nvl"/>(T.CLS02,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS03 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	            <include refid="com.sql.nvl"/>(T.CLS03,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS04 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	            <include refid="com.sql.nvl"/>(T.CLS04,'')) <include refid="com.sql.likeL"/>#{SG_NUM}<include refid="com.sql.likeR"/>
+	        </if>
+        ) T  ON VNGL.GATE_CD = T.GATE_CD
+        AND VNGL.VENDOR_CD = T.VENDOR_CD
+	</if>
+        LEFT OUTER JOIN (
+        SELECT
+	        SPEV.GATE_CD
+	        , SPEV.VENDOR_CD
+	        , SPEV.DELIVERY_LEVEL
+	        , SPEV.CONFIRM_DATE
+	        , SPEV.CONFIRM_USER_ID
+	        , SPEV.EVAL_USER_ID
+	        , SPEV.EVAL_DATE
+	        , SPEV.PROGRESS_CD
+	        , SPEV.DEL_FLAG
+	        , SPEV.REJECT_CONFIRM_USER_ID
+	        , SPEV.REJECT_CONFIRM_DATE
+	        ,  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+	        <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) AS EV_RESULT_SCORE
+        FROM STOCSPEV SPEV, (SELECT VENDOR_CD,MAX(SEQ) MAXSEQ FROM STOCSPEV GROUP BY VENDOR_CD) MAXSEQ
+        WHERE 1 = 1
+        AND SPEV.VENDOR_CD  = MAXSEQ.VENDOR_CD
+        AND SPEV.SEQ 		  = MAXSEQ.MAXSEQ
+        ) SPEV ON VNGL.GATE_CD = SPEV.GATE_CD
+        AND VNGL.VENDOR_CD = SPEV.VENDOR_CD
+        LEFT OUTER JOIN ( SELECT GATE_CD
+                                , VENDOR_CD
+                                , USER_NM
+                                , TEL_NUM
+                                , CELL_NUM
+                                , EMAIL
+                                , DEL_FLAG
+                           FROM STOCVNCP
+                           WHERE GATE_CD = #{ses.gateCd}
+                             AND DEL_FLAG = '0'
+                             AND SALES_FLAG = '1'
+                             AND PERSON_SQ = (SELECT MIN(PERSON_SQ)
+                                                FROM STOCVNCP CP
+                                               WHERE GATE_CD = #{ses.gateCd}
+                                                 AND DEL_FLAG = '0'
+                                                 AND SALES_FLAG = '1')
+                         )VNCP
+        ON VNGL.GATE_CD = VNCP.GATE_CD
+         AND VNGL.VENDOR_CD = VNCP.VENDOR_CD
+        WHERE VNGL.GATE_CD = #{ses.gateCd}
+          AND VNGL.DEL_FLAG = '0'
+		  AND VNGL.SIGN_STATUS = 'E' --결재상태 : 승인(E)
+		  AND VNGL.PROGRESS_CD = 'E' --진행상태 : 승인(E)
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND UPPER(VNGL.VENDOR_CD) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND UPPER(VNGL.VENDOR_NM) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MAJOR_ITEM_CD != '' and MAJOR_ITEM_CD != null">
+            AND VNGL.MAJOR_ITEM_NM <include refid="com.sql.likeL"/> #{MAJOR_ITEM_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            AND VNGL.PROGRESS_CD = #{PROGRESS_CD}
+        </if> -->
+        <if test="IRS_NO != '' and IRS_NO != null">
+            AND VNGL.IRS_NO <include refid="com.sql.likeL"/> #{IRS_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BLOCK_YN != '' and BLOCK_YN != null">
+            AND VNGL.BLOCK_FLAG = #{BLOCK_YN}
+        </if>
+        <if test="FROM_DATE != '' and FROM_DATE != null">
+            AND VNGL.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="TO_DATE != '' and TO_DATE != null">
+            AND VNGL.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CEO_NM != '' and CEO_NM != null">
+            AND VNGL.CEO_USER_NM <include refid="com.sql.likeL"/> #{CEO_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="MAKER_NM != '' and MAKER_NM != null">
+            AND VNGL.MAKER_NM <include refid="com.sql.likeL"/> #{MAKER_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY VNGL.REG_DATE DESC
+
+    </select>
+
+
+    <select id="getCreditHist" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			 VNGL.VENDOR_CD
+            ,VNGL.PROGRESS_CD
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD,'M019',VNGL.PROGRESS_CD,'0',#{ses.langCd})
+             <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD,'M020',VNGL.SIGN_STATUS,'0',#{ses.langCd}) AS PROGRESS_NM
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(VNGL.MOD_DATE,'YYYY-MM-DD') AS MOD_INFO
+            ,VNGL.SIGN_STATUS
+            ,VNGL.SIGN_DATE
+            ,SPEV.EV_RESULT_SCORE
+            ,VNGL.VENDOR_NM
+            ,VNGL.VENDOR_ENG_NM
+            ,VNGL.IRS_NO
+            ,VNGL.REG_TYPE
+            ,VNGL.IRS_NO
+            ,VNGL.CEO_USER_NM
+            ,VNGL.HQ_ZIP_CD
+            ,VNGL.HQ_ADDR_1
+            ,VNGL.HQ_ADDR_2
+            ,VNGL.PLANT_ZIP_CD
+            ,VNGL.PLANT_ADDR_1
+            ,VNGL.PLANT_ADDR_2
+            ,VNGL.TEL_NO
+            ,VNGL.FAX_NO
+            ,VNGL.EMAIL
+            ,VNGL.BUSINESS_TYPE
+            ,VNGL.INDUSTRY_TYPE
+            ,VNGL.EMPLOYEE_CNT
+            ,VNGL.COMPANY_REG_NO
+            ,<include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE, 'yyyyMMdd') AS FOUNDATION_DATE
+            ,<include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE, 'yyyy-MM-dd') AS FOUNDATION_DATE_HOMEPAGE
+            ,VNGL.SALES_AMT
+            ,VNGL.IPO_FLAG
+            ,<include refid="com.sql.toDateChar"/>(VNGL.IPO_DATE, 'yyyyMMdd') AS IPO_DATE
+            ,<include refid="com.sql.toDateChar"/>(VNGL.IPO_DATE, 'yyyy-MM-dd') AS IPO_DATE_HOMEPAGE
+            ,VNGL.CREDIT_CD
+            ,VNGL.ATTACH_FILE_NO
+            ,VNGL.AREA_NM
+            ,VNGL.MRO_COMPANY_NM
+            ,VNGL.VEHICLE_CNT
+            ,VNGL.MAJOR_ITEM_NM
+            ,VNGL.BLOCK_FLAG
+            ,VNGL.BLOCK_REASON
+            ,VNGL.ERP_IF_ID
+            ,VNGL.ERP_VENDOR_CD
+            ,VNGL.ERP_IF_SEND_FLAG
+            ,VNGL.REMARK_TEXT
+			<if test="_databaseId == 'mssql'">
+             ,'' AS MAJOR_ITEM_CD
+            ,STUFF((SELECT ',' <include refid="com.sql.stringMerge"/> RG.REGION_CD
+                      FROM STOCVNRG RG
+                     WHERE RG.GATE_CD = VNGL.GATE_CD
+                       AND RG.VENDOR_CD = VNGL.VENDOR_CD
+                       FOR XML PATH('')
+                   ),1,1,'') AS REGION_CD
+			</if>
+			<if test="_databaseId == 'oracle'">
+            ,'' AS MAJOR_ITEM_CD
+            ,(SELECT LISTAGG(RG.REGION_CD, ',')
+                FROM STOCVNRG RG
+               WHERE RG.GATE_CD = VNGL.GATE_CD
+                 AND RG.VENDOR_CD = VNGL.VENDOR_CD
+              ) AS REGION_CD
+			</if>
+			,VNGL.SIGN_STATUS
+			,VNGL.APP_DOC_NUM
+			,VNGL.APP_DOC_CNT
+            ,VNGL.BUSINESS_SIZE
+            ,VNGL.BUSINESS_DIVISION
+            ,VNGL.HOMEPAGE_URL
+            ,VNGL.DELIVERY_TYPE
+            ,VNGL.DEAL_TYPE
+            ,VNGL.MAJOR_CUSTOMERS
+            ,VNGL.IOS_TYPE
+            ,VNGL.DELIVERY_LEVEL
+            ,VNGL.LICENSE_YN
+            ,VNGL.GROUP_YN
+            ,VNGL.TAX_TYPE
+            ,VNGL.ACCOUNT_M_NUM
+            ,VNGL.BUSINESS_REMARK
+            ,VNGL.REG_REQ_INFO
+            ,VNGL.C_MANAGER_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.C_MANAGER_USER_ID, #{ses.langCd}) AS C_MANAGER_USER_NM
+            ,VNGL.ACCOUNT_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.ACCOUNT_USER_ID, #{ses.langCd}) AS ACCOUNT_USER_NM
+            ,VNGL.BASIC_ATT_FILE_NUM
+            ,VNGL.BIZ_ATT_FILE_NUM
+            ,VNGL.ID_ATT_FILE_NUM
+            ,VNGL.PRICE_ATT_FILE_NUM
+            ,VNGL.CERTIFI_ATT_FILE_NUM
+            ,VNGL.BANKBOOK_ATT_FILE_NUM
+            ,VNGL.SIGN_ATT_FILE_NUM
+            ,VNGL.CONTRACT_ATT_FILE_NUM
+            ,VNGL.SECRET_ATT_FILE_NUM
+            ,VNGL.IMGAGREE_ATT_FILE_NUM
+            ,VNGL.PRIVATE_ATT_FILE_NUM
+            ,VNGL.PAY_MANAGE_USER_NM
+            ,VNGL.PAY_MANAGE_TEL_NO
+            ,VNGL.PAY_MANAGE_EMAIL
+            ,VNGL.PAY_BANK_CD
+            ,VNGL.PAY_ACCOUNT_NO
+            ,VNGL.PAY_ACCOUNT_USER_NM
+            ,VNGL.PAY_PUBLIC_TYPE
+            ,VNGL.PAY_CONDITION
+            ,VNGL.PAY_TYPE
+            ,VNGL.PAY_DAY
+            ,VNFI.FI_YEAR
+            ,VNFI.EVIDENCE_TYPE
+            ,VNFI.FUND_AMT
+            ,VNFI.TOT_FUND_AMT
+            ,VNFI.TOT_LIAB_AMT
+            ,VNFI.TOT_CAP_AMT
+            ,VNFI.ORI_SALES_AMT
+            ,VNFI.SALES_AMT
+            ,VNFI.SALES_PROF_AMT
+            ,CVUR.USER_ID
+            ,CVUR.USER_NM
+            ,CVUR.DEPT_NM
+            ,CVUR.PASSWORD
+            ,CVUR.PASSWORD AS PASSWORD_CHECK
+            ,CVUR.POSITION_NM
+            ,CVUR.DUTY_NM
+            ,CVUR.TEL_NUM
+            ,CVUR.FAX_NUM
+            ,CVUR.CELL_NUM
+            ,CVUR.EMAIL AS USER_EMAIL
+            ,CVUR.SMS_FLAG
+            ,CVUR.MAIL_FLAG
+            ,CVUR.VNGL_ROLE
+            ,CVUR.AGREE_ATT_FILE_NUM
+            ,'' as EV_SCORE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(CVUR.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(CVUR.AGREE_YN, '0'), 0, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.AGREE_YN_DATE) AS AGREE_YN
+            ,CVUR.MNG_YN
+            ,(CASE WHEN CVUR.USER_ID IS NOT NULL THEN 'N' ELSE 'Y' END) AS USER_INSERT_FLAG	-- 회원가입시 사용자 등록여부
+            ,'' as VNEV_YN
+            ,VNGL.MNG_COM_TAX_YN
+            ,VNGL.TAX_ASP_NM
+            ,VNGL.TAX_SEND_TYPE
+            ,VNGL.E_BILL_ASP_TYPE
+			,VNGL.MAKER_NM
+			,VNGL.MAJOR_PERFORM
+			,VNGL.MAJOR_PERFORM1
+			,VNGL.MAJOR_PERFORM2
+			,VNGL.MAJOR_PERFORM3
+			,VNGL.MAJOR_PERFORM4
+			,VNGL.CREDIT_EVAL_COMPANY
+
+
+		    ,(SELECT IM.ACCT_DT FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS YEAR1  --한국기업데이터_기준년도                                               --146
+		    ,(SELECT KOR.ESTB_DT FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS MAKE1 --한국기업데이터_설립연도                                                                                                                                                                                                               --147
+		    ,(SELECT KOR.CR_GRD FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS GRADE1 --한국기업데이터_신용평가등급                                                                                                                                                                                                           --148
+		    ,(SELECT KOR.CASH_GRD FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS CASHGRADE1 --한국기업데이터_현금흐름등급                                                                                                                                                                                                     --149
+		    ,(SELECT ROUND(IM.SALES*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS AMT1 --한국기업데이터_매출액                                                    --150
+		    ,(SELECT ROUND(IM.PROFIT*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS OPERATION1  --한국기업데이터_영업이익                                            --151
+		    ,(SELECT ROUND(IM.TERMNETPROFIT*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  PROFIT1  --한국기업데이터_단기순이익                                    --152
+		    ,(SELECT ROUND(IM.FUNDTOTAL*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  TOTAL_OWNER1  --한국기업데이터_자본총계                                     --153
+		    ,(SELECT ROUND(IM.LIABILITIES*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  TOTAL_DEBT1  --한국기업데이터_부채총계                                    --154
+		    ,(SELECT IM.FRT210200 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS SALES_PROFIT1  --한국기업데이터_영업이익율                                          --155
+		    ,(SELECT IM.FRT210400 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS NET_PROFIT1  --한국기업데이터_당기순이익율                                          --156
+		    ,(SELECT IM.FRT310700 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS DEBT_RATIO1  --한국기업데이터_부채비율                                              --157
+		    ,(SELECT KOR.LABORER_SUM FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS STAFF1  --한국기업데이터_직원현황                                                                                                                                                                                      										--158
+
+
+
+			,(SELECT DOC.ESETDT FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS YEAR3  --이크래더블_기준연도                                                                                                                                                                                                              --120
+		    ,(SELECT DOC.OPEDT FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS MAKE3  --이크래더블_설립일                                                                                                                                                                                                                 --121
+		    ,(SELECT DOC.LASTGRD2 FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS GRADE3   --이크레더블_신용평가등급                                                                                                                                                                                                      --122
+		    ,(SELECT DOC.DECISION FROM DCC_PACKET11 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET11 WHERE RESNO = VNGL.IRS_NO)) AS CASHGRADE3  --이크래더블_현금흐름등급                                                                                                                                                                                                   --123
+		    ,(SELECT DOC.PL0001 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO  AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS AMT3  --이크래더블_매출액                                                                                                                                                                                              --124
+		    ,(SELECT DOC.PL0027 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO  AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS OPERATION3  --이크래더블_영업이익                                                                                                                                                                                      --125
+		    ,(SELECT DOC.PL0071 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS PROFIT3  --이크래더블_당기순이익                                                                                                                                                                                        --126
+		    ,(SELECT DOC.BS0113 FROM DCC_PACKET06 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET06 WHERE RESNO = VNGL.IRS_NO)) AS TOTAL_OWNER3  --이크래더블_자본총계                                                                                                                                                                                     --127
+		    ,(SELECT DOC.BS0091 FROM DCC_PACKET06 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000' AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET06 WHERE RESNO = VNGL.IRS_NO)) AS TOTAL_DEBT3  --이크래더블_부채총계                                                                                                                                                                                     --128
+		    ,ROUND(((SELECT DOC.PL0027 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO))/(SELECT DOC.PL0001 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000' AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)))*100,2) AS SALES_PROFIT3  --이크래더블_영업이익율                        --129
+		    ,(SELECT DOC.TR0103 FROM DCC_PACKET10 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET10 WHERE RESNO = VNGL.IRS_NO)) AS NET_PROFIT3  --이크래더블_당기순이익율                                                                                                                                                                                                    --130
+		    ,(SELECT DOC.TR0053 FROM DCC_PACKET10 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET10 WHERE RESNO = VNGL.IRS_NO)) AS DEBT_RATIO3  --이크래더블_부채비율                                                                                                                                                                                                        --131
+		    ,(SELECT DOC.HAPGYE FROM DCC_PACKET02 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET02 WHERE RESNO = VNGL.IRS_NO)) AS STAFF3  --이크래더블_직원현황                                                                                                                                                                                                             --132
+
+
+
+		    ,VNGL.YEAR  --직접입력 기준년도
+		    ,VNGL.FOUNDATION_DATE  --직접입력 설립년도
+		    ,VNGL.INS_AMT  --직접입력 매출액
+		    ,VNGL.OPERATION  --직접입력 영업이익
+		    ,VNGL.PROFIT  --직접입력 단기순이익
+		    ,VNGL.CAPITAL --직접입력 자본총계
+		    ,VNGL.DEBT_TOT --직접입력 부채총계
+		    ,VNGL.SALES_PROFIT  --직접입력 영업이익율
+		    ,VNGL.NET_PROFIT  --직접입력 단기순이익율
+		    ,VNGL.DEBT_RATIO  --직접입력 부채비율
+		    ,VNGL.EVA1 --//90(106)(신용평가등급)
+			,VNGL.EVA2 --//현금흐름등급
+
+/*
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.YEAR)AS YEAR  --직접입력 기준년도
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.FOUNDATION_DATE)AS FOUNDATION_DATE  --직접입력 설립년도
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.INS_AMT) AS INS_AMT  --직접입력 매출액
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.OPERATION) AS OPERATION  --직접입력 영업이익
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.PROFIT) AS PROFIT  --직접입력 단기순이익
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.CAPITAL) AS CAPITAL  --직접입력 자본총계
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.DEBT_TOT) AS DEBT_TOT  --직접입력 부채총계
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.SALES_PROFIT) AS SALES_PROFIT  --직접입력 영업이익율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.NET_PROFIT) AS NET_PROFIT  --직접입력 단기순이익율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.DEBT_RATIO) AS DEBT_RATIO  --직접입력 부채비율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.EVA1)AS EVA1 --//90(106)(신용평가등급)
+			,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.EVA2)AS EVA2 --//현금흐름등급
+*/
+		    ,<include refid="com.sql.nvl"/>(VNGL.MOVE,'4') MOVE -- 연동구분
+		    ,VNGL.EVA_NAME  --직접입력 평가회사
+
+
+		  FROM STOCVNGL VNGL
+			<!-- 220907 sikim 평균점수 추가 -->
+			LEFT OUTER JOIN (
+				SELECT
+					 SPEV.GATE_CD
+					 , SPEV.VENDOR_CD
+					 , SPEV.DELIVERY_LEVEL
+					 , SPEV.CONFIRM_DATE
+					 , SPEV.CONFIRM_USER_ID
+					 , SPEV.EVAL_USER_ID
+					 , SPEV.EVAL_DATE
+					 , SPEV.PROGRESS_CD
+					 , SPEV.DEL_FLAG
+					 , SPEV.REJECT_CONFIRM_USER_ID
+					 , SPEV.REJECT_CONFIRM_DATE
+				 	 , <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) AS EV_RESULT_SCORE
+
+				FROM STOCSPEV SPEV, (SELECT VENDOR_CD,MAX(SEQ) MAXSEQ FROM STOCSPEV GROUP BY VENDOR_CD) MAXSEQ
+				WHERE 1 = 1
+					  AND SPEV.VENDOR_CD  = MAXSEQ.VENDOR_CD
+					  AND SPEV.SEQ 		  = MAXSEQ.MAXSEQ
+			) SPEV ON VNGL.GATE_CD = SPEV.GATE_CD
+			   	AND VNGL.VENDOR_CD = SPEV.VENDOR_CD
+          LEFT OUTER JOIN STOCVNFI VNFI
+	           ON VNGL.GATE_CD = VNFI.GATE_CD
+	           AND VNGL.VENDOR_CD = VNFI.VENDOR_CD
+	           AND VNFI.FI_YEAR = (SELECT MAX(FI_YEAR) FROM STOCVNFI WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD)
+          LEFT OUTER JOIN STOCCVUR CVUR
+	           ON VNGL.GATE_CD = CVUR.GATE_CD
+	           AND VNGL.VENDOR_CD = CVUR.COMPANY_CD
+	           AND CVUR.USER_ID = (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> USER_ID FROM STOCCVUR WHERE GATE_CD = VNGL.GATE_CD AND COMPANY_CD = VNGL.VENDOR_CD AND MNG_YN = '1' <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>)
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		   AND VNGL.DEL_FLAG = '0'
+		<choose>
+			<when test="VENDOR_CD != '' and VENDOR_CD != null">
+		     AND VNGL.VENDOR_CD = #{VENDOR_CD}
+		   	</when>
+			<when test="IRS_NO != '' and IRS_NO != null">
+		     AND VNGL.IRS_NO = #{IRS_NO}
+		   	</when>
+		   	<otherwise>
+		     AND VNGL.APP_DOC_NUM = #{APP_DOC_NUM}
+		   	</otherwise>
+		</choose>
+
+
+
+
+
+
+
+
+
+
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+    <select id="bs03002_doSearchInfo" parameterType="hashmap" resultType="hashmap">
+
+		SELECT
+			 VNGL.VENDOR_CD
+            ,VNGL.PROGRESS_CD
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD,'M019',VNGL.PROGRESS_CD,'0',#{ses.langCd})
+             <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETCOMCODE(VNGL.GATE_CD,'M020',VNGL.SIGN_STATUS,'0',#{ses.langCd}) AS PROGRESS_NM
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.MOD_USER_ID, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(VNGL.MOD_DATE,'YYYY-MM-DD') AS MOD_INFO
+            ,VNGL.SIGN_STATUS
+            ,VNGL.SIGN_DATE
+            ,SPEV.EV_RESULT_SCORE
+            ,VNGL.VENDOR_NM
+            ,VNGL.VENDOR_ENG_NM
+            ,VNGL.IRS_NO
+            ,VNGL.REG_TYPE
+            ,VNGL.IRS_NO
+            ,VNGL.CEO_USER_NM
+            ,VNGL.HQ_ZIP_CD
+            ,VNGL.HQ_ADDR_1
+            ,VNGL.HQ_ADDR_2
+            ,VNGL.PLANT_ZIP_CD
+            ,VNGL.PLANT_ADDR_1
+            ,VNGL.PLANT_ADDR_2
+            ,VNGL.TEL_NO
+            ,VNGL.FAX_NO
+            ,VNGL.EMAIL
+            ,VNGL.BUSINESS_TYPE
+            ,VNGL.INDUSTRY_TYPE
+            ,VNGL.EMPLOYEE_CNT
+            ,VNGL.COMPANY_REG_NO
+            ,<include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE, 'yyyyMMdd') AS FOUNDATION_DATE
+            ,<include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE, 'yyyy-MM-dd') AS FOUNDATION_DATE_HOMEPAGE
+            ,VNGL.SALES_AMT
+            ,VNGL.IPO_FLAG
+            ,<include refid="com.sql.toDateChar"/>(VNGL.IPO_DATE, 'yyyyMMdd') AS IPO_DATE
+            ,<include refid="com.sql.toDateChar"/>(VNGL.IPO_DATE, 'yyyy-MM-dd') AS IPO_DATE_HOMEPAGE
+            ,VNGL.CREDIT_CD
+            ,VNGL.ATTACH_FILE_NO
+            ,VNGL.AREA_NM
+            ,VNGL.MRO_COMPANY_NM
+            ,VNGL.VEHICLE_CNT
+            ,VNGL.MAJOR_ITEM_NM
+            ,<include refid="com.sql.nvl"/>(VNGL.BLOCK_FLAG, '0') AS BLOCK_FLAG
+            ,VNGL.BLOCK_REASON
+            ,VNGL.ERP_IF_ID
+            ,VNGL.ERP_VENDOR_CD
+            ,VNGL.ERP_IF_SEND_FLAG
+            ,VNGL.REMARK_TEXT
+			<if test="_databaseId == 'mssql'">
+             ,'' AS MAJOR_ITEM_CD
+            ,STUFF((SELECT ',' <include refid="com.sql.stringMerge"/> RG.REGION_CD
+                      FROM STOCVNRG RG
+                     WHERE RG.GATE_CD = VNGL.GATE_CD
+                       AND RG.VENDOR_CD = VNGL.VENDOR_CD
+                       FOR XML PATH('')
+                   ),1,1,'') AS REGION_CD
+			</if>
+			<if test="_databaseId == 'oracle'">
+            ,'' AS MAJOR_ITEM_CD
+            ,(SELECT LISTAGG(RG.REGION_CD, ',')
+                FROM STOCVNRG RG
+               WHERE RG.GATE_CD = VNGL.GATE_CD
+                 AND RG.VENDOR_CD = VNGL.VENDOR_CD
+              ) AS REGION_CD
+			</if>
+			,VNGL.SIGN_STATUS
+			,VNGL.APP_DOC_NUM
+			,VNGL.APP_DOC_CNT
+            ,VNGL.BUSINESS_SIZE
+            ,VNGL.BUSINESS_DIVISION
+            ,VNGL.HOMEPAGE_URL
+            ,VNGL.DELIVERY_TYPE
+            ,VNGL.DEAL_TYPE
+            ,VNGL.MAJOR_CUSTOMERS
+            ,VNGL.IOS_TYPE
+            ,VNGL.DELIVERY_LEVEL
+            ,VNGL.LICENSE_YN
+            ,VNGL.GROUP_YN
+            ,VNGL.TAX_TYPE
+            ,VNGL.ACCOUNT_M_NUM
+            ,VNGL.BUSINESS_REMARK
+            ,VNGL.REG_REQ_INFO
+            ,VNGL.C_MANAGER_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.C_MANAGER_USER_ID, #{ses.langCd}) AS C_MANAGER_USER_NM
+            ,VNGL.ACCOUNT_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(VNGL.GATE_CD, VNGL.ACCOUNT_USER_ID, #{ses.langCd}) AS ACCOUNT_USER_NM
+            ,VNGL.BASIC_ATT_FILE_NUM
+            ,VNGL.BIZ_ATT_FILE_NUM
+            ,VNGL.ID_ATT_FILE_NUM
+            ,VNGL.PRICE_ATT_FILE_NUM
+            ,VNGL.CERTIFI_ATT_FILE_NUM
+            ,VNGL.BANKBOOK_ATT_FILE_NUM
+            ,VNGL.SIGN_ATT_FILE_NUM
+            ,VNGL.CONTRACT_ATT_FILE_NUM
+            ,VNGL.SECRET_ATT_FILE_NUM
+            ,VNGL.IMGAGREE_ATT_FILE_NUM
+            ,VNGL.PRIVATE_ATT_FILE_NUM
+            ,VNGL.PAY_MANAGE_USER_NM
+            ,VNGL.PAY_MANAGE_TEL_NO
+            ,VNGL.PAY_MANAGE_EMAIL
+            ,VNGL.PAY_BANK_CD
+            ,VNGL.PAY_ACCOUNT_NO
+            ,VNGL.PAY_ACCOUNT_USER_NM
+            ,VNGL.PAY_PUBLIC_TYPE
+            ,VNGL.PAY_CONDITION
+            ,VNGL.PAY_TYPE
+            ,VNGL.PAY_DAY
+            ,VNFI.FI_YEAR
+            ,VNFI.EVIDENCE_TYPE
+            ,VNFI.FUND_AMT
+            ,VNFI.TOT_FUND_AMT
+            ,VNFI.TOT_LIAB_AMT
+            ,VNFI.TOT_CAP_AMT
+            ,VNFI.ORI_SALES_AMT
+            ,VNFI.SALES_AMT
+            ,VNFI.SALES_PROF_AMT
+            ,CVUR.USER_ID
+            ,CVUR.USER_NM
+            ,CVUR.DEPT_NM
+            ,CVUR.PASSWORD
+            ,CVUR.PASSWORD AS PASSWORD_CHECK
+            ,CVUR.POSITION_NM
+            ,CVUR.DUTY_NM
+            ,CVUR.TEL_NUM
+            ,CVUR.FAX_NUM
+            ,CVUR.CELL_NUM
+            ,CVUR.EMAIL AS USER_EMAIL
+            ,CVUR.SMS_FLAG
+            ,CVUR.MAIL_FLAG
+            ,CVUR.VNGL_ROLE
+            ,CVUR.AGREE_ATT_FILE_NUM
+            ,'' as EV_SCORE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(CVUR.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(CVUR.AGREE_YN, '0'), 0, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(CVUR.AGREE_YN_DATE) AS AGREE_YN
+            ,CVUR.MNG_YN
+            ,(CASE WHEN CVUR.USER_ID IS NOT NULL THEN 'N' ELSE 'Y' END) AS USER_INSERT_FLAG	-- 회원가입시 사용자 등록여부
+            ,'' as VNEV_YN
+            ,VNGL.MNG_COM_TAX_YN
+            ,VNGL.TAX_ASP_NM
+            ,VNGL.TAX_SEND_TYPE
+            ,VNGL.E_BILL_ASP_TYPE
+			,VNGL.MAKER_NM
+			,VNGL.MAJOR_PERFORM
+			,VNGL.MAJOR_PERFORM1
+			,VNGL.MAJOR_PERFORM2
+			,VNGL.MAJOR_PERFORM3
+			,VNGL.MAJOR_PERFORM4
+			,VNGL.CREDIT_EVAL_COMPANY
+
+
+		    ,(SELECT IM.ACCT_DT FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS YEAR1  --한국기업데이터_기준년도                                               --146
+		    ,(SELECT KOR.ESTB_DT FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS MAKE1 --한국기업데이터_설립연도                                                                                                                                                                                                               --147
+		    ,(SELECT KOR.CR_GRD FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS GRADE1 --한국기업데이터_신용평가등급                                                                                                                                                                                                           --148
+		    ,(SELECT KOR.CASH_GRD FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS CASHGRADE1 --한국기업데이터_현금흐름등급                                                                                                                                                                                                     --149
+		    ,(SELECT ROUND(IM.SALES*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS AMT1 --한국기업데이터_매출액                                                    --150
+		    ,(SELECT ROUND(IM.PROFIT*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS OPERATION1  --한국기업데이터_영업이익                                            --151
+		    ,(SELECT ROUND(IM.TERMNETPROFIT*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  PROFIT1  --한국기업데이터_단기순이익                                    --152
+		    ,(SELECT ROUND(IM.FUNDTOTAL*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  TOTAL_OWNER1  --한국기업데이터_자본총계                                     --153
+		    ,(SELECT ROUND(IM.LIABILITIES*0.001,0) FROM IMPORTANTFSDATA_N IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO) AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS  TOTAL_DEBT1  --한국기업데이터_부채총계                                    --154
+		    ,(SELECT IM.FRT210200 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS SALES_PROFIT1  --한국기업데이터_영업이익율                                          --155
+		    ,(SELECT IM.FRT210400 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS NET_PROFIT1  --한국기업데이터_당기순이익율                                          --156
+		    ,(SELECT IM.FRT310700 FROM FRTDATA_N_H IM , INTR KOR WHERE  IM.RPT_NO=KOR.RPT_NO AND KOR.BZNO = VNGL.IRS_NO  AND IM.RPT_NO=KOR.RPT_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND ACCT_DT = (SELECT MAX(ACCT_DT) FROM IMPORTANTFSDATA_N WHERE RPT_NO = KOR.RPT_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO))AS DEBT_RATIO1  --한국기업데이터_부채비율                                              --157
+		    ,(SELECT KOR.LABORER_SUM FROM INTR KOR WHERE KOR.BZNO = VNGL.IRS_NO AND KOR.RPT_CRE_DD = (SELECT MAX(RPT_CRE_DD) FROM INTR WHERE BZNO= VNGL.IRS_NO)AND KOR.WORK_DT = (SELECT MAX(WORK_DT) FROM INTR WHERE BZNO= VNGL.IRS_NO)) AS STAFF1  --한국기업데이터_직원현황                                                                                                                                                                                      										--158
+
+
+
+			,(SELECT DOC.ESETDT FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS YEAR3  --이크래더블_기준연도                                                                                                                                                                                                              --120
+		    ,(SELECT DOC.OPEDT FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS MAKE3  --이크래더블_설립일                                                                                                                                                                                                                 --121
+		    ,(SELECT DOC.LASTGRD2 FROM DCC_PACKET01 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET01 WHERE RESNO = VNGL.IRS_NO)) AS GRADE3   --이크레더블_신용평가등급                                                                                                                                                                                                      --122
+		    ,(SELECT DOC.DECISION FROM DCC_PACKET11 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET11 WHERE RESNO = VNGL.IRS_NO)) AS CASHGRADE3  --이크래더블_현금흐름등급                                                                                                                                                                                                   --123
+		    ,(SELECT DOC.PL0001 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO  AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS AMT3  --이크래더블_매출액                                                                                                                                                                                              --124
+		    ,(SELECT DOC.PL0027 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO  AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS OPERATION3  --이크래더블_영업이익                                                                                                                                                                                      --125
+		    ,(SELECT DOC.PL0071 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)) AS PROFIT3  --이크래더블_당기순이익                                                                                                                                                                                        --126
+		    ,(SELECT DOC.BS0113 FROM DCC_PACKET06 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET06 WHERE RESNO = VNGL.IRS_NO)) AS TOTAL_OWNER3  --이크래더블_자본총계                                                                                                                                                                                     --127
+		    ,(SELECT DOC.BS0091 FROM DCC_PACKET06 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000' AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET06 WHERE RESNO = VNGL.IRS_NO)) AS TOTAL_DEBT3  --이크래더블_부채총계                                                                                                                                                                                     --128
+		    ,ROUND(((SELECT DOC.PL0027 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000'AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO))/(SELECT DOC.PL0001 FROM DCC_PACKET07 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND TRANSEQ='0000' AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET07 WHERE RESNO = VNGL.IRS_NO)))*100,2) AS SALES_PROFIT3  --이크래더블_영업이익율                        --129
+		    ,(SELECT DOC.TR0103 FROM DCC_PACKET10 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET10 WHERE RESNO = VNGL.IRS_NO)) AS NET_PROFIT3  --이크래더블_당기순이익율                                                                                                                                                                                                    --130
+		    ,(SELECT DOC.TR0053 FROM DCC_PACKET10 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET10 WHERE RESNO = VNGL.IRS_NO)) AS DEBT_RATIO3  --이크래더블_부채비율                                                                                                                                                                                                        --131
+		    ,(SELECT DOC.HAPGYE FROM DCC_PACKET02 DOC WHERE DOC.RESNO = VNGL.IRS_NO AND SUVDT = (SELECT MAX(SUVDT) FROM DCC_PACKET02 WHERE RESNO = VNGL.IRS_NO)) AS STAFF3  --이크래더블_직원현황                                                                                                                                                                                                             --132
+
+
+
+		    ,VNGL.YEAR  --직접입력 기준년도
+		    ,VNGL.FOUNDATION_DATE  --직접입력 설립년도
+		    ,VNGL.INS_AMT  --직접입력 매출액
+		    ,VNGL.OPERATION  --직접입력 영업이익
+		    ,VNGL.PROFIT  --직접입력 단기순이익
+		    ,VNGL.CAPITAL --직접입력 자본총계
+		    ,VNGL.DEBT_TOT --직접입력 부채총계
+		    ,VNGL.SALES_PROFIT  --직접입력 영업이익율
+		    ,VNGL.NET_PROFIT  --직접입력 단기순이익율
+		    ,VNGL.DEBT_RATIO  --직접입력 부채비율
+		    ,VNGL.EVA1 --//90(106)(신용평가등급)
+			,VNGL.EVA2 --//현금흐름등급
+
+/*
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.YEAR)AS YEAR  --직접입력 기준년도
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.FOUNDATION_DATE)AS FOUNDATION_DATE  --직접입력 설립년도
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.INS_AMT) AS INS_AMT  --직접입력 매출액
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.OPERATION) AS OPERATION  --직접입력 영업이익
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.PROFIT) AS PROFIT  --직접입력 단기순이익
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.CAPITAL) AS CAPITAL  --직접입력 자본총계
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.DEBT_TOT) AS DEBT_TOT  --직접입력 부채총계
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.SALES_PROFIT) AS SALES_PROFIT  --직접입력 영업이익율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.NET_PROFIT) AS NET_PROFIT  --직접입력 단기순이익율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.DEBT_RATIO) AS DEBT_RATIO  --직접입력 부채비율
+		    ,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.EVA1)AS EVA1 --//90(106)(신용평가등급)
+			,DECODE(VNGL.MOVE,'1','','2','','3','',VNGL.EVA2)AS EVA2 --//현금흐름등급
+*/
+		    ,<include refid="com.sql.nvl"/>(VNGL.MOVE,'4') MOVE -- 연동구분
+		    ,VNGL.EVA_NAME  --직접입력 평가회사
+
+
+		  FROM STOCVNGL VNGL
+			<!-- 220907 sikim 평균점수 추가 -->
+			LEFT OUTER JOIN (
+				SELECT
+					 SPEV.GATE_CD
+					 , SPEV.VENDOR_CD
+					 , SPEV.DELIVERY_LEVEL
+					 , SPEV.CONFIRM_DATE
+					 , SPEV.CONFIRM_USER_ID
+					 , SPEV.EVAL_USER_ID
+					 , SPEV.EVAL_DATE
+					 , SPEV.PROGRESS_CD
+					 , SPEV.DEL_FLAG
+					 , SPEV.REJECT_CONFIRM_USER_ID
+					 , SPEV.REJECT_CONFIRM_DATE
+				 	 , <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+		               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) AS EV_RESULT_SCORE
+
+				FROM STOCSPEV SPEV, (SELECT VENDOR_CD,MAX(SEQ) MAXSEQ FROM STOCSPEV GROUP BY VENDOR_CD) MAXSEQ
+				WHERE 1 = 1
+					  AND SPEV.VENDOR_CD  = MAXSEQ.VENDOR_CD
+					  AND SPEV.SEQ 		  = MAXSEQ.MAXSEQ
+			) SPEV ON VNGL.GATE_CD = SPEV.GATE_CD
+			   	AND VNGL.VENDOR_CD = SPEV.VENDOR_CD
+          LEFT OUTER JOIN STOCVNFI VNFI
+	           ON VNGL.GATE_CD = VNFI.GATE_CD
+	           AND VNGL.VENDOR_CD = VNFI.VENDOR_CD
+	           AND VNFI.FI_YEAR = (SELECT MAX(FI_YEAR) FROM STOCVNFI WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD)
+          LEFT OUTER JOIN STOCCVUR CVUR
+	           ON VNGL.GATE_CD = CVUR.GATE_CD
+	           AND VNGL.VENDOR_CD = CVUR.COMPANY_CD
+	           AND CVUR.USER_ID = (SELECT <if test="_databaseId == 'mssql'">TOP 1</if> USER_ID FROM STOCCVUR WHERE GATE_CD = VNGL.GATE_CD AND COMPANY_CD = VNGL.VENDOR_CD AND MNG_YN = '1' <if test="_databaseId == 'oracle'">AND ROWNUM = 1</if>)
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		   AND VNGL.DEL_FLAG = '0'
+		<choose>
+			<when test="VENDOR_CD != '' and VENDOR_CD != null">
+		     AND VNGL.VENDOR_CD = #{VENDOR_CD}
+		   	</when>
+			<when test="IRS_NO != '' and IRS_NO != null">
+		     AND VNGL.IRS_NO = #{IRS_NO}
+		   	</when>
+		   	<otherwise>
+		     AND VNGL.APP_DOC_NUM = #{APP_DOC_NUM}
+		   	</otherwise>
+		</choose>
+
+    </select>
+
+	<!-- 첨부파일 조회 -->
+	<select id="bs03002_doSearchFileVNGL" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+        	  BASIC_ATT_FILE_NUM
+            , BIZ_ATT_FILE_NUM
+            , ID_ATT_FILE_NUM
+            , PRICE_ATT_FILE_NUM
+            , CERTIFI_ATT_FILE_NUM
+            , BANKBOOK_ATT_FILE_NUM
+            , SIGN_ATT_FILE_NUM
+            , CONTRACT_ATT_FILE_NUM
+            , SECRET_ATT_FILE_NUM
+            , IMGAGREE_ATT_FILE_NUM
+            , PRIVATE_ATT_FILE_NUM
+         FROM STOCVNGL
+        WHERE GATE_CD   = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND DEL_FLAG  = '0'
+    </select>
+
+    <select id="bs03002_doSearchUser" parameterType="hashmap" resultType="hashmap">
+
+        SELECT GATE_CD
+             , VENDOR_CD
+             , PERSON_SQ
+             , USER_NM
+             , DEPT_NM
+             , DUTY_NM
+             , EMAIL
+             , TEL_NUM
+             , CELL_NUM
+             , SMS_FLAG
+             , MAIL_FLAG
+             , SALES_FLAG
+             , LOGISTICS_FLAG
+             , FINANCIAL_FLAG
+        FROM STOCVNCP
+        WHERE GATE_CD = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND DEL_FLAG = '0'
+    </select>
+
+    <select id="bs03002_doSearchSG" parameterType="hashmap" resultType="hashmap">
+		SELECT ROWNUM AS SEQ
+			 , A.*
+		  FROM (
+	        SELECT T.*
+	             , T.CLS1 <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS2 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	              <include refid="com.sql.nvl"/>(T.CLS2,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS3 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	              <include refid="com.sql.nvl"/>(T.CLS3,'') <include refid="com.sql.stringMerge"/> (CASE WHEN T.CLS4 IS NOT NULL THEN ' > ' ELSE '' END) <include refid="com.sql.stringMerge"/>
+	              <include refid="com.sql.nvl"/>(T.CLS4,'') AS CLS_PATH_NM
+	        FROM (
+	                 SELECT SGVN.VENDOR_CD
+	                      , SGVN.SG_NUM
+	                      , SGVN.EXEC_EV_NUM	AS EXEC_EV_NUM
+	                      , <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 1, SGVN.SG_NUM) AS CLS1
+	                      , <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 2, SGVN.SG_NUM) AS CLS2
+	                      , <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 3, SGVN.SG_NUM) AS CLS3
+	                      , <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, 4, SGVN.SG_NUM) AS CLS4
+	                      , 'Y'	AS INSERT_FLAG
+	                 FROM STOCSGVN SGVN
+	                 WHERE GATE_CD   = #{ses.gateCd}
+	                   AND VENDOR_CD = #{VENDOR_CD}
+	                   AND DEL_FLAG  = '0'
+	             ) T
+	        ORDER BY CLS1, CLS2, CLS3, CLS4
+		  ) A
+		 WHERE 1 = 1
+    </select>
+
+    <select id="bs03002_doSearchTX" parameterType="hashmap" resultType="hashmap">
+		SELECT '1' FROM DUAL WHERE 1 = 2
+   /*
+        SELECT TX.COM_CODE
+             , TO_CHAR(TX.TX_SEQ) as TX_SEQ
+             , TX.TX_USER_NM
+             , TX.TX_USER_DEPT_NM
+             , TX.TX_USER_TEL_NO
+             , TX.TX_USER_CELL_NO
+             , TX.TX_USER_FAX_NO
+             , TX.TX_USER_EMAIL
+             , TX.TX_ASP_ID
+             , 'Y'                         AS INSERT_FLAG
+        FROM STOCCUTX TX
+        WHERE GATE_CD = {ses.gateCd}
+          AND COM_CODE = {VENDOR_CD}
+          AND DEL_FLAG = '0'
+*/
+    </select>
+
+    <insert id="bs03002_doMergeVendor" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCVNGL<include refid="com.sql.mergeAs"/>VNGL
+        USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+         ON (VNGL.GATE_CD = B.GATE_CD
+         AND VNGL.VENDOR_CD = B.VENDOR_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,PROGRESS_CD = #{PROGRESS_CD}
+            ,SIGN_STATUS = #{SIGN_STATUS}
+            ,VENDOR_NM = #{VENDOR_NM}
+            ,REG_TYPE = #{REG_TYPE}
+            ,IRS_NO = #{IRS_NO}
+            ,CEO_USER_NM = #{CEO_USER_NM}
+            ,HQ_ZIP_CD = #{HQ_ZIP_CD}
+            ,HQ_ADDR_1 = #{HQ_ADDR_1}
+            ,HQ_ADDR_2 = #{HQ_ADDR_2}
+            ,PLANT_ZIP_CD = #{PLANT_ZIP_CD}
+            ,PLANT_ADDR_1 = #{PLANT_ADDR_1}
+            ,PLANT_ADDR_2 = #{PLANT_ADDR_2}
+            ,TEL_NO = #{TEL_NO}
+            ,FAX_NO = #{FAX_NO}
+            ,EMAIL = #{EMAIL}
+            ,BUSINESS_TYPE = #{BUSINESS_TYPE}
+            ,INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+            ,COMPANY_REG_NO = #{COMPANY_REG_NO}
+            ,FOUNDATION_DATE = #{FOUNDATION_DATE}
+            <if test="EMPLOYEE_CNT != '' and EMPLOYEE_CNT != null">
+                ,EMPLOYEE_CNT = #{EMPLOYEE_CNT}
+            </if>
+            <if test="SALES_AMT != '' and SALES_AMT != null">
+                ,SALES_AMT = #{SALES_AMT}
+            </if>
+            ,IPO_FLAG = #{IPO_FLAG}
+            <choose>
+                <when test="IPO_DATE eq ''.toString()">
+                    ,IPO_DATE = null
+                </when>
+                <otherwise>
+                    ,IPO_DATE = #{IPO_DATE}
+                </otherwise>
+            </choose>
+            ,CREDIT_CD = #{CREDIT_CD}
+            ,ATTACH_FILE_NO = #{ATTACH_FILE_NO}
+            ,AREA_NM = #{AREA_NM}
+            ,MRO_COMPANY_NM = #{MRO_COMPANY_NM}
+            ,VEHICLE_CNT = #{VEHICLE_CNT}
+            ,MAJOR_ITEM_NM = #{MAJOR_ITEM_NM}
+            ,ERP_IF_ID = #{ERP_IF_ID}
+            ,ERP_VENDOR_CD = #{ERP_VENDOR_CD}
+            ,ERP_IF_SEND_FLAG = #{ERP_IF_SEND_FLAG}
+            ,REMARK_TEXT = #{REMARK_TEXT}
+            ,VENDOR_ENG_NM =#{VENDOR_ENG_NM}
+            ,BUSINESS_SIZE =#{BUSINESS_SIZE}
+            ,BUSINESS_DIVISION =#{BUSINESS_DIVISION}
+            ,HOMEPAGE_URL =#{HOMEPAGE_URL}
+            ,DELIVERY_TYPE =#{DELIVERY_TYPE}
+            ,DEAL_TYPE =#{DEAL_TYPE}
+            ,MAJOR_CUSTOMERS =#{MAJOR_CUSTOMERS}
+            ,IOS_TYPE =#{IOS_TYPE}
+            ,DELIVERY_LEVEL =#{DELIVERY_LEVEL}
+            ,LICENSE_YN =#{LICENSE_YN}
+            ,GROUP_YN =#{GROUP_YN}
+            ,TAX_TYPE =#{TAX_TYPE}
+            ,ACCOUNT_M_NUM =#{ACCOUNT_M_NUM}
+            ,BUSINESS_REMARK =#{BUSINESS_REMARK}
+            ,REG_REQ_INFO =#{REG_REQ_INFO}
+            ,C_MANAGER_USER_ID =#{C_MANAGER_USER_ID}
+            ,ACCOUNT_USER_ID =#{ACCOUNT_USER_ID}
+            ,BASIC_ATT_FILE_NUM =#{BASIC_ATT_FILE_NUM}
+            ,BIZ_ATT_FILE_NUM =#{BIZ_ATT_FILE_NUM}
+            ,ID_ATT_FILE_NUM =#{ID_ATT_FILE_NUM}
+            ,PRICE_ATT_FILE_NUM =#{PRICE_ATT_FILE_NUM}
+            ,CERTIFI_ATT_FILE_NUM =#{CERTIFI_ATT_FILE_NUM}
+            ,BANKBOOK_ATT_FILE_NUM =#{BANKBOOK_ATT_FILE_NUM}
+            ,SIGN_ATT_FILE_NUM =#{SIGN_ATT_FILE_NUM}
+            ,CONTRACT_ATT_FILE_NUM =#{CONTRACT_ATT_FILE_NUM}
+            ,SECRET_ATT_FILE_NUM =#{SECRET_ATT_FILE_NUM}
+            ,IMGAGREE_ATT_FILE_NUM =#{IMGAGREE_ATT_FILE_NUM}
+            ,PRIVATE_ATT_FILE_NUM =#{PRIVATE_ATT_FILE_NUM}
+            ,PAY_MANAGE_USER_NM =#{PAY_MANAGE_USER_NM}
+            ,PAY_MANAGE_TEL_NO =#{PAY_MANAGE_TEL_NO}
+            ,PAY_MANAGE_EMAIL =#{PAY_MANAGE_EMAIL}
+            ,PAY_BANK_CD =#{PAY_BANK_CD}
+            ,PAY_ACCOUNT_NO =#{PAY_ACCOUNT_NO}
+            ,PAY_ACCOUNT_USER_NM =#{PAY_ACCOUNT_USER_NM}
+            ,PAY_PUBLIC_TYPE =#{PAY_PUBLIC_TYPE}
+            ,PAY_CONDITION =#{PAY_CONDITION}
+            ,PAY_TYPE =#{PAY_TYPE}
+            ,PAY_DAY =#{PAY_DAY}
+            ,MNG_COM_TAX_YN =#{MNG_COM_TAX_YN}
+            ,TAX_ASP_NM =#{TAX_ASP_NM}
+            ,TAX_SEND_TYPE =#{TAX_SEND_TYPE}
+            ,BLOCK_FLAG = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            ,BLOCK_REASON =#{BLOCK_REASON}
+            ,E_BILL_ASP_TYPE = #{E_BILL_ASP_TYPE}
+			,MAKER_NM       = #{MAKER_NM}
+			,MAJOR_PERFORM  = #{MAJOR_PERFORM}
+			,MAJOR_PERFORM1 = #{MAJOR_PERFORM1}
+			,MAJOR_PERFORM2 = #{MAJOR_PERFORM2}
+			,MAJOR_PERFORM3 = #{MAJOR_PERFORM3}
+			,MAJOR_PERFORM4 = #{MAJOR_PERFORM4}
+			,CREDIT_EVAL_COMPANY = #{CREDIT_EVAL_COMPANY}
+
+			,YEAR = #{YEAR}
+			,INS_AMT = #{INS_AMT}
+			,OPERATION = #{OPERATION}
+			,PROFIT = #{PROFIT}
+			,CAPITAL = #{CAPITAL}
+			,DEBT_TOT = #{DEBT_TOT}
+			,SALES_PROFIT = #{SALES_PROFIT}
+			,NET_PROFIT = #{NET_PROFIT}
+			,DEBT_RATIO = #{DEBT_RATIO}
+			,MOVE = #{MOVE}
+			,EVA_NAME = #{EVA_NAME}
+			,EVA1 = #{EVA1}
+			,EVA2 = #{EVA2}
+
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,VENDOR_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,PROGRESS_CD
+            ,SIGN_STATUS
+            ,VENDOR_NM
+            ,REG_TYPE
+            ,IRS_NO
+            ,CEO_USER_NM
+            ,HQ_ZIP_CD
+            ,HQ_ADDR_1
+            ,HQ_ADDR_2
+            ,PLANT_ZIP_CD
+            ,PLANT_ADDR_1
+            ,PLANT_ADDR_2
+            ,TEL_NO
+            ,FAX_NO
+            ,EMAIL
+            ,BUSINESS_TYPE
+            ,INDUSTRY_TYPE
+            ,COMPANY_REG_NO
+            ,FOUNDATION_DATE
+            <if test="EMPLOYEE_CNT != '' and EMPLOYEE_CNT != null">
+                ,EMPLOYEE_CNT
+            </if>
+            <if test="SALES_AMT != '' and SALES_AMT != null">
+                ,SALES_AMT
+            </if>
+            ,IPO_FLAG
+            <choose>
+                <when test="IPO_DATE eq ''.toString()">
+                    ,IPO_DATE
+                </when>
+                <otherwise>
+                    ,IPO_DATE
+                </otherwise>
+            </choose>
+            ,CREDIT_CD
+            ,ATTACH_FILE_NO
+            ,AREA_NM
+            ,MRO_COMPANY_NM
+            ,VEHICLE_CNT
+            ,MAJOR_ITEM_NM
+            ,BLOCK_FLAG
+            ,BLOCK_REASON
+            ,ERP_IF_ID
+            ,ERP_VENDOR_CD
+            ,ERP_IF_SEND_FLAG
+            ,REMARK_TEXT
+            ,VENDOR_ENG_NM
+            ,BUSINESS_SIZE
+            ,BUSINESS_DIVISION
+            ,HOMEPAGE_URL
+            ,DELIVERY_TYPE
+            ,DEAL_TYPE
+            ,MAJOR_CUSTOMERS
+            ,IOS_TYPE
+            ,DELIVERY_LEVEL
+            ,LICENSE_YN
+            ,GROUP_YN
+            ,TAX_TYPE
+            ,ACCOUNT_M_NUM
+            ,BUSINESS_REMARK
+            ,REG_REQ_INFO
+            ,C_MANAGER_USER_ID
+            ,ACCOUNT_USER_ID
+            ,BASIC_ATT_FILE_NUM
+            ,BIZ_ATT_FILE_NUM
+            ,ID_ATT_FILE_NUM
+            ,PRICE_ATT_FILE_NUM
+            ,CERTIFI_ATT_FILE_NUM
+            ,BANKBOOK_ATT_FILE_NUM
+            ,SIGN_ATT_FILE_NUM
+            ,CONTRACT_ATT_FILE_NUM
+            ,SECRET_ATT_FILE_NUM
+            ,IMGAGREE_ATT_FILE_NUM
+            ,PRIVATE_ATT_FILE_NUM
+            ,PAY_MANAGE_USER_NM
+            ,PAY_MANAGE_TEL_NO
+            ,PAY_MANAGE_EMAIL
+            ,PAY_BANK_CD
+            ,PAY_ACCOUNT_NO
+            ,PAY_ACCOUNT_USER_NM
+            ,PAY_PUBLIC_TYPE
+            ,PAY_CONDITION
+            ,PAY_TYPE
+            ,PAY_DAY
+            ,MNG_COM_TAX_YN
+            ,TAX_ASP_NM
+            ,TAX_SEND_TYPE
+            ,E_BILL_ASP_TYPE
+
+			,MAKER_NM
+			,MAJOR_PERFORM
+			,MAJOR_PERFORM1
+			,MAJOR_PERFORM2
+			,MAJOR_PERFORM3
+			,MAJOR_PERFORM4
+			,CREDIT_EVAL_COMPANY
+
+			,YEAR
+			,INS_AMT
+			,OPERATION
+			,PROFIT
+			,CAPITAL
+			,DEBT_TOT
+			,SALES_PROFIT
+			,NET_PROFIT
+			,DEBT_RATIO
+			,MOVE
+			,EVA_NAME
+			,EVA1
+			,EVA2
+
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{VENDOR_CD}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,'1'
+            ,#{PROGRESS_CD}
+            ,#{SIGN_STATUS}
+            ,#{VENDOR_NM}
+            ,#{REG_TYPE}
+            ,#{IRS_NO}
+            ,#{CEO_USER_NM}
+            ,#{HQ_ZIP_CD}
+            ,#{HQ_ADDR_1}
+            ,#{HQ_ADDR_2}
+            ,#{PLANT_ZIP_CD}
+            ,#{PLANT_ADDR_1}
+            ,#{PLANT_ADDR_2}
+            ,#{TEL_NO}
+            ,#{FAX_NO}
+            ,#{EMAIL}
+            ,#{BUSINESS_TYPE}
+            ,#{INDUSTRY_TYPE}
+            ,#{COMPANY_REG_NO}
+            ,#{FOUNDATION_DATE}
+            <if test="EMPLOYEE_CNT != '' and EMPLOYEE_CNT != null">
+                ,#{EMPLOYEE_CNT}
+            </if>
+            <if test="SALES_AMT != '' and SALES_AMT != null">
+                ,#{SALES_AMT}
+            </if>
+            ,#{IPO_FLAG}
+            <choose>
+                <when test="IPO_DATE eq ''.toString()">
+                    ,null
+                </when>
+                <otherwise>
+                    ,#{IPO_DATE}
+                </otherwise>
+            </choose>
+            ,#{CREDIT_CD}
+            ,#{ATTACH_FILE_NO}
+            ,#{AREA_NM}
+            ,#{MRO_COMPANY_NM}
+            ,#{VEHICLE_CNT}
+            ,#{MAJOR_ITEM_NM}
+            ,'0'
+            ,#{BLOCK_REASON}
+            ,#{ERP_IF_ID}
+            ,#{ERP_VENDOR_CD}
+            ,#{ERP_IF_SEND_FLAG}
+            ,#{REMARK_TEXT}
+            ,#{VENDOR_ENG_NM}
+            ,#{BUSINESS_SIZE}
+            ,#{BUSINESS_DIVISION}
+            ,#{HOMEPAGE_URL}
+            ,#{DELIVERY_TYPE}
+            ,#{DEAL_TYPE}
+            ,#{MAJOR_CUSTOMERS}
+            ,#{IOS_TYPE}
+            ,#{DELIVERY_LEVEL}
+            ,#{LICENSE_YN}
+            ,#{GROUP_YN}
+            ,#{TAX_TYPE}
+            ,#{ACCOUNT_M_NUM}
+            ,#{BUSINESS_REMARK}
+            ,#{REG_REQ_INFO}
+            ,#{C_MANAGER_USER_ID}
+            ,#{ACCOUNT_USER_ID}
+            ,#{BASIC_ATT_FILE_NUM}
+            ,#{BIZ_ATT_FILE_NUM}
+            ,#{ID_ATT_FILE_NUM}
+            ,#{PRICE_ATT_FILE_NUM}
+            ,#{CERTIFI_ATT_FILE_NUM}
+            ,#{BANKBOOK_ATT_FILE_NUM}
+            ,#{SIGN_ATT_FILE_NUM}
+            ,#{CONTRACT_ATT_FILE_NUM}
+            ,#{SECRET_ATT_FILE_NUM}
+            ,#{IMGAGREE_ATT_FILE_NUM}
+            ,#{PRIVATE_ATT_FILE_NUM}
+            ,#{PAY_MANAGE_USER_NM}
+            ,#{PAY_MANAGE_TEL_NO}
+            ,#{PAY_MANAGE_EMAIL}
+            ,#{PAY_BANK_CD}
+            ,#{PAY_ACCOUNT_NO}
+            ,#{PAY_ACCOUNT_USER_NM}
+            ,#{PAY_PUBLIC_TYPE}
+            ,#{PAY_CONDITION}
+            ,#{PAY_TYPE}
+            ,#{PAY_DAY}
+            ,#{MNG_COM_TAX_YN}
+            ,#{TAX_ASP_NM}
+            ,#{TAX_SEND_TYPE}
+            ,#{E_BILL_ASP_TYPE}
+
+			,#{MAKER_NM}
+			,#{MAJOR_PERFORM}
+			,#{MAJOR_PERFORM1}
+			,#{MAJOR_PERFORM2}
+			,#{MAJOR_PERFORM3}
+			,#{MAJOR_PERFORM4}
+			,#{CREDIT_EVAL_COMPANY}
+
+			,#{YEAR}
+			,#{INS_AMT}
+			,#{OPERATION}
+			,#{PROFIT}
+			,#{CAPITAL}
+			,#{DEBT_TOT}
+			,#{SALES_PROFIT}
+			,#{NET_PROFIT}
+			,#{DEBT_RATIO}
+			,#{MOVE}
+			,#{EVA_NAME}
+			,#{EVA1}
+			,#{EVA2}
+
+
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+
+
+    <insert id="bs03002_doDelVNCP" parameterType="hashMap">
+		DELETE STOCVNCP
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</insert>
+    <insert id="bs03002_doMergeVNCP" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCVNCP<include refid="com.sql.mergeAs"/>VNCP
+            USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PERSON_SQ} AS PERSON_SQ <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (VNCP.GATE_CD = B.GATE_CD
+            AND VNCP.VENDOR_CD = B.VENDOR_CD
+            AND VNCP.PERSON_SQ = B.PERSON_SQ)
+            WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,USER_NM =#{USER_NM}
+            ,DEPT_NM =#{DEPT_NM}
+            ,DUTY_NM =#{DUTY_NM}
+            ,EMAIL =#{EMAIL}
+            ,TEL_NUM =#{TEL_NUM}
+            ,CELL_NUM =#{CELL_NUM}
+            ,SMS_FLAG =#{SMS_FLAG}
+            ,MAIL_FLAG =#{MAIL_FLAG}
+            ,SALES_FLAG =#{SALES_FLAG}
+            ,LOGISTICS_FLAG =#{LOGISTICS_FLAG}
+            ,FINANCIAL_FLAG =#{FINANCIAL_FLAG}
+            WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,VENDOR_CD
+            ,PERSON_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USER_NM
+            ,DEPT_NM
+            ,DUTY_NM
+            ,EMAIL
+            ,TEL_NUM
+            ,CELL_NUM
+            ,SMS_FLAG
+            ,MAIL_FLAG
+            ,SALES_FLAG
+            ,LOGISTICS_FLAG
+            ,FINANCIAL_FLAG
+            )
+        VALUES (
+            #{ses.gateCd}
+                , #{VENDOR_CD}
+                , (SELECT <include refid="com.sql.nvl"/>(MAX (PERSON_SQ)+1, 1) FROM STOCVNCP WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD= #{VENDOR_CD})
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+                , #{USER_NM}
+                , #{DEPT_NM}
+                , #{DUTY_NM}
+                , #{EMAIL}
+                , #{TEL_NUM}
+                , #{CELL_NUM}
+                , #{SMS_FLAG}
+                , #{MAIL_FLAG}
+                , #{SALES_FLAG}
+                , #{LOGISTICS_FLAG}
+                , #{FINANCIAL_FLAG}
+            <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <update id="bs03002_doDeleteVN" parameterType="hashMap">
+
+        DELETE FROM STOCVNRG
+         WHERE GATE_CD = #{ses.gateCd}
+           AND VENDOR_CD = #{VENDOR_CD}
+
+    </update>
+
+    <insert id="bs03002_doMergeSGVN" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCSGVN<include refid="com.sql.mergeAs"/>SGVN
+            USING (SELECT #{ses.gateCd} AS GATE_CD, #{SG_NUM} AS SG_NUM, #{VENDOR_CD} AS VENDOR_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (SGVN.GATE_CD = B.GATE_CD
+            AND SGVN.SG_NUM = B.SG_NUM
+            AND SGVN.VENDOR_CD = B.VENDOR_CD)
+            WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,SG_NUM
+            ,VENDOR_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            )
+        VALUES (
+            #{ses.gateCd}
+                , #{SG_NUM}
+                , #{VENDOR_CD}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+            <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+
+    <delete id="bs03002_dodeleteSGVN" parameterType="hashmap">
+
+        UPDATE STOCSGVN
+        SET DEL_FLAG    = '1'
+          , MOD_DATE    = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND SG_NUM = #{SG_NUM}
+          AND VENDOR_CD = #{VENDOR_CD}
+
+    </delete>
+
+
+    <insert id="bs03002_doMergeTX" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUTX<include refid="com.sql.mergeAs"/>TX
+            USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS COM_CODE, #{TX_SEQ} AS TX_SEQ <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (TX.GATE_CD = B.GATE_CD
+            AND TX.COM_CODE = B.COM_CODE
+            AND TX.TX_SEQ = B.TX_SEQ)
+            WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,TX_USER_NM = <include refid="com.sql.nvl"/>(#{TX_USER_NM_$TP}, #{TX_USER_NM})
+            ,TX_USER_DEPT_NM = #{TX_USER_DEPT_NM}
+            ,TX_USER_TEL_NO = <include refid="com.sql.nvl"/>(#{TX_USER_TEL_NO_$TP}, #{TX_USER_TEL_NO})
+            ,TX_USER_CELL_NO = <include refid="com.sql.nvl"/>(#{TX_USER_CELL_NO_$TP}, #{TX_USER_CELL_NO})
+            ,TX_USER_FAX_NO = <include refid="com.sql.nvl"/>(#{TX_USER_FAX_NO_$TP}, #{TX_USER_FAX_NO})
+            ,TX_USER_EMAIL = <include refid="com.sql.nvl"/>(#{TX_USER_EMAIL_$TP}, #{TX_USER_EMAIL})
+            ,TX_ASP_ID = <include refid="com.sql.nvl"/>(#{TX_ASP_ID_$TP}, #{TX_ASP_ID})
+            WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,COM_CODE
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,TX_USER_NM
+            ,TX_USER_DEPT_NM
+            ,TX_USER_TEL_NO
+            ,TX_USER_CELL_NO
+            ,TX_USER_FAX_NO
+            ,TX_USER_EMAIL
+            ,TX_ASP_ID
+            )
+        VALUES (
+            #{ses.gateCd}
+                , #{VENDOR_CD}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+                , <include refid="com.sql.nvl"/>(#{TX_USER_NM_$TP}, #{TX_USER_NM})
+                , #{TX_USER_DEPT_NM}
+                , <include refid="com.sql.nvl"/>(#{TX_USER_TEL_NO_$TP}, #{TX_USER_TEL_NO})
+                , <include refid="com.sql.nvl"/>(#{TX_USER_CELL_NO_$TP}, #{TX_USER_CELL_NO})
+                , <include refid="com.sql.nvl"/>(#{TX_USER_FAX_NO_$TP}, #{TX_USER_FAX_NO})
+                , <include refid="com.sql.nvl"/>(#{TX_USER_EMAIL_$TP}, #{TX_USER_EMAIL})
+                , <include refid="com.sql.nvl"/>(#{TX_ASP_ID_$TP}, #{TX_ASP_ID})
+            <include refid="com.sql.mergeEnd"/>
+
+
+
+    </insert>
+
+
+    <delete id="bs03002_dodeleteTX" parameterType="hashmap">
+
+        UPDATE STOCCUTX
+        SET DEL_FLAG    = '1'
+          , MOD_DATE    = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND COM_CODE = #{VENDOR_CD}
+          AND TX_SEQ = #{TX_SEQ}
+
+    </delete>
+
+    <delete id="bs03002_doDeleteVNFI" parameterType="hashMap">
+
+        DELETE FROM STOCVNFI
+        WHERE GATE_CD = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+    </delete>
+
+    <insert id="bs03002_doInsertVNFI" parameterType="hashMap">
+
+        INSERT INTO STOCVNFI (
+            GATE_CD
+            ,VENDOR_CD
+            ,FI_YEAR
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            <if test="FUND_AMT != '' and FUND_AMT != null">
+                ,FUND_AMT
+            </if>
+            <if test="TOT_FUND_AMT != '' and TOT_FUND_AMT != null">
+                ,TOT_FUND_AMT
+            </if>
+            <if test="TOT_LIAB_AMT != '' and TOT_LIAB_AMT != null">
+                ,TOT_LIAB_AMT
+            </if>
+            <if test="TOT_CAP_AMT != '' and TOT_CAP_AMT != null">
+                ,TOT_CAP_AMT
+            </if>
+            <if test="ORI_SALES_AMT != '' and ORI_SALES_AMT != null">
+                ,ORI_SALES_AMT
+            </if>
+            <if test="SALES_AMT != '' and SALES_AMT != null">
+                ,SALES_AMT
+            </if>
+            <if test="SALES_PROF_AMT != '' and SALES_PROF_AMT != null">
+                ,SALES_PROF_AMT
+            </if>
+
+            <if test="RECUR_PROF_AMT != '' and RECUR_PROF_AMT != null">
+                ,RECUR_PROF_AMT
+            </if>
+            ,FI_REMARK
+            ,EVIDENCE_TYPE
+
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{VENDOR_CD}
+            ,#{FI_YEAR}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            <if test="FUND_AMT != '' and FUND_AMT != null">
+                ,#{FUND_AMT}
+            </if>
+            <if test="TOT_FUND_AMT != '' and TOT_FUND_AMT != null">
+                ,#{TOT_FUND_AMT}
+            </if>
+            <if test="TOT_LIAB_AMT != '' and TOT_LIAB_AMT != null">
+                ,#{TOT_LIAB_AMT}
+            </if>
+            <if test="TOT_CAP_AMT != '' and TOT_CAP_AMT != null">
+                ,#{TOT_CAP_AMT}
+            </if>
+            <if test="ORI_SALES_AMT != '' and ORI_SALES_AMT != null">
+                ,#{ORI_SALES_AMT}
+            </if>
+            <if test="SALES_AMT != '' and SALES_AMT != null">
+                ,#{SALES_AMT}
+            </if>
+            <if test="SALES_PROF_AMT != '' and SALES_PROF_AMT != null">
+                ,#{SALES_PROF_AMT}
+            </if>
+
+            <if test="RECUR_PROF_AMT != '' and RECUR_PROF_AMT != null">
+                ,#{RECUR_PROF_AMT}
+            </if>
+
+            ,#{FI_REMARK}
+            ,#{EVIDENCE_TYPE}
+        )
+
+    </insert>
+
+    <insert id="bs03002_doMergeVNMG" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCVNMG<include refid="com.sql.mergeAs"/>VNMG
+            USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, ${MAJOR_ITEM_CD} AS MAJOR_ITEM_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (VNMG.GATE_CD = B.GATE_CD
+            AND VNMG.VENDOR_CD = B.VENDOR_CD
+            AND VNMG.MAJOR_ITEM_CD = B.MAJOR_ITEM_CD)
+            WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG ='0'
+            WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,VENDOR_CD
+            ,MAJOR_ITEM_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            )
+        VALUES (
+            #{ses.gateCd}
+                , #{VENDOR_CD}
+                , #{MAJOR_ITEM_CD}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+            <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <insert id="bs03002_doMergeVNRG" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCVNRG<include refid="com.sql.mergeAs"/>VNRG
+            USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, ${REGION_CD} AS REGION_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+            ON (VNRG.GATE_CD = B.GATE_CD
+            AND VNRG.VENDOR_CD = B.VENDOR_CD
+            AND VNRG.REGION_CD = B.REGION_CD)
+            WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE= <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,VENDOR_CD
+            ,REGION_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            )
+        VALUES (
+            #{ses.gateCd}
+                , #{VENDOR_CD}
+                , #{REGION_CD}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+            <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <insert id="bs03002_doMergeUser_CVUR" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCVUR<include refid="com.sql.mergeAs"/>CVUR
+        USING (SELECT #{ses.gateCd} AS GATE_CD, UPPER(<include refid="com.sql.trim"/>(#{USER_ID})) AS USER_ID<include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+        ON (CVUR.GATE_CD = B.GATE_CD
+        AND UPPER(CVUR.USER_ID) = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+              MOD_DATE= <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , USER_NM =#{USER_NM}
+        <if test="CHANGE_PW !='' and CHANGE_PW !=null">
+            , PASSWORD = #{PASSWORD}
+        </if>
+            , DEPT_NM =#{DEPT_NM}
+            , POSITION_NM =#{POSITION_NM}
+            , DUTY_NM =#{DUTY_NM}
+            , TEL_NUM =#{TEL_NUM}
+            , FAX_NUM =#{FAX_NUM}
+            , CELL_NUM =#{CELL_NUM}
+            , EMAIL =#{USER_EMAIL}
+            , ZIP_CD =#{HQ_ZIP_CD}
+            , ADDR_1 =#{HQ_ADDR_1}
+            , ADDR_2 =#{HQ_ADDR_2}
+            , SMS_FLAG =#{SMS_FLAG}
+            , MAIL_FLAG =#{MAIL_FLAG}
+            , BLOCK_FLAG = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            , MNG_YN = #{MNG_YN}
+            , VNGL_ROLE =#{VNGL_ROLE}
+            , AGREE_ATT_FILE_NUM =#{AGREE_ATT_FILE_NUM}
+            , EMPLOYEE_NO = #{EMPLOYEE_NO}
+        WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,USER_ID
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,COMPANY_CD
+            ,MNG_YN
+            ,USER_TYPE
+            ,USER_NM
+            ,PASSWORD
+            ,DEPT_NM
+            ,POSITION_NM
+            ,DUTY_NM
+            ,TEL_NUM
+            ,FAX_NUM
+            ,CELL_NUM
+            ,EMAIL
+            ,ZIP_CD
+            ,ADDR_1
+            ,ADDR_2
+            ,SMS_FLAG
+            ,MAIL_FLAG
+            ,BLOCK_FLAG
+            ,USE_FLAG
+            ,PROGRESS_CD
+            ,VNGL_ROLE
+            ,AGREE_ATT_FILE_NUM
+            ,PLANT_CD
+            ,EMPLOYEE_NO
+        ) VALUES (
+            #{ses.gateCd}
+            ,UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            ,'0'
+            ,#{VENDOR_CD}
+            ,#{MNG_YN}
+            ,'S'
+            ,#{USER_NM}
+            ,#{PASSWORD}
+            ,#{DEPT_NM}
+            ,#{POSITION_NM}
+            ,#{DUTY_NM}
+            ,#{TEL_NUM}
+            ,#{FAX_NUM}
+            ,#{CELL_NUM}
+            ,#{USER_EMAIL}
+            ,#{HQ_ZIP_CD}
+            ,#{HQ_ADDR_1}
+            ,#{HQ_ADDR_2}
+            ,#{SMS_FLAG}
+            ,#{MAIL_FLAG}
+            ,<include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            ,'1'
+            ,#{USER_PROGRESS_CD}
+            ,#{VNGL_ROLE}
+            ,#{AGREE_ATT_FILE_NUM}
+            ,#{VENDOR_CD}
+            ,#{EMPLOYEE_NO}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+	<delete id="bs03002_doDeleteUser_USAP" parameterType="hashMap">
+
+        DELETE FROM STOCUSAP
+        WHERE GATE_CD = #{ses.gateCd}
+          AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+    </delete>
+
+    <insert id="bs03002_doInsertUser_USAP" parameterType="hashMap">
+
+        INSERT INTO STOCUSAP (
+        		GATE_CD
+              , USER_ID
+              , AUTH_CD
+              , REG_DATE
+              , REG_USER_ID
+              , MOD_DATE
+              , MOD_USER_ID
+              , DEL_FLAG)
+        VALUES ( #{ses.gateCd}
+              , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+              , #{AUTH_CD}
+              , <include refid="com.sql.sysdate"/>
+              , #{ses.userId}
+              , <include refid="com.sql.sysdate"/>
+              , #{ses.userId}
+              , '0'
+        )
+    </insert>
+
+    <insert id="bs03002_doInsert_VNGH" parameterType="hashMap">
+
+        INSERT INTO STOCVNGH ( GATE_CD
+                             , VENDOR_CD
+                             , SEQ
+                             , REG_DATE
+                             , REG_USER_ID
+                             , MOD_DATE
+                             , MOD_USER_ID
+                             , DEL_FLAG
+                             , CEO_USER_NM
+                             , HQ_ZIP_CD
+                             , HQ_ADDR_1
+                             , HQ_ADDR_2
+                             , CH_DATE
+                             , CH_USER_ID
+                             , CH_REASON)
+        VALUES ( #{ses.gateCd}
+               , #{VENDOR_CD}
+               , (SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1,0) FROM STOCVNGH WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = #{VENDOR_CD})
+               , <include refid="com.sql.sysdate"/>
+               , #{ses.userId}
+               , <include refid="com.sql.sysdate"/>
+               , #{ses.userId}
+               , '0'
+               , #{CEO_USER_NM}
+               , #{HQ_ZIP_CD}
+               , #{HQ_ADDR_1}
+               , #{HQ_ADDR_2}
+               , <include refid="com.sql.sysdate"/>
+               , #{ses.userId}
+               , #{CH_REASON})
+    </insert>
+
+
+    <select id="bs03003_doSearchInfo" parameterType="hashmap" resultType="hashmap">
+        SELECT *
+          FROM (
+	        SELECT
+	               VNGL.VENDOR_CD
+	             , VNGL.VENDOR_NM
+	             , <include refid="com.sql.nvl"/>(VNGL.BLOCK_FLAG, '0') AS BLOCK_FLAG
+	             , VNGL.BLOCK_REASON
+	             , VNGL.REG_TYPE
+	             , VNGL.IRS_NO
+	             , VNGL.HQ_ADDR_1
+	             , BUSINESS_TYPE
+				 , INDUSTRY_TYPE
+				 , MAJOR_ITEM_NM
+				 , BUSINESS_SIZE
+				 , MAKER_NM
+				 , VNBH.APP_DOC_NUM
+			 	 , VNBH.APP_DOC_CNT
+			 	 , VNBH.SIGN_STATUS
+			 	 , VNGL.MAJOR_PERFORM
+				 , VNGL.MAJOR_PERFORM1
+				 , VNGL.MAJOR_PERFORM2
+				 , VNGL.MAJOR_PERFORM3
+				 , VNGL.MAJOR_PERFORM4
+	        FROM STOCVNGL VNGL
+	        LEFT JOIN STOCVNBH VNBH
+				ON  VNGL.GATE_CD     = VNBH.GATE_CD
+				AND VNGL.VENDOR_CD   = VNBH.VENDOR_CD
+				AND VNGL.APP_DOC_NUM = VNBH.APP_DOC_NUM
+				AND VNGL.APP_DOC_CNT = VNBH.APP_DOC_CNT
+	        WHERE VNGL.GATE_CD = #{ses.gateCd}
+	          AND VNGL.DEL_FLAG = '0'
+        <choose>
+            <when test="VENDOR_CD != null and VENDOR_CD !=''">
+			  AND VNGL.VENDOR_CD = #{VENDOR_CD}
+			</when>
+            <otherwise>
+              AND VNGL.APP_DOC_NUM = #{APP_DOC_NUM}
+       	 	  AND VNGL.APP_DOC_CNT = #{APP_DOC_CNT}
+			</otherwise>
+		</choose>
+			ORDER BY VNBH.REG_DATE DESC
+		  )
+		  WHERE ROWNUM = 1
+    </select>
+
+    <select id="bs03003_doSearchHistory" parameterType="hashmap" resultType="hashmap">
+
+        SELECT GATE_CD
+             , VENDOR_CD
+             , <include refid="com.sql.toDateChar"/>(REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+            ,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+             , REG_USER_ID
+             , BLOCK_CD
+             , AMEND_REASON
+             , SIGN_STATUS
+        FROM STOCVNBH
+        WHERE GATE_CD = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND DEL_FLAG = '0'
+        ORDER BY REG_DATE DESC
+
+    </select>
+
+    <update id="bs03003_doUpdateVendor" parameterType="hashMap">
+
+        UPDATE STOCVNGL
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+          , APP_DOC_NUM = #{APP_DOC_NUM}
+          , APP_DOC_CNT = #{APP_DOC_CNT}
+        WHERE GATE_CD   = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND DEL_FLAG  = '0'
+    </update>
+
+    <insert id="bs03003_doInsertBlockHistory" parameterType="hashMap">
+
+        INSERT INTO STOCVNBH
+        (
+	          GATE_CD
+	        , VENDOR_CD
+	        , REG_DATE
+	        , REG_USER_ID
+	        , MOD_DATE
+	        , MOD_USER_ID
+	        , DEL_FLAG
+	        , BLOCK_CD
+	        , AMEND_REASON
+	        , APP_DOC_NUM
+	        , APP_DOC_CNT
+	        , SIGN_STATUS
+        )
+        VALUES
+        (
+	          #{ses.gateCd}
+	        , #{VENDOR_CD}
+	        , <include refid="com.sql.sysdate"/>
+	        , #{ses.userId}
+	        , <include refid="com.sql.sysdate"/>
+	        , #{ses.userId}
+	        , '0'
+	        , <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+	        , #{BLOCK_REASON}
+	        , #{APP_DOC_NUM}
+	        , #{APP_DOC_CNT}
+	        , #{SIGN_STATUS}
+        )
+    </insert>
+
+    <insert id="bs03003_doInsertBlockHistory_Approval" parameterType="hashMap">
+
+        INSERT INTO STOCVNBH
+	        ( GATE_CD
+	        , VENDOR_CD
+	        , REG_DATE
+	        , REG_USER_ID
+	        , MOD_DATE
+	        , MOD_USER_ID
+	        , DEL_FLAG
+	        , BLOCK_CD
+       		, AMEND_REASON
+        )
+        VALUES (
+        	  #{ses.gateCd}
+            , (SELECT VENDOR_CD
+               FROM STOCVNGL
+               WHERE GATE_CD = #{ses.gateCd} AND APP_DOC_NUM = #{APP_DOC_NUM} AND APP_DOC_CNT = #{APP_DOC_CNT})
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            , (SELECT BLOCK_REASON FROM STOCVNGL
+                WHERE GATE_CD = #{ses.gateCd}
+                  AND APP_DOC_NUM = #{APP_DOC_NUM}
+                  AND APP_DOC_CNT = #{APP_DOC_CNT})
+       )
+    </insert>
+
+    <update id="updateSignStatus" parameterType="hashMap">
+
+        UPDATE STOCVNGL
+        SET MOD_DATE    = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        , APP_DOC_NUM = #{APP_DOC_NUM }
+        , APP_DOC_CNT = #{APP_DOC_CNT }
+        , SIGN_STATUS = #{SIGN_STATUS }
+        WHERE GATE_CD = #{ses.gateCd}
+        AND VENDOR_CD = #{VENDOR_CD }
+
+    </update>
+
+    <update id="endApproval" parameterType="hashMap">
+
+        UPDATE STOCVNGL SET
+        MOD_DATE = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID = #{ses.userId}
+        ,SIGN_DATE = <include refid="com.sql.sysdate"/>
+        ,SIGN_STATUS = #{SIGN_STATUS }
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            ,PROGRESS_CD = #{PROGRESS_CD }
+        </if>
+        <if test="BLOCK_FLAG != '' and BLOCK_FLAG != null">
+            ,BLOCK_FLAG =#{BLOCK_FLAG}
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+        AND APP_DOC_NUM = #{APP_DOC_NUM }
+        AND APP_DOC_CNT = #{APP_DOC_CNT }
+
+    </update>
+
+    <update id="updateBhSignStatus" parameterType="hashMap">
+
+		UPDATE STOCVNBH
+        SET MOD_DATE    = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+          , SIGN_STATUS = #{SIGN_STATUS }
+          , SIGN_DATE   = (CASE WHEN #{SIGN_STATUS} = 'E' OR #{SIGN_STATUS} = 'R' THEN SYSDATE ELSE NULL END)
+        WHERE GATE_CD = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM }
+		  AND APP_DOC_CNT = #{APP_DOC_CNT }
+    </update>
+
+	<update id="endApprovalBh" parameterType="hashMap">
+
+		UPDATE STOCVNGL SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,BLOCK_FLAG  = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+            ,BLOCK_REASON = #{BLOCK_REASON}
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = (SELECT VENDOR_CD FROM STOCVNBH
+		   					 WHERE GATE_CD  = #{ses.gateCd}
+		   					   AND APP_DOC_NUM = #{APP_DOC_NUM }
+		   					   AND APP_DOC_CNT = #{APP_DOC_CNT })
+    </update>
+
+    <update id="endApproval_CVUR" parameterType="hashMap">
+
+        UPDATE STOCCVUR SET
+            CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+            ,CONFIRM_USER_ID = #{ses.userId}
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            ,PROGRESS_CD = #{PROGRESS_CD }
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+          AND COMPANY_CD = (SELECT MAX(VENDOR_CD) FROM STOCVNGL WHERE GATE_CD =  #{ses.gateCd} AND APP_DOC_NUM = #{APP_DOC_NUM }  AND APP_DOC_CNT = #{APP_DOC_CNT })
+    </update>
+
+    <select id="bs03007_doSearch" parameterType="hashmap" resultType="hashmap">
+
+        SELECT VNGH.SEQ
+             , VNGH.CEO_USER_NM
+             , VNGH.HQ_ZIP_CD
+             , VNGH.HQ_ADDR_1
+             , VNGH.HQ_ADDR_2
+             , <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, VNGH.CH_USER_ID, #{ses.langCd}) AS CH_USER_NM
+             , VNGH.CH_USER_ID
+             , <include refid="com.sql.toDateChar"/>(VNGH.CH_DATE, 'YYYY-MM-DD HH24:MI') AS CH_DATE
+            ,CH_REASON
+             , CASE WHEN CH_REASON IS NOT NULL THEN 'Y' ELSE '' END                     CH_REASON_YN
+        FROM STOCVNGH VNGH
+        WHERE VNGH.GATE_CD = #{ses.gateCd}
+          AND VNGH.VENDOR_CD = #{VENDOR_CD}
+        ORDER BY VNGH.SEQ DESC
+
+    </select>
+
+    <select id="bs03008_doSearchInfo" parameterType="hashmap" resultType="hashmap">
+        SELECT
+            VNGL.VENDOR_CD
+            ,VNGL.VENDOR_NM
+            , <include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE , 'YYYY-MM-DD') AS FOUNDATION_DATE
+            , <include refid="com.sql.toDateChar"/>(VNEV.EVAL_DATE , 'YYYY-MM-DD') AS EVAL_DATE
+            ,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, VNEV.EVAL_USER_ID, #{ses.langCd}) AS EVAL_USER_NM
+            ,((TO_NUMBER(EVAL_ITEM_1_SCORE)<include refid="com.sql.stringMerge"/> TO_NUMBER(EVAL_ITEM_2_SCORE)<include refid="com.sql.stringMerge"/>
+               TO_NUMBER(EVAL_ITEM_3_SCORE)<include refid="com.sql.stringMerge"/> TO_NUMBER(EVAL_ITEM_4_SCORE)<include refid="com.sql.stringMerge"/>
+               TO_NUMBER(EVAL_ITEM_5_SCORE)<include refid="com.sql.stringMerge"/> TO_NUMBER(EVAL_ITEM_6_SCORE)<include refid="com.sql.stringMerge"/>
+               TO_NUMBER(EVAL_ITEM_7_SCORE)<include refid="com.sql.stringMerge"/> TO_NUMBER(EVAL_ITEM_8_SCORE)<include refid="com.sql.stringMerge"/>
+               TO_NUMBER(EVAL_ITEM_9_SCORE)<include refid="com.sql.stringMerge"/> TO_NUMBER(EVAL_ITEM_10_SCORE)<include refid="com.sql.stringMerge"/>
+               TO_NUMBER(EVAL_ITEM_11_SCORE)) - TO_NUMBER(EVAL_ITEM_12_SCORE)) AS RESULT_SCORE
+            ,VNEV.EVAL_GRADE_CLS AS RESULT_RANK
+            ,VNEV.EVAL_GRADE_CLS AS EVAL_GRADE_CLS
+            ,VNEV.EVAL_REMARK AS EVAL_REMARK
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_1_SCORE,0) AS EVAL_ITEM_1_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_2_SCORE,0) AS EVAL_ITEM_2_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_3_SCORE,0) AS EVAL_ITEM_3_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_4_SCORE,0) AS EVAL_ITEM_4_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_5_SCORE,0) AS EVAL_ITEM_5_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_6_SCORE,0) AS EVAL_ITEM_6_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_7_SCORE,0) AS EVAL_ITEM_7_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_8_SCORE,0) AS EVAL_ITEM_8_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_9_SCORE,0) AS EVAL_ITEM_9_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_10_SCORE,0) AS EVAL_ITEM_10_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_12_SCORE,0) AS EVAL_ITEM_12_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_11_SCORE,0) AS EVAL_ITEM_11_SCORE
+            ,<include refid="com.sql.nvl"/>(VNEV.EVAL_ITEM_12_SCORE,0) AS EVAL_ITEM_12_SCORE
+
+        FROM STOCVNGL VNGL
+            LEFT OUTER JOIN STOCVNEV VNEV
+                ON VNEV.GATE_CD = VNGL.GATE_CD
+                   AND VNEV.VENDOR_CD = VNGL.VENDOR_CD
+                   AND VNEV.DEL_FLAG='0'
+                   AND VNEV.SEQ =
+                    <choose>
+                        <when test="SEQ != null and SEQ !=''">
+                            (SELECT SEQ FROM STOCVNEV WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD AND SEQ = #{SEQ} AND DEL_FLAG='0')
+                        </when>
+                        <otherwise>
+                            (SELECT MAX(SEQ) FROM STOCVNEV WHERE GATE_CD = VNGL.GATE_CD AND VENDOR_CD = VNGL.VENDOR_CD AND DEL_FLAG='0')
+                        </otherwise>
+                    </choose>
+        WHERE VNGL.GATE_CD = #{ses.gateCd}
+          AND VNGL.DEL_FLAG = '0'
+          AND VNGL.VENDOR_CD = #{VENDOR_CD}
+    </select>
+
+
+    <select id="bs03008_doSearchList" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+            C1.C1_CD
+            ,C1.C1_NM
+            ,C1.C1_PARENT
+            ,C1.C1_ETC
+            ,C1.C1_COL_CNT
+            ,C2.C2_CD
+            ,C2.C2_NM
+            ,C2.C2_ETC
+            ,C2.C2_COL_CNT
+            ,C3.CODE AS C3_CD
+            ,C3.CODE_DESC AS C3_NM
+            ,C3.TEXT1 AS C3_PARENT
+            ,C3.TEXT2 AS C3_ETC
+            ,CASE WHEN C2_CD='A0101' THEN (SELECT EVAL_ITEM_1_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='A0102' THEN (SELECT EVAL_ITEM_2_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='A0103' THEN (SELECT EVAL_ITEM_3_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='A0104' THEN (SELECT EVAL_ITEM_4_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='A0105' THEN (SELECT EVAL_ITEM_5_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='B0101' THEN (SELECT EVAL_ITEM_6_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='B0102' THEN (SELECT EVAL_ITEM_7_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='B0103' THEN (SELECT EVAL_ITEM_8_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='B0104' THEN (SELECT EVAL_ITEM_9_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='B0105' THEN (SELECT EVAL_ITEM_10_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='E0101' THEN (SELECT EVAL_ITEM_11_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+                  WHEN C2_CD='E0102' THEN (SELECT EVAL_ITEM_12_SCORE FROM STOCVNEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+             ELSE '0'
+             END C_SCORE
+        FROM STOCCODD C3
+            JOIN (
+                     SELECT
+                          C2.CODE AS C2_CD
+                         ,C2.CODE_DESC AS C2_NM
+                         ,C2.TEXT1 AS C2_PARENT
+                         ,C2.TEXT2 AS C2_ETC
+                         ,C2.SORT_SQ AS C2_SORT_SQ
+                         ,(SELECT COUNT(CODE) FROM STOCCODD WHERE GATE_CD = C2.GATE_CD AND DEL_FLAG = '0' AND CODE_TYPE ='MP061' AND LANG_CD = C2.LANG_CD AND TEXT1 = C2.CODE) AS C2_COL_CNT
+                        <choose>
+                            <when test="SEQ != null and SEQ !=''">
+                                ,(SELECT SEQ FROM STOCVNEV WHERE GATE_CD = C2.GATE_CD AND VENDOR_CD = #{VENDOR_CD} AND SEQ = #{SEQ} AND DEL_FLAG='0') AS EV_SEQ
+                            </when>
+                            <otherwise>
+                                ,(SELECT MAX(SEQ) FROM STOCVNEV WHERE GATE_CD = C2.GATE_CD AND VENDOR_CD = #{VENDOR_CD} AND DEL_FLAG='0') AS EV_SEQ
+                            </otherwise>
+                        </choose>
+                     FROM STOCCODD C2
+                     WHERE C2.GATE_CD = #{ses.gateCd}
+                           AND C2.DEL_FLAG = '0'
+                           AND C2.CODE_TYPE ='MP060'
+                           AND C2.LANG_CD =  #{ses.langCd}
+                 )C2
+                ON C3.TEXT1 = C2.C2_CD
+            JOIN (
+                     SELECT
+                          C1.CODE AS C1_CD
+                         ,C1.CODE_DESC AS C1_NM
+                         ,C1.TEXT1 AS C1_PARENT
+                         ,C1.TEXT2 AS C1_ETC
+                         ,C1.SORT_SQ AS C1_SORT_SQ
+                         ,(SELECT COUNT(CODE)
+                           FROM STOCCODD
+                           WHERE GATE_CD = C1.GATE_CD AND DEL_FLAG = '0' AND CODE_TYPE ='MP061' AND LANG_CD = C1.LANG_CD
+                                 AND TEXT1 IN(SELECT CODE FROM STOCCODD WHERE GATE_CD = C1.GATE_CD AND DEL_FLAG = '0' AND CODE_TYPE ='MP060' AND LANG_CD = C1.LANG_CD AND TEXT1 = C1.CODE)) AS C1_COL_CNT
+                     FROM STOCCODD C1
+                     WHERE C1.GATE_CD =  #{ses.gateCd}
+                           AND C1.DEL_FLAG = '0'
+                           AND C1.CODE_TYPE ='MP059'
+                           AND C1.LANG_CD = #{ses.langCd}
+                 )C1
+                ON C2.C2_PARENT = C1.C1_CD
+        WHERE C3.GATE_CD =  #{ses.gateCd}
+              AND C3.DEL_FLAG = '0'
+              AND C3.CODE_TYPE ='MP061'
+              AND C3.LANG_CD =  #{ses.langCd}
+        ORDER BY C1.C1_SORT_SQ, C2.C2_SORT_SQ, C3.SORT_SQ, UPPER(C3.CODE)
+
+    </select>
+
+
+    <insert id="bs03008_doSave" parameterType="hashMap">
+
+        INSERT INTO STOCVNEV ( GATE_CD
+                             , VENDOR_CD
+                             , SEQ
+                             , REG_DATE
+                             , REG_USER_ID
+                             , MOD_DATE
+                             , MOD_USER_ID
+                             , DEL_FLAG
+                             , EVAL_ITEM_1_SCORE
+                             , EVAL_ITEM_2_SCORE
+                             , EVAL_ITEM_3_SCORE
+                             , EVAL_ITEM_4_SCORE
+                             , EVAL_ITEM_5_SCORE
+                             , EVAL_ITEM_6_SCORE
+                             , EVAL_ITEM_7_SCORE
+                             , EVAL_ITEM_8_SCORE
+                             , EVAL_ITEM_9_SCORE
+                             , EVAL_ITEM_10_SCORE
+                             , EVAL_ITEM_11_SCORE
+                             , EVAL_ITEM_12_SCORE
+                             , EVAL_GRADE_CLS
+                             , EVAL_USER_ID
+                             , EVAL_DATE
+                             , EVAL_REMARK)
+        VALUES ( #{ses.gateCd}
+               , #{VENDOR_CD}
+               , (SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1,1) FROM STOCVNEV WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = #{VENDOR_CD})
+               , <include refid="com.sql.sysdate"/>
+               , #{ses.userId}
+               , <include refid="com.sql.sysdate"/>
+               , #{ses.userId}
+               , '0'
+               , #{EVAL_ITEM_1_SCORE}
+               , #{EVAL_ITEM_2_SCORE}
+               , #{EVAL_ITEM_3_SCORE}
+               , #{EVAL_ITEM_4_SCORE}
+               , #{EVAL_ITEM_5_SCORE}
+               , #{EVAL_ITEM_6_SCORE}
+               , #{EVAL_ITEM_7_SCORE}
+               , #{EVAL_ITEM_8_SCORE}
+               , #{EVAL_ITEM_9_SCORE}
+               , #{EVAL_ITEM_10_SCORE}
+               , #{EVAL_ITEM_11_SCORE}
+               , #{EVAL_ITEM_12_SCORE}
+               , #{EVAL_GRADE_CLS}
+               , #{ses.userId}
+               , <include refid="com.sql.sysdate"/>
+               , #{EVAL_REMARK})
+    </insert>
+
+    <select id="getMailUserInfo" parameterType="hashMap" resultType="hashMap">
+        SELECT U.USER_ID
+             , U.USER_NM
+             , U.EMAIL
+             , VNGL.VENDOR_CD
+             , VNGL.VENDOR_NM
+
+        FROM STOCCVUR U
+                 JOIN STOCVNGL VNGL
+                      ON (VNGL.GATE_CD = U.GATE_CD
+                          AND VNGL.VENDOR_CD = U.COMPANY_CD)
+        WHERE U.GATE_CD = #{ses.gateCd}
+          AND U.COMPANY_CD = (SELECT VENDOR_CD
+                              FROM STOCVNGL
+                              WHERE GATE_CD = #{ses.gateCd}
+                                AND APP_DOC_NUM = #{APP_DOC_NUM }
+                                AND APP_DOC_CNT = #{APP_DOC_CNT })
+          AND U.MNG_YN = '1'
+          AND U.DEL_FLAG = '0'
+    </select>
+
+    <select id="doSearchMailUserList" parameterType="hashmap" resultType="hashmap">
+
+        SELECT USR.USER_NM AS USER_NM
+             , USR.USER_ID AS USER_ID
+             , (CASE WHEN <include refid="com.sql.nvl"/>(USR.MAIL_FLAG, '0') = '1' THEN USR.EMAIL ELSE '' END) AS EMAIL
+          FROM STOCBACP BACP
+          JOIN STOCUSER USR
+	           ON (BACP.GATE_CD = USR.GATE_CD
+	           AND BACP.CTRL_USER_ID = USR.USER_ID
+	           AND USR.DEL_FLAG = '0')
+         WHERE BACP.GATE_CD  = #{ses.gateCd}
+           AND BACP.BUYER_CD = <include refid="com.sql.nvl"/>(#{BUYER_CD}, #{ses.manageCd})
+           AND BACP.CTRL_CD  = #{CTRL_CD}
+           AND BACP.DEL_FLAG = '0'
+         ORDER BY BACP.CTRL_USER_ID
+    </select>
+
+    <select id="BS03_001P_doSearch" resultType="java.util.Map">
+		SELECT E.REQUEST_DATE EVAL_DATE
+			 , V.EV_NUM
+			 , V.EV_SCORE EV_RESULT_SCORE
+		FROM STOCEVES V JOIN STOCEVEM E ON V.GATE_CD = E.GATE_CD
+			                            AND V.EV_NUM = E.EV_NUM
+			                            AND E.PROGRESS_CD = '300'
+		WHERE V.GATE_CD = #{ses.gateCd}
+		AND V.VENDOR_CD = #{VENDOR_CD}
+		AND V.VENDOR_SQ = '1'
+		AND V.DEL_FLAG = '0'
+		AND V.PROGRESS_CD = '200'
+    </select>
+
+    <select id="bs03010_doSearchDeliveryLevel" resultType="java.lang.String">
+        SELECT DELIVERY_LEVEL
+        FROM STOCVNGL
+        WHERE GATE_CD = #{ses.gateCd}
+          AND VENDOR_CD = #{VENDOR_CD}
+          AND DEL_FLAG = '0'
+    </select>
+
+    <select id="bs03010_doSearchInfo" resultType="java.util.Map">
+        SELECT VNGL.VENDOR_CD
+             , VNGL.VENDOR_NM
+             , <include refid="com.sql.toDateChar"/>(VNGL.FOUNDATION_DATE, 'YYYY-MM-DD') AS FOUNDATION_DATE
+             , <include refid="com.sql.toDateChar"/>(SPEV.EVAL_DATE, 'YYYY-MM-DD') AS EVAL_DATE
+             , <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, SPEV.EVAL_USER_ID, #{ses.langCd}) AS EVAL_USER_NM
+             <if test="SPEV_YN != 'Y'.toString()">
+             , SPEV.EVAL_REMARK AS EVAL_REMARK
+             , SPEV.EVAL_WAY_1
+             , SPEV.EVAL_WAY_2
+             , SPEV.RECOM_USER_NM AS RECOM_USER_NM
+             </if>
+          FROM STOCVNGL VNGL
+          LEFT OUTER JOIN STOCSPEV SPEV
+            ON SPEV.GATE_CD = VNGL.GATE_CD
+           AND SPEV.VENDOR_CD = VNGL.VENDOR_CD
+           AND SPEV.DEL_FLAG='0'
+           AND SPEV.SEQ =
+        <choose>
+            <when test="SEQ != null and SEQ !=''">
+                (SELECT SEQ
+                   FROM STOCSPEV
+                  WHERE GATE_CD = VNGL.GATE_CD
+                    AND VENDOR_CD = VNGL.VENDOR_CD
+                    AND SEQ = #{SEQ}
+                    AND DEL_FLAG='0')
+            </when>
+            <otherwise>
+                (SELECT MAX(SEQ)
+                   FROM STOCSPEV
+                  WHERE GATE_CD = VNGL.GATE_CD
+                    AND VENDOR_CD = VNGL.VENDOR_CD
+                    AND DEL_FLAG='0')
+            </otherwise>
+        </choose>
+         WHERE VNGL.GATE_CD = #{ses.gateCd}
+           AND VNGL.DEL_FLAG = '0'
+           AND VNGL.VENDOR_CD = #{VENDOR_CD}
+    </select>
+
+    <select id="bs03010_doSearchList" resultType="java.util.Map">
+        SELECT C1.C1_CD
+             , C1.C1_NM
+             , C1.C1_PARENT
+             , C1.C1_ETC
+             , C1.C1_COL_CNT
+             , C2.C2_CD
+             , C2.C2_NM
+             , C2.C2_ETC
+             , C2.C2_COL_CNT
+             , C3.CODE AS C3_CD
+
+             , C3.CODE_DESC AS C3_NM
+
+
+
+             , C3.TEXT1 AS C3_PARENT
+             , C3.TEXT2 AS C3_ETC
+             , C3.TEXT3 AS C3_EVAL_NUM
+             , C3.TEXT4 AS C3_LAST_FLAG
+
+
+            <if test="SPEV_YN == '1Y'.toString()">
+
+	             , CASE WHEN C2_CD='A0101' THEN '20'
+	                    WHEN C2_CD='A0102' THEN '0'
+	                    WHEN C2_CD='A0103' THEN '0'
+	                    WHEN C2_CD='A0104' THEN '15'
+	                    WHEN C2_CD='B0101' THEN '0'
+	                    WHEN C2_CD='B0102' THEN '0'
+	                    WHEN C2_CD='B0103' THEN '10'
+	                    WHEN C2_CD='B0104' THEN '5'
+	                    WHEN C2_CD='B0105' THEN '0'
+	                    WHEN C2_CD='C0101' THEN '0'
+	                    WHEN C2_CD='C0102' THEN '0'
+	                    WHEN C2_CD='C0103' THEN
+	                    WHEN C2_CD='C0104' THEN
+	                    WHEN C2_CD='C0105' THEN
+	                    WHEN C2_CD='C0106' THEN
+	                    WHEN C2_CD='C0107' THEN
+	                    WHEN C2_CD='C0108' THEN
+	                    WHEN C2_CD='C0109' THEN
+	                    WHEN C2_CD='C0110' THEN
+	                    WHEN C2_CD='D0101' THEN
+	                    WHEN C2_CD='D0102' THEN
+	                    ELSE 0 END AS C_SCORE
+
+
+
+
+
+
+
+
+            </if>
+
+
+
+            <if test="SPEV_YN != 'Y'.toString()">
+	             , CASE WHEN C2_CD='A0101' THEN (SELECT TO_NUMBER(EVAL_ITEM_1_SCORE) AS EVAL_ITEM_1_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0102' THEN (SELECT TO_NUMBER( EVAL_ITEM_2_SCORE) AS EVAL_ITEM_2_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0103' THEN (SELECT TO_NUMBER( EVAL_ITEM_3_SCORE) AS EVAL_ITEM_3_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0104' THEN (SELECT TO_NUMBER( EVAL_ITEM_4_SCORE) AS EVAL_ITEM_4_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0101' THEN (SELECT TO_NUMBER( EVAL_ITEM_5_SCORE) AS EVAL_ITEM_5_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0102' THEN (SELECT TO_NUMBER( EVAL_ITEM_6_SCORE) AS EVAL_ITEM_6_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0103' THEN (SELECT TO_NUMBER( EVAL_ITEM_7_SCORE) AS EVAL_ITEM_7_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0104' THEN (SELECT TO_NUMBER( EVAL_ITEM_8_SCORE) AS EVAL_ITEM_8_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0105' THEN (SELECT TO_NUMBER( EVAL_ITEM_9_SCORE) AS EVAL_ITEM_9_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0101' THEN (SELECT TO_NUMBER( EVAL_ITEM_10_SCORE) AS EVAL_ITEM_10_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0102' THEN (SELECT TO_NUMBER( EVAL_ITEM_11_SCORE) AS EVAL_ITEM_11_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0103' THEN (SELECT TO_NUMBER( EVAL_ITEM_12_SCORE) AS EVAL_ITEM_12_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0104' THEN (SELECT TO_NUMBER( EVAL_ITEM_13_SCORE) AS EVAL_ITEM_13_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0105' THEN (SELECT TO_NUMBER( EVAL_ITEM_14_SCORE) AS EVAL_ITEM_14_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0106' THEN (SELECT TO_NUMBER( EVAL_ITEM_15_SCORE) AS EVAL_ITEM_15_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0107' THEN (SELECT TO_NUMBER( EVAL_ITEM_16_SCORE) AS EVAL_ITEM_16_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0108' THEN (SELECT TO_NUMBER( EVAL_ITEM_17_SCORE) AS EVAL_ITEM_17_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0109' THEN (SELECT TO_NUMBER( EVAL_ITEM_18_SCORE) AS EVAL_ITEM_18_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0110' THEN (SELECT TO_NUMBER( EVAL_ITEM_19_SCORE) AS EVAL_ITEM_19_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='D0101' THEN (SELECT TO_NUMBER( EVAL_ITEM_20_SCORE) AS EVAL_ITEM_20_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='D0102' THEN (SELECT TO_NUMBER( EVAL_ITEM_21_SCORE) AS EVAL_ITEM_21_SCORE FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    ELSE 0 END AS C_SCORE
+	             , CASE WHEN C2_CD='A0101' THEN (SELECT  EVAL_ITEM_1_ID AS EVAL_ITEM_1_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0102' THEN (SELECT  EVAL_ITEM_2_ID AS EVAL_ITEM_2_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0103' THEN (SELECT  EVAL_ITEM_3_ID AS EVAL_ITEM_3_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='A0104' THEN (SELECT  EVAL_ITEM_4_ID AS EVAL_ITEM_4_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0101' THEN (SELECT  EVAL_ITEM_5_ID AS EVAL_ITEM_5_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0102' THEN (SELECT  EVAL_ITEM_6_ID AS EVAL_ITEM_6_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0103' THEN (SELECT  EVAL_ITEM_7_ID AS EVAL_ITEM_7_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0104' THEN (SELECT  EVAL_ITEM_8_ID AS EVAL_ITEM_8_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='B0105' THEN (SELECT  EVAL_ITEM_9_ID AS EVAL_ITEM_9_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0101' THEN (SELECT  EVAL_ITEM_10_ID AS EVAL_ITEM_10_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0102' THEN (SELECT  EVAL_ITEM_11_ID AS EVAL_ITEM_11_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0103' THEN (SELECT  EVAL_ITEM_12_ID AS EVAL_ITEM_12_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0104' THEN (SELECT  EVAL_ITEM_13_ID AS EVAL_ITEM_13_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0105' THEN (SELECT  EVAL_ITEM_14_ID AS EVAL_ITEM_14_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0106' THEN (SELECT  EVAL_ITEM_15_ID AS EVAL_ITEM_15_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0107' THEN (SELECT  EVAL_ITEM_16_ID AS EVAL_ITEM_16_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0108' THEN (SELECT  EVAL_ITEM_17_ID AS EVAL_ITEM_17_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0109' THEN (SELECT  EVAL_ITEM_18_ID AS EVAL_ITEM_18_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='C0110' THEN (SELECT  EVAL_ITEM_19_ID AS EVAL_ITEM_19_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='D0101' THEN (SELECT  EVAL_ITEM_20_ID AS EVAL_ITEM_20_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    WHEN C2_CD='D0102' THEN (SELECT  EVAL_ITEM_21_ID AS EVAL_ITEM_21_ID FROM STOCSPEV WHERE GATE_CD = C3.GATE_CD AND DEL_FLAG='0' AND VENDOR_CD=#{VENDOR_CD} AND SEQ = C2.EV_SEQ)
+	                    ELSE '' END AS C_ID
+            </if>
+          FROM STOCCODD C3
+          JOIN (
+                SELECT C2.CODE AS C2_CD
+                     , C2.CODE_DESC AS C2_NM
+                     , C2.TEXT1 AS C2_PARENT
+                     , C2.TEXT2 AS C2_ETC
+                     , C2.SORT_SQ AS C2_SORT_SQ
+                     , (SELECT COUNT(CODE)
+                          FROM STOCCODD
+                         WHERE GATE_CD = C2.GATE_CD
+                           AND DEL_FLAG = '0'
+                           AND CODE_TYPE = #{C3_CD}
+                           AND LANG_CD = C2.LANG_CD
+                           AND TEXT1 = C2.CODE) AS C2_COL_CNT
+                     <choose>
+                        <when test="SEQ != null and SEQ !=''">
+                            , (SELECT SEQ
+                                FROM STOCSPEV
+                               WHERE GATE_CD = C2.GATE_CD
+                                 AND VENDOR_CD = #{VENDOR_CD}
+                                 AND SEQ = #{SEQ}
+                                 AND DEL_FLAG='0') AS EV_SEQ
+                        </when>
+                        <otherwise>
+                            , (SELECT MAX(SEQ)
+                                 FROM STOCSPEV
+                                WHERE GATE_CD = C2.GATE_CD
+                                  AND VENDOR_CD = #{VENDOR_CD}
+                                  AND DEL_FLAG='0') AS EV_SEQ
+                        </otherwise>
+                     </choose>
+                 FROM STOCCODD C2
+                WHERE C2.GATE_CD = #{ses.gateCd}
+                  AND C2.DEL_FLAG = '0'
+                  AND C2.CODE_TYPE = #{C2_CD}
+                  AND C2.LANG_CD =  #{ses.langCd}) C2
+            ON C3.TEXT1 = C2.C2_CD
+          JOIN (
+                SELECT C1.CODE AS C1_CD
+                     , C1.CODE_DESC AS C1_NM
+                     , C1.TEXT1 AS C1_PARENT
+                     , C1.TEXT2 AS C1_ETC
+                     , C1.SORT_SQ AS C1_SORT_SQ
+                     , (SELECT COUNT(CODE)
+                          FROM STOCCODD
+                         WHERE GATE_CD = C1.GATE_CD
+                           AND DEL_FLAG = '0'
+                           AND CODE_TYPE = #{C3_CD}
+                           AND LANG_CD = C1.LANG_CD
+                           AND TEXT1 IN (SELECT CODE
+                                           FROM STOCCODD
+                                          WHERE GATE_CD = C1.GATE_CD
+                                            AND DEL_FLAG = '0'
+                                            AND CODE_TYPE = #{C2_CD}
+                                            AND LANG_CD = C1.LANG_CD
+                                            AND TEXT1 = C1.CODE)) AS C1_COL_CNT
+                 FROM STOCCODD C1
+                WHERE C1.GATE_CD =  #{ses.gateCd}
+                  AND C1.DEL_FLAG = '0'
+                  AND C1.CODE_TYPE = #{C1_CD}
+                  AND C1.LANG_CD = #{ses.langCd}) C1
+            ON C2.C2_PARENT = C1.C1_CD
+         WHERE C3.GATE_CD =  #{ses.gateCd}
+           AND C3.DEL_FLAG = '0'
+           AND C3.CODE_TYPE = #{C3_CD}
+           AND C3.LANG_CD =  #{ses.langCd}
+         ORDER BY C1.C1_SORT_SQ, C2.C2_SORT_SQ, C3.SORT_SQ, UPPER(C3.CODE)
+    </select>
+
+    <insert id="bs03010_doInsert">
+        INSERT INTO STOCSPEV (
+               GATE_CD
+             , VENDOR_CD
+             , SEQ
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , EVAL_ITEM_1_SCORE
+             , EVAL_ITEM_2_SCORE
+             , EVAL_ITEM_3_SCORE
+             , EVAL_ITEM_4_SCORE
+             , EVAL_ITEM_5_SCORE
+             , EVAL_ITEM_6_SCORE
+             , EVAL_ITEM_7_SCORE
+             , EVAL_ITEM_8_SCORE
+             , EVAL_ITEM_9_SCORE
+             , EVAL_ITEM_10_SCORE
+             , EVAL_ITEM_11_SCORE
+             , EVAL_ITEM_12_SCORE
+             , EVAL_ITEM_13_SCORE
+             , EVAL_ITEM_14_SCORE
+             , EVAL_ITEM_15_SCORE
+             , EVAL_ITEM_16_SCORE
+             , EVAL_ITEM_17_SCORE
+             , EVAL_ITEM_18_SCORE
+             , EVAL_ITEM_19_SCORE
+             , EVAL_ITEM_20_SCORE
+             , EVAL_ITEM_21_SCORE
+             , EVAL_ITEM_22_SCORE
+             , EVAL_WAY_1
+             , EVAL_WAY_2
+             , EVAL_USER_ID
+             , EVAL_DATE
+             , EVAL_REMARK
+             , DELIVERY_LEVEL
+             , PROGRESS_CD
+             , RECOM_USER_NM
+
+
+
+             , EVAL_ITEM_1_ID
+             , EVAL_ITEM_2_ID
+             , EVAL_ITEM_3_ID
+             , EVAL_ITEM_4_ID
+             , EVAL_ITEM_5_ID
+             , EVAL_ITEM_6_ID
+             , EVAL_ITEM_7_ID
+             , EVAL_ITEM_8_ID
+             , EVAL_ITEM_9_ID
+             , EVAL_ITEM_10_ID
+             , EVAL_ITEM_11_ID
+             , EVAL_ITEM_12_ID
+             , EVAL_ITEM_13_ID
+             , EVAL_ITEM_14_ID
+             , EVAL_ITEM_15_ID
+             , EVAL_ITEM_16_ID
+             , EVAL_ITEM_17_ID
+             , EVAL_ITEM_18_ID
+             , EVAL_ITEM_19_ID
+             , EVAL_ITEM_20_ID
+             , EVAL_ITEM_21_ID
+             , EVAL_ITEM_22_ID
+
+
+        ) VALUES (
+               #{ses.gateCd}
+             , #{VENDOR_CD}
+             , (SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1,1) FROM STOCSPEV WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = #{VENDOR_CD})
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{EVAL_ITEM_1_SCORE}
+             , #{EVAL_ITEM_2_SCORE}
+             , #{EVAL_ITEM_3_SCORE}
+             , #{EVAL_ITEM_4_SCORE}
+             , #{EVAL_ITEM_5_SCORE}
+             , #{EVAL_ITEM_6_SCORE}
+             , #{EVAL_ITEM_7_SCORE}
+             , #{EVAL_ITEM_8_SCORE}
+             , #{EVAL_ITEM_9_SCORE}
+             , #{EVAL_ITEM_10_SCORE}
+             , #{EVAL_ITEM_11_SCORE}
+             , #{EVAL_ITEM_12_SCORE}
+             , #{EVAL_ITEM_13_SCORE}
+             , #{EVAL_ITEM_14_SCORE}
+             , #{EVAL_ITEM_15_SCORE}
+             , #{EVAL_ITEM_16_SCORE}
+             , #{EVAL_ITEM_17_SCORE}
+             , #{EVAL_ITEM_18_SCORE}
+             , #{EVAL_ITEM_19_SCORE}
+             , #{EVAL_ITEM_20_SCORE}
+             , #{EVAL_ITEM_21_SCORE}
+             , #{EVAL_ITEM_22_SCORE}
+             , #{EVAL_WAY_1}
+             , #{EVAL_WAY_2}
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{EVAL_REMARK}
+             , #{DELIVERY_LEVEL}
+             , #{PROGRESS_CD}
+             , #{RECOM_USER_NM}
+
+
+
+             , #{EVAL_ITEM_1_ID}
+             , #{EVAL_ITEM_2_ID}
+             , #{EVAL_ITEM_3_ID}
+             , #{EVAL_ITEM_4_ID}
+             , #{EVAL_ITEM_5_ID}
+             , #{EVAL_ITEM_6_ID}
+             , #{EVAL_ITEM_7_ID}
+             , #{EVAL_ITEM_8_ID}
+             , #{EVAL_ITEM_9_ID}
+             , #{EVAL_ITEM_10_ID}
+             , #{EVAL_ITEM_11_ID}
+             , #{EVAL_ITEM_12_ID}
+             , #{EVAL_ITEM_13_ID}
+             , #{EVAL_ITEM_14_ID}
+             , #{EVAL_ITEM_15_ID}
+             , #{EVAL_ITEM_16_ID}
+             , #{EVAL_ITEM_17_ID}
+             , #{EVAL_ITEM_18_ID}
+             , #{EVAL_ITEM_19_ID}
+             , #{EVAL_ITEM_20_ID}
+             , #{EVAL_ITEM_21_ID}
+             , #{EVAL_ITEM_22_ID}
+
+
+
+             )
+    </insert>
+
+    <select id="bs03009_doSearch_old" resultType="java.util.Map">
+        SELECT VNGL.GATE_CD
+             , VNGL.PROGRESS_CD
+             , VNGL.SIGN_STATUS
+             , SPEV.PROGRESS_CD
+             , VNGL.VENDOR_CD
+             , VNGL.VENDOR_NM
+             , VNGL.CEO_USER_NM
+             , VNGL.IRS_NO
+             , VNGL.HQ_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> VNGL.HQ_ADDR_2 AS ADDRESS
+             , VNGL.TEL_NO
+             , VNGL.BUSINESS_TYPE
+             , VNGL.INDUSTRY_TYPE
+             , VNGL.ACCOUNT_M_NUM
+             , <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) AS EV_RESULT_SCORE
+             , <include refid="com.sql.toDateChar"/>(SPEV.EVAL_DATE, 'yyyyMMdd') AS EVAL_DATE
+             , <include refid="com.sql.dbo"/>GETUSERNAME(SPEV.GATE_CD, SPEV.EVAL_USER_ID, #{ses.langCd}) AS EVAL_USER_NM
+             , (SELECT COUNT(*) FROM STOCSPEV
+                WHERE GATE_CD   = SPEV.GATE_CD
+                  AND VENDOR_CD = SPEV.VENDOR_CD
+                  AND SPEV.DEL_FLAG = '0') AS EV_CNT
+             , SPEV.DELIVERY_LEVEL
+             , <include refid="com.sql.toDateChar"/>(SPEV.CONFIRM_DATE, 'yyyyMMdd') AS CONFIRM_DATE
+             , <include refid="com.sql.dbo"/>GETUSERNAME(SPEV.GATE_CD, SPEV.CONFIRM_USER_ID, #{ses.langCd}) AS CONFIRM_USER_NM
+          FROM STOCVNGL VNGL
+          LEFT JOIN STOCSPEV SPEV
+	           ON (VNGL.GATE_CD   = SPEV.GATE_CD
+	           AND VNGL.VENDOR_CD = SPEV.VENDOR_CD
+	           AND SPEV.DEL_FLAG  = '0')
+         WHERE VNGL.GATE_CD = #{ses.gateCd}
+           AND VNGL.PROGRESS_CD IN ('J', 'R', 'P') -- 가입요청(J), 반려(R), 승인요청(P)
+
+        <if test="VENDOR_CD != null and VENDOR_CD != ''">
+           AND SPEV.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != null and VENDOR_NM != ''">
+           AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IRS_NO != null and IRS_NO != ''">
+           AND VNGL.IRS_NO <include refid="com.sql.likeL"/> #{IRS_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PROGRESS_CD != null and PROGRESS_CD != ''">
+           AND VNGL.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="REG_FROM_DATE != '' and REG_FROM_DATE != null">
+            <![CDATA[AND VNGL.REG_DATE >= #{REG_FROM_DATE}]]>
+        </if>
+        <if test="REG_TO_DATE != '' and REG_TO_DATE != null">
+            <![CDATA[AND VNGL.REG_DATE <= #{REG_TO_DATE}]]>
+        </if>
+        <if test="CEO_NM != '' and CEO_NM != null">
+            AND VNGL.CEO_USER_NM <include refid="com.sql.likeL"/> #{CEO_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY VNGL.REG_DATE DESC
+    </select>
+
+
+    <select id="bs03009_doSearch" resultType="java.util.Map">
+    SELECT
+	   VNGL.GATE_CD
+	 , VNGL.PROGRESS_CD
+	 , VNGL.REG_DATE
+	 , VNGL.SIGN_STATUS
+	 , <include refid="com.sql.toDateChar"/> (VNGL.SIGN_DATE, 'yyyyMMdd') AS SIGN_DATE
+	 , <include refid="com.sql.dbo"/> GETUSERNAME(VNGL.GATE_CD, VNGL.REJECT_USER_ID, #{ses.langCd}) AS REJECT_USER_NM
+ 	 <!-- , <include refid="com.sql.toDateChar"/> (SPEV.REJECT_CONFIRM_DATE, 'yyyyMMdd') AS REJECT_CONFIRM_DATE 승인거부일자
+ 	 , <include refid="com.sql.dbo"/> GETUSERNAME(SPEV.GATE_CD, SPEV.REJECT_CONFIRM_USER_ID, #{ses.langCd}) AS REJECT_CONFIRM_USER_NM 승인거부자 -->
+ 	 , VNGL.REJECT_RMK --반려사유
+	 , SPEV.PROGRESS_CD
+	 , VNGL.VENDOR_CD
+	 , VNGL.VENDOR_NM
+	 , VNGL.CEO_USER_NM
+	 , VNGL.IRS_NO
+	 , VNGL.HQ_ADDR_1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> VNGL.HQ_ADDR_2 AS ADDRESS
+	 , VNGL.TEL_NO
+	 , VNGL.BUSINESS_TYPE
+	 , VNGL.INDUSTRY_TYPE
+	 , VNGL.ACCOUNT_M_NUM
+	 , SPEV.DELIVERY_LEVEL
+	 , <include refid="com.sql.toDateChar"/>(SPEV.CONFIRM_DATE, 'yyyyMMdd') AS CONFIRM_DATE
+	 , <include refid="com.sql.dbo"/>GETUSERNAME(SPEV.GATE_CD, SPEV.CONFIRM_USER_ID, #{ses.langCd}) AS CONFIRM_USER_NM
+ 	 , SPEV.EV_RESULT_SCORE
+  	 , <include refid="com.sql.toDateChar"/>(SPEV.EVAL_DATE, 'yyyyMMdd') AS EVAL_DATE
+ 	 , <include refid="com.sql.dbo"/>GETUSERNAME(SPEV.GATE_CD, SPEV.EVAL_USER_ID, #{ses.langCd}) AS EVAL_USER_NM
+ 	 ,(SELECT COUNT(*) FROM STOCSPEV K
+		WHERE K.GATE_CD   = VNGL.GATE_CD
+		  AND K.VENDOR_CD = VNGL.VENDOR_CD
+		  AND K.DEL_FLAG = '0') AS EV_CNT
+
+	FROM STOCVNGL VNGL,
+	(
+		SELECT
+			 SPEV.GATE_CD
+			 , SPEV.VENDOR_CD
+		     , SPEV.DELIVERY_LEVEL
+		     , SPEV.CONFIRM_DATE
+		     , SPEV.CONFIRM_USER_ID
+		     , SPEV.EVAL_USER_ID
+		     , SPEV.EVAL_DATE
+		     , SPEV.PROGRESS_CD
+		     , SPEV.DEL_FLAG
+			 , SPEV.REJECT_CONFIRM_USER_ID
+			 , SPEV.REJECT_CONFIRM_DATE
+		 	 , <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+               <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) + <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_22_SCORE, 0) AS EV_RESULT_SCORE
+
+		FROM STOCSPEV SPEV, (SELECT VENDOR_CD,MAX(SEQ) MAXSEQ FROM STOCSPEV GROUP BY VENDOR_CD) MAXSEQ
+		WHERE 1 = 1
+		      AND SPEV.VENDOR_CD  = MAXSEQ.VENDOR_CD
+		      AND SPEV.seq = MAXSEQ.MAXSEQ
+	) SPEV
+	 WHERE 1 = 1
+	   AND VNGL.VENDOR_CD = SPEV.VENDOR_CD(+)
+	   AND VNGL.GATE_CD = #{ses.gateCd}
+	<!--    AND VNGL.PROGRESS_CD IN ('J', 'R', 'P', 'T') -->
+	   <if test="VENDOR_CD != null and VENDOR_CD != ''">
+           AND SPEV.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != null and VENDOR_NM != ''">
+           AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IRS_NO != null and IRS_NO != ''">
+           AND VNGL.IRS_NO <include refid="com.sql.likeL"/> #{IRS_NO} <include refid="com.sql.likeR"/>
+        </if>
+       <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+	   	  AND VNGL.PROGRESS_CD IN
+		   <foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+             #{item}
+           </foreach>
+		</if>
+        <if test="FROM_DATE != '' and FROM_DATE != null">
+           AND VNGL.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="TO_DATE != '' and TO_DATE != null">
+           AND VNGL.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CEO_NM != '' and CEO_NM != null">
+            AND VNGL.CEO_USER_NM <include refid="com.sql.likeL"/> #{CEO_NM} <include refid="com.sql.likeR"/>
+        </if>
+	   ORDER BY VNGL.REG_DATE DESC
+
+    </select>
+
+    <select id="BS03_009P_doSearch" resultType="java.util.Map">
+        SELECT A.VENDOR_CD
+             , A.SEQ
+             , A.EV_RESULT_SCORE
+             , A.EVAL_DATE
+             , A.EVAL_USER_NM
+             , A.EV_NUM
+        FROM (
+                SELECT SPEV.VENDOR_CD
+                     , SPEV.SEQ
+                     , <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_1_SCORE, 0)  +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_2_SCORE, 0)  +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_3_SCORE, 0)  +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_4_SCORE, 0)  +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_5_SCORE, 0)  +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_6_SCORE, 0)  +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_7_SCORE, 0)  +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_8_SCORE, 0)  +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_9_SCORE, 0)  +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_10_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_11_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_12_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_13_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_14_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_15_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_16_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_17_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_18_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_19_SCORE, 0) +  <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_20_SCORE, 0) +
+                       <include refid="com.sql.nvl"/>(SPEV.EVAL_ITEM_21_SCORE, 0) AS EV_RESULT_SCORE
+                     , <include refid="com.sql.toDateChar"/>(SPEV.EVAL_DATE, 'yyyyMMdd') AS EVAL_DATE
+                     , <include refid="com.sql.dbo"/>getUserName(SPEV.GATE_CD, SPEV.EVAL_USER_ID, #{ses.langCd})  AS EVAL_USER_NM
+                     , ROW_NUMBER() OVER (ORDER BY SPEV.EVAL_DATE ASC) AS EV_NUM
+                  FROM STOCVNGL VNGL
+                  JOIN STOCSPEV SPEV
+	                   ON (VNGL.GATE_CD = SPEV.GATE_CD
+	                   AND VNGL.VENDOR_CD = SPEV.VENDOR_CD
+	                   AND SPEV.DEL_FLAG = '0')
+                 WHERE VNGL.GATE_CD = #{ses.gateCd}
+                   AND UPPER(VNGL.VENDOR_CD) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_CD}) <include refid="com.sql.likeR"/>
+                   AND UPPER(VNGL.VENDOR_NM) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_NM}) <include refid="com.sql.likeR"/>
+                   AND VNGL.DEL_FLAG = '0'
+            ) A
+        ORDER BY A.EV_NUM ASC
+    </select>
+
+    <update id="bs03009_doUpdateProgressCd">
+        UPDATE STOCSPEV
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , PROGRESS_CD = #{PROGRESS_CD}
+            <if test="PROGRESS_CD == '150'.toString()">
+             , CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+             , CONFIRM_USER_ID = #{ses.userId}
+            </if>
+            <if test="PROGRESS_CD == '200'.toString()">
+             , REJECT_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+             , REJECT_CONFIRM_USER_ID = #{ses.userId}
+            </if>
+            <if test="PROGRESS_CD == '300'.toString()">
+             , CANCEL_DATE = <include refid="com.sql.sysdate"/>
+             , CANCEL_USER_ID = #{ses.userId}
+            </if>
+            <if test="PROGRESS_CD == '400'.toString()">
+             , CANCEL_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+             , CANCEL_CONFIRM_USER_ID = #{ses.userId}
+            </if>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+    <update id="bs03009_doUpdateRejectStatusSTOCVNGL">
+		UPDATE STOCVNGL VNGL SET
+		 	VNGL.PROGRESS_CD = #{PROGRESS_CD} --반려
+		 ,	VNGL.SIGN_STATUS = #{SIGN_STATUS} --반려
+		 ,	VNGL.REJECT_RMK = #{REJECT_RMK} -- 반려사유
+		 ,	VNGL.SIGN_DATE = <include refid="com.sql.sysdate"/>
+		 ,	VNGL.REJECT_USER_ID = #{ses.userId}
+	 	WHERE VNGL.GATE_CD = #{ses.gateCd}
+	 		AND VNGL.VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+    <update id="bs03009_doUpdateRejectStatusSTOCSPEV">
+    	UPDATE STOCSPEV SPEV SET
+	 		SPEV.PROGRESS_CD = '200'
+	 	,	SPEV.REJECT_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+	 	, 	SPEV.REJECT_CONFIRM_USER_ID =  #{ses.userId}
+	 	WHERE SPEV.VENDOR_CD = #{VENDOR_CD}
+		 	AND SPEV.MOD_DATE = <include refid="com.sql.sysdate"/>
+		 	AND SPEV.MOD_USER_ID = #{ses.userId}
+			AND SPEV.GATE_CD = #{ses.gateCd}
+    </update>
+
+    <update id="bs03010_doUpdate">
+        UPDATE STOCSPEV
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , EVAL_ITEM_1_SCORE = #{EVAL_ITEM_1_SCORE}
+             , EVAL_ITEM_2_SCORE = #{EVAL_ITEM_2_SCORE}
+             , EVAL_ITEM_3_SCORE = #{EVAL_ITEM_3_SCORE}
+             , EVAL_ITEM_4_SCORE = #{EVAL_ITEM_4_SCORE}
+             , EVAL_ITEM_5_SCORE = #{EVAL_ITEM_5_SCORE}
+             , EVAL_ITEM_6_SCORE = #{EVAL_ITEM_6_SCORE}
+             , EVAL_ITEM_7_SCORE = #{EVAL_ITEM_7_SCORE}
+             , EVAL_ITEM_8_SCORE = #{EVAL_ITEM_8_SCORE}
+             , EVAL_ITEM_9_SCORE = #{EVAL_ITEM_9_SCORE}
+             , EVAL_ITEM_10_SCORE = #{EVAL_ITEM_10_SCORE}
+             , EVAL_ITEM_11_SCORE = #{EVAL_ITEM_11_SCORE}
+             , EVAL_ITEM_12_SCORE = #{EVAL_ITEM_12_SCORE}
+             , EVAL_ITEM_13_SCORE = #{EVAL_ITEM_13_SCORE}
+             , EVAL_ITEM_14_SCORE = #{EVAL_ITEM_14_SCORE}
+             , EVAL_ITEM_15_SCORE = #{EVAL_ITEM_15_SCORE}
+             , EVAL_ITEM_16_SCORE = #{EVAL_ITEM_16_SCORE}
+             , EVAL_ITEM_17_SCORE = #{EVAL_ITEM_17_SCORE}
+             , EVAL_ITEM_18_SCORE = #{EVAL_ITEM_18_SCORE}
+             , EVAL_ITEM_19_SCORE = #{EVAL_ITEM_19_SCORE}
+             , EVAL_ITEM_20_SCORE = #{EVAL_ITEM_20_SCORE}
+             , EVAL_ITEM_21_SCORE = #{EVAL_ITEM_21_SCORE}
+             , EVAL_ITEM_22_SCORE = #{EVAL_ITEM_22_SCORE}
+
+             , EVAL_ITEM_1_ID = #{EVAL_ITEM_1_ID}
+             , EVAL_ITEM_2_ID = #{EVAL_ITEM_2_ID}
+             , EVAL_ITEM_3_ID = #{EVAL_ITEM_3_ID}
+             , EVAL_ITEM_4_ID = #{EVAL_ITEM_4_ID}
+             , EVAL_ITEM_5_ID = #{EVAL_ITEM_5_ID}
+             , EVAL_ITEM_6_ID = #{EVAL_ITEM_6_ID}
+             , EVAL_ITEM_7_ID = #{EVAL_ITEM_7_ID}
+             , EVAL_ITEM_8_ID = #{EVAL_ITEM_8_ID}
+             , EVAL_ITEM_9_ID = #{EVAL_ITEM_9_ID}
+             , EVAL_ITEM_10_ID = #{EVAL_ITEM_10_ID}
+             , EVAL_ITEM_11_ID = #{EVAL_ITEM_11_ID}
+             , EVAL_ITEM_12_ID = #{EVAL_ITEM_12_ID}
+             , EVAL_ITEM_13_ID = #{EVAL_ITEM_13_ID}
+             , EVAL_ITEM_14_ID = #{EVAL_ITEM_14_ID}
+             , EVAL_ITEM_15_ID = #{EVAL_ITEM_15_ID}
+             , EVAL_ITEM_16_ID = #{EVAL_ITEM_16_ID}
+             , EVAL_ITEM_17_ID = #{EVAL_ITEM_17_ID}
+             , EVAL_ITEM_18_ID = #{EVAL_ITEM_18_ID}
+             , EVAL_ITEM_19_ID = #{EVAL_ITEM_19_ID}
+             , EVAL_ITEM_20_ID = #{EVAL_ITEM_20_ID}
+             , EVAL_ITEM_21_ID = #{EVAL_ITEM_21_ID}
+             , EVAL_ITEM_22_ID = #{EVAL_ITEM_22_ID}
+
+
+
+             , EVAL_WAY_1 = #{EVAL_WAY_1}
+             , EVAL_WAY_2 = #{EVAL_WAY_2}
+             , EVAL_REMARK = #{EVAL_REMARK}
+             , PROGRESS_CD = #{PROGRESS_CD}
+             , RECOM_USER_NM = #{RECOM_USER_NM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+    <select id="BS03_011_doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT
+              ROW_NUMBER() OVER( ORDER BY NOTC.FIXED_TOP_FLAG ASC, NOTC.REG_DATE ASC, NOTC.NOTICE_NUM ASC) AS ROW_NUM --(DESC -> ASC)
+            , NOTC.BUYER_CD
+            , CUST.CUST_NM AS BUYER_NM
+            , NOTC.SUBJECT
+            , NOTC.START_DATE
+            , NOTC.END_DATE
+            , NOTC.REG_USER_ID
+            <if test="NOTICE_TYPE != 'PC4'">
+            , <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) as REG_DATE
+            </if>
+            <if test="NOTICE_TYPE == 'PC4'">
+            , <include refid="com.sql.toDateChar"/>( NOTC.INS_DATE , 'YYYY-MM-DD' ) as REG_DATE
+            </if>
+            , <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+            , <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , 'YYYY-MM-DD' ) AS NOTICE_DATE
+            , NOTC.ATT_FILE_NUM AS ATT_FILE_NUM
+            , CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+                   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM)
+                   END AS ATT_FILE_NUM_ICON
+            , CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL
+                    AND (SELECT COUNT(*)
+                           FROM STOCATCH
+                          WHERE GATE_CD  = #{ses.gateCd}
+                            AND UUID     = NOTC.ATT_FILE_NUM
+                            AND DEL_FLAG = '0') <![CDATA[>]]> 0
+              THEN '0' ELSE '1' END AS ATT_FILE_NUM_ICON_IMAGE
+            , <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+            , NOTC.NOTICE_NUM
+            , NOTC.NOTICE_TYPE
+            ,  <include refid="com.sql.toDateChar"/>( NOTC.MOD_DATE , 'YYYY-MM-DD' ) as MOD_DATE
+        FROM STOCNOTC NOTC
+        LEFT JOIN STOCCUST CUST
+               ON ( NOTC.GATE_CD  = CUST.GATE_CD
+              AND  NOTC.BUYER_CD = CUST.CUST_CD
+              AND  CUST.DEL_FLAG = '0')
+        WHERE NOTC.GATE_CD = #{ses.gateCd}
+          AND NOTC.NOTICE_TYPE = #{NOTICE_TYPE}
+          AND NOTC.DEL_FLAG = '0'
+        <if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null and NOTICE_TYPE != PC4">
+            AND (NOTC.REG_DATE  <![CDATA[>=]]>  <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.REG_DATE  <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>)
+        </if>
+        <if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null and NOTICE_TYPE == PC4">
+            AND (NOTC.INS_DATE  <![CDATA[>=]]>  <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.INS_DATE  <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>)
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null">
+            AND UPPER(NOTC.SUBJECT) <include refid="com.sql.likeL"/> UPPER(#{SUBJECT}) <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY NOTC.FIXED_TOP_FLAG DESC
+        <if test="NOTICE_TYPE != 'PC4'">
+            , NOTC.REG_DATE DESC
+        </if>
+        <if test="NOTICE_TYPE == 'PC4'">
+            , NOTC.INS_DATE DESC
+        </if>
+        , NOTC.NOTICE_NUM DESC
+    </select>
+
+    <update id="BS03_011_doDelete" parameterType="hashMap">
+        UPDATE STOCNOTC SET
+              DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND NOTICE_NUM = #{NOTICE_NUM}
+    </update>
+
+    <select id="BS03_011P_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+        SELECT
+              NOTC.SUBJECT
+            , NOTC.NOTICE_NUM
+            , NOTC.NOTICE_TEXT_NUM
+            , NOTC.USER_TYPE
+            , <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+            , <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , <include refid="com.sql.dateFormat"/> ) as START_DATE
+            , <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , <include refid="com.sql.dateFormat"/> ) as END_DATE
+            , <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) AS REG_DATE
+            , UR.USER_NM AS REG_USER_NM
+            , NOTC.REG_USER_ID
+            , NOTC.ATT_FILE_NUM
+            , NOTC.BUYER_CD
+            , CUST.CUST_NM AS BUYER_NM
+            , NOTC.NOTICE_TYPE
+            , <include refid="com.sql.toDateChar"/>( NOTC.INS_DATE , <include refid="com.sql.dateFormat"/> ) AS INS_DATE
+        FROM STOCNOTC NOTC
+        LEFT JOIN STOCUSER UR
+               ON (NOTC.GATE_CD = UR.GATE_CD
+              AND NOTC.REG_USER_ID = UR.USER_ID)
+        LEFT JOIN STOCCUST CUST
+               ON (NOTC.GATE_CD  = CUST.GATE_CD
+              AND NOTC.BUYER_CD = CUST.CUST_CD
+              AND CUST.DEL_FLAG = '0')
+        WHERE NOTC.GATE_CD = #{ses.gateCd}
+          AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+    </select>
+	<select id="vnbhInfo" parameterType="hashMap" resultType="hashMap">
+        SELECT *
+		  FROM STOCVNBH
+		 WHERE APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = #{APP_DOC_CNT}
+		   AND DEL_FLAG    = '0'
+    </select>
+    <update id="BS03_011P_doSaveCount" parameterType="hashMap">
+
+        UPDATE STOCNOTC
+           SET VIEW_CNT = #{VIEW_CNT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+           AND NOTICE_TYPE = #{NOTICE_TYPE}
+
+    </update>
+
+    <insert id="BS03_011P_doInsert" parameterType="hashMap">
+        INSERT INTO STOCNOTC (
+              GATE_CD
+            , NOTICE_NUM
+            , SUBJECT
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , START_DATE
+            , END_DATE
+            , USER_TYPE
+            , ATT_FILE_NUM
+            , NOTICE_TEXT_NUM
+            , NOTICE_TYPE
+            <if test="BUYER_CD != null and BUYER_CD != '' ">
+            , BUYER_CD
+            </if>
+            <if test="INS_DATE != null and INS_DATE != '' ">
+            , INS_DATE
+            </if>
+        ) VALUES (
+              #{ses.gateCd}
+            , #{NOTICE_NUM}
+            , TRIM(#{SUBJECT})
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{START_DATE}
+            , #{END_DATE}
+            , #{USER_TYPE}
+            , #{ATT_FILE_NUM}
+            , #{NOTICE_TEXT_NUM}
+            , #{NOTICE_TYPE}
+            <if test="BUYER_CD != null and BUYER_CD != '' ">
+            , #{BUYER_CD}
+            </if>
+            <if test="INS_DATE != null and INS_DATE != '' ">
+            , #{INS_DATE}
+            </if>
+        )
+    </insert>
+
+    <update id="BS03_011P_doUpdate" parameterType="hashMap">
+        UPDATE STOCNOTC
+           SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , SUBJECT = TRIM(#{SUBJECT})
+             , USER_TYPE = #{USER_TYPE}
+             , START_DATE = #{START_DATE}
+             , END_DATE = #{END_DATE}
+             , NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+             , ATT_FILE_NUM = #{ATT_FILE_NUM}
+            <if test="BUYER_CD != null and BUYER_CD != '' ">
+             , BUYER_CD = #{BUYER_CD}
+            </if>
+            <if test="INS_DATE != null and INS_DATE != '' ">
+             , INS_DATE = #{INS_DATE}
+            </if>
+            WHERE GATE_CD = #{ses.gateCd}
+              AND NOTICE_NUM = #{NOTICE_NUM}
+              AND NOTICE_TYPE = #{NOTICE_TYPE}
+    </update>
+</mapper>

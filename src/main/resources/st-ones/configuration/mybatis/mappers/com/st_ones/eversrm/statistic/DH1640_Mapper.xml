@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1640_Mapper">
+
+    <select id="doSearchByCar" resultType="hashmap">
+    	SELECT
+    	 T. CAR_GROUP_CD
+    	,T.GR_AMT
+    	,CASE WHEN M.TOTAL_GR_AMT = 0 THEN 0 ELSE (T.GR_AMT/ M.TOTAL_GR_AMT) * 100 END PER
+    	
+    	FROM (
+				SELECT 
+				DISTINCT <include refid="com.sql.nvl"/>((SELECT CODE_DESC FROM STOCCODD WHERE GATE_CD=#{ses.gateCd} AND CODE_TYPE='M179' AND CODE= D.CAR_GROUP_CD), '') CAR_GROUP_CD , SUM(B.GR_AMT) GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>	
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+			    GROUP BY D.CAR_GROUP_CD
+				UNION ALL
+				--합계
+				SELECT 
+				DISTINCT 'TOTAL' CAR_GROUP_CD, SUM(B.GR_AMT)
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+		) T CROSS JOIN (
+				SELECT 
+				DISTINCT 'TOTAL' CAR_GROUP_CD, SUM(B.GR_AMT) TOTAL_GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>	
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>			
+		) M
+
+	</select>
+    <select id="doSearchByVendor" resultType="hashmap">
+
+   	SELECT
+    	 T.VENDOR_CD
+    	, T.GR_AMT
+    	,(T.GR_AMT/ M.TOTAL_GR_AMT) * 100 PER
+    	
+    	FROM (
+				SELECT 
+				DISTINCT <include refid="com.sql.nvl"/>((SELECT VENDOR_NM FROM STOCVNGL WHERE GATE_CD = #{ses.gateCd} AND VENDOR_CD = C.VENDOR_CD), '') VENDOR_CD, SUM(B.GR_AMT) GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>	
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+			    GROUP BY C.VENDOR_CD
+				UNION ALL
+				--합계
+				SELECT 
+				DISTINCT 'TOTAL' VENDOR_CD, SUM(B.GR_AMT)
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>	
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+		) T CROSS JOIN (
+				SELECT 
+				DISTINCT 'TOTAL' VENDOR_CD, SUM(B.GR_AMT) TOTAL_GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>			
+		) M
+
+	</select>
+    <select id="doSearchByInvest" resultType="hashmap">
+
+		SELECT
+    	 T.INVEST_CD
+    	,T.GR_AMT
+    	,(T.GR_AMT/ M.TOTAL_GR_AMT) * 100 PER
+    	
+    	FROM (
+				SELECT 
+				DISTINCT <include refid="com.sql.nvl"/>((SELECT CODE_DESC FROM STOCCODD WHERE GATE_CD=#{ses.gateCd} AND CODE_TYPE='M190' AND CODE= D.INVEST_CD), '') INVEST_CD , SUM(B.GR_AMT) GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+			    GROUP BY D.INVEST_CD
+				UNION ALL
+				--합계
+				SELECT 
+				DISTINCT 'TOTAL' INVEST_CD, SUM(B.GR_AMT)
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>	
+		) T CROSS JOIN (
+				SELECT 
+				DISTINCT 'TOTAL' INVEST_CD, SUM(B.GR_AMT) TOTAL_GR_AMT
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>			
+		) M
+
+
+
+	</select>
+	
+	
+	<sql id="additionalColumnsBody">
+		SELECT
+		A.CODE AS INVEST_CD
+		FROM STOCCODD A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.CODE_TYPE='M190'
+		AND A.DEL_FLAG = '0'
+	    <if test="INVEST_CD !='' and INVEST_CD !=null">
+	        AND A.CODE  IN (${INVEST_CD})
+	    </if>		
+	
+	
+
+    </sql>
+    
+    <select id="getAdditionalColumnInfos" resultType="hashmap">
+		SELECT 'V' <include refid="com.sql.stringMerge"/> INVEST_CD <include refid="com.sql.stringMerge"/> '_' <include refid="com.sql.stringMerge"/> TEMPLATE_ID AS COLUMN_ID
+			   ,(SELECT CODE_DESC FROM STOCCODD WHERE GATE_CD = #{ses.gateCd} AND CODE_TYPE='M190' AND CODE = TMP.INVEST_CD)  COLUMN_NM
+		       ,INVEST_CD TEMPLATE_ID
+		       ,INVEST_CD AS USER_DATA
+		  FROM  (<include refid="additionalColumnsBody"/>) TMP
+			
+			
+		  CROSS JOIN
+				    (SELECT 'AMT' AS TEMPLATE_ID ,'INVEST_CD' TEMPLATE_NM
+		           ) TMP2
+		           ORDER BY INVEST_CD 
+    </select>
+    
+    <select id="doSearchComparisonTable" resultType="hashMap">
+    
+		SELECT
+		  <include refid="com.sql.nvl"/>((SELECT CODE_DESC FROM STOCCODD WHERE GATE_CD=#{ses.gateCd} AND CODE_TYPE='M179' AND CODE= CAR_GROUP_CD), '') AS CAR_GROUP_CD
+          <foreach item="additionalColumnInfo" collection="additionalColumnInfoList"> 
+            ,(
+				SELECT 
+				DISTINCT  SUM(B.GR_AMT)
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+	            AND D.CAR_GROUP_CD = K.CAR_GROUP_CD
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>	
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>
+		  		AND D.INVEST_CD = <include refid="com.sql.subStr"/>(#{additionalColumnInfo.COLUMN_ID},2, CHARINDEX('_',#{additionalColumnInfo.COLUMN_ID})-2  ) 
+             )   
+             
+             AS ${additionalColumnInfo.COLUMN_ID}
+          </foreach> 		
+            ,(
+				SELECT 
+				DISTINCT SUM(B.GR_AMT)
+				FROM STOCDLHD A
+				JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+				              AND A.DEAL_NUM = B.DEAL_NUM
+				              AND B.DEL_FLAG = '0'
+				JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+				              AND B.GR_NUM  = C.GR_NUM
+				              AND B.GR_YEAR = C.GR_YEAR
+				              AND B.GR_SQ   = C.GR_SQ
+				              AND C.DEL_FLAG = '0'
+				JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+				              AND C.PO_NUM = D.PO_NUM
+				              AND C.PO_SQ = D.PO_SQ
+				              AND D.DEL_FLAG = '0'
+				              AND D.PURCHASE_TYPE = 'ISP'
+				WHERE A.GATE_CD = #{ses.gateCd}
+				AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+	            AND A.DEL_FLAG = '0'
+	            AND D.CAR_GROUP_CD = K.CAR_GROUP_CD
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>					
+			    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+					AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			    <if test="INVEST_CD !='' and INVEST_CD !=null">
+			        AND D.INVEST_CD  IN (${INVEST_CD})
+			    </if>
+
+             )   
+          TOTAL_AMT
+		FROM (
+			SELECT 
+			DISTINCT D.CAR_GROUP_CD
+			FROM STOCDLHD A
+			JOIN STOCDLDT B ON A.GATE_CD = B.GATE_CD
+			              AND A.DEAL_NUM = B.DEAL_NUM
+			              AND B.DEL_FLAG = '0'
+			JOIN STOCGRDT C ON B.GATE_CD = C.GATE_CD
+			              AND B.GR_NUM  = C.GR_NUM
+			              AND B.GR_YEAR = C.GR_YEAR
+			              AND B.GR_SQ   = C.GR_SQ
+			              AND C.DEL_FLAG = '0'
+			JOIN STOCPODT D ON C.GATE_CD = D.GATE_CD
+			              AND C.PO_NUM = D.PO_NUM
+			              AND C.PO_SQ = D.PO_SQ
+			              AND D.DEL_FLAG = '0'
+			              AND D.PURCHASE_TYPE = 'ISP'
+			WHERE A.GATE_CD = #{ses.gateCd}
+			AND A.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+            AND A.DEL_FLAG = '0'
+		    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+				AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+			</if>
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+		    <if test="CAR_GROUP_CD !='' and CAR_GROUP_CD !=null">
+				AND D.CAR_GROUP_CD <include refid="com.sql.likeL"/> #{CAR_GROUP_CD} <include refid="com.sql.likeR"/> 
+			</if>
+		    <if test="INVEST_CD !='' and INVEST_CD !=null">
+		        AND D.INVEST_CD  IN (${INVEST_CD})
+		    </if>	
+		) K
+    
+    </select>
+
+	
+</mapper>

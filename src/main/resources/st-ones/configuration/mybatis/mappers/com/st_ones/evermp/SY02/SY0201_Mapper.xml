@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.SY02.SY0201_Mapper">
+    <select id="sy02001_doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+	          HLDM.HOLYDAY AS HOLYDAY
+	        , HLDM.ATTEND_CD AS HOLYDAY_TYPE
+	        , HLDM.HOLYDAY_NM AS HOLYDAY_NM
+	        , <include refid="com.sql.dbo"/>GETUSERNAME(HLDM.GATE_CD, HLDM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+	        , <include refid="com.sql.toDateChar"/>(HLDM.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+	        , <include refid="com.sql.dbo"/>GETUSERNAME(HLDM.GATE_CD, HLDM.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+	        , <include refid="com.sql.toDateChar"/>(HLDM.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+        FROM STOCHLDM HLDM
+        WHERE HLDM.GATE_CD = #{ses.gateCd}
+        AND HLDM.DEL_FLAG = '0'
+        <if test="YEAR !='' and YEAR != null">
+            AND <include refid="com.sql.subStr"/>(HLDM.HOLYDAY,1,4) IN ${YEAR}
+        </if>
+        <if test="MONTH !='' and MONTH != null">
+            AND <include refid="com.sql.subStr"/>(HLDM.HOLYDAY,5,2) IN ${MONTH}
+        </if>
+        <if test="HOLYDAY_TYPE !='' and HOLYDAY_TYPE != null">
+            AND HLDM.ATTEND_CD IN ${HOLYDAY_TYPE}
+        </if>
+        ORDER BY HLDM.HOLYDAY
+
+    </select>
+
+    <select id="sy02001_doCheck" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT
+			COUNT(*)
+		FROM STOCHLDM HLDM
+		WHERE HLDM.GATE_CD = #{ses.gateCd}
+		  AND HLDM.DEL_FLAG = '0'
+		  AND HLDM.HOLYDAY = #{HOLYDAY}
+		  AND HLDM.ATTEND_CD = #{HOLYDAY_TYPE}
+		  AND HLDM.HOLYDAY_NM = #{HOLYDAY_NM}
+	</select>
+
+    <insert id="sy02001_doSave" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCHLDM<include refid="com.sql.mergeAs"/>HLDM
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{HOLYDAY} AS HOLYDAY
+              )<include refid="com.sql.mergeAs"/>B
+        ON (HLDM.GATE_CD = B.GATE_CD
+          AND HLDM.HOLYDAY = B.HOLYDAY
+        )
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+            ,ATTEND_CD =#{HOLYDAY_TYPE}
+            ,HOLYDAY_NM =#{HOLYDAY_NM}
+        WHEN NOT MATCHED THEN
+        INSERT (
+                  GATE_CD
+                 ,HOLYDAY
+                 ,REG_DATE
+                 ,REG_USER_ID
+                 ,MOD_DATE
+                 ,MOD_USER_ID
+                 ,DEL_FLAG
+                 ,HOLYDAY_NM
+                 ,ATTEND_CD
+         ) VALUES (
+                    #{ses.gateCd}
+                   ,#{HOLYDAY}
+                   ,<include refid="com.sql.sysdate"/>
+                   ,#{ses.userId}
+                   ,<include refid="com.sql.sysdate"/>
+                   ,#{ses.userId}
+                   ,'0'
+                   ,#{HOLYDAY_NM}
+                   ,#{HOLYDAY_TYPE}
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="sy02001_doDelete" parameterType="hashMap">
+
+		DELETE STOCHLDM 
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND HOLYDAY = #{HOLYDAY}
+
+	</update>
+
+    <select id="sy02001_doSearchTx" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+	          TXCL.CLOSING_YEAR_MONTH AS CLOSING_YEAR_MONTH
+	        , TXCL.TXCL_DATE AS TXCL_DATE
+	        , <include refid="com.sql.dbo"/>GETUSERNAME(TXCL.GATE_CD, TXCL.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+	        , <include refid="com.sql.toDateChar"/>(TXCL.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+        FROM STOCTXCL TXCL
+        WHERE TXCL.GATE_CD = #{ses.gateCd}
+          AND TXCL.DEL_FLAG = '0'
+	<if test="YEARTX !='' and YEARTX != null">
+		  AND <include refid="com.sql.subStr"/>(TXCL.CLOSING_YEAR_MONTH,1,4) IN ${YEARTX}
+	</if>
+        ORDER BY TXCL.CLOSING_YEAR_MONTH
+
+    </select>
+    
+    <select id="sy02001_doCheckTx" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT
+			COUNT(*)
+		FROM STOCTXCL TXCL
+		WHERE TXCL.GATE_CD = #{ses.gateCd}
+		  AND TXCL.DEL_FLAG = '0'
+		  AND TXCL.CLOSING_YEAR_MONTH = #{CLOSING_YEAR_MONTH}
+	</select>
+
+    <insert id="sy02001_doSaveTx" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCTXCL<include refid="com.sql.mergeAs"/>TXCL
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CLOSING_YEAR_MONTH} AS CLOSING_YEAR_MONTH
+                    , #{TXCL_DATE} AS TXCL_DATE
+              )<include refid="com.sql.mergeAs"/>B
+        ON (TXCL.GATE_CD = B.GATE_CD
+          AND TXCL.CLOSING_YEAR_MONTH = B.CLOSING_YEAR_MONTH
+          AND TXCL.TXCL_DATE = B.TXCL_DATE
+        )
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+        WHEN NOT MATCHED THEN
+        INSERT (
+                  GATE_CD
+                 ,CLOSING_YEAR_MONTH
+                 ,TXCL_DATE
+                 ,REG_DATE
+                 ,REG_USER_ID
+                 ,MOD_DATE
+                 ,MOD_USER_ID
+                 ,DEL_FLAG
+         ) VALUES (
+                    #{ses.gateCd}
+                   ,#{CLOSING_YEAR_MONTH}
+                   ,#{TXCL_DATE}
+                   ,<include refid="com.sql.sysdate"/>
+                   ,#{ses.userId}
+                   ,<include refid="com.sql.sysdate"/>
+                   ,#{ses.userId}
+                   ,'0'
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="sy02001_doDeleteTx" parameterType="hashMap">
+
+		DELETE STOCTXCL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CLOSING_YEAR_MONTH = #{CLOSING_YEAR_MONTH}
+		   AND TXCL_DATE = #{TXCL_DATE}
+
+	</update>
+
+
+</mapper>

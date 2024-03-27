@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.SIT1.SIT101_Mapper">
+	
+	<!-- SIT1_021 : 신규품목 제안요청 -->
+    <select id="sit1021_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			  GATE_CD
+			, VENDOR_CD
+			, RP_NO
+			, RP_SEQ
+			, <include refid="com.sql.toDateChar"/>(REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			, REG_USER_ID
+			, <include refid="com.sql.toDateChar"/>(MOD_DATE, 'YYYY-MM-DD') AS MOD_DATE
+			, MOD_USER_ID
+			, PROGRESS_CD
+			, VENDOR_ITEM_CD
+			, ITEM_CD
+			, ITEM_DESC
+			, ITEM_SPEC
+			, MAKER_CD
+			, MAKER_NM
+			, MAKER_PART_NO
+			, BRAND_CD
+			, BRAND_NM
+			, ORIGIN_CD
+			, UNIT_CD
+			, ITEM_KIND_CD
+			, TAX_CD
+			, ITEM_DETAIL_TEXT_NUM
+			, <include refid="com.sql.nvl"/>((SELECT CASE WHEN COUNT(TEXT_NUM) > 0 THEN 'Y' ELSE '' END
+			            FROM STOCTXTD <include refid="com.sql.noLock"/>
+			           WHERE GATE_CD  = A.GATE_CD
+				         AND TEXT_NUM = A.ITEM_DETAIL_TEXT_NUM), '') AS ITEM_DETAIL_TEXT_FLAG
+			, IMG_ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>((SELECT COUNT(UUID) FROM STOCATCH
+                       WHERE GATE_CD  = A.GATE_CD
+                         AND UUID     = A.IMG_ATT_FILE_NUM
+                         AND DEL_FLAG = '0'), 0) AS IMG_ATT_FILE_NUM_IMG
+			, ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>((SELECT COUNT(UUID) FROM STOCATCH
+                       WHERE GATE_CD  = A.GATE_CD
+                         AND UUID     = A.ATT_FILE_NUM
+                         AND DEL_FLAG = '0'), 0) AS ATT_FILE_NUM_IMG
+			, CUR
+			, <include refid="com.sql.nvl"/>(RFP_UNIT_PRICE, 0) AS RFP_UNIT_PRICE
+			, <include refid="com.sql.nvl"/>(MOQ_QTY, 0) AS MOQ_QTY
+			, <include refid="com.sql.nvl"/>(RV_QTY, 0) AS RV_QTY
+			, AREA_CD
+			, AREA_NM
+			, DEAL_CD
+			, <include refid="com.sql.nvl"/>(LEAD_TIME, 0) AS LEAD_TIME
+			, LEAD_TIME_CD
+			, LEAD_TIME_RMK
+			, <include refid="com.sql.toDateChar"/>(REQ_DATE, 'YYYY-MM-DD') AS REQ_DATE
+			, REJECT_RMK
+			, CONT_UNIT_PRICE
+			, CONT_DATE
+			, APPLY_COM
+			, CONT_NO
+			, CONT_SEQ
+			, 'U' AS INSERT_FLAG
+		  FROM STOYMTRP A
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND VENDOR_CD   = #{VENDOR_CD}
+		   AND PROGRESS_CD = '100' -- 임시저장
+		   AND DEL_FLAG    = '0'
+		 ORDER BY RP_NO DESC
+		        , RP_SEQ ASC
+	</select>
+	
+	<insert id="sit1021_doInsert" parameterType="hashmap">
+		INSERT INTO STOYMTRP (
+			  GATE_CD
+			, VENDOR_CD
+			, RP_NO
+			, RP_SEQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, PROGRESS_CD
+			, VENDOR_ITEM_CD
+			, ITEM_DESC
+			, ITEM_SPEC
+			, MAKER_NM
+			, MAKER_PART_NO
+			, BRAND_NM
+			, ORIGIN_CD
+			, UNIT_CD
+			, ITEM_KIND_CD
+			, TAX_CD
+			, IMG_ATT_FILE_NUM
+			, ITEM_DETAIL_TEXT_NUM
+			, ATT_FILE_NUM
+			, CUR
+			, RFP_UNIT_PRICE
+			, MOQ_QTY
+			, RV_QTY
+			, AREA_CD
+			, AREA_NM
+			, DEAL_CD
+			, LEAD_TIME
+			, LEAD_TIME_CD
+			, LEAD_TIME_RMK
+			, REQ_DATE
+		) VALUES (
+			  #{ses.gateCd}
+            , #{VENDOR_CD}
+            , #{RP_NO}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(RP_SEQ),0) + 1 FROM STOYMTRP
+               WHERE GATE_CD   = #{ses.gateCd}
+                 AND VENDOR_CD = #{VENDOR_CD}
+                 AND RP_NO     = #{RP_NO})
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{PROGRESS_CD}
+			, #{VENDOR_ITEM_CD}
+			, #{ITEM_DESC}
+			, #{ITEM_SPEC}
+			, #{MAKER_NM}
+			, #{MAKER_PART_NO}
+			, #{BRAND_NM}
+			, #{ORIGIN_CD}
+			, #{UNIT_CD}
+			, #{ITEM_KIND_CD}
+			, #{TAX_CD}
+			, #{IMG_ATT_FILE_NUM}
+			, #{ITEM_DETAIL_TEXT_NUM}
+			, #{ATT_FILE_NUM}
+			, #{CUR}
+			, CASE WHEN #{RFP_UNIT_PRICE} IS NULL OR #{RFP_UNIT_PRICE} = '' THEN NULL ELSE #{RFP_UNIT_PRICE} END
+			, CASE WHEN #{MOQ_QTY} IS NULL OR #{MOQ_QTY} = '' THEN NULL ELSE #{MOQ_QTY} END
+			, CASE WHEN #{RV_QTY} IS NULL OR #{RV_QTY} = '' THEN NULL ELSE #{RV_QTY} END
+			, #{AREA_CD}
+			, #{AREA_NM}
+			, #{DEAL_CD}
+			, #{LEAD_TIME}
+			, #{LEAD_TIME_CD}
+			, #{LEAD_TIME_RMK}
+			, CASE WHEN #{PROGRESS_CD} = '200' THEN <include refid="com.sql.sysdate"/> ELSE null END
+		)    
+    </insert>
+	
+	<update id="sit1021_doUpdate" parameterType="hashmap">
+		UPDATE STOYMTRP SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, PROGRESS_CD = #{PROGRESS_CD}
+			, VENDOR_ITEM_CD = #{VENDOR_ITEM_CD}
+            , ITEM_DESC = #{ITEM_DESC}
+            , ITEM_SPEC = #{ITEM_SPEC}
+            , MAKER_NM = #{MAKER_NM}
+            , MAKER_PART_NO = #{MAKER_PART_NO}
+			, BRAND_NM = #{BRAND_NM}
+			, ORIGIN_CD = #{ORIGIN_CD}
+			, UNIT_CD = #{UNIT_CD}
+			, ITEM_KIND_CD = #{ITEM_KIND_CD}
+			, TAX_CD = #{TAX_CD}
+			, IMG_ATT_FILE_NUM = #{IMG_ATT_FILE_NUM}
+			, ITEM_DETAIL_TEXT_NUM = #{ITEM_DETAIL_TEXT_NUM}
+			, ATT_FILE_NUM = #{ATT_FILE_NUM}
+			, CUR = #{CUR}
+			, RFP_UNIT_PRICE = CASE WHEN #{RFP_UNIT_PRICE} IS NULL OR #{RFP_UNIT_PRICE} = '' THEN null ELSE #{RFP_UNIT_PRICE} END
+			, MOQ_QTY = CASE WHEN #{MOQ_QTY} IS NULL OR #{MOQ_QTY} = '' THEN null ELSE #{MOQ_QTY} END
+			, RV_QTY = CASE WHEN #{RV_QTY} IS NULL OR #{RV_QTY} = '' THEN null ELSE #{RV_QTY} END
+			, AREA_CD = #{AREA_CD}
+			, AREA_NM = #{AREA_NM}
+			, DEAL_CD = #{DEAL_CD}
+			, LEAD_TIME = CASE WHEN #{LEAD_TIME} IS NULL OR #{LEAD_TIME} = '' THEN null ELSE #{LEAD_TIME} END
+			, LEAD_TIME_CD = #{LEAD_TIME_CD}
+			, LEAD_TIME_RMK = #{LEAD_TIME_RMK}
+			, REQ_DATE = CASE WHEN #{PROGRESS_CD} = '200' THEN <include refid="com.sql.sysdate"/> ELSE null END
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND RP_NO = #{RP_NO}
+		  AND RP_SEQ = #{RP_SEQ}
+		  AND DEL_FLAG = '0'
+    </update>
+    
+    <update id="sit1021_doDelete" parameterType="hashmap">
+		UPDATE STOYMTRP SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND RP_NO = #{RP_NO}
+		  AND RP_SEQ = #{RP_SEQ}
+		  AND DEL_FLAG = '0'
+    </update>
+	
+	<!-- SIT1_020 : 신규품목 제안현황 -->
+    <select id="sit1020_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			  A.VENDOR_CD
+			, A.RP_NO
+			, A.RP_SEQ
+			, <include refid="com.sql.toDateChar"/>(A.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			, A.REG_USER_ID
+			,(SELECT USER_NM FROM STOCCVUR WHERE GATE_CD = A.GATE_CD AND COMPANY_CD = A.VENDOR_CD AND USER_ID = A.REG_USER_ID) AS REG_USER_NM
+			, <include refid="com.sql.toDateChar"/>(A.MOD_DATE, 'YYYY-MM-DD') AS MOD_DATE
+			, A.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(A.GATE_CD, 'MP068', A.PROGRESS_CD, #{ses.langCd}) AS PROGRESS_NM
+			, A.VENDOR_ITEM_CD
+			, A.ITEM_CD
+			, A.ITEM_DESC
+			, A.ITEM_SPEC
+			, A.MAKER_CD
+			, A.MAKER_NM
+			, A.MAKER_PART_NO
+			, A.BRAND_CD
+			, A.BRAND_NM
+			, A.ORIGIN_CD
+			, A.UNIT_CD
+			, A.ITEM_KIND_CD
+			, A.TAX_CD
+			, A.ITEM_DETAIL_TEXT_NUM
+			, <include refid="com.sql.nvl"/>((SELECT CASE WHEN COUNT(TEXT_NUM) > 0 THEN 'Y' ELSE '' END
+			            FROM STOCTXTD <include refid="com.sql.noLock"/>
+			           WHERE GATE_CD  = A.GATE_CD
+				         AND TEXT_NUM = A.ITEM_DETAIL_TEXT_NUM), '') AS ITEM_DETAIL_TEXT_FLAG
+			, A.IMG_ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>((SELECT COUNT(UUID) FROM STOCATCH
+                       WHERE GATE_CD  = A.GATE_CD
+                         AND UUID     = A.IMG_ATT_FILE_NUM
+                         AND DEL_FLAG = '0'), 0) AS IMG_ATT_FILE_NUM_IMG
+			, A.ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>((SELECT COUNT(UUID) FROM STOCATCH
+                       WHERE GATE_CD  = A.GATE_CD
+                         AND UUID     = A.ATT_FILE_NUM
+                         AND DEL_FLAG = '0'), 0) AS ATT_FILE_NUM_IMG
+			, A.CUR
+			, <include refid="com.sql.nvl"/>(A.RFP_UNIT_PRICE, 0) AS RFP_UNIT_PRICE
+			, <include refid="com.sql.nvl"/>(A.MOQ_QTY, 0) AS MOQ_QTY
+			, <include refid="com.sql.nvl"/>(A.RV_QTY, 0) AS RV_QTY
+			, A.AREA_CD
+			, A.AREA_NM
+			, A.DEAL_CD
+			, <include refid="com.sql.nvl"/>(A.LEAD_TIME, 0) AS LEAD_TIME
+			, A.LEAD_TIME_CD
+			, A.LEAD_TIME_RMK
+			, A.CONT_UNIT_PRICE
+			, <include refid="com.sql.toDateChar"/>(A.REQ_DATE, 'YYYY-MM-DD') AS REQ_DATE
+			, REJECT_RMK
+			, B.CMS_CTRL_USER_ID AS CMS_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(B.GATE_CD, B.CMS_CTRL_USER_ID, #{ses.langCd}) AS CMS_USER_NM
+			, B.SG_CTRL_USER_ID AS SG_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(B.GATE_CD, B.SG_CTRL_USER_ID, #{ses.langCd}) AS SG_USER_NM
+			, YINFO.APPLY_COM
+			, YINFO.CONT_NO
+			, YINFO.CONT_SEQ
+			, <include refid="com.sql.toDateChar"/>(YINFO.REG_DATE, 'YYYY-MM-DD') AS CONT_DATE
+		  FROM STOYMTRP A
+		  LEFT JOIN STOCMTGL B
+		       ON (A.GATE_CD  = B.GATE_CD
+		       AND A.ITEM_CD  = B.ITEM_CD
+		       AND B.DEL_FLAG = '0')
+		  OUTER APPLY (SELECT APPLY_COM, CONT_NO, CONT_SEQ, REG_DATE
+		                 FROM STOYINFO
+		                WHERE GATE_CD   = A.GATE_CD
+		                  AND APPLY_COM = A.APPLY_COM
+		                  AND CONT_NO   = A.CONT_NO
+		                  AND CONT_SEQ  = A.CONT_SEQ
+		                  AND <include refid="com.sql.toDateChar"/>(VALID_FROM_DATE, 'yyyyMMdd') <![CDATA[<=]]> <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd')
+	                      AND <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd') <![CDATA[>=]]> <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd')
+		                  AND DEL_FLAG  = '0'
+		       ) YINFO
+		 WHERE A.GATE_CD     = #{ses.gateCd}
+		   AND A.VENDOR_CD   = #{VENDOR_CD}
+		   AND A.PROGRESS_CD <![CDATA[>]]> '100' -- 임시저장 이외의 건
+		   
+		<if test="ADD_FROM_DATE !='' and ADD_FROM_DATE != null and ADD_TO_DATE !='' and ADD_TO_DATE != null">
+		   AND A.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_TO_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+		   AND A.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		   AND (${ITEM_DESC} OR  ${ITEM_SPEC})
+		</if>
+		
+		   AND A.DEL_FLAG    = '0'
+		 ORDER BY A.RP_NO DESC
+		        , A.RP_SEQ ASC
+	</select>
+	
+	<update id="sit1020_doCancel" parameterType="hashmap">
+		UPDATE STOYMTRP SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, PROGRESS_CD = '900'
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND RP_NO = #{RP_NO}
+		  AND RP_SEQ = #{RP_SEQ}
+		  AND DEL_FLAG = '0'
+    </update>
+
+</mapper>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BMY1.BMY1_Mapper">
+	<!-- BMY1_050 -->
+	<!-- 고객사, 협력사 공지사항 조회 -->
+	<select id="bmy1050_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		  <if test="_databaseId == 'oracle'">
+			  ROWNUM AS ROW_NUM
+       	  </if>
+       	  <if test="_databaseId == 'mssql'">
+       		  ROW_NUMBER() OVER( ORDER BY NOTC.REG_DATE DESC, NOTC.NOTICE_NUM DESC) AS ROW_NUM
+       	  </if>
+       		, NOTC.USER_TYPE
+	       	, NOTC.SUBJECT
+			, <include refid="com.sql.toDateChar"/>(NOTC.REG_DATE, 'YYYY-MM-DD') as REG_DATE
+			,<include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'YYYY-MM-DD') <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'YYYY-MM-DD') AS NOTICE_DATE
+			, NOTC.REG_USER_ID AS REG_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+
+			, NOTC.ATT_FILE_NUM AS ATTACH_FILE_NO
+			, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM)
+			  END AS ATTACH_FILE_NO_DISPLAY
+			, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+														    WHERE GATE_CD  = #{ses.gateCd}
+															  AND UUID     = NOTC.ATT_FILE_NUM
+															  AND DEL_FLAG = '0') <![CDATA[>]]> 0
+				   THEN '0' ELSE '1'
+			  END AS ATTACH_FILE_NO_DISPLAY_IMAGE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, NOTC.GATE_CD
+			, NOTC.NOTICE_NUM
+			, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		 FROM STOCNOTC NOTC
+		WHERE NOTC.GATE_CD  = #{ses.gateCd}
+		  AND NOTC.NOTICE_TYPE = 'PCN' -- 공지사항
+		  AND <include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'yyyyMMdd') <![CDATA[<=]]>  <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') -- 공지일자가 현재일자 이하인 건만 조회
+		  AND NOTC.DEL_FLAG = '0'
+
+		  <if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+			AND (<include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'yyyyMMdd') <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}, 'YYYYMMDD HH24:MI:SS')
+           	  OR <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'yyyyMMdd') <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{ADD_TO_DATE}, 'YYYYMMDD HH24:MI:SS'))
+		</if>
+		
+		<if test="ADD_USER_ID != '' and ADD_USER_ID != null">
+		  AND NOTC.REG_USER_ID = #{ADD_USER_ID}
+		</if>
+		<if test="ADD_USER_NAME != '' and ADD_USER_NAME != null">
+		  AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{ADD_USER_NAME} <include refid="com.sql.likeR"/>
+		</if>
+		<choose>
+			<when test="USER_TYPE != '' and USER_TYPE != null and USER_TYPE eq 'B'.toString()">
+				AND NOTC.USER_TYPE IN ('USNA', 'USNC') -- 전체, 고객사
+			</when>
+			<otherwise>
+				AND NOTC.USER_TYPE IN ('USNA', 'USNE') -- 전체, 협력사
+			</otherwise>
+		</choose>
+		<if test="SUBJECT != '' and SUBJECT != null">
+			AND NOTC.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		
+		ORDER BY <include refid="com.sql.nvl"/>(NOTC.FIXED_TOP_FLAG, '0')
+		       , NOTC.REG_DATE DESC
+		       , NOTC.NOTICE_NUM DESC
+	</select>
+
+	<select id="bmy1040_doSearch" parameterType="hashMap" resultType="hashMap">
+	</select>
+</mapper>

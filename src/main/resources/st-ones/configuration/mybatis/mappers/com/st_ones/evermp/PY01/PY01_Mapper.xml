@@ -1,0 +1,1483 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.PY01.PY01_Mapper">
+
+    <select id="py01010_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT X.*
+		  FROM (
+			SELECT
+				YPOHD.CUST_CD
+				, <include refid="com.sql.dbo"/>getCustName(YPOHD.GATE_CD, YPOHD.CUST_CD) AS CUST_NM
+				, YPODT.CPO_NO  -- 주문번호
+				, YPODT.CPO_SEQ -- 주문항번
+				, YPODT.PRIOR_GR_FLAG
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPOHD.GATE_CD, 'M044', YPODT.PRIOR_GR_FLAG, #{ses.langCd}) AS PRIOR_GR_FLAG_NM
+				, YPODT.PO_NO   -- 발주번호
+				, YPODT.PO_SEQ  -- 발주항번
+				, UIVDT.INV_NO
+				, UIVDT.INV_SEQ
+				, UIVDT.IV_NO
+				, UIVDT.IV_SEQ
+				, GRDT.GR_NO
+				, GRDT.GR_SEQ
+				, CASE WHEN GRDT.CLOSING_NO != '' AND GRDT.CLOSING_NO IS NOT NULL THEN 'Y'
+				       ELSE CASE WHEN GRDT.CLOSING_AP_NO != '' AND GRDT.CLOSING_AP_NO IS NOT NULL THEN 'Y' ELSE 'N' END
+				  END AS CLOSING_YN
+				, YPODT.DEAL_CD
+				, <include refid="com.sql.toDateChar"/>(YPODT.REG_DATE, 'yyyyMMdd') AS REG_DATE -- YYYY-MM-DD
+				, YPOHD.CPO_USER_ID -- 주문자ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME(YPOHD.GATE_CD,YPOHD.CPO_USER_ID,'KO') AS CPO_USER_NM -- 주문자명
+				, YPOHD.CPO_USER_DEPT_CD AS DEPT_CD -- 주문자부서코드
+				, YPOHD.CPO_USER_TEL_NUM  -- 주문자전화번호
+				, YPOHD.CPO_USER_CELL_NUM -- 주문자휴대전화번호
+				, YPODT.CUST_ITEM_CD
+				, YPODT.ITEM_CD
+				, YPODT.ITEM_DESC
+				, YPODT.ITEM_SPEC
+				, YPODT.MAKER_CD
+				, YPODT.MAKER_NM
+				, YPODT.MAKER_PART_NO
+				, YPODT.BRAND_CD
+				, YPODT.BRAND_NM
+				, YPODT.ORIGIN_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M004',YPODT.ORIGIN_CD,#{ses.langCd}) AS ORIGIN_NM
+				, YPODT.UNIT_CD
+				, YPODT.VENDOR_CD
+				, <include refid="com.sql.dbo"/>GETVENDORNAME(YPODT.GATE_CD, YPODT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+				, <include refid="com.sql.nvl"/>(YPODT.MOQ_QTY, 1) AS MOQ_QTY
+				, <include refid="com.sql.nvl"/>(YPODT.RV_QTY, 1)  AS RV_QTY
+				, <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) AS CPO_QTY
+				, YPODT.CUR
+				, <include refid="com.sql.nvl"/>(YPODT.CPO_UNIT_PRICE, 0) AS CPO_UNIT_PRICE -- 주문단가
+				, <include refid="com.sql.nvl"/>(YPODT.CPO_ITEM_AMT, 0)   AS CPO_ITEM_AMT   -- 주문금액
+				, <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)  AS PO_UNIT_PRICE  -- 매입단가
+				, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0)    AS PO_ITEM_AMT    -- 매입금액
+				, <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'YYYYMMDD') AS CPO_DATE -- 주문일자
+				, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0) AS LEAD_TIME -- 납기일자
+				, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(YPOHD.CPO_DATE, <include refid="com.sql.nvl"/>(YPODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+				, <include refid="com.sql.toDateChar"/>(YPODT.HOPE_DUE_DATE, 'YYYYMMDD') AS HOPE_DUE_DATE -- 희망납기일자
+				, <include refid="com.sql.toDateChar"/>(UIVDT.DELY_COMPLETE_DATE, 'YYYY-MM-DD') AS DELY_COMPLETE_DATE
+				, <include refid="com.sql.toDateChar"/>(GRDT.GR_DATE, 'YYYYMMDD') AS GR_DATE
+				, (SELECT CSDM.DELY_NM FROM STOCCSDM CSDM WHERE CSDM.GATE_CD = YPODT.GATE_CD AND CSDM.CUST_CD = #{ses.manageCd} AND CSDM.SEQ = YPODT.DELY_PLACE) AS DELY_PLACE -- 배송장소
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP041',YPODT.DELY_TYPE,#{ses.langCd}) AS DELY_TYPE_NM --납품방법
+				, YPODT.DELY_TYPE
+				, YPODT.CSDM_SEQ
+				, YPODT.DELY_NM
+				, YPODT.RECIPIENT_NM       -- 인수자명
+				, YPODT.RECIPIENT_DEPT_NM  -- 인수자부서명
+				, YPODT.RECIPIENT_TEL_NUM  -- 인수자전화번호
+				, YPODT.RECIPIENT_CELL_NUM -- 인수자휴대전화번호
+				, YPODT.RECIPIENT_FAX_NUM
+				, YPODT.RECIPIENT_EMAIL
+				, YPODT.DELY_ZIP_CD  -- 납품장소 우편번호
+				, YPODT.DELY_ADDR_1  -- 납품장소 기본주소
+				, YPODT.DELY_ADDR_2  -- 납품장소 상세주소
+				, YPODT.REQ_TEXT
+				, CASE WHEN YPODT.REQ_TEXT IS NOT NULL AND YPODT.REQ_TEXT != '' THEN 'Y' ELSE 'N' END AS REQ_TEXT_YN
+				, YPODT.ATTACH_FILE_NO
+				, YPODT.PROGRESS_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP056',<include refid="com.sql.nvl"/>(YPODT.PROGRESS_CD, YPODT.PROGRESS_CD),#{ses.langCd}) AS PROGRESS_NM
+				, YPODT.SG_CTRL_USER_ID -- 품목담당자
+				, YPODT.DOC_TYPE
+				, YPODT.TAX_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'M036',YPODT.TAX_CD,#{ses.langCd}) AS TAX_NM
+				, YPODT.REF_MNG_NO -- 관H리번호
+				, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS CUST_GR_COMPLETE_FLAG -- 고객사 입고완료여부
+				, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) AS CUST_INV_QTY -- 고객사 납품 완료수량
+				, <include refid="com.sql.nvl"/>(YPODT.GR_QTY, 0)  AS CUST_GR_QTY  -- 고객사 입고 완료수량
+				, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS SUP_GR_COMPLETE_FLAG -- 공급사 입고완료여부
+				, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) AS SUP_INV_QTY  -- 공급사 납품 완료수량
+				, CASE WHEN <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, '') != '' OR YPODT.PROGRESS_CD >= '50' THEN 0
+				  	   ELSE <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) - <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0)
+				  END AS SUP_NOT_INV_QTY -- 공급사별 미납품수량(발주종결 OR 납품완료상태이면 0)
+				, <include refid="com.sql.nvl"/>(YPODT.GR_QTY, 0)  AS SUP_GR_QTY   -- 공급사 입고 완료수량
+				, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(YPODT.GR_QTY, 0) AS SUP_NOT_GR_QTY -- 공급사별 미입고수량(=납품완료수량-입고완료수량)
+				, <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) AS INV_QTY      -- 납품건별 납품수량
+				, <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) AS RE_GR_QTY
+				, <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0) AS AV_GR_QTY
+				, <include refid="com.sql.nvl"/>(YPODT.CPO_UNIT_PRICE, 0) * <include refid="com.sql.nvl"/>(GRDT.GR_QTY, 0) AS GR_AMT_XXXXX
+				, GRDT.GR_ITEM_AMT GR_AMT
+				, <include refid="com.sql.nvl"/>(GRDT.GR_QTY, 0) AS GR_QTY
+				, UIVDT.WAYBILL_NO
+				, UIVDT.DELY_COMPANY_NM
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, YPODT.FORCE_CLOSE_DATE) AS FORCE_CLOSE_DATE -- 주문종결일자
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_USER_ID, YPODT.FORCE_CLOSE_USER_ID) AS FORCE_CLOSE_USER_ID -- 주문종결자ID
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_REASON, YPODT.FORCE_CLOSE_REASON) AS FORCE_CLOSE_REASON  -- 주문종결사유
+				, <include refid="com.sql.nvl"/>(YPODT.AUTO_PO_FLAG, '0') AS AUTO_PO_FLAG
+				, <include refid="com.sql.nvl"/>(YPODT.RETURN_REMARK, YPODT.RETURN_REMARK) AS RETURN_REMARK -- 반품사유
+				, YPODT.DELY_REJECT_CD    -- 납품거부사유
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP057',YPODT.DELY_REJECT_CD,#{ses.langCd}) AS DELY_REJECT_NM -- 납품거부사유명
+				, YPODT.DELY_REJECT_REASON-- 납품거부상세사유
+				, <include refid="com.sql.toDateChar"/>(YPODT.DELY_REJECT_DATE, 'yyyyMMdd') AS DELY_REJECT_DATE -- 납품거부일자
+				, YPODT.APPLY_COM 	-- 공통계약고객사코드(1000:공통, 이외:개별)
+				, YPODT.CONT_NO   	-- 계약번호
+				, YPODT.CONT_SEQ  	-- 계약항번
+				, YPODT.IF_CPO_NO	-- IF 주문번호
+				, YPODT.IF_CPO_SEQ	-- IF 주문항번
+				, YPODT.IF_CPO_NO <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> TO_CHAR(YPODT.IF_CPO_SEQ) AS IF_CPO_NO_SEQ
+				, YPODT.CUBL_SQ
+				, YPODT.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(YPODT.CPO_SEQ) AS CPO_NO_SEQ --주문키
+				, GRDT.GR_NO <include refid="com.sql.stringMerge"/> TO_CHAR(GRDT.GR_SEQ) AS GR_NO_SEQ
+				, UIVDT.IF_INVC_CD
+			    , YPODT.AM_USER_ID  AS AM_USER_ID
+			    , <include refid="com.sql.dbo"/>GETUSERNAME(YPODT.GATE_CD, YPODT.AM_USER_ID, #{ses.langCd}) AS AM_USER_NM
+				, YPODT.COST_CENTER_CD
+				, YPODT.COST_CENTER_NM_KOR AS COST_CENTER_NM
+				, YPODT.PR_TYPE
+				, (SELECT PR_SUBJECT FROM STOUPOHD WHERE GATE_CD=YPODT.GATE_CD AND CUST_CD= YPODT.CUST_CD AND CPO_NO=YPODT.CPO_NO) PR_SUBJECT
+				, <include refid="com.sql.dbo"/>getPlantName(YPODT.GATE_CD, YPODT.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+	            , <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM
+				, YPODT.PLANT_CD
+				, YPODT.PO_DATE
+				, YPODT.CPO_UNIT_PRICE AS GR_UNIT_PRICE
+				, <include refid="com.sql.nvl"/>(GRDT.GR_CLOSE_YN,'0') AS GR_CLOSE_YN
+				, <include refid="com.sql.nvl"/>(GRDT.AGENT_FLAG,'0') AS AGENT_FLAG
+				, GRDT.GR_CLOSE_DATE
+				, <include refid="com.sql.dbo"/>GETUSERNAME(GRDT.GATE_CD, GRDT.GR_CLOSE_USER_ID, #{ses.langCd}) AS GR_CLOSE_USER_NM
+				, GRDT.GR_USER_ID
+				, UIVHD.AGENT_YN INV_AGENT_YN
+				, UIVHD.DELY_APP_DATE
+                , YPODT.ACCOUNT_CD
+                , CUAC.ACCOUNT_NM
+			FROM STOCGRDT GRDT
+			LEFT OUTER JOIN STOUIVDT UIVDT
+				ON  UIVDT.GATE_CD = GRDT.GATE_CD
+				AND UIVDT.INV_NO  = GRDT.INV_NO
+				AND UIVDT.INV_SEQ = GRDT.INV_SEQ
+				AND UIVDT.DEL_FLAG = '0'
+			LEFT OUTER JOIN STOUIVHD UIVHD
+				ON  UIVHD.GATE_CD = UIVDT.GATE_CD
+				AND UIVHD.INV_NO = UIVDT.INV_NO
+				AND UIVHD.DEL_FLAG = '0'
+			LEFT OUTER JOIN STOYPODT YPODT
+				ON (YPODT.GATE_CD = GRDT.GATE_CD
+				AND YPODT.CUST_CD = GRDT.CUST_CD
+				AND YPODT.PO_NO   = GRDT.PO_NO
+				AND YPODT.PO_SEQ  = GRDT.PO_SEQ
+				AND YPODT.DEL_FLAG = '0')
+			LEFT OUTER JOIN STOYPOHD YPOHD
+				ON (YPOHD.GATE_CD = YPODT.GATE_CD
+				AND YPOHD.CUST_CD = YPODT.CUST_CD
+				AND YPOHD.PO_NO = YPODT.PO_NO
+				AND YPOHD.SIGN_STATUS IN ('P', 'E') -- 결재중, 결재승인
+				AND YPOHD.DEL_FLAG = '0')
+			LEFT OUTER JOIN STOCCVUR CVUR -- 고객사 주문자
+				ON (YPOHD.GATE_CD  = CVUR.GATE_CD
+				AND YPOHD.CUST_CD  = CVUR.COMPANY_CD
+				AND YPOHD.CPO_USER_ID = CVUR.USER_ID
+				AND CVUR.USER_TYPE = 'B')
+            LEFT OUTER JOIN STOCCUAC CUAC
+                ON  (YPODT.GATE_CD = CUAC.GATE_CD
+                AND YPODT.CUST_CD = CUAC.CUST_CD
+                AND YPODT.ACCOUNT_CD = CUAC.ACCOUNT_CD)
+			WHERE GRDT.GATE_CD  = #{ses.gateCd}
+			  AND GRDT.DEL_FLAG = '0'
+			  AND <include refid="com.sql.nvl"/>(GRDT.GR_CLOSE_YN,'0') = '1'
+			  AND GRDT.CLOSING_NO IS NULL -- 확정한건 목록에서 제외
+			  AND <include refid="com.sql.nvl"/>(GRDT.GR_QTY, 0) != 0
+			  AND YPODT.CUST_CD != #{ses.manageCd} -- (주)대명소노시즌 제외
+
+		<if test="CUST_CD != '' and CUST_CD != null">
+            AND YPODT.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.dbo"/>getCustName(YPOHD.GATE_CD, YPOHD.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND YPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLANT_NM != '' and PLANT_NM != null">
+            AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, YPOHD.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DDP_CD != '' and DDP_CD != null">
+            AND <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+        </if>
+       	<if test="DIVISION_CD != '' and DIVISION_CD != null">
+			AND CVUR.DIVISION_CD = #{DIVISION_CD}
+	   	</if>
+       	<if test="DEPT_CD != '' and DEPT_CD != null">
+			AND CVUR.DEPT_CD = #{DEPT_CD}
+	   	</if>
+       	<if test="PART_CD != '' and PART_CD != null">
+			AND CVUR.PART_CD = #{PART_CD}
+	   	</if>
+      	<if test="PR_TYPE != '' and PR_TYPE != null">
+			AND YPODT.PR_TYPE = #{PR_TYPE}
+	   	</if>
+       	<if test="DEAL_CD != '' and DEAL_CD != null">
+			AND YPODT.DEAL_CD = #{DEAL_CD}
+	   	</if>
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+			AND YPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+			AND <include refid="com.sql.dbo"/>GETUSERNAME(YPOHD.GATE_CD,YPOHD.CPO_USER_ID,'KO') <include refid="com.sql.likeL"/> #{CPO_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="START_DATE != '' and START_DATE != null">
+			AND GRDT.GR_CLOSE_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+
+		<if test="INV_NO != '' and INV_NO != null">
+			AND UIVDT.INV_NO <include refid="com.sql.likeL"/> #{INV_NO} <include refid="com.sql.likeR"/>
+		</if>
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND UPPER(YPODT.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND UPPER(<include refid="com.sql.dbo"/>GETVENDORNAME(YPODT.GATE_CD, YPODT.VENDOR_CD, #{ses.langCd})) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND (YPODT.ITEM_CD IN ${ITEM_CD} OR YPODT.CUST_ITEM_CD IN ${ITEM_CD})
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND (YPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR YPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (${ITEM_DESC_01} OR  ${ITEM_DESC_02} OR ${ITEM_DESC_03} OR ${ITEM_DESC_04})
+		</if>
+		<if test="MAKER_CD != '' and MAKER_CD != null">
+			AND ${MAKER_CD_01}
+		</if>
+		<if test="MAKER_NM != '' and MAKER_NM != null">
+			AND ${MAKER_NM_01}
+		</if>
+		<if test="AM_USER_ID != '' and AM_USER_ID != null">
+		   AND YPODT.AM_USER_ID = #{AM_USER_ID}
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+            AND YPODT.PLANT_CD = #{PLANT_CD}
+        </if>
+
+        <if test="CPO_NO != '' and CPO_NO != null">
+           AND YPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+           AND (SELECT PR_SUBJECT FROM STOUPOHD WHERE GATE_CD=YPODT.GATE_CD AND CUST_CD= YPODT.CUST_CD AND CPO_NO=YPODT.CPO_NO) <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+
+		 ) X
+		WHERE 1 = 1
+		ORDER BY X.CPO_NO, X.PO_NO
+
+    </select>
+
+    <insert id="py01010_doSaveConfirmAPAR" parameterType="hashMap">
+        INSERT INTO STOCAPAR(
+              CLOSING_NO
+            , CLOSING_SEQ
+            , GATE_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , CLOSING_YEAR_MONTH
+            , CLOSING_CNT
+            , GR_NO
+            , GR_SEQ
+            , CUST_CD
+            , CUST_CONFIRM_FLAG
+            , VENDOR_CD
+            , GR_UNIT_PRICE
+            , GR_ITEM_AMT
+            , GR_ITEM_TAX_AMT
+            , PO_GR_UNIT_PRICE
+            , PO_GR_ITEM_AMT
+            , PO_GR_ITEM_TAX_AMT
+            , TAX_CD
+            , CUST_ITEM_CD
+            , ITEM_CD
+            , ITEM_DESC
+            , ITEM_SPEC
+            , MAKER_CD
+            , MAKER_NM
+            , MAKER_PART_NO
+            , BRAND_CD
+            , BRAND_NM
+            , ORIGIN_CD
+            , UNIT_CD
+            , CUR
+            , CLOSE_QTY
+            , CLOSE_DATE
+            , GR_DATE
+            , CPO_USER_ID
+            , GR_USER_ID
+            , BD_DEPT_CD
+            , ACCOUNT_CD
+            , DEAL_CD
+            , DOC_TYPE
+            , CPO_NO
+            , CPO_SEQ
+            , PO_NO
+            , PO_SEQ
+            , INV_NO
+            , INV_SEQ
+            , IV_NO
+            , IV_SEQ
+            , CPO_DATE
+            , CLOSING_TYPE
+            , CUBL_SQ
+            , ACC_CD
+            , CUBL_NM
+            , CUBL_ZIP_CD
+            , CUBL_ADDR1
+            , CUBL_ADDR2
+            , CUBL_COMPANY_NM
+            , CUBL_IRS_NUM
+            , CUBL_CEO_USER_NM
+            , CUBL_BUSINESS_TYPE
+            , CUBL_INDUSTRY_TYPE
+            , CUBL_IRS_SUB_NUM
+            , CUBL_IRS_SUB_ZIP_CD
+            , CUBL_IRS_SUB_ADDR
+            , CUBL_BANK_NM
+            , CUBL_ACCOUNT_NUM
+            , CUBL_ACCOUNT_NM
+            , CUBL_USER_NM
+            , CUBL_USER_TEL_NUM
+            , CUBL_USER_FAX_NUM
+            , CUBL_USER_CELL_NUM
+            , CUBL_USER_EMAIL
+
+
+            , PLANT_CD
+            , PR_TYPE
+            , DELY_TYPE
+            , RMK
+        )
+        SELECT #{CLOSING_NO}                                                                                                                                                                --    CLOSING_NO
+            , (SELECT <include refid="com.sql.nvl"/>(MAX(CLOSING_SEQ), 0) + 1 FROM STOCAPAR WHERE GATE_CD = #{ses.gateCd} AND CLOSING_NO = #{CLOSING_NO} AND DEL_FLAG = '0')                --  , CLOSING_SEQ
+            , #{ses.gateCd}                                                                             --  , GATE_CD
+            , <include refid="com.sql.sysdate"/>                                                        --  , REG_DATE
+            , #{ses.userId}                                                                             --  , REG_USER_ID
+            , <include refid="com.sql.sysdate"/>                                                        --  , MOD_DATE
+            , #{ses.userId}                                                                             --  , MOD_USER_ID
+            , '0'                                                                                       --  , DEL_FLAG
+            , TO_CHAR(TO_DATE(#{CLOSE_DATE},'YYYYMMDD'),'YYYYMM')                                          --  , CLOSING_YEAR_MONTH
+            , #{CLOSING_CNT}                                                                            --  , CLOSING_CNT
+            , #{GR_NO}                                                                                  --  , GR_NO
+            , #{GR_SEQ}                                                                                 --  , GR_SEQ
+            , #{CUST_CD}                                                                                --  , CUST_CD
+            , '0'                                                                                       --  , CUST_CONFIRM_FLAG
+            , #{VENDOR_CD}                                                                              --  , VENDOR_CD
+            , #{GR_UNIT_PRICE}                                                                          --  , GR_UNIT_PRICE
+
+            , ${GR_AMT} -- GR_ITEM_AMT
+
+            , CASE WHEN #{TAX_CD} = 'T1' THEN ROUND(${GR_AMT} * 0.1, 0) ELSE 0 END --  , GR_ITEM_TAX_AMT
+
+            , #{PO_UNIT_PRICE}                                                                          --  , PO_GR_UNIT_PRICE
+            , #{PO_ITEM_AMT}                                                                            --  , PO_GR_ITEM_AMT
+
+
+            , CASE WHEN #{TAX_CD} = 'T1' THEN ROUND(${PO_ITEM_AMT} * 0.1, 0) ELSE 0  END --  , PO_GR_ITEM_TAX_AMT
+
+
+            , #{TAX_CD}                                                                                 --  , TAX_CD
+            , #{CUST_ITEM_CD}                                                                           --  , CUST_ITEM_CD
+            , #{ITEM_CD}                                                                                --  , ITEM_CD
+            , #{ITEM_DESC}                                                                              --  , ITEM_DESC
+            , #{ITEM_SPEC}                                                                              --  , ITEM_SPEC
+            , #{MAKER_CD}                                                                               --  , MAKER_CD
+            , #{MAKER_NM}                                                                               --  , MAKER_NM
+            , #{MAKER_PART_NO}                                                                          --  , MAKER_PART_NO
+            , #{BRAND_CD}                                                                               --  , BRAND_CD
+            , #{BRAND_NM}                                                                               --  , BRAND_NM
+            , #{ORIGIN_CD}                                                                              --  , ORIGIN_CD
+            , #{UNIT_CD}                                                                                --  , UNIT_CD
+            , #{CUR}                                                                                    --  , CUR
+            , #{GR_QTY}                                                                                 --  , CLOSE_QTY
+            , #{CLOSE_DATE}                                                        --  , CLOSE_DATE
+            , #{GR_DATE}                                                                                --  , GR_DATE
+            , #{CPO_USER_ID}                                                                            --  , CPO_USER_ID
+            , #{GR_USER_ID}                                                                             --  , GR_USER_ID
+            , #{BD_DEPT_CD}                                                                             --  , BD_DEPT_CD
+            , #{ACCOUNT_CD}                                                                             --  , ACCOUNT_CD
+            , #{DEAL_CD}                                                                                --  , DEAL_CD
+            , #{DOC_TYPE}                                                                               --  , DOC_TYPE
+            , #{CPO_NO}                                                                                 --  , CPO_NO
+            , #{CPO_SEQ}                                                                                --  , CPO_SEQ
+            , #{PO_NO}                                                                                  --  , PO_NO
+            , #{PO_SEQ}                                                                                 --  , PO_SEQ
+            , #{INV_NO}                                                                                 --  , INV_NO
+            , #{INV_SEQ}                                                                                --  , INV_SEQ
+            , #{IV_NO}                                                                                  --  , IV_NO
+            , #{IV_SEQ}                                                                                 --  , IV_SEQ
+            , #{CPO_DATE}                                                                               --  , CPO_DATE
+            , 'AP'                                                                                      --  , CLOSING_TYPE 매출
+            , YPODT.CUBL_SQ                                                                             --  , CUBL_SQ
+            , YPODT.ACC_CD                                                                              --  , ACC_CD
+            , YPODT.CUBL_NM                                                                             --  , CUBL_NM
+            , YPODT.CUBL_ZIP_CD                                                                         --  , CUBL_ZIP_CD
+            , YPODT.CUBL_ADDR1                                                                          --  , CUBL_ADDR1
+            , YPODT.CUBL_ADDR2                                                                          --  , CUBL_ADDR2
+            , YPODT.CUBL_COMPANY_NM                                                                     --  , CUBL_COMPANY_NM
+            , YPODT.CUBL_IRS_NUM                                                                        --  , CUBL_IRS_NUM
+            , YPODT.CUBL_CEO_USER_NM                                                                    --  , CUBL_CEO_USER_NM
+            , YPODT.CUBL_BUSINESS_TYPE                                                                  --  , CUBL_BUSINESS_TYPE
+            , YPODT.CUBL_INDUSTRY_TYPE                                                                  --  , CUBL_INDUSTRY_TYPE
+            , YPODT.CUBL_IRS_SUB_NUM                                                                    --  , CUBL_IRS_SUB_NUM
+            , YPODT.CUBL_IRS_SUB_ZIP_CD                                                                 --  , CUBL_IRS_SUB_ZIP_CD
+            , YPODT.CUBL_IRS_SUB_ADDR                                                                   --  , CUBL_IRS_SUB_ADDR
+            , YPODT.CUBL_BANK_NM                                                                        --  , CUBL_BANK_NM
+            , YPODT.CUBL_ACCOUNT_NUM                                                                    --  , CUBL_ACCOUNT_NUM
+            , YPODT.CUBL_ACCOUNT_NM                                                                     --  , CUBL_ACCOUNT_NM
+            , YPODT.CUBL_USER_NM                                                                        --  , CUBL_USER_NM
+            , YPODT.CUBL_USER_TEL_NUM                                                                   --  , CUBL_USER_TEL_NUM
+            , YPODT.CUBL_USER_FAX_NUM                                                                   --  , CUBL_USER_FAX_NUM
+            , YPODT.CUBL_USER_CELL_NUM                                                                  --  , CUBL_USER_CELL_NUM
+            , YPODT.CUBL_USER_EMAIL                                                                     --  , CUBL_USER_EMAIL
+
+            , #{PLANT_CD}
+            , #{PR_TYPE}
+            , #{DELY_TYPE}
+			, #{RMK}
+        FROM STOYPODT YPODT
+        WHERE YPODT.GATE_CD = #{ses.gateCd}
+        AND YPODT.CUST_CD = #{CUST_CD}
+        AND YPODT.PO_NO = #{PO_NO}
+        AND YPODT.PO_SEQ = #{PO_SEQ}
+        AND YPODT.DEL_FLAG = '0'
+    </insert>
+
+    <update id="py01010_doSaveConfirmGRDT" parameterType="hashMap">
+        UPDATE STOCGRDT SET
+              CLOSING_NO = #{CLOSING_NO}
+            , CLOSING_SEQ = (SELECT <include refid="com.sql.nvl"/>(MAX(CLOSING_SEQ), 1) FROM STOCAPAR WHERE GATE_CD = #{ses.gateCd} AND CLOSING_NO = #{CLOSING_NO} AND DEL_FLAG = '0')
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND GR_NO = #{GR_NO}
+        AND GR_SEQ = #{GR_SEQ}
+    </update>
+
+    <select id="chkCloseAR" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) COU
+		FROM STOCGRDT
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND GR_NO = #{GR_NO}
+        AND GR_SEQ = #{GR_SEQ}
+        AND CLOSING_NO IS NOT NULL
+    </select>
+
+
+    <select id="py01010_doSaveConfirmSELECT_MAIL" parameterType="hashMap" resultType="hashMap">
+        SELECT APAR.GATE_CD
+            , APAR.CUST_CD
+            , MAX(CUST.CUST_NM) AS CUST_NM
+            , <include refid="com.sql.subStr"/>(MAX(APAR.CLOSING_YEAR_MONTH), 5, 2) AS CLOSING_MONTH
+            , CASE WHEN MAX(CVUR.MAIL_FLAG) = '1' THEN MAX(CVUR.EMAIL) ELSE '' END AS EMAIL
+            , MAX(CVUR.USER_ID) AS USER_ID
+            , MAX(CVUR.USER_NM) AS USER_NM
+        FROM STOCAPAR APAR
+        JOIN STOCCUST CUST
+            ON  APAR.GATE_CD = CUST.GATE_CD
+            AND APAR.CUST_CD = CUST.CUST_CD
+            AND CUST.DEL_FLAG = '0'
+        LEFT OUTER JOIN STOCCVUR CVUR
+            ON  APAR.GATE_CD = CVUR.GATE_CD
+            AND CUST.CUST_CD = CVUR.COMPANY_CD
+            AND CVUR.FINANCIAL_FLAG = '1'
+            AND CVUR.DEL_FLAG = '0'
+        WHERE APAR.GATE_CD  = #{ses.gateCd}
+        AND APAR.CLOSING_NO = #{CLOSING_NO}
+        GROUP BY APAR.GATE_CD, APAR.CUST_CD
+    </select>
+
+    <select id="py01020_doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  YPOHD.GATE_CD
+            , APAR.CLOSING_YEAR_MONTH AS O_CLOSING_YEAR_MONTH
+            , <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) || '년 ' || <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) || '월' AS CLOSING_YEAR_MONTHXXX
+			, APAR.CLOSING_YEAR_MONTH
+            , CASE WHEN APAR.CLOSING_CNT = '9' THEN '최종' ELSE TO_CHAR(APAR.CLOSING_CNT) END AS CLOSING_CNT
+            , <include refid="com.sql.nvl"/>(APAR.CUST_CONFIRM_FLAG, '0') AS CUST_CONFIRM_FLAG
+            , <include refid="com.sql.dbo"/>GETCOMCODE (APAR.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(APAR.CUST_CONFIRM_FLAG, '0'), '0', #{ses.langCd}) AS CUST_CONFIRM_NM
+            , YPOHD.CUST_CD
+			, <include refid="com.sql.dbo"/>getCustName(YPOHD.GATE_CD, YPOHD.CUST_CD) AS CUST_NM
+            , YPOHD.CPO_USER_DEPT_CD AS DEPT_CD
+            , APAR.GR_NO
+            , APAR.GR_SEQ
+            , YPODT.ITEM_CD
+            , YPODT.CUST_ITEM_CD
+            , YPODT.ITEM_DESC
+            , YPODT.ITEM_SPEC
+            , YPODT.MAKER_CD
+            , YPODT.MAKER_NM
+            , YPODT.MAKER_PART_NO
+            , YPODT.UNIT_CD
+            , APAR.CLOSE_QTY
+            , APAR.CUR
+            , APAR.GR_UNIT_PRICE
+            , APAR.GR_ITEM_AMT
+            , APAR.GR_ITEM_TAX_AMT
+            , APAR.PO_GR_UNIT_PRICE
+            , APAR.PO_GR_ITEM_AMT
+            , APAR.PO_GR_ITEM_TAX_AMT
+            --, CASE WHEN APAR.PO_GR_ITEM_AMT = 0 THEN 0 ELSE ROUND (((APAR.GR_ITEM_AMT - APAR.PO_GR_ITEM_AMT) / APAR.GR_ITEM_AMT) * 100, 1) END  AS ITEM_AMT_RATE
+            , APAR.GR_ITEM_AMT - APAR.PO_GR_ITEM_AMT AS PROFIT_AMT
+            , <include refid="com.sql.toDateChar"/>(APAR.CLOSE_DATE, 'YYYYMMDD') AS CLOSE_DATE
+            , YPODT.BD_DEPT_CD
+            , YPODT.ACCOUNT_CD
+            , CUAC.ACCOUNT_NM
+            , <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD, 'M036', YPODT.TAX_CD, #{ses.langCd}) AS TAX_NM
+            , YPODT.VENDOR_CD
+			, <include refid="com.sql.dbo"/>GETVENDORNAME(YPODT.GATE_CD, YPODT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+            , APAR.PO_NO
+            , APAR.PO_SEQ
+            , YPODT.REF_MNG_NO
+            , YPODT.CPO_NO
+            , YPODT.CPO_SEQ
+            , <include refid="com.sql.toDateChar"/>(YPOHD.CPO_DATE, 'YYYYMMDD') AS CPO_DATE
+            , YPOHD.CPO_USER_ID
+            , CVUR.USER_NM AS CPO_USER_NM
+            , APAR.GR_USER_ID
+            , APAR.DOC_TYPE
+            , <include refid="com.sql.dbo"/>GETCODENAME(APAR.GATE_CD, 'MP017', APAR.DOC_TYPE, #{ses.langCd}) AS DOC_TYPE_NM
+            , APAR.CLOSING_NO
+            , APAR.CLOSING_SEQ
+            , YPODT.BRAND_CD
+            , YPODT.BRAND_NM
+            , YPODT.ORIGIN_CD
+            , YPODT.DEAL_CD
+            , APAR.INV_NO
+            , APAR.INV_SEQ
+            , APAR.IV_NO
+            , APAR.IV_SEQ
+            , APAR.AP_TAX_NUM
+            , APAR.AP_TAX_SEQ
+            , APAR.AR_TAX_NUM
+            , APAR.AR_TAX_SEQ
+            , APAR.AP_TAX_NUM AS TAX_NUM
+            , APAR.AP_TAX_SEQ AS TAX_SEQ
+            , CASE WHEN YPODT.NAP_FLAG = '1' THEN 'Y' ELSE 'N' END NAP_FLAG
+            , YPODT.PLANT_CD
+            , CUBL.ACC_CD
+			, APAR.RMK
+			, APAR.PR_TYPE
+			,<include refid="com.sql.dbo"/>getPlantName(YPODT.GATE_CD, YPODT.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			,<include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM
+			,(SELECT PR_SUBJECT FROM STOUPOHD WHERE GATE_CD=YPODT.GATE_CD AND CUST_CD = YPODT.CUST_CD AND CPO_NO=YPODT.CPO_NO) PR_SUBJECT
+			, APAR.INV_NO
+			, APAR.INV_SEQ
+			, APAR.IV_NO
+			, APAR.IV_SEQ
+			, YPODT.CPO_QTY
+			, APAR.CLOSE_QTY INV_QTY
+			, APAR.CLOSE_QTY GR_QTY
+			, APAR.TAX_CD
+            , APAR.CUBL_SQ AS CUBL_SQ
+            , APAR.CUBL_NM AS CUBL_NM
+            , APAR.CUBL_COMPANY_NM AS CUBL_COMPANY_NM
+            , APAR.CUBL_IRS_NUM AS CUBL_IRS_NUM
+            , CASE WHEN APAR.CUBL_ZIP_CD IS NOT NULL THEN
+            			'(' <include refid="com.sql.stringMerge"/> APAR.CUBL_ZIP_CD <include refid="com.sql.stringMerge"/> ') ' <include refid="com.sql.stringMerge"/> APAR.CUBL_ADDR1 <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(APAR.CUBL_ADDR2, '')
+				   ELSE ''
+			  END AS CUBL_ADDR
+            , APAR.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(APAR.CPO_SEQ) AS CPO_NO_SEQ --주문키
+            , APAR.GR_NO <include refid="com.sql.stringMerge"/> TO_CHAR(APAR.GR_SEQ) AS GR_NO_SEQ
+			, YPODT.HOPE_DUE_DATE
+			, YPODT.PO_DATE
+			, YPODT.CSDM_SEQ
+			, YPODT.RECIPIENT_NM
+			, GRDT.GR_CLOSE_DATE
+			, GRDT.CLOSING_AP_NO
+			, GRDT.CLOSING_AP_SEQ
+			, GRDT.GR_DATE
+			, <include refid="com.sql.dbo"/>GETCODENAME(YPOHD.GATE_CD, 'M044', YPODT.PRIOR_GR_FLAG, #{ses.langCd}) AS PRIOR_GR_FLAG_NM
+			, UIVDT.DELY_TYPE
+			, UIVDT.DELY_COMPANY_NM
+			, UIVDT.WAYBILL_NO
+			, TO_CHAR(UIVDT.DELY_COMPLETE_DATE,'YYYYMMDD') DELY_COMPLETE_DATE
+			, <include refid="com.sql.toDateChar"/>(UIVHD.DELY_APP_DATE, 'YYYYMMDD') AS DELY_APP_DATE
+			, YPODT.CPO_UNIT_PRICE          --주문단가
+			, YPODT.CPO_ITEM_AMT            --주문금액
+			, YPODT.PO_UNIT_PRICE           --매입단가
+			, YPODT.PO_ITEM_AMT             --매입금액
+			, GRDT.GR_UNIT_PRICE            --입고단가
+			, GRDT.GR_ITEM_AMT GR_AMT       --입고금액
+			,(SELECT REG_DATE FROM STOCTTIH WHERE GATE_CD=#{ses.gateCd} AND TAX_NUM=AP_TAX_NUM) TAX_DATE
+			, YPODT.IF_CPO_NO
+
+
+			,RESULT_DEAL_CD
+			,RESULT_ITEM_GUBUN
+			,APAR.REG_USER_ID AS AM_USER_ID
+			,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, APAR.REG_USER_ID, #{ses.langCd}) AS AM_USER_NM
+
+        FROM STOCAPAR APAR
+        JOIN STOCGRDT GRDT
+        	ON GRDT.GATE_CD = APAR.GATE_CD
+        	AND GRDT.GR_NO = APAR.GR_NO
+        	AND GRDT.GR_SEQ = APAR.GR_SEQ
+        	AND GRDT.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUIVDT UIVDT
+		    ON UIVDT.GATE_CD = APAR.GATE_CD
+		    AND UIVDT.INV_NO  = APAR.INV_NO
+		    AND UIVDT.INV_SEQ = APAR.INV_SEQ
+		    AND UIVDT.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUIVHD UIVHD
+		    ON UIVHD.GATE_CD = APAR.GATE_CD
+		    AND UIVHD.INV_NO  = APAR.INV_NO
+		    AND UIVHD.DEL_FLAG = '0'
+        LEFT OUTER JOIN STOYPODT YPODT
+            ON  YPODT.GATE_CD = APAR.GATE_CD
+            AND YPODT.CUST_CD = APAR.CUST_CD
+            AND YPODT.CPO_NO = APAR.CPO_NO
+            AND YPODT.CPO_SEQ = APAR.CPO_SEQ
+            AND YPODT.DEL_FLAG = '0'
+        LEFT OUTER JOIN STOYPOHD YPOHD
+            ON  YPODT.GATE_CD = YPOHD.GATE_CD
+            AND YPODT.CUST_CD = YPOHD.CUST_CD
+            AND YPODT.PO_NO = YPOHD.PO_NO
+            AND YPOHD.DEL_FLAG = '0'
+        LEFT OUTER JOIN STOCCVUR CVUR
+            ON  YPOHD.GATE_CD = CVUR.GATE_CD
+            AND YPOHD.CUST_CD = CVUR.COMPANY_CD
+            AND YPOHD.CPO_USER_ID = CVUR.USER_ID
+            AND CVUR.USER_TYPE = 'B'
+        LEFT OUTER JOIN STOCCUAC CUAC
+            ON  YPODT.GATE_CD = CUAC.GATE_CD
+            AND YPODT.CUST_CD = CUAC.CUST_CD
+            AND YPODT.ACCOUNT_CD = CUAC.ACCOUNT_CD
+        LEFT JOIN STOCCUBL CUBL
+            ON (CUBL.GATE_CD = APAR.GATE_CD
+            AND CUBL.CUST_CD = APAR.CUST_CD
+            AND CUBL.CUBL_SQ = APAR.CUBL_SQ)
+        WHERE YPODT.GATE_CD  = #{ses.gateCd}
+        AND APAR.DEL_FLAG = '0'
+        AND APAR.CLOSING_TYPE = 'AP' -- 매출
+
+		<if test="START_DATE != '' and START_DATE != null">
+			AND APAR.CLOSE_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND YPODT.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.dbo"/>getCustName(YPOHD.GATE_CD, YPOHD.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND YPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLANT_NM != '' and PLANT_NM != null">
+            AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, YPOHD.CUST_CD, YPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DDP_CD != '' and DDP_CD != null">
+            AND <include refid="com.sql.dbo"/>getCpoDeptInfo(YPOHD.GATE_CD, YPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+        </if>
+       <if test="DIVISION_CD != '' and DIVISION_CD != null">
+			AND CVUR.DIVISION_CD = #{DIVISION_CD}
+	   </if>
+       <if test="DEPT_CD != '' and DEPT_CD != null">
+			AND CVUR.DEPT_CD = #{DEPT_CD}
+	   </if>
+       <if test="PART_CD != '' and PART_CD != null">
+			AND CVUR.PART_CD = #{PART_CD}
+	   </if>
+
+       <if test="PR_TYPE != '' and PR_TYPE != null">
+			AND APAR.PR_TYPE = #{PR_TYPE}
+	   </if>
+       <if test="DEAL_CD != '' and DEAL_CD != null">
+			AND YPODT.DEAL_CD = #{DEAL_CD}
+	   </if>
+        <if test="TAX_NUM != '' and TAX_NUM != null">
+            AND CASE WHEN APAR.AP_TAX_NUM IS NOT NULL THEN '1' ELSE '0' END = #{TAX_NUM}
+        </if>
+        <if test="RMK != '' and RMK != null">
+           AND APAR.RMK <include refid="com.sql.likeL"/> #{RMK} <include refid="com.sql.likeR"/>
+        </if>
+
+
+
+
+        <if test="CPO_NO != '' and CPO_NO != null">
+           AND YPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+           AND (SELECT PR_SUBJECT FROM STOUPOHD WHERE GATE_CD=YPODT.GATE_CD AND CUST_CD = YPODT.CUST_CD AND CPO_NO=YPODT.CPO_NO) <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+
+
+        <if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+            AND YPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+            AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+
+
+        <if test="CUST_CONFIRM_YN != '' and CUST_CONFIRM_YN != null and (CUST_CONFIRM_YN eq '1'.toString() or CUST_CONFIRM_YN eq '0'.toString())">
+            AND APAR.CUST_CONFIRM_FLAG = #{CUST_CONFIRM_YN}
+        </if>
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND YPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND <include refid="com.sql.dbo"/>GETVENDORNAME(YPODT.GATE_CD, YPODT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ITEM_CD != '' and ITEM_CD != null">
+            <if test="ITEM_CNT == 1">
+                AND (YPODT.ITEM_CD IN ${ITEM_CD} OR YPODT.CUST_ITEM_CD IN ${ITEM_CD})
+            </if>
+            <if test="ITEM_CNT == 0">
+                AND (YPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR YPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+            </if>
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+            AND (${ITEM_DESC_01} OR  ${ITEM_DESC_02} OR ${ITEM_DESC_03} OR ${ITEM_DESC_04})
+        </if>
+        <if test="MAKER_CD != '' and MAKER_CD != null">
+            AND ${MAKER_CD_01}
+        </if>
+        <if test="MAKER_NM != '' and MAKER_NM != null">
+            AND ${MAKER_NM_01}
+        </if>
+        <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+            AND YPODT.ACCOUNT_CD <include refid="com.sql.likeL"/> #{ACCOUNT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACCOUNT_NM != '' and ACCOUNT_NM != null">
+            AND CUAC.ACCOUNT_NM <include refid="com.sql.likeL"/> #{ACCOUNT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="AM_USER_ID != '' and AM_USER_ID != null">
+            AND APAR.REG_USER_ID = #{AM_USER_ID}
+        </if>
+        <if test="CUBL_SQ != '' and CUBL_SQ != null">
+            AND APAR.CUBL_SQ <include refid="com.sql.likeL"/> #{CUBL_SQ} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUBL_NM != '' and CUBL_NM != null">
+            AND APAR.CUBL_NM <include refid="com.sql.likeL"/> #{CUBL_NM} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY YPODT.CPO_NO, YPODT.CPO_SEQ
+
+
+
+    </select>
+
+
+
+    <update id="resultInfoSave" parameterType="hashMap">
+        UPDATE STOCAPAR
+        SET RESULT_DEAL_CD     = #{RESULT_DEAL_CD}
+		   ,RESULT_ITEM_GUBUN  = #{RESULT_ITEM_GUBUN}
+        WHERE GATE_CD = '100'
+        AND CLOSING_NO = #{CLOSING_NO}
+        AND CLOSING_SEQ = #{CLOSING_SEQ}
+	</update>
+
+
+    <update id="py01020_UPDATE_APAR" parameterType="hashMap">
+        UPDATE STOCAPAR K
+        SET(
+			 CUBL_SQ
+			,CUBL_NM
+			,CUBL_ZIP_CD
+			,CUBL_ADDR1
+			,CUBL_ADDR2
+			,CUBL_COMPANY_NM
+			,CUBL_IRS_NUM
+			,CUBL_CEO_USER_NM
+			,CUBL_BUSINESS_TYPE
+			,CUBL_INDUSTRY_TYPE
+			,CUBL_IRS_SUB_NUM
+			,CUBL_IRS_SUB_ZIP_CD
+			,CUBL_IRS_SUB_ADDR
+			,CUBL_BANK_NM
+			,CUBL_ACCOUNT_NUM
+			,CUBL_ACCOUNT_NM
+			,CUBL_USER_NM
+			,CUBL_USER_TEL_NUM
+			,CUBL_USER_FAX_NUM
+			,CUBL_USER_CELL_NUM
+			,CUBL_USER_EMAIL
+			,TAX_CD
+			,RMK
+        ) = (
+        	SELECT
+			 CUBL_SQ
+			,CUBL_NM
+			,CUBL_ZIP_CD
+			,CUBL_ADDR1
+			,CUBL_ADDR2
+			,COMPANY_NM
+			,IRS_NUM
+			,CEO_USER_NM
+			,BUSINESS_TYPE
+			,INDUSTRY_TYPE
+			,IRS_SUB_NUM
+			,IRS_SUB_ZIP_CD
+			,IRS_SUB_ADDR
+			,CUBL_BANK_NM
+			,CUBL_ACCOUNT_NUM
+			,CUBL_ACCOUNT_NM
+			,CUBL_USER_NM
+			,CUBL_USER_TEL_NUM
+			,CUBL_USER_FAX_NUM
+			,CUBL_USER_CELL_NUM
+			,CUBL_USER_EMAIL
+			,#{TAX_CD}
+			,#{RMK}
+        	FROM STOCCUBL A
+        	WHERE GATE_CD = K.GATE_CD
+        	AND CUST_CD   = K.CUST_CD
+        	AND PLANT_CD  = K.PLANT_CD
+        	AND CUBL_SQ   = #{CUBL_SQ}
+        )
+        WHERE K.GATE_CD = '100'
+        AND K.CLOSING_NO = #{CLOSING_NO}
+        AND K.CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <update id="py01020_UPDATE_APARXXXXXXXXXXXXX" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+              CUBL_SQ = CUBL.CUBL_SQ
+            , ACC_CD = CUBL.ACC_CD
+            , CUBL_NM = CUBL.CUBL_NM
+            , CUBL_ZIP_CD = CUBL.CUBL_ZIP_CD
+            , CUBL_ADDR1 = CUBL.CUBL_ADDR1
+            , CUBL_ADDR2 = CUBL.CUBL_ADDR2
+            , CUBL_COMPANY_NM = CUBL.COMPANY_NM
+            , CUBL_IRS_NUM = CUBL.IRS_NUM
+            , CUBL_CEO_USER_NM = CUBL.CEO_USER_NM
+            , CUBL_BUSINESS_TYPE = CUBL.BUSINESS_TYPE
+            , CUBL_INDUSTRY_TYPE = CUBL.INDUSTRY_TYPE
+            , CUBL_IRS_SUB_NUM = CUBL.IRS_SUB_NUM
+            , CUBL_IRS_SUB_ADDR = CUBL.IRS_SUB_ADDR
+            , CUBL_BANK_NM = CUBL.CUBL_BANK_NM
+            , CUBL_ACCOUNT_NUM = CUBL.CUBL_ACCOUNT_NUM
+            , CUBL_ACCOUNT_NM = CUBL.CUBL_ACCOUNT_NM
+            , CUBL_USER_NM = CUBL.CUBL_USER_NM
+            , CUBL_USER_TEL_NUM = CUBL.CUBL_USER_TEL_NUM
+            , CUBL_USER_FAX_NUM = CUBL.CUBL_USER_FAX_NUM
+            , CUBL_USER_CELL_NUM = CUBL.CUBL_USER_CELL_NUM
+            , CUBL_USER_EMAIL = CUBL.CUBL_USER_EMAIL
+        FROM STOCCUBL CUBL
+        WHERE CUBL.GATE_CD = STOCAPAR.GATE_CD
+        AND CUBL.CUST_CD = STOCAPAR.CUST_CD
+        AND CUBL.CUBL_SQ = #{CUBL_SQ}
+        AND CUBL.DEL_FLAG = '0'
+        AND STOCAPAR.CLOSING_NO = #{CLOSING_NO}
+        AND STOCAPAR.CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+    <update id="py01020_doDeleteAPAR" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CLOSING_NO = #{CLOSING_NO}
+        AND CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+    <update id="py01020_doDeleteGRDT" parameterType="hashMap">
+        UPDATE STOCGRDT SET
+            CLOSING_NO = NULL
+            , CLOSING_SEQ = NULL
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND GR_NO = #{GR_NO}
+        AND GR_SEQ = #{GR_SEQ}
+    </update>
+
+    <update id="py01020_doConfirmAPAR" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+            CUST_CONFIRM_FLAG = '1'
+            , CUST_CONFIRM_DATE = <include refid="com.sql.sysdate"/>
+            , CUST_CONFIRM_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CLOSING_NO = #{CLOSING_NO}
+        AND CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+    <update id="py01020_doConfirmCancleAPAR" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+            CUST_CONFIRM_FLAG = '0'
+            , CUST_CONFIRM_DATE = null
+            , CUST_CONFIRM_USER_ID = null
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CLOSING_NO = #{CLOSING_NO}
+        AND CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+    <insert id="py01020_doTaxCreateINSERT_TTIT" parameterType="hashMap">
+        INSERT INTO STOCTTIT(
+            GATE_CD
+            , TMP1
+            , TMP2
+            , TMP3
+            , TMP4
+            , TMP5
+            , TMP6
+            , TMP7
+            , TMP8
+            , TMP9
+            , TMP10
+        ) VALUES (
+            #{ses.gateCd}
+            , #{O_CLOSING_YEAR_MONTH}
+            , #{CUST_CD}
+            , #{DEPT_CD}
+            , #{ACCOUNT_CD}
+            , #{ITEM_CD}
+            , #{VENDOR_CD}
+            , #{CUBL_SQ}
+            , #{IN_KEY}
+            , #{CLOSING_NO}
+            , #{CLOSING_SEQ}
+        )
+    </insert>
+
+    <select id="py01020_doTaxCreateSELECT_CUCL" parameterType="hashMap" resultType="String">
+        SELECT CASE WHEN count(*) = 0 THEN 'N' ELSE 'Y' END AS CLOSE_YN
+        FROM STOCCUCL CUCL
+        WHERE CUCL.GATE_CD = #{ses.gateCd}
+        AND CUCL.DEL_FLAG = '0'
+        AND CUCL.CUST_CD = '1000'
+        AND CUCL.DOC_TYPE = 'S'
+        AND CUCL.YEAR_MONTH = #{CLOSE_MONTH}
+    </select>
+
+    <select id="py01020_doTaxCreateSELECT_TAX_CHK" parameterType="hashMap" resultType="String">
+        SELECT <include refid="com.sql.nvl"/>(MAX(TTID.TAX_NUM), 0) AS TAX_NUM_CHK
+        FROM (
+                SELECT TTIT.GATE_CD
+                    , TTIT.TMP1 AS CLOSING_YEAR_MONTH
+                    , TTIT.TMP2 AS CUST_CD
+                    , TTIT.TMP3 AS DEPT_CD
+                    , TTIT.TMP4 AS ACCOUNT_CD
+                    , TTIT.TMP8 AS IN_KEY
+                    , TTIT.TMP9 AS CLOSING_NO
+                    , TTIT.TMP10 AS CLOSING_SEQ
+                FROM STOCTTIT TTIT
+                WHERE TTIT.TMP8 = #{IN_KEY}
+            ) TTIT
+        JOIN STOCTTID TTID
+            ON  TTIT.GATE_CD = TTID.GATE_CD
+            AND TTIT.CLOSING_NO = TTID.CLOSING_NO
+            AND TTIT.CLOSING_SEQ = TTID.CLOSING_SEQ
+            AND TTIT.IN_KEY = #{IN_KEY}
+            AND TTID.DEL_FLAG = '0'
+    </select>
+
+    <select id="py01020_doTaxCreateSELECT_TAX" parameterType="hashMap" resultType="hashMap">
+        SELECT TTIT.GATE_CD
+            , '' AS TAX_NUM
+            , '' AS REG_DATE
+            , '' AS REG_USER_ID
+            , '' AS MOD_DATE
+            , '' AS MOD_USER_ID
+            , '0' AS DEL_FLAG
+            , MAX(TTIT.BUYER_CD) AS OUT_SCOM_CODE
+            , MAX(TTIT.VENDOR_CD) AS IN_SCOM_CODE
+            , MAX(OGCM.IRS_NUM) AS OUT_SIRS_NUM
+            , MAX(VNGL.IRS_NO) AS IN_SIRS_NUM
+            , MAX(OGCM.BUYER_NM) AS OUT_SCOM_NM
+            , MAX(VNGL.VENDOR_NM) AS IN_SCOM_NM
+            , MAX(OGCM.CEO_USER_NM) AS OUT_SCEO_NM
+            , MAX(VNGL.CEO_USER_NM) AS IN_SCEO_NM
+            , MAX(OGCM.BUSINESS_TYPE) AS OUT_SBUSINESS_TYPE
+            , MAX(VNGL.BUSINESS_TYPE) AS IN_SBUSINESS_TYPE
+            , MAX(OGCM.INDUSTRY_TYPE) AS OUT_SINDUSTRY_TYPE
+            , MAX(VNGL.INDUSTRY_TYPE) AS IN_SINDUSTRY_TYPE
+            , <include refid="com.sql.subStr"/>(MAX(OGCM.ADDR), 1, 70) AS OUT_SADDR1
+            , <include refid="com.sql.subStr"/>(MAX(VNGL.HQ_ADDR_1), 1, 70) AS IN_SADDR1
+            , <include refid="com.sql.subStr"/>('', 1, 70) AS OUT_SADDR2
+            , <include refid="com.sql.subStr"/>(MAX(VNGL.HQ_ADDR_2), 1, 70) AS IN_SADDR2
+            , MAX(CUST.TAX_USER_ID) AS OUT_SUSER_ID
+            , MAX(CVUR.USER_ID) AS IN_SUSER_ID
+            , '' AS OUT_SUSER_ID_ASP
+            , '' AS IN_SUSER_ID_ASP
+            , MAX(USR.USER_NM) AS OUT_SUSER_NM
+            , MAX(CVUR.USER_NM) AS IN_SUSER_NM
+            --, MAX(OGDP.DEPT_NM) AS OUT_SUSER_DEPT_NM
+            , MAX(CVUR.DEPT_NM) AS IN_SUSER_DEPT_NM
+            , MAX(USR.CELL_NUM) AS OUT_SUSER_TEL_NO
+            , MAX(CVUR.TEL_NUM) AS IN_SUSER_TEL_NO
+            , MAX(USR.EMAIL) AS OUT_SUSER_EMAIL
+            , MAX(CVUR.EMAIL) AS IN_SUSER_EMAIL
+            , <include refid="com.sql.nvl"/>(MAX(OGCM.IRS_SUB_NO), NULL) AS OUT_SSUB_IRS_NUM
+            , '' AS IN_SSUB_IRS_NUM
+
+            , MAX(TTIT.CUST_CD) AS OUT_RCOM_CODE
+            , MAX(TTIT.BUYER_CD) AS IN_RCOM_CODE
+            , MAX(CUBL.IRS_NUM) AS OUT_RIRS_NUM
+            , MAX(OGCM.IRS_NUM) AS IN_RIRS_NUM
+
+
+--            , MAX(CUBL.COMPANY_NM) AS OUT_RCOM_NM
+            , MAX(CUST.CUST_NM) AS OUT_RCOM_NM
+
+
+
+            , MAX(OGCM.BUYER_NM) AS IN_RCOM_NM
+            , MAX(CUBL.CEO_USER_NM) AS OUT_RCEO_NM
+            , MAX(OGCM.CEO_USER_NM) AS IN_RCEO_NM
+            , MAX(CUBL.BUSINESS_TYPE) AS OUT_RBUSINESS_TYPE
+            , MAX(OGCM.BUSINESS_TYPE) AS IN_RBUSINESS_TYPE
+            , MAX(CUBL.INDUSTRY_TYPE) AS OUT_RINDUSTRY_TYPE
+            , MAX(OGCM.INDUSTRY_TYPE) AS IN_RINDUSTRY_TYPE
+            , <include refid="com.sql.subStr"/>(MAX(CUBL.CUBL_ADDR1), 1, 70) AS OUT_RADDR1
+            , <include refid="com.sql.subStr"/>(MAX(OGCM.ADDR), 1, 70) AS IN_RADDR1
+            , <include refid="com.sql.subStr"/>(MAX(CUBL.CUBL_ADDR2), 1, 40) AS OUT_RADDR2
+            , <include refid="com.sql.subStr"/>('', 1, 40) AS IN_RADDR2
+            , '' AS OUT_RUSER_ID
+            , MAX(VNGL.ACCOUNT_USER_ID) AS IN_RUSER_ID
+            , '' AS OUT_RUSER_ID_ASP
+            , '' AS IN_RUSER_ID_ASP
+
+
+            , MAX(CUBL.CUBL_USER_NM) AS OUT_RUSER_NM
+            , MAX(USR_IN.USER_NM) AS IN_RUSER_NM
+            , '' AS OUT_RUSER_DEPT_NM
+            --, MAX(OGDP_IN.DEPT_NM) AS IN_RUSER_DEPT_NM
+            , MAX(CUBL.CUBL_USER_CELL_NUM) AS OUT_RUSER_TEL_NO
+            , MAX(USR_IN.TEL_NUM) AS IN_RUSER_TEL_NO
+            , MAX(CUBL.CUBL_USER_EMAIL) AS OUT_RUSER_EMAIL
+            , MAX(USR_IN.EMAIL) AS IN_RUSER_EMAIL
+            , MAX(CUBL.IRS_SUB_NUM) AS OUT_RSUB_IRS_NUM
+            , <include refid="com.sql.nvl"/>(MAX(OGCM.IRS_SUB_NO), NULL) AS IN_RSUB_IRS_NUM
+
+            , '' AS SALES_TYPE
+            , '' AS TAX_SEND_TYPE
+            , '' AS RQ_RE_TYPE
+
+
+            , CASE WHEN COUNT(DISTINCT APAR.TAX_CD) = 1 THEN MAX(APAR.TAX_CD) ELSE 'T1' END AS VAT_CD
+
+            , '' AS ISSUE_DATE
+            , SUM(APAR.GR_ITEM_AMT) AS OUT_SUP_AMT
+            , SUM(APAR.PO_GR_ITEM_AMT) AS IN_SUP_AMT
+            , CASE WHEN CASE WHEN COUNT(DISTINCT APAR.TAX_CD) = 1 THEN MAX(APAR.TAX_CD) ELSE 'T1' END = 'T1' THEN ROUND(SUM(APAR.GR_ITEM_AMT) * 0.1, 0) ELSE 0 END AS OUT_TAX_AMT
+            , CASE WHEN CASE WHEN COUNT(DISTINCT APAR.TAX_CD) = 1 THEN MAX(APAR.TAX_CD) ELSE 'T1' END = 'T1' THEN ROUND(SUM(APAR.PO_GR_ITEM_AMT) * 0.1, 0) ELSE 0 END AS IN_TAX_AMT
+            , '' AS REMAKR
+            , '' AS E_BILL_ASP_TYPE
+            , '' AS TAX_BILLSEQ
+            , '' AS TAX_ASP_NM
+            , '' AS TAX_ASP_BILLSEQ
+            , '' AS TRANS_YN
+            , '' AS TRANS_DATE
+            , '' AS TRANS_USER_ID
+            , '' AS SLNO
+
+            , #{SELL_TAX_TYPE} AS SELL_TAX_TYPE
+            , MAX(TTIT.DEPT_CD) AS DEPT_CD
+            , MAX(TTIT.ACCOUNT_CD) AS ACCOUNT_CD
+            , MAX(IN_KEY) AS IN_KEY
+            , TTIT.CUST_CD
+            , MAX(TTIT.VENDOR_CD) AS VENDOR_CD
+            , TTIT.CUBL_SQ
+            , MAX(APAR.CLOSING_NO) AS CLOSING_NO
+            , MAX(APAR.CLOSING_SEQ) AS CLOSING_SEQ
+        FROM (
+                SELECT TTIT.GATE_CD
+                    , TTIT.TMP1 AS CLOSING_YEAR_MONTH
+                    , TTIT.TMP2 AS CUST_CD
+                    , TTIT.TMP3 AS DEPT_CD
+                    , TTIT.TMP4 AS ACCOUNT_CD
+                    , TTIT.TMP6 AS VENDOR_CD
+                    , TTIT.TMP7 AS CUBL_SQ
+                    , TTIT.TMP8 AS IN_KEY
+                    , TTIT.TMP9 AS CLOSING_NO
+                    , TTIT.TMP10 AS CLOSING_SEQ
+                    , #{ses.companyCd} AS BUYER_CD
+                FROM STOCTTIT TTIT
+                WHERE TTIT.TMP8 = #{IN_KEY}
+                ) TTIT
+        JOIN STOCAPAR APAR
+            ON  TTIT.GATE_CD = APAR.GATE_CD
+            AND TTIT.CLOSING_NO = APAR.CLOSING_NO
+            AND TTIT.CLOSING_SEQ = APAR.CLOSING_SEQ
+        JOIN STOYPODT YPODT
+            ON  APAR.GATE_CD = YPODT.GATE_CD
+            AND APAR.PO_NO = YPODT.PO_NO
+            AND APAR.PO_SEQ = YPODT.PO_SEQ
+            AND YPODT.DEL_FLAG = '0'
+        LEFT JOIN STOCCUBL CUBL
+            ON  CUBL.GATE_CD = TTIT.GATE_CD
+            AND CUBL.CUST_CD = TTIT.CUST_CD
+            AND CUBL.CUBL_SQ = TTIT.CUBL_SQ
+        JOIN STOCOGCM OGCM
+            ON  TTIT.GATE_CD = OGCM.GATE_CD
+            AND TTIT.BUYER_CD = OGCM.BUYER_CD
+        JOIN STOCVNGL VNGL
+            ON  TTIT.GATE_CD = VNGL.GATE_CD
+            AND TTIT.VENDOR_CD = VNGL.VENDOR_CD
+        JOIN STOCCUST_VW CUST
+            ON  TTIT.GATE_CD = CUST.GATE_CD
+            AND TTIT.CUST_CD = CUST.CUST_CD
+        LEFT OUTER JOIN STOCUSER USR
+            ON  TTIT.GATE_CD = USR.GATE_CD
+            AND CUST.TAX_USER_ID = USR.USER_ID
+        LEFT OUTER JOIN STOCUSER USR_IN
+            ON  TTIT.GATE_CD = USR_IN.GATE_CD
+            AND VNGL.ACCOUNT_USER_ID = USR_IN.USER_ID
+        JOIN STOCCVUR CVUR
+            ON  TTIT.GATE_CD = CVUR.GATE_CD
+            AND TTIT.VENDOR_CD = CVUR.COMPANY_CD
+            AND CVUR.USER_ID = (SELECT MAX(USER_ID) FROM STOCCVUR WHERE GATE_CD=#{ses.gateCd} AND COMPANY_CD= TTIT.VENDOR_CD)
+        WHERE TTIT.GATE_CD = #{ses.gateCd}
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '100'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.CUBL_SQ
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '200'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.DEPT_CD, TTIT.CUBL_SQ
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '300'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.DEPT_CD, TTIT.ACCOUNT_CD, TTIT.CUBL_SQ
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '400'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.ACCOUNT_CD, TTIT.CUBL_SQ
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '500'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.CUBL_SQ
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '600'.toString()">
+            GROUP BY TTIT.GATE_CD, TTIT.CUST_CD, TTIT.CUBL_SQ
+        </if>
+    </select>
+
+    <insert id="py01020_doTaxCreateOUT_INSERT_TTIH" parameterType="hashMap">
+        INSERT INTO STOCTTIH(
+            GATE_CD
+            , TAX_NUM
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+
+            , SCOM_CODE
+            , SIRS_NUM
+            , SCOM_NM
+            , SCEO_NM
+            , SBUSINESS_TYPE
+            , SINDUSTRY_TYPE
+            , SADDR1
+            , SADDR2
+            , SUSER_ID
+            , SUSER_ID_ASP
+
+
+            , SUSER_NM
+            , SUSER_DEPT_NM
+            , SUSER_TEL_NO
+            , SUSER_EMAIL
+
+
+
+            , SSUB_IRS_NUM
+
+            , RCOM_CODE
+            , RIRS_NUM
+            , RCOM_NM
+            , RCEO_NM
+            , RBUSINESS_TYPE
+            , RINDUSTRY_TYPE
+            , RADDR1
+            , RADDR2
+            , RUSER_ID
+            , RUSER_ID_ASP
+            , RUSER_NM
+            , RUSER_DEPT_NM
+            , RUSER_TEL_NO
+            , RUSER_EMAIL
+            , RSUB_IRS_NUM
+
+            , SALES_TYPE
+            , TAX_SEND_TYPE
+            , RQ_RE_TYPE
+            , VAT_CD
+            , ISSUE_DATE
+            , SUP_AMT
+
+
+
+            , TAX_AMT
+            , REMAKR
+            , E_BILL_ASP_TYPE
+            , TAX_BILLSEQ
+            , TAX_ASP_NM
+            , TAX_ASP_BILLSEQ
+            , TRANS_YN
+            , E_BILL_ASP_STAT_TYPE
+            , TAX_EXD_ID
+            , SUBJECT_ITEM_NM
+            , CLOSING_NO
+            , CLOSING_SEQ
+            , TAX_ISSUE_ID
+        ) VALUES (
+            #{ses.gateCd}
+            , #{TAX_NUM}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+
+            , #{OUT_SCOM_CODE}
+            , #{OUT_SIRS_NUM}
+            , #{OUT_SCOM_NM}
+            , #{OUT_SCEO_NM}
+            , #{OUT_SBUSINESS_TYPE}
+            , #{OUT_SINDUSTRY_TYPE}
+            , #{OUT_SADDR1}
+            , #{OUT_SADDR2}
+            , #{OUT_SUSER_ID}
+            , #{OUT_SUSER_ID_ASP}   --SUSER_ID_ASP
+
+
+            , #{ses.userNm}       --SUSER_NM
+            , #{ses.deptNm}  --SUSER_DEPT_NM
+            , #{ses.telNum}   --SUSER_TEL_NO
+            , #{ses.email}    --SUSER_EMAIL
+
+
+			<if test="_databaseId == 'mssql'">
+            , CASE WHEN #{OUT_SSUB_IRS_NUM} = '' OR #{OUT_SSUB_IRS_NUM} IS NULL THEN NULL ELSE convert(numeric, #{OUT_SSUB_IRS_NUM}) END
+			</if>
+			<if test="_databaseId == 'oracle'">
+            , CASE WHEN #{OUT_SSUB_IRS_NUM} = '' OR #{OUT_SSUB_IRS_NUM} IS NULL THEN NULL ELSE TO_NUMBER(#{OUT_SSUB_IRS_NUM}) END
+			</if>
+
+            , #{OUT_RCOM_CODE}
+            , #{OUT_RIRS_NUM} --RIRS_NUM
+            , #{OUT_RCOM_NM}
+            , #{OUT_RCEO_NM}
+            , #{OUT_RBUSINESS_TYPE}
+            , #{OUT_RINDUSTRY_TYPE}
+            , #{OUT_RADDR1}
+            , #{OUT_RADDR2}
+            , #{OUT_RUSER_ID}
+            , #{OUT_RUSER_ID_ASP}
+
+
+            , #{OUT_RUSER_NM}
+            , #{OUT_RUSER_DEPT_NM}
+            , #{OUT_RUSER_TEL_NO}
+            , #{OUT_RUSER_EMAIL}
+
+			<if test="_databaseId == 'mssql'">
+            , CASE WHEN #{OUT_RSUB_IRS_NUM} = '' OR #{OUT_RSUB_IRS_NUM} IS NULL THEN NULL ELSE convert(numeric, #{OUT_RSUB_IRS_NUM}) END
+			</if>
+			<if test="_databaseId == 'oracle'">
+            , CASE WHEN #{OUT_RSUB_IRS_NUM} = '' OR #{OUT_RSUB_IRS_NUM} IS NULL THEN NULL ELSE TO_NUMBER(#{OUT_RSUB_IRS_NUM}) END
+			</if>
+
+            , #{SALES_TYPE}
+            , #{TAX_SEND_TYPE}
+            , #{RQ_RE_TYPE}
+            , #{VAT_CD}
+            , TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') -- ISSUE_DATE
+            , ${OUT_SUP_AMT}
+            , ${OUT_TAX_AMT}
+            , #{REMAKR}
+            , #{E_BILL_ASP_TYPE}
+            , #{TAX_BILLSEQ}
+            , #{TAX_ASP_NM}
+            , #{TAX_ASP_BILLSEQ}
+            , #{TRANS_YN}
+            , #{E_BILL_ASP_STAT_TYPE}
+            , #{TAX_EXD_ID}
+            , #{SUBJECT_ITEM_NM}
+            , #{CLOSING_NO}
+            , #{CLOSING_SEQ}
+            , #{TAX_ISSUE_ID}
+        )
+    </insert>
+
+    <select id="py01020_doTaxCreateSELECT_TTID" parameterType="hashMap" resultType="hashMap">
+        SELECT TTIT.GATE_CD
+            , #{TAX_NUM} AS TAX_NUM
+            , '' AS TAX_SEQ
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0' AS DEL_FLAG
+            , #{IN_OUT_TYPE} AS IN_OUT_TYPE
+
+            , APAR.GR_ITEM_TAX_AMT TAX_AMT
+            , APAR.GR_ITEM_AMT SUP_AMT
+
+            , APAR.GR_UNIT_PRICE AS UNIT_AMT
+            , APAR.CLOSE_QTY AS QTY
+            , APAR.ITEM_SPEC AS ITEM_SPEC
+            , APAR.ITEM_DESC AS ITEM_DESC
+            , APAR.GR_DATE AS ITEM_TRADE_DATE
+            , '' AS REMARK
+            , APAR.CLOSING_NO AS CLOSING_NO
+            , APAR.CLOSING_SEQ AS CLOSING_SEQ
+            , APAR.ITEM_CD AS ITEM_CD
+        FROM (
+                SELECT TTIT.GATE_CD
+                    , TTIT.TMP1 AS CLOSING_YEAR_MONTH
+                    , TTIT.TMP2 AS CUST_CD
+                    , TTIT.TMP3 AS DEPT_CD
+                    , TTIT.TMP4 AS ACCOUNT_CD
+                    , TTIT.TMP6 AS VENDOR_CD
+                    , TTIT.TMP7 AS CUBL_SQ
+                    , TTIT.TMP9 AS CLOSING_NO
+                    , TTIT.TMP10 AS CLOSING_SEQ
+                    , #{ses.companyCd} AS BUYER_CD
+                FROM STOCTTIT TTIT
+                WHERE TTIT.TMP8 = #{IN_KEY}
+                ) TTIT
+        JOIN STOCAPAR APAR
+            ON  TTIT.GATE_CD = APAR.GATE_CD
+            AND TTIT.CLOSING_NO = APAR.CLOSING_NO
+            AND TTIT.CLOSING_SEQ = APAR.CLOSING_SEQ
+        JOIN STOCOGCM OGCM
+            ON  TTIT.GATE_CD = OGCM.GATE_CD
+            AND TTIT.BUYER_CD = OGCM.BUYER_CD
+        JOIN STOCVNGL VNGL
+            ON  TTIT.GATE_CD = VNGL.GATE_CD
+            AND TTIT.VENDOR_CD = VNGL.VENDOR_CD
+        JOIN STOCCUST CUST
+            ON  TTIT.GATE_CD = CUST.GATE_CD
+            AND TTIT.CUST_CD = CUST.CUST_CD
+        WHERE TTIT.GATE_CD = #{ses.gateCd}
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '100'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '200'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+            AND TTIT.DEPT_CD = #{DEPT_CD}
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '300'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+            AND TTIT.DEPT_CD = #{DEPT_CD}
+            <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+                AND TTIT.ACCOUNT_CD = #{ACCOUNT_CD}
+            </if>
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '400'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+            <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+                AND TTIT.ACCOUNT_CD = #{ACCOUNT_CD}
+            </if>
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '500'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+        </if>
+        <if test="SELL_TAX_TYPE != '' and SELL_TAX_TYPE != null and SELL_TAX_TYPE eq '600'.toString()">
+            AND TTIT.CUST_CD = #{CUST_CD}
+            AND TTIT.CUBL_SQ = #{CUBL_SQ}
+        </if>
+    </select>
+
+    <select id="py01020_doTaxCreateINSERT_TTID" parameterType="hashMap" resultType="hashMap">
+        INSERT INTO STOCTTID (
+            GATE_CD
+            , TAX_NUM
+            , TAX_SEQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+
+            , TAX_AMT
+            , SUP_AMT
+            , UNIT_AMT
+            , QTY
+            , ITEM_SPEC
+            , ITEM_DESC
+            , ITEM_TRADE_DATE
+            , REMARK
+            , CLOSING_NO
+            , CLOSING_SEQ
+            , ITEM_CD
+        ) VALUES (
+            #{GATE_CD}
+            , #{TAX_NUM}
+            , (SELECT <include refid="com.sql.nvl"/>(MAX(TAX_SEQ), 0) + 1 FROM STOCTTID WHERE GATE_CD = #{ses.gateCd} AND TAX_NUM = #{TAX_NUM} AND DEL_FLAG = '0')
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+
+            , ${TAX_AMT}
+            , ${SUP_AMT}
+            , ${UNIT_AMT}
+            , ${QTY}
+            , #{ITEM_SPEC}
+            , #{ITEM_DESC}
+            , #{ITEM_TRADE_DATE}
+            , #{REMARK}
+            , #{CLOSING_NO}
+            , #{CLOSING_SEQ}
+            , #{ITEM_CD}
+        )
+    </select>
+
+    <update id="py01020_doTaxCreateUPDATE_APAR" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+            AP_TAX_NUM = #{TAX_NUM}
+            , AP_TAX_SEQ = (SELECT TAX_SEQ FROM STOCTTID WHERE GATE_CD = #{ses.gateCd} AND DEL_FLAG = '0' AND TAX_NUM = #{TAX_NUM} AND CLOSING_NO = #{CLOSING_NO} AND CLOSING_SEQ = #{CLOSING_SEQ})
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND  CLOSING_NO = #{CLOSING_NO}
+        AND  CLOSING_SEQ = #{CLOSING_SEQ}
+    </update>
+
+    <delete id="py01020_doTaxCreateDELETE_TTIT" parameterType="hashMap">
+        DELETE FROM STOCTTIT
+        WHERE TMP8 = #{IN_KEY}
+    </delete>
+
+
+
+
+    <select id="chkTaxCreAR" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) COU
+		FROM STOCAPAR
+        WHERE GATE_CD = #{ses.gateCd}
+        AND  CLOSING_NO = #{CLOSING_NO}
+        AND  CLOSING_SEQ = #{CLOSING_SEQ}
+		AND AP_TAX_NUM IS NOT NULL
+	</select>
+
+
+
+
+
+
+
+
+
+
+</mapper>

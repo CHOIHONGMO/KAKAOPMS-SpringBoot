@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.DH1040_Mapper">
+
+	<select id="DH1040_doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT DLHD.DEAL_NUM
+		      ,DLHD.PLANT_CD
+		      ,(SELECT PLANT_NM FROM STOCOGPL
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND PLANT_CD = DLHD.PLANT_CD
+		           AND DEL_FLAG = '0') AS PLANT_NM
+		      ,DLHD.VENDOR_CD
+			  ,<include refid="com.sql.dbo"/>getVendorName(DLHD.GATE_CD, DLHD.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+			  ,<include refid="com.sql.dbo"/>getGmtDate(DLHD.DEAL_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS DEAL_DATE
+			  ,<include refid="com.sql.dbo"/>getGmtDate(DLHD.PROOF_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS PROOF_DATE
+		      ,DLHD.PURCHASE_TYPE
+		      ,DLHD.VAT_CD
+		      ,DLHD.PAY_TERMS
+		      ,DLHD.CUR
+		      ,DLHD.SUP_AMT
+		      ,DLHD.VAT_AMT
+		      ,(DLHD.SUP_AMT + DLHD.VAT_AMT) AS TOTAL_AMT
+		      ,DLHD.REMARK
+		      ,DLHD.BIZ_AREA_CD
+		      ,DLHD.GL_ACCOUNT_CD
+		      ,DLHD.SL_TYPE
+			  ,(SELECT ACCOUNT_NM
+		          FROM STOCACMT
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND ACCOUNT_CD = DLHD.GL_ACCOUNT_CD
+		           AND DEL_FLAG = '0') AS GL_ACCOUNT_NM
+		      ,DLHD.COST_CD <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> 
+		       (SELECT COST.COST_NM
+		        FROM STOCCOST COST
+		        WHERE COST.GATE_CD = DLHD.GATE_CD
+		          AND COST.BUYER_CD = DLHD.BUYER_CD
+		          AND COST.PLANT_CD = DLHD.PLANT_CD
+		          AND COST.COST_CD = DLHD.COST_CD
+				  AND COST.DEL_FLAG = '0') AS COST_CD
+		      ,DLHD.REG_USER_ID
+		      ,<include refid="com.sql.dbo"/>GETUSERNAME(DLHD.GATE_CD, DLHD.REG_USER_ID, #{ses.langCd})  AS REG_USER_NM
+		      ,(CASE WHEN DLHD.SL_NUM IS NOT NULL AND DLHD.SL_NUM != '' THEN
+		      		 <include refid="com.sql.dbo"/>getGmtDate(DLHD.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+		             ELSE '' END) AS SAP_IF_DATE
+		      ,DLHD.SL_NUM
+		      ,DLHD.TAX_CD
+		      ,DLHD.BUYER_CD
+		      ,DLHD.SL_TYPE
+		      ,(CASE WHEN DLHD.CON_SL_NUM IS NULL OR DLHD.CON_SL_NUM = '' THEN <include refid="com.sql.subStr"/>(DLHD.SL_NUM, 1, 10)
+		      		 ELSE <include refid="com.sql.subStr"/>(DLHD.SL_NUM, 1, 10) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> DLHD.CON_SL_NUM
+		      	 END)   AS SL_NUM_DISP
+		  FROM STOCDLHD DLHD
+		 WHERE DLHD.GATE_CD = #{ses.gateCd}
+		   AND DLHD.DEL_FLAG = '0'
+		   <!-- 현재 사용자의 PLANT 만 조회한다. -->
+		   AND EXISTS (SELECT 'X' FROM STOCUSPL USPL
+		   				WHERE USPL.GATE_CD = DLHD.GATE_CD
+		   				  AND USPL.PLANT_CD = DLHD.PLANT_CD
+		   				  AND USPL.USER_ID = #{ses.userId}
+		   				  AND USPL.DEL_FLAG = '0')
+
+		   <if test="DEAL_FROM_DATE != null and DEAL_FROM_DATE != '' and DEAL_TO_DATE != null and DEAL_TO_DATE != ''">
+			   AND DLHD.DEAL_DATE BETWEEN <include refid="com.sql.toDate"/>#{DEAL_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{DEAL_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+		   </if>
+		   <if test="PLANT_CD != null and PLANT_CD != ''">
+			   AND DLHD.PLANT_CD = #{PLANT_CD}
+		   </if>
+		   <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+			   AND DLHD.PURCHASE_TYPE IN ${PURCHASE_TYPE}
+		   </if>
+		   <if test="VENDOR_NM != null and VENDOR_NM != ''">
+			   AND <include refid="com.sql.dbo"/>getVendorName(DLHD.GATE_CD, DLHD.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		   </if>
+		   <if test="PAY_TERMS != null and PAY_TERMS != ''">
+			   AND DLHD.PAY_TERMS = #{PAY_TERMS}
+		   </if>
+		   <if test="TAX_CD != null and TAX_CD != ''">
+			   AND DLHD.TAX_NUM = #{TAX_CD}
+		   </if>
+		   <if test="REG_USER_NM != null and REG_USER_NM != ''">
+			   AND <include refid="com.sql.dbo"/>GETUSERNAME(DLHD.GATE_CD, DLHD.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REG_USER_NM} <include refid="com.sql.likeR"/>
+		   </if>
+		   <if test="SL_TYPE != null and SL_TYPE != ''">
+			   AND DLHD.SL_TYPE = #{SL_TYPE}
+		   </if>
+		   <if test="SAP_IF_YN != null and SAP_IF_YN != ''">
+			   <if test="SAP_IF_YN == '1'.toString()">
+			       AND DLHD.SL_NUM IS NOT NULL
+			   </if>
+			   <if test="SAP_IF_YN == '0'.toString()">
+			       AND DLHD.SL_NUM IS NULL
+			   </if>
+		   </if>
+		ORDER BY DLHD.DEAL_NUM DESC
+	</select>
+
+	<update id="DH1040_doDeleteDLDT" parameterType="hashmap">
+		UPDATE STOCDLDT SET
+		 	   DEL_FLAG = '1'
+		 	  ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		 	  ,MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<update id="DH1040_doDeleteDLHD" parameterType="hashmap">
+		UPDATE STOCDLHD SET
+		 	   DEL_FLAG = '1'
+		 	  ,MOD_DATE = <include refid="com.sql.sysdate"/>
+		 	  ,MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<update id="DH1040_doDeleteDLTP" parameterType="hashmap">
+		DELETE FROM STOCDLTP
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</update>
+
+</mapper>

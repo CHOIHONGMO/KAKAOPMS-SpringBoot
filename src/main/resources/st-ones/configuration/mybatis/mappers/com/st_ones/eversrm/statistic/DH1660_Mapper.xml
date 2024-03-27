@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1660_Mapper">
+	<select id="DH1660_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT
+		  PAY.CONT_NUM
+		, PAY.CONT_DESC
+		, PAY.PLANT_CD
+		, <include refid="com.sql.dbo"/>GETPLANTNAME(PAY.GATE_CD, PAY.BUYER_CD, PAY.PLANT_CD,#{ses.langCd}) AS PLANT_NM
+		, PAY.EXEC_NUM
+		, PAY.VENDOR_CD
+		, <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, PAY.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		, PAY.PURCHASE_TYPE
+		, PAY.CONT_USER_ID
+		, <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, PAY.CONT_USER_ID, #{ses.langCd}) AS CONT_USER_NM
+		, <include refid="com.sql.dbo"/>GETGMTDATE(PAY.CONT_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS CONT_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE(PAY.CONT_START_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS CONT_START_DATE
+		, <include refid="com.sql.dbo"/>GETGMTDATE(PAY.CONT_END_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS CONT_END_DATE
+		, PAY.CONT_CNT
+		, PAY.CONT_AMT
+		, SUM(<include refid="com.sql.nvl"/>(PAY.SUP_AMT,0)) as SUP_AMT_SUM
+		, PAY.CONT_AMT -SUM(<include refid="com.sql.nvl"/>(PAY.SUP_AMT,0)) AS CHANGE_AMT
+		, CASE WHEN (PAY.CONT_AMT -SUM(<include refid="com.sql.nvl"/>(PAY.SUP_AMT,0))) <![CDATA[<=]]> 0 THEN '완료' ELSE '미완료' END COMPLETE_YN
+		, PAY.EXEC_TYPE
+		, MAX(CASE WHEN PAY.PAY_SQ=1 THEN PAY.DEAL_DATE ELSE '' END ) AS '1C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=1 THEN PAY.SUP_AMT ELSE 0 END ) AS '1C_AMT'
+		, MAX(CASE WHEN PAY.PAY_SQ=2 THEN PAY.DEAL_DATE ELSE '' END ) AS '2C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=2 THEN PAY.SUP_AMT ELSE 0 END ) AS '2C_AMT'
+		, MAX(CASE WHEN PAY.PAY_SQ=3 THEN PAY.DEAL_DATE ELSE '' END ) AS '3C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=3 THEN PAY.SUP_AMT ELSE 0 END ) AS '3C_AMT'
+		, MAX(CASE WHEN PAY.PAY_SQ=4 THEN PAY.DEAL_DATE ELSE '' END ) AS '4C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=4 THEN PAY.SUP_AMT ELSE 0 END ) AS '4C_AMT'
+		, MAX(CASE WHEN PAY.PAY_SQ=5 THEN PAY.DEAL_DATE ELSE '' END ) AS '5C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=5 THEN PAY.SUP_AMT ELSE 0 END ) AS '5C_AMT'
+		, MAX(CASE WHEN PAY.PAY_SQ=6 THEN PAY.DEAL_DATE ELSE '' END ) AS '6C_DATE'
+		, MAX(CASE WHEN PAY.PAY_SQ=6 THEN PAY.SUP_AMT ELSE 0 END ) AS '6C_AMT'
+		FROM (
+			SELECT
+			  EC.GATE_CD
+			, EC.CONT_NUM--계약번호
+			, EC.CONT_DESC --계약명
+			, EC.PLANT_CD --플랜트
+			, EC.EXEC_NUM --품의번호
+			, EC.VENDOR_CD--협력회사코드
+			--협력회사명
+			, EC.PURCHASE_TYPE --구매유형
+			, EC.CONT_USER_ID--구매담당자
+			--구매담당자이름
+			, EC.CONT_DATE --계약일자
+			, EC.CONT_START_DATE--시작일
+			, EC.CONT_END_DATE--종료일
+			, EC.CONT_CNT
+			, EC.CONT_AMT --계약금액
+			, EC.BUYER_CD
+			, DLHD.DEAL_NUM --송장번호
+			, <include refid="com.sql.dbo"/>GETGMTDATE(DLHD.DEAL_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS DEAL_DATE  --송장일자
+			, DLHD.SUP_AMT --송장금액
+			, RANK() OVER (PARTITION BY EC.CONT_NUM ORDER BY DLHD.DEAL_DATE, DLHD.DEAL_NUM) AS PAY_SQ --지급차수
+			, EC.EXEC_TYPE
+			FROM (
+				SELECT
+				  ECCT.CONT_NUM --계약번호
+				, ECCT.CONT_CNT --계약차수
+				, ECCT.VENDOR_CD --협력회사코드
+				, ECCT.CONT_DESC --계약명
+				, CNHD.PURCHASE_TYPE --구매유형
+				, ECCT.CONT_USER_ID --구매담당자
+				, ECCT.CONT_DATE --계약일자
+				, ECCT.CONT_START_DATE --시작일
+				, ECCT.CONT_END_DATE --종료일
+				, ECCT.CONT_AMT --계약금액
+				, CNHD.EXEC_NUM --품의번호
+				, ECCT.PLANT_CD --플랜트
+				, ECCT.GATE_CD
+				, ECCT.BUYER_CD
+				, RANK() OVER (PARTITION BY ECCT.CONT_NUM ORDER BY ECCT.CONT_CNT DESC) AS CONT_SQ
+				, CNHD.EXEC_TYPE
+				FROM STOCECCT ECCT
+				JOIN STOCCNHD CNHD
+				ON  ECCT.GATE_CD = CNHD.GATE_CD
+				AND ECCT.EXEC_NUM = CNHD.EXEC_NUM
+				AND ECCT.DEL_FLAG = '0'
+				AND CNHD.SIGN_STATUS = 'E'
+				JOIN STOCCNVD CNVD
+				ON  CNHD.GATE_CD = CNVD.GATE_CD
+				AND CNHD.EXEC_NUM = CNVD.EXEC_NUM
+				AND ECCT.VENDOR_CD = CNVD.VENDOR_CD
+				--AND CNVD.DELIVERY_TYPE = 'PI' --검수건만
+				AND CNVD.DEL_FLAG = '0'
+				WHERE 1 = 1
+				AND ECCT.PROGRESS_CD = '4300'
+				<if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null">
+					AND ECCT.CONT_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+				</if>
+				<if test="VENDOR_NM !='' and VENDOR_NM !=null">
+					AND <include refid="com.sql.dbo"/> GETVENDORNAME(ECCT.GATE_CD, ECCT.VENDOR_CD, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="CONT_USER_NM !='' and CONT_USER_NM !=null">
+					AND <include refid="com.sql.dbo"/> getUserName(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd} ) <include refid="com.sql.likeL"/> #{CONT_USER_NM} <include refid="com.sql.likeR"/>
+				</if>
+		
+				<if test="CONT_DESC !='' and CONT_DESC !=null">
+					AND ECCT.CONT_DESC <include refid="com.sql.likeL"/> #{CONT_DESC} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="PLANT_CD !='' and PLANT_CD !=null">
+					AND ECCT.PLANT_CD  IN (${PLANT_CD})
+				</if>
+				<if test="PURCHASE_TYPE !='' and PURCHASE_TYPE !=null">
+					AND CNHD.PURCHASE_TYPE IN (${PURCHASE_TYPE})
+				</if>
+				
+			) EC
+			LEFT OUTER JOIN STOCPODT PODT
+			ON  EC.GATE_CD = PODT.GATE_CD
+			AND PODT.DEL_FLAG = '0'
+			AND PODT.EXEC_NUM = EC.EXEC_NUM
+			LEFT OUTER JOIN STOCPOHD POHD
+			ON  PODT.GATE_CD = POHD.GATE_CD
+			AND PODT.PO_NUM = POHD.PO_NUM
+			AND EC.VENDOR_CD = POHD.VENDOR_CD
+			AND POHD.DEL_FLAG = '0'
+			LEFT OUTER JOIN STOCGRDT GRDT
+			ON  PODT.GATE_CD = GRDT.GATE_CD
+			AND PODT.PO_NUM = GRDT.PO_NUM
+			AND PODT.PO_SQ = GRDT.PO_SQ
+			AND GRDT.DEL_FLAG = '0'
+			--AND GRDT.GR_CREATE_TYPE = 'IGH' --검수건만
+			LEFT OUTER JOIN STOCDLDT DLDT
+			ON  DLDT.GATE_CD = GRDT.GATE_CD
+			AND DLDT.GR_NUM = GRDT.GR_NUM
+			AND DLDT.GR_SQ = GRDT.GR_SQ
+			AND DLDT.GR_YEAR = GRDT.GR_YEAR
+			AND DLDT.DEL_FLAG = '0'
+			LEFT OUTER JOIN STOCDLHD DLHD
+			ON  DLDT.GATE_CD = DLHD.GATE_CD
+			AND DLDT.DEAL_NUM = DLHD.DEAL_NUM
+			AND DLHD.DEL_FLAG = '0'
+			--AND <include refid="com.sql.nvl"/>(DLHD.SL_NUM, ' ') <![CDATA[>]]> ' ' --송장 생성 후 회계계정 생성된 건만
+			WHERE 1 = 1
+			AND EC.CONT_SQ = 1 --최종계약건만 조회 되도록 한다.
+			GROUP BY
+			  EC.GATE_CD
+			, EC.CONT_NUM
+			, EC.CONT_CNT
+			, EC.VENDOR_CD
+			, EC.CONT_DESC
+			, EC.PURCHASE_TYPE
+			, EC.CONT_USER_ID
+			, EC.CONT_DATE
+			, EC.CONT_START_DATE
+			, EC.CONT_END_DATE
+			, EC.CONT_AMT
+			, EC.EXEC_NUM
+			, EC.PLANT_CD
+			, DLHD.DEAL_NUM
+			, DLHD.DEAL_DATE
+			, DLHD.SUP_AMT
+			, EC.EXEC_TYPE
+			, EC.BUYER_CD
+		) PAY
+		WHERE 1 = 1
+		AND PAY.PAY_SQ <![CDATA[<]]> 7
+		GROUP BY 
+			  PAY.CONT_NUM
+			, PAY.CONT_DESC
+			, PAY.PLANT_CD
+			, PAY.EXEC_NUM
+			, PAY.VENDOR_CD
+			, PAY.PURCHASE_TYPE
+			, PAY.CONT_USER_ID
+			, PAY.CONT_DATE
+			, PAY.CONT_START_DATE
+			, PAY.CONT_END_DATE
+			, PAY.CONT_CNT
+			, PAY.CONT_AMT
+			, PAY.GATE_CD
+			, EXEC_TYPE
+			, BUYER_CD
+		ORDER BY CONT_NUM, CONT_CNT
+	</select>
+	
+	<update id="DH1660_doDelete" parameterType="hashmap">
+		
+	</update>
+	
+	<insert id="DH1660_doSave" parameterType="hashmap">
+		 MERGE STOC AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD) AS B
+            ON (A.GATE_CD = B.GATE_CD)
+		  WHEN MATCHED THEN
+		UPDATE SET
+		  WHEN NOT MATCHED THEN
+		INSERT (
+		) VALUES (
+		<include refid="com.sql.mergeEnd"/>
+	</insert>
+	
+	<insert id="DH1660_doInsert" parameterType="hashmap">
+		INSERT INTO DH1660 (
+		) VALUES (
+		)
+	</insert>
+	
+	<update id="DH1660_doUpdate" parameterType="hashmap">
+		UPDATE DH1660 SET
+		 WHERE 
+	</update>
+</mapper>

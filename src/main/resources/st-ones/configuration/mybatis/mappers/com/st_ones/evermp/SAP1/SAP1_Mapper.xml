@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.SAP1.SAP1_Mapper">
+	<select id="sap1010_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT APAR.GATE_CD
+			, APAR.CLOSING_NO
+			, APAR.CLOSING_SEQ
+			, <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) <include refid="com.sql.stringMerge"/> '년 ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) <include refid="com.sql.stringMerge"/> '월' AS CLOSING_YEAR_MONTH
+			, CASE WHEN APAR.CLOSING_CNT = '9' THEN '최종' ELSE TO_CHAR(APAR.CLOSING_CNT) END AS CLOSING_CNT
+			, <include refid="com.sql.nvl"/>(APAR.CUST_CONFIRM_FLAG, '0') AS CUST_CONFIRM_FLAG
+			, <include refid="com.sql.dbo"/>GETCOMCODE(APAR.GATE_CD, 'M044', APAR.CUST_CONFIRM_FLAG, '0', #{ses.langCd}) AS CUST_CONFIRM_NM
+			, APAR.CUST_CD
+			, CUST.CUST_NM
+			, UPOHD.CPO_USER_DEPT_CD AS DEPT_CD
+			, APAR.GR_NO
+			, APAR.GR_SEQ
+			, APAR.INV_NO
+			, APAR.INV_SEQ
+			, APAR.ITEM_CD
+			, APAR.CUST_ITEM_CD
+			, APAR.ITEM_DESC
+			, APAR.ITEM_SPEC
+			, APAR.MAKER_CD
+			, APAR.MAKER_NM
+			, APAR.MAKER_PART_NO
+			, APAR.UNIT_CD
+			, APAR.CUR
+			, APAR.CLOSE_QTY
+			, APAR.PO_GR_UNIT_PRICE AS PO_GR_UNIT_PRICE
+			, APAR.PO_GR_ITEM_AMT AS PO_GR_ITEM_AMT
+			, <include refid="com.sql.toDateChar"/>(APAR.CLOSE_DATE, 'YYYY-MM-DD') AS CLOSE_DATE
+			, <include refid="com.sql.toDateChar"/>(APAR.GR_DATE, 'YYYY-MM-DD') AS GR_DATE
+			, APAR.TAX_CD
+			, <include refid="com.sql.dbo"/>GETCOMCODE(APAR.GATE_CD, 'M036', APAR.TAX_CD, '0', #{ses.langCd}) AS TAX_NM
+			, APAR.PO_NO
+			, APAR.PO_SEQ
+			, APAR.CPO_NO
+			, APAR.CPO_SEQ
+			, <include refid="com.sql.toDateChar"/>(APAR.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+			, APAR.CPO_USER_ID
+			, CVUR.USER_NM AS CPO_USER_NM
+			, APAR.GR_USER_ID
+			, GRDT.GR_AGENT_FLAG
+			, CASE WHEN GRDT.GR_AGENT_FLAG = '1' THEN USR.USER_NM ELSE CVUR02.USER_NM END AS GR_USER_NM
+			, GRDT.DEAL_CD
+			, <include refid="com.sql.dbo"/>GETCOMCODE(APAR.GATE_CD, 'MP021', GRDT.DEAL_CD, '0', #{ses.langCd}) AS DEAL_NM
+			, YPODT.CPO_NO <include refid="com.sql.stringMerge"/> YPODT.CPO_SEQ AS CPO_NO_SEQ --주문키
+			, GRDT.GR_NO<include refid="com.sql.stringMerge"/>GRDT.GR_SEQ AS GR_NO_SEQ
+
+
+			, YPODT.PO_DATE
+			, UPOHD.PR_SUBJECT
+
+
+			,<include refid="com.sql.dbo"/>getPlantName(UPOHD.GATE_CD, UPOHD.CUST_CD, UPOHD.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, UPOHD.CPO_USER_ID, #{ses.langCd}) AS DEPT_NM
+
+
+		FROM STOCAPAR APAR
+		JOIN STOCGRDT GRDT
+			ON (APAR.GATE_CD = GRDT.GATE_CD
+			AND APAR.CUST_CD = GRDT.CUST_CD
+			AND APAR.GR_NO = GRDT.GR_NO
+			AND APAR.GR_SEQ = GRDT.GR_SEQ
+			AND GRDT.DEL_FLAG = '0')
+		JOIN STOYPODT YPODT
+			ON (YPODT.GATE_CD = APAR.GATE_CD
+			AND YPODT.CUST_CD = APAR.CUST_CD
+			AND YPODT.CPO_NO = APAR.CPO_NO
+			AND YPODT.CPO_SEQ = APAR.CPO_SEQ
+			AND YPODT.DEL_FLAG = '0'
+			AND APAR.DEL_FLAG = '0')
+		JOIN STOUPOHD UPOHD
+			ON (YPODT.GATE_CD = UPOHD.GATE_CD
+			AND YPODT.CUST_CD = UPOHD.CUST_CD
+			AND YPODT.CPO_NO = UPOHD.CPO_NO
+			AND UPOHD.DEL_FLAG = '0')
+		LEFT JOIN STOCCVUR CVUR
+			ON (UPOHD.GATE_CD = CVUR.GATE_CD
+			AND UPOHD.CUST_CD = CVUR.COMPANY_CD
+			AND UPOHD.CPO_USER_ID = CVUR.USER_ID
+			AND CVUR.USER_TYPE = 'B')
+		LEFT JOIN STOCOGDP OGDP	-- 예산부서명
+		    ON (APAR.GATE_CD = OGDP.GATE_CD
+		    AND REGEXP_SUBSTR(APAR.BD_DEPT_CD,'[^-]+', 1, 1) = OGDP.BUYER_CD
+		    AND REGEXP_SUBSTR(APAR.BD_DEPT_CD,'[^-]+', 1, 2) = OGDP.PLANT_CD
+		    AND REGEXP_SUBSTR(APAR.BD_DEPT_CD,'[^-]+', 1, 3) = OGDP.DIVISION_CD
+		    AND REGEXP_SUBSTR(APAR.BD_DEPT_CD,'[^-]+', 1, 4) = OGDP.DEPT_CD
+		    AND OGDP.PART_CD = '*')
+		LEFT JOIN STOCCUAC CUAC
+			ON (APAR.GATE_CD = CUAC.GATE_CD
+			AND APAR.CUST_CD = CUAC.CUST_CD
+			AND APAR.ACCOUNT_CD = CUAC.ACCOUNT_CD)
+		LEFT JOIN STOCCVUR CVUR02
+			ON (APAR.GATE_CD = CVUR02.GATE_CD
+			AND APAR.CUST_CD = CVUR02.COMPANY_CD
+			AND APAR.GR_USER_ID = CVUR02.USER_ID
+			AND CVUR02.USER_TYPE = 'B')
+		LEFT JOIN STOCUSER USR
+			ON (APAR.GATE_CD  = USR.GATE_CD
+			AND APAR.GR_USER_ID = USR.USER_ID
+			AND USR.USER_TYPE  = 'C')
+		LEFT JOIN STOCCVUR CVUR03
+			ON (APAR.GATE_CD = CVUR03.GATE_CD
+			AND APAR.CUST_CD = CVUR03.COMPANY_CD
+			AND APAR.CUST_CONFIRM_USER_ID = CVUR03.USER_ID
+			AND CVUR03.USER_TYPE = 'B')
+		LEFT JOIN STOCCUST CUST
+			ON (UPOHD.GATE_CD = CUST.GATE_CD
+			AND UPOHD.CUST_CD = CUST.CUST_CD
+			AND CUST.DEL_FLAG = '0')
+		WHERE APAR.GATE_CD = #{ses.gateCd}
+		AND APAR.VENDOR_CD  = #{ses.companyCd}
+		AND APAR.CLOSING_YEAR_MONTH = #{CLOSING_YEAR_MONTH}
+		AND APAR.DEL_FLAG = '0'
+		AND APAR.CLOSING_TYPE = 'AR'
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND APAR.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="INV_NO != '' and INV_NO != null">
+			<if test="INV_CNT == 1">
+				AND APAR.INV_NO IN ${INV_NO}
+			</if>
+			<if test="INV_CNT == 0">
+				AND APAR.INV_NO <include refid="com.sql.likeL"/> #{INV_NO} <include refid="com.sql.likeR"/>
+			</if>
+		</if>
+		<if test="DEAL_TYPE != '' and DEAL_TYPE != null">
+			AND APAR.DEAL_CD = #{DEAL_TYPE}
+		</if>
+
+        <if test="CPO_NO != '' and CPO_NO != null">
+           AND YPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+           AND (SELECT PR_SUBJECT FROM STOUPOHD WHERE GATE_CD=YPODT.GATE_CD AND CUST_CD = YPODT.CUST_CD AND CPO_NO=YPODT.CPO_NO) <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+
+
+
+		<if test="GR_NO != '' and GR_NO != null">
+			<if test="GR_CNT == 1">
+				AND APAR.GR_NO IN ${GR_NO}
+			</if>
+			<if test="GR_CNT == 0">
+				AND APAR.GR_NO <include refid="com.sql.likeL"/> #{GR_NO} <include refid="com.sql.likeR"/>
+			</if>
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND (APAR.ITEM_CD IN ${ITEM_CD} OR APAR.CUST_ITEM_CD IN ${ITEM_CD})
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND (APAR.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR APAR.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (${ITEM_DESC_01} OR  ${ITEM_DESC_02})
+		</if>
+		<if test="CUST_CONFIRM_YN != '' and CUST_CONFIRM_YN != null and (CUST_CONFIRM_YN eq '1'.toString() or CUST_CONFIRM_YN eq '0'.toString())">
+			AND APAR.CUST_CONFIRM_FLAG = #{CUST_CONFIRM_YN}
+		</if>
+	</select>
+
+	<select id="sap1020_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT APAR.GATE_CD
+			, APAR.CLOSING_YEAR_MONTH AS O_CLOSING_YEAR_MONTH
+			, <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) <include refid="com.sql.stringMerge"/> '년 ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) <include refid="com.sql.stringMerge"/> '월' AS CLOSING_YEAR_MONTH
+			, APAR.CUST_CD
+			, CUST.CUST_NM
+			, APAR.CUR
+			, SUM(APAR.PO_GR_ITEM_AMT) AS TOT_PO_AMT
+			, REPLACE(CONVERT(VARCHAR, CAST(SUM(APAR.PO_GR_ITEM_AMT) AS MONEY), 1), '.00', '') AS PO_GR_ITEM_AMT
+		FROM STOCAPAR APAR
+		JOIN STOCGRDT GRDT
+			ON (APAR.GATE_CD = GRDT.GATE_CD
+			AND APAR.CUST_CD = GRDT.CUST_CD
+			AND APAR.GR_NO = GRDT.GR_NO
+			AND APAR.GR_SEQ = GRDT.GR_SEQ
+			AND GRDT.DEL_FLAG = '0')
+		LEFT JOIN STOCCUST CUST
+			ON (APAR.GATE_CD = CUST.GATE_CD
+			AND APAR.CUST_CD = CUST.CUST_CD
+			AND CUST.DEL_FLAG = '0')
+		WHERE APAR.GATE_CD = #{ses.gateCd}
+		AND APAR.VENDOR_CD = #{ses.companyCd}
+		AND APAR.CLOSING_YEAR_MONTH = #{CLOSING_YEAR_MONTH}
+		AND APAR.DEL_FLAG = '0'
+		AND APAR.CLOSING_TYPE = 'AP'
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND APAR.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		GROUP BY APAR.GATE_CD, APAR.CUST_CD, CUST.CUST_NM, APAR.CLOSING_YEAR_MONTH, APAR.CUR
+		ORDER BY APAR.CLOSING_YEAR_MONTH, CUST.CUST_NM
+	</select>
+</mapper>

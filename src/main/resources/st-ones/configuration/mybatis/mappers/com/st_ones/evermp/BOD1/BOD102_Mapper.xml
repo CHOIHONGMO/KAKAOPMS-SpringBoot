@@ -1,0 +1,1629 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BOD1.BOD102_Mapper">
+
+	<select id="bod1021_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		      POBK.RESULT_CD
+		    , POBK.RESULT_MSG
+		    , POBK.CPO_NO
+		    , POBK.CPO_SEQ
+		    , <include refid="com.sql.toDateChar"/>(POBK.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+		    , POBK.CUST_CD
+		    , CUST.CUST_NM
+		    , POBK.CPO_DATE CPO_DATE
+		    , POBK.CPO_USER_ID
+		    , CVUR.USER_NM AS CPO_USER_NM
+		    , POBK.CPO_USER_DEPT_CD
+			, POBK.CPO_USER_DIVISION_CD
+			, POBK.CPO_USER_PART_CD
+
+			, getDeptNm(POBK.GATE_CD,POBK.CUST_CD,CVUR.PLANT_CD,POBK.CPO_USER_DIVISION_CD,POBK.CPO_USER_DEPT_CD ,#{ses.gateCd} ) CPO_USER_DEPT_NM
+
+		    , POBK.CPO_USER_TEL_NUM
+		    , POBK.CPO_USER_CELL_NUM
+		    , POBK.PRIOR_GR_FLAG
+		    , POBK.ITEM_CD
+		    , POBK.CUST_ITEM_CD
+		    , POBK.REF_MNG_NO
+		    , <include refid="com.sql.nvl"/>(MTGL.ITEM_DESC,POBK.ITEM_DESC) ITEM_DESC
+		    , <include refid="com.sql.nvl"/>(MTGL.ITEM_SPEC,POBK.ITEM_SPEC) ITEM_SPEC
+		    , <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD) MAKER_CD
+		    , <include refid="com.sql.dbo"/>GETMKBRNAME(<include refid="com.sql.nvl"/>(MTGL.GATE_CD,POBK.GATE_CD), 'MK', <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD)) AS MAKER_NM
+		    , <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+		    , <include refid="com.sql.nvl"/>(MTGL.ORIGIN_CD,POBK.ORIGIN_CD) ORIGIN_CD
+		    , <include refid="com.sql.dbo"/>GETCODENAME(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, #{ses.langCd}) AS ORIGIN_NM
+		    , <include refid="com.sql.nvl"/>(MTGL.UNIT_CD,POBK.UNIT_CD) UNIT_CD
+
+		    , POBK.CPO_QTY
+
+		    , POBK.CUR AS CUR
+
+		    , POBK.TAX_CD
+
+
+            , POBK.CPO_UNIT_PRICE CPO_UNIT_PRICE
+			, POBK.CPO_UNIT_PRICE * POBK.CPO_QTY  CPO_ITEM_AMT
+
+
+
+			, POBK.PO_UNIT_PRICE AS PO_UNIT_PRICE
+			, POBK.PO_UNIT_PRICE * POBK.CPO_QTY AS PO_ITEM_AMT
+
+
+
+		    , TO_CHAR(POBK.HOPE_DUE_DATE, 'YYYYMMDD') AS HOPE_DUE_DATE
+		    , POBK.RECIPIENT_NM
+		    , POBK.RECIPIENT_DEPT_NM
+		    , POBK.RECIPIENT_TEL_NUM
+		    , POBK.RECIPIENT_CELL_NUM
+		    , POBK.RECIPIENT_EMAIL
+		    , POBK.DELY_ZIP_CD
+		    , POBK.REQ_TEXT
+		    , POBK.DELY_ADDR_1
+		    , POBK.DELY_ADDR_2
+		    , POBK.VENDOR_CD
+		    , <include refid="com.sql.dbo"/>GETVENDORNAME(POBK.GATE_CD, POBK.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		    , POBK.JOB_SEQ
+			, POBK.NAP_FLAG
+			, POBK.SHIPPER_TYPE
+			, POBK.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(POBK.GATE_CD, POBK.ATTACH_FILE_NO) AS ATTACH_FILE_CNT
+		    , POBK.CSDM_SEQ
+		    , POBK.DELY_NM
+			, POBK.COST_CENTER_CD
+			, POBK.COST_CENTER_NM
+			, POBK.PLANT_CD
+
+			, getPlantName(POBK.GATE_CD,POBK.CUST_CD,POBK.PLANT_CD,#{ses.langCd}) PLANT_NM
+
+		    , POBK.RECIPIENT_FAX_NUM
+
+			, POBK.MAKER_PART_NO
+			, POBK.BRAND_CD
+			, POBK.PR_SUBJECT
+			, POBK.PR_TYPE
+			, POBK.DELY_TYPE
+
+			, POBK.AUTO_PO_FLAG
+			, POBK.DEAL_CD
+
+			, POBK.CONT_NO
+			, POBK.CONT_SEQ
+
+			, POBK.PO_DATE
+			, POBK.GR_DATE
+
+		FROM STOUPOBK POBK
+		LEFT OUTER JOIN STOCCUST CUST
+		     ON (POBK.GATE_CD  = CUST.GATE_CD
+		     AND POBK.CUST_CD  = CUST.CUST_CD
+		     AND CUST.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCCVUR CVUR
+		     ON (POBK.GATE_CD  = CVUR.GATE_CD
+		     AND POBK.CPO_USER_ID = CVUR.USER_ID
+		     AND CUST.CUST_CD  = CVUR.COMPANY_CD
+		     AND CVUR.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCMTGL MTGL
+		     ON (POBK.GATE_CD  = MTGL.GATE_CD
+		     AND POBK.ITEM_CD  = MTGL.ITEM_CD
+		     AND MTGL.DEL_FLAG = '0')
+		WHERE POBK.GATE_CD     = #{ses.gateCd}
+		  AND POBK.DEL_FLAG    = '0'
+	      AND POBK.JOB_TYPE = #{JOB_TYPE}
+
+          AND POBK.REG_USER_ID = #{ses.userId}
+
+       	<if test="CUST_CD != '' and CUST_CD != null">
+	      AND POBK.CUST_CD = #{CUST_CD}
+		</if>
+
+       	<if test="PR_TYPE != '' and PR_TYPE != null">
+	      AND POBK.PR_TYPE = #{PR_TYPE}
+		</if>
+
+
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+		  AND POBK.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+<!--		<if test="CPO_USER_DEPT_CD != '' and CPO_USER_DEPT_CD != null">-->
+<!--		  AND POBK.CPO_USER_DEPT_CD = #{CPO_USER_DEPT_CD}-->
+<!--		</if>-->
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  AND POBK.VENDOR_CD = #{VENDOR_CD}
+        </if>
+		<if test="VENDOR_NM !='' and VENDOR_NM != null">
+		  AND <include refid="com.sql.dbo"/>GETVENDORNAME(POBK.GATE_CD, POBK.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="FROM_DATE !='' and FROM_DATE !=null and FROM_DATE !='' and FROM_DATE !=null">
+		  AND POBK.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+        <if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+		  AND MTGL.SG_CTRL_USER_ID <include refid="com.sql.likeL"/> #{SG_CTRL_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		  AND POBK.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		  AND MTGL.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_SPEC != '' and ITEM_SPEC !=null">
+		  AND <include refid="com.sql.nvl"/>(MTGL.ITEM_DESC, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(POBK.ITEM_SPEC, ' ') <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+        </if>
+
+		 ORDER BY POBK.JOB_SEQ
+    </select>
+
+	<select id="bod1020_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		      POBK.RESULT_CD
+		    , POBK.RESULT_MSG
+		    , POBK.CPO_NO
+		    , POBK.CPO_SEQ
+		    , <include refid="com.sql.toDateChar"/>(POBK.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+		    , POBK.CUST_CD
+		    , CUST.CUST_NM
+		    , POBK.CPO_DATE CPO_DATE
+		    , POBK.CPO_USER_ID
+		    , CVUR.USER_NM AS CPO_USER_NM
+		    , POBK.CPO_USER_DEPT_CD
+			, POBK.CPO_USER_DIVISION_CD
+			, POBK.CPO_USER_PART_CD
+			, getDeptNm(POBK.GATE_CD,POBK.CUST_CD,CVUR.PLANT_CD,POBK.CPO_USER_DIVISION_CD,POBK.CPO_USER_DEPT_CD ,#{ses.gateCd} ) CPO_USER_DEPT_NM
+		    , POBK.CPO_USER_TEL_NUM
+		    , POBK.CPO_USER_CELL_NUM
+		    , POBK.PRIOR_GR_FLAG
+		    , POBK.ITEM_CD
+		    , POBK.CUST_ITEM_CD
+		    , POBK.REF_MNG_NO
+		    , <include refid="com.sql.nvl"/>(MTGL.ITEM_DESC,POBK.ITEM_DESC) ITEM_DESC
+		    , <include refid="com.sql.nvl"/>(MTGL.ITEM_SPEC,POBK.ITEM_SPEC) ITEM_SPEC
+		    , <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD) MAKER_CD
+		    , <include refid="com.sql.dbo"/>GETMKBRNAME(<include refid="com.sql.nvl"/>(MTGL.GATE_CD,POBK.GATE_CD), 'MK', <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD)) AS MAKER_NM
+		    , <include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+		    , <include refid="com.sql.nvl"/>(MTGL.ORIGIN_CD,POBK.ORIGIN_CD) ORIGIN_CD
+		    , <include refid="com.sql.dbo"/>GETCODENAME(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, #{ses.langCd}) AS ORIGIN_NM
+		    , <include refid="com.sql.nvl"/>(MTGL.UNIT_CD,POBK.UNIT_CD) UNIT_CD
+		    , YNFO.MOQ_QTY
+		    , YNFO.RV_QTY
+		    , POBK.CPO_QTY
+		    , <include refid="com.sql.nvl"/>(UNFO.CUR,   <include refid="com.sql.nvl"/>(YNFO.CUR,POBK.CUR)   ) AS CUR
+
+		    , POBK.TAX_CD
+
+
+            , CASE WHEN POBK.ITEM_CD IS NOT NULL THEN <include refid="com.sql.dbo"/>fn_getSalesUnitPrice(MTGL.GATE_CD, POBK.APPLY_COM, POBK.PLANT_CD, POBK.CONT_NO, POBK.CONT_SEQ)
+              ELSE POBK.CPO_UNIT_PRICE END AS CPO_UNIT_PRICE
+			, CASE WHEN POBK.ITEM_CD IS NOT NULL THEN <include refid="com.sql.dbo"/>getPriceByCur(<include refid="com.sql.nvl"/>(UNFO.CUR, YNFO.CUR), <include refid="com.sql.dbo"/>fn_getSalesUnitPrice(MTGL.GATE_CD, POBK.APPLY_COM, POBK.PLANT_CD, POBK.CONT_NO, POBK.CONT_SEQ) * POBK.CPO_QTY)
+			  ELSE POBK.CPO_ITEM_AMT END AS CPO_ITEM_AMT
+
+
+
+			, <include refid="com.sql.dbo"/>CASE WHEN POBK.ITEM_CD IS NOT NULL THEN getPriceByCur(YNFO.CUR, YNFO.CONT_UNIT_PRICE) ELSE POBK.PO_UNIT_PRICE END AS PO_UNIT_PRICE
+			, <include refid="com.sql.dbo"/>CASE WHEN POBK.ITEM_CD IS NOT NULL THEN getPriceByCur(YNFO.CUR, YNFO.CONT_UNIT_PRICE) * POBK.CPO_QTY ELSE POBK.PO_UNIT_PRICE * POBK.CPO_QTY END AS PO_ITEM_AMT
+
+
+			, <include refid="com.sql.dbo"/>getPriceByCur(YNFO.CUR, YNFO.CONT_UNIT_PRICE * POBK.CPO_QTY) AS PO_ITEM_AMTAAAAAAAAAA
+
+
+		    , YNFO.LEAD_TIME
+		    , CASE WHEN <include refid="com.sql.nvl"/>(YNFO.LEAD_TIME, 0) > 0 THEN <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDays(YNFO.LEAD_TIME), 'yyyyMMdd')
+		           ELSE ''
+		      END AS LEAD_TIME_DATE
+			<if test="_databaseId == 'mssql'">
+		    , CONVERT(VARCHAR, POBK.HOPE_DUE_DATE, 112) AS HOPE_DUE_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+		    , TO_CHAR(POBK.HOPE_DUE_DATE, 'YYYYMMDD') AS HOPE_DUE_DATE
+			</if>
+		    , POBK.RECIPIENT_NM
+		    , POBK.RECIPIENT_DEPT_NM
+		    , POBK.RECIPIENT_TEL_NUM
+		    , POBK.RECIPIENT_CELL_NUM
+		    , POBK.RECIPIENT_EMAIL
+		    , POBK.DELY_ZIP_CD
+		    , POBK.REQ_TEXT
+		    , POBK.DELY_ADDR_1
+		    , POBK.DELY_ADDR_2
+		    , POBK.VENDOR_CD
+		    , <include refid="com.sql.dbo"/>GETVENDORNAME(POBK.GATE_CD, POBK.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		    , POBK.JOB_SEQ
+			, POBK.NAP_FLAG
+			, POBK.SHIPPER_TYPE
+			, POBK.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(POBK.GATE_CD, POBK.ATTACH_FILE_NO) AS ATTACH_FILE_CNT
+		    , POBK.CSDM_SEQ
+		    , POBK.DELY_NM
+			, POBK.COST_CENTER_CD
+			, POBK.COST_CENTER_NM
+			, POBK.PLANT_CD
+
+			, getPlantName(POBK.GATE_CD,POBK.CUST_CD,POBK.PLANT_CD,#{ses.langCd}) PLANT_NM
+
+		    , POBK.RECIPIENT_FAX_NUM
+
+			, POBK.MAKER_PART_NO
+			, POBK.BRAND_CD
+			, POBK.PR_SUBJECT
+			, POBK.PR_TYPE
+			, POBK.DELY_TYPE
+
+			, POBK.AUTO_PO_FLAG
+			, POBK.DEAL_CD
+
+			, POBK.CONT_NO
+			, POBK.CONT_SEQ
+
+			, POBK.PO_DATE
+			, POBK.GR_DATE
+
+		FROM STOUPOBK POBK
+		LEFT OUTER JOIN STOCCUST CUST
+		     ON (POBK.GATE_CD  = CUST.GATE_CD
+		     AND POBK.CUST_CD  = CUST.CUST_CD
+		     AND CUST.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCCVUR CVUR
+		     ON (POBK.GATE_CD  = CVUR.GATE_CD
+		     AND POBK.CPO_USER_ID = CVUR.USER_ID
+		     AND CUST.CUST_CD  = CVUR.COMPANY_CD
+		     AND CVUR.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCMTGL MTGL
+		     ON (POBK.GATE_CD  = MTGL.GATE_CD
+		     AND POBK.ITEM_CD  = MTGL.ITEM_CD
+		     AND MTGL.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOYINFO YNFO
+		     ON (POBK.GATE_CD    = YNFO.GATE_CD
+		     AND POBK.APPLY_COM  = YNFO.APPLY_COM
+		     AND POBK.CONT_NO    = YNFO.CONT_NO
+		     AND POBK.CONT_SEQ   = YNFO.CONT_SEQ
+		     AND TO_CHAR(<include refid="com.sql.sysdate"/>,'YYYYMMDD') BETWEEN YNFO.VALID_FROM_DATE AND YNFO.VALID_TO_DATE
+		     AND YNFO.DEL_FLAG   = '0')
+		LEFT OUTER JOIN STOUINFO UNFO
+		     ON (POBK.GATE_CD  = UNFO.GATE_CD
+		     AND POBK.CUST_CD  = UNFO.CUST_CD
+		     AND POBK.ITEM_CD  = UNFO.ITEM_CD
+		     AND POBK.CONT_NO    = UNFO.CONT_NO
+		     AND POBK.CONT_SEQ   = UNFO.CONT_SEQ
+		     AND UNFO.DEL_FLAG = '0')
+		WHERE POBK.GATE_CD     = #{ses.gateCd}
+		  AND POBK.DEL_FLAG    = '0'
+
+	      AND POBK.JOB_TYPE = #{JOB_TYPE}
+
+          AND POBK.REG_USER_ID = #{ses.userId}
+
+       	<if test="CUST_CD != '' and CUST_CD != null">
+	      AND POBK.CUST_CD = #{CUST_CD}
+		</if>
+
+       	<if test="PR_TYPE != '' and PR_TYPE != null">
+	      AND POBK.PR_TYPE = #{PR_TYPE}
+		</if>
+
+
+		<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+		  AND POBK.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+<!--		<if test="CPO_USER_DEPT_CD != '' and CPO_USER_DEPT_CD != null">-->
+<!--		  AND POBK.CPO_USER_DEPT_CD = #{CPO_USER_DEPT_CD}-->
+<!--		</if>-->
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  AND POBK.VENDOR_CD = #{VENDOR_CD}
+        </if>
+		<if test="VENDOR_NM !='' and VENDOR_NM != null">
+		  AND <include refid="com.sql.dbo"/>GETVENDORNAME(POBK.GATE_CD, POBK.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="FROM_DATE !='' and FROM_DATE !=null and FROM_DATE !='' and FROM_DATE !=null">
+		  AND POBK.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{TO_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+        <if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+		  AND MTGL.SG_CTRL_USER_ID <include refid="com.sql.likeL"/> #{SG_CTRL_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		  AND POBK.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+		  AND MTGL.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+        </if>
+		<if test="ITEM_SPEC != '' and ITEM_SPEC !=null">
+		  AND <include refid="com.sql.nvl"/>(MTGL.ITEM_DESC, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(POBK.ITEM_SPEC, ' ') <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+        </if>
+
+		 ORDER BY POBK.JOB_SEQ
+    </select>
+
+    <select id="bod1020_doSearchDelyInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		      DELY_NM
+			, RECIPIENT_NM
+			, RECIPIENT_DEPT_NM
+			, RECIPIENT_TEL_NUM
+			, RECIPIENT_FAX_NUM
+			, RECIPIENT_CELL_NUM
+			, RECIPIENT_EMAIL
+			, DELY_ZIP_CD
+			, DELY_ADDR_1
+			, DELY_ADDR_2
+		 FROM STOCCSDM
+		WHERE GATE_CD  = #{ses.gateCd}
+		  AND CUST_CD  = #{ses.companyCd}
+		  AND SEQ      = #{ses.csdmSeq}
+		  AND DEL_FLAG = '0'
+    </select>
+
+	<insert id="bod1020_doInsertBULK" parameterType="hashmap">
+        INSERT INTO STOUPOBK (
+			  GATE_CD
+			, JOB_SEQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, RESULT_CD
+			, RESULT_MSG
+			, CUST_CD
+			, CPO_DATE
+			, CPO_USER_ID
+			, CPO_USER_DIVISION_CD
+			, CPO_USER_DEPT_CD
+			, CPO_USER_PART_CD
+			, CPO_USER_TEL_NUM
+			, CPO_USER_CELL_NUM
+			, PRIOR_GR_FLAG
+			, ITEM_CD
+			, CUST_ITEM_CD
+			, REF_MNG_NO
+			, CPO_QTY
+			, BD_DEPT_CD
+			, ACCOUNT_CD
+			, HOPE_DUE_DATE
+			, RECIPIENT_NM
+			, RECIPIENT_DEPT_NM
+			, RECIPIENT_TEL_NUM
+			, RECIPIENT_CELL_NUM
+			, RECIPIENT_EMAIL
+			, DELY_ZIP_CD
+			, DELY_ADDR_1
+			, DELY_ADDR_2
+			, REQ_TEXT
+			, APPLY_COM
+			, CONT_NO
+			, CONT_SEQ
+			, VENDOR_CD
+			, SHIPPER_TYPE
+			, NAP_FLAG
+			, ATTACH_FILE_NO
+			, CSDM_SEQ
+			, DELY_NM
+			, RECIPIENT_FAX_NUM
+			, COST_CENTER_CD
+			, COST_CENTER_NM
+			, PLANT_CD
+			, PLANT_NM
+
+			, MAKER_PART_NO
+			, BRAND_CD
+			, PR_SUBJECT
+			, PR_TYPE
+			, ITEM_DESC
+			, ITEM_SPEC
+			, MAKER_CD
+			, ORIGIN_CD
+			, UNIT_CD
+			, CUR
+			, CPO_UNIT_PRICE
+			, CPO_ITEM_AMT
+			, DELY_TYPE
+			, TAX_CD
+			, AUTO_PO_FLAG
+			, DEAL_CD
+			, JOB_TYPE
+			, PO_UNIT_PRICE
+			, PO_ITEM_AMT
+			, PO_DATE
+			, GR_DATE
+			, APPLY_PLANT
+		)
+		VALUES (
+			  #{ses.gateCd}
+			, (SELECT <include refid="com.sql.nvl"/>(MAX(JOB_SEQ),0) + 1 FROM STOUPOBK)
+			, <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+			, #{RESULT_CD}
+			, #{RESULT_MSG}
+                <choose>
+                    <when test="CUST_CD != null and CUST_CD != ''">, #{CUST_CD}</when>
+                    <otherwise>, #{ses.companyCd}</otherwise>
+                </choose>
+			, #{CPO_DATE}
+			, #{CPO_USER_ID}
+			, #{CPO_USER_DIVISION_CD}
+			, #{CPO_USER_DEPT_CD}
+			, #{CPO_USER_PART_CD}
+			, #{CPO_USER_TEL_NUM}
+			, #{CPO_USER_CELL_NUM}
+			, <include refid="com.sql.nvl"/>(#{PRIOR_GR_FLAG}, '0')
+			, #{ITEM_CD}
+			, #{CUST_ITEM_CD}
+			, #{REF_MNG_NO}
+			, <include refid="com.sql.nvl"/>(#{CPO_QTY}, 0)
+			, #{BD_DEPT_CD}
+			, #{ACCOUNT_CD}
+			, #{HOPE_DUE_DATE}
+			, #{RECIPIENT_NM}
+			, #{RECIPIENT_DEPT_NM}
+			, #{RECIPIENT_TEL_NUM}
+			, #{RECIPIENT_CELL_NUM}
+			, #{RECIPIENT_EMAIL}
+			, #{DELY_ZIP_CD}
+			, #{DELY_ADDR_1}
+			, #{DELY_ADDR_2}
+			, #{REQ_TEXT}
+			, #{APPLY_COM}
+			, #{CONT_NO}
+			, <include refid="com.sql.nvl"/>(#{CONT_SEQ}, 0)
+			, #{VENDOR_CD}
+			, #{SHIPPER_TYPE}
+			, #{NAP_FLAG}
+			, #{ATTACH_FILE_NO}
+			, #{CSDM_SEQ}
+			, #{DELY_NM}
+			, #{RECIPIENT_FAX_NUM}
+			, #{COST_CENTER_CD}
+			, #{COST_CENTER_NM}
+			, #{PLANT_CD}
+			, (SELECT S.PLANT_NM FROM STOCCUPL S WHERE S.GATE_CD = #{ses.gateCd} AND S.DEL_FLAG = '0' AND S.CUST_CD = #{CUST_CD} AND S.PLANT_CD = #{PLANT_CD})
+
+			, #{MAKER_PART_NO}
+			, #{BRAND_CD}
+			, #{PR_SUBJECT}
+
+
+			, UPPER(#{PR_TYPE})
+
+
+			, #{ITEM_DESC}
+			, #{ITEM_SPEC}
+			, #{MAKER_CD}
+			, #{ORIGIN_CD}
+			, #{UNIT_CD}
+			, #{CUR}
+
+			, ROUND(#{CPO_UNIT_PRICE})
+
+
+			, #{CPO_ITEM_AMT}
+
+			, #{DELY_TYPE}
+			, #{TAX_CD}
+			, #{AUTO_PO_FLAG}
+			, #{DEAL_CD}
+			, #{JOB_TYPE}
+
+			, ROUND(#{PO_UNIT_PRICE})
+
+
+			, #{PO_ITEM_AMT}
+
+			, #{PO_DATE}
+			, #{GR_DATE}
+			, #{PLANT_CD}
+
+		<include refid="com.sql.mergeEnd"/>
+	</insert>
+
+    <update id="bod1020_doUpdateBULK" parameterType="hashmap">
+        UPDATE STOUPOBK SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , RESULT_CD = #{RESULT_CD}
+            , RESULT_MSG = #{RESULT_MSG}
+            , CPO_DATE = #{CPO_DATE}
+            , CPO_USER_ID = #{CPO_USER_ID}
+            , CPO_USER_DIVISION_CD = #{CPO_USER_DIVISION_CD}
+            , CPO_USER_DEPT_CD  = #{CPO_USER_DEPT_CD}
+            , CPO_USER_PART_CD  = #{CPO_USER_PART_CD}
+            , CPO_USER_TEL_NUM  = #{CPO_USER_TEL_NUM}
+            , CPO_USER_CELL_NUM = #{CPO_USER_CELL_NUM}
+            , PRIOR_GR_FLAG = <include refid="com.sql.nvl"/>(#{PRIOR_GR_FLAG}, '0')
+            , ITEM_CD = #{ITEM_CD}
+            , CUST_ITEM_CD = #{CUST_ITEM_CD}
+            , REF_MNG_NO = #{REF_MNG_NO}
+            , CPO_QTY = <include refid="com.sql.nvl"/>(#{CPO_QTY}, 0)
+            , BD_DEPT_CD = #{BD_DEPT_CD}
+            , ACCOUNT_CD = #{ACCOUNT_CD}
+            , HOPE_DUE_DATE = #{HOPE_DUE_DATE}
+            , RECIPIENT_NM = #{RECIPIENT_NM}
+            , RECIPIENT_DEPT_NM = #{RECIPIENT_DEPT_NM}
+            , RECIPIENT_TEL_NUM = #{RECIPIENT_TEL_NUM}
+            , RECIPIENT_CELL_NUM = #{RECIPIENT_CELL_NUM}
+            , RECIPIENT_EMAIL = #{RECIPIENT_EMAIL}
+            , DELY_ZIP_CD = #{DELY_ZIP_CD}
+            , DELY_ADDR_1 = #{DELY_ADDR_1}
+            , DELY_ADDR_2 = #{DELY_ADDR_2}
+            , REQ_TEXT = #{REQ_TEXT}
+            , APPLY_COM = #{APPLY_COM}
+            , CONT_NO = #{CONT_NO}
+            , CONT_SEQ = <include refid="com.sql.nvl"/>(#{CONT_SEQ}, 0)
+            , VENDOR_CD = #{VENDOR_CD}
+            , SHIPPER_TYPE = #{SHIPPER_TYPE}
+            , NAP_FLAG = #{NAP_FLAG}
+            , ATTACH_FILE_NO = #{ATTACH_FILE_NO}
+            , CSDM_SEQ = #{CSDM_SEQ}
+            , DELY_NM = #{DELY_NM}
+            , RECIPIENT_FAX_NUM = #{RECIPIENT_FAX_NUM}
+        	, PLANT_CD = #{PLANT_CD}
+        	, PLANT_NM = (SELECT S.PLANT_NM FROM STOCCUPL S WHERE S.GATE_CD = #{ses.gateCd} AND S.DEL_FLAG = '0' AND S.CUST_CD = #{CUST_CD} AND S.PLANT_CD = #{PLANT_CD})
+        	, COST_CENTER_CD = #{COST_CENTER_CD}
+        	, COST_CENTER_NM = #{COST_CENTER_NM}
+
+			, MAKER_PART_NO = #{MAKER_PART_NO}
+			, BRAND_CD = #{BRAND_CD}
+			, PR_SUBJECT = #{PR_SUBJECT}
+
+			, PR_TYPE = UPPER(#{PR_TYPE})
+
+			, ITEM_DESC = #{ITEM_DESC}
+			, ITEM_SPEC = #{ITEM_SPEC}
+			, MAKER_CD = #{MAKER_CD}
+			, ORIGIN_CD = #{ORIGIN_CD}
+			, UNIT_CD = #{UNIT_CD}
+			, CUR = #{CUR}
+			, CPO_UNIT_PRICE = ROUND(#{CPO_UNIT_PRICE})
+			, CPO_ITEM_AMT = #{CPO_ITEM_AMT}
+			, DELY_TYPE = #{DELY_TYPE}
+			, TAX_CD = #{TAX_CD}
+			, AUTO_PO_FLAG = #{AUTO_PO_FLAG}
+			, DEAL_CD = #{DEAL_CD}
+			, CUST_CD = #{CUST_CD}
+
+			, PO_UNIT_PRICE = ROUND(#{PO_UNIT_PRICE})
+			, PO_ITEM_AMT = #{PO_ITEM_AMT}
+
+			, PO_DATE = #{PO_DATE}
+			, GR_DATE = #{GR_DATE}
+
+			, APPLY_PLANT = #{PLANT_CD}
+
+
+        WHERE GATE_CD = #{ses.gateCd}
+          AND JOB_SEQ = #{JOB_SEQ}
+    </update>
+
+	<!-- BULK 화면에서 삭제시 -->
+	<delete id="bod1020_doDelete" parameterType="hashmap">
+		DELETE FROM STOUPOBK
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND JOB_SEQ = #{JOB_SEQ}
+	</delete>
+
+	<insert id="bod1020_doInsertUPOHD" parameterType="hashmap">
+      	INSERT INTO STOUPOHD (
+			 GATE_CD
+			,CUST_CD
+			,CPO_NO
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PLANT_CD
+			,AGENT_CODE
+			,PR_TYPE
+			,PR_SUBJECT
+			,CPO_DATE
+			,CUR
+			,CPO_AMT
+			,SHIPPER_TYPE
+			,CPO_USER_ID
+			,CPO_USER_DIVISION_CD
+			,CPO_USER_DEPT_CD
+			,CPO_USER_PART_CD
+			,CPO_USER_TEL_NUM
+			,CPO_USER_CELL_NUM
+			,PAYER_CD
+			,PAYEE_CD
+			,REQ_RMK
+			,RMKS
+			,ATT_FILE_NUM
+			,BUDGET_FLAG
+			,EM_PO_FLAG
+			,DATA_CREATE_TYPE
+			,APPROVE_FLAG
+			,SIGN_DATE
+			,SIGN_STATUS
+			,APP_DOC_NO
+			,APP_DOC_CNT
+			,IF_CPO_NO
+			,CUST_CPO_DATE
+			,MP_CPO_DATE
+			,REQ_CPO_DATE
+			,IF_TMS_NO
+			,PREV_PO_NO
+			,DGNS_NO1
+			,DGNS_NO2
+			,DGNS_NO3
+			,DGNS_NO4
+      	) VALUES (
+			 #{ses.gateCd} -- GATE_CD
+			<choose>
+				<when test="CUST_CD != null and CUST_CD != ''">, #{CUST_CD}</when>
+				<otherwise>, #{ses.companyCd}</otherwise>
+			</choose>	-- CUST_CD
+			,#{CPO_NO} -- CPO_NO
+     		, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			,'0' 						-- DEL_FLAG
+			,#{PLANT_CD}     			-- PLANT_CD
+			,#{ses.manageCd} 			-- AGENT_CODE
+			,#{PR_TYPE}      			-- PR_TYPE
+			,#{PR_SUBJECT} 				-- PR_SUBJECT
+			,#{CPO_DATE} 				-- CPO_DATE
+			,#{CUR} 					-- CUR
+			,#{CPO_AMT} 				-- CPO_AMT
+			,'D' 						-- SHIPPER_TYPE
+			,#{CPO_USER_ID}          	-- CPO_USER_ID
+			,#{CPO_USER_DIVISION_CD}	-- CPO_USER_DIVISION_CD
+			,#{CPO_USER_DEPT_CD}		-- CPO_USER_DEPT_CD
+			,#{CPO_USER_PART_CD}		-- CPO_USER_PART_CD
+			,#{CPO_USER_TEL_NUM}		-- CPO_USER_TEL_NUM
+			,#{CPO_USER_CELL_NUM}		-- CPO_USER_CELL_NUM
+			,null 						-- PAYER_CD
+			,null 						-- PAYEE_CD
+			,#{REQ_TEXT} 				-- REQ_RMK
+			,null -- RMKS
+			,null -- ATT_FILE_NUM
+			,<include refid="com.sql.nvl"/>(#{BUDGET_FLAG}, '0') -- BUDGET_FLAG
+			,<include refid="com.sql.nvl"/>(#{EM_PO_FLAG}, '0') -- EM_PO_FLAG
+			,'BULK' -- DATA_CREATE_TYPE
+			,<include refid="com.sql.nvl"/>(#{APPROVE_FLAG}, '0') -- APPROVE_FLAG
+			,null -- SIGN_DATE
+			,#{SIGN_STATUS} -- SIGN_STATUS
+			,null -- APP_DOC_NO
+			,null -- APP_DOC_CNT
+			,null -- IF_CPO_NO
+			,null -- CUST_CPO_DATE
+			,null -- MP_CPO_DATE
+			,null -- REQ_CPO_DATE
+			,null -- IF_TMS_NO
+			,null -- PREV_PO_NO
+			,null -- DGNS_NO1
+			,null -- DGNS_NO2
+			,null -- DGNS_NO3
+			,null -- DGNS_NO4
+		)
+	</insert>
+
+
+
+
+
+
+
+
+
+    <!-- 고객사 PODT 등록 -->
+    <insert id="bod1020_doInsertUPODT2" parameterType="hashmap">
+        INSERT INTO STOUPODT (
+			 GATE_CD
+			,CUST_CD
+			,CPO_NO
+			,CPO_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PLANT_CD
+			,AGENT_CODE
+			,PROGRESS_CD
+			,PR_TYPE
+			,CUST_ITEM_CD
+			,ITEM_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,MAKER_CD
+			,MAKER_NM
+			,MAKER_PART_NO
+			,BRAND_CD
+			,BRAND_NM
+			,ORIGIN_CD
+			,UNIT_CD
+			,VENDOR_CD
+			,MOQ_QTY
+			,RV_QTY
+			,CPO_QTY
+			,CUR
+			,CPO_UNIT_PRICE
+			,CPO_ITEM_AMT
+			,BD_DEPT_CD
+			,ACCOUNT_CD
+			,LEAD_TIME
+			,HOPE_DUE_DATE
+			,DEAL_CD
+			,LOG_CD
+			,WH_CD
+			,TC_FLAG
+			,RECIPIENT_NM
+			,RECIPIENT_DEPT_NM
+			,RECIPIENT_TEL_NUM
+			,RECIPIENT_CELL_NUM
+			,RECIPIENT_FAX_NUM
+			,RECIPIENT_EMAIL
+			,DELY_PLACE
+			,DELY_TYPE
+			,CSDM_SEQ
+			,DELY_NM
+			,DELY_ZIP_CD
+			,DELY_ADDR_1
+			,DELY_ADDR_2
+			,REQ_TEXT
+			,ATTACH_FILE_NO
+			,GR_COMPLETE_FLAG
+			,INV_QTY
+			,GR_QTY
+			,SG_CTRL_USER_ID
+			,AM_USER_ID
+			,TAX_CD
+			,SHIPPER_TYPE
+			,PRIOR_GR_FLAG
+			,DOC_TYPE
+			,FORCE_CLOSE_DATE
+			,FORCE_CLOSE_USER_ID
+			,FORCE_CLOSE_REASON
+			,APPLY_COM
+			,CONT_NO
+			,CONT_SEQ
+			,APPLY_PLANT
+			,AUTO_PO_FLAG
+			,IF_DATE
+			,IF_CPO_NO
+			,IF_CPO_SEQ
+			,IF_ID
+			,REF_MNG_NO
+			,CPO_CANCLE_DATE
+			,CPO_CANCLE_USER_ID
+			,CPO_CANCLE_REASON
+			,ACC_CD
+			,CUBL_SQ
+			,CUBL_NM
+			,CUBL_ZIP_CD
+			,CUBL_ADDR1
+			,CUBL_ADDR2
+			,CUBL_COMPANY_NM
+			,CUBL_IRS_NUM
+			,CUBL_CEO_USER_NM
+			,CUBL_BUSINESS_TYPE
+			,CUBL_INDUSTRY_TYPE
+			,CUBL_IRS_SUB_NUM
+			,CUBL_IRS_SUB_ADDR
+			,CUBL_BANK_NM
+			,CUBL_ACCOUNT_NUM
+			,CUBL_ACCOUNT_NM
+			,CUBL_USER_NM
+			,CUBL_USER_TEL_NUM
+			,CUBL_USER_FAX_NUM
+			,CUBL_USER_CELL_NUM
+			,CUBL_USER_EMAIL
+			,CUBL_IRS_SUB_ZIP_CD
+			,PLANT_NM
+			,COST_CENTER_CD
+			,COST_CENTER_NM_KOR
+			,NAP_FLAG
+			,AM_USER_CHANGE_RMK
+			,CONFIRM_REQ_RMK
+			,PO_CONFIRM_REJECT_RMK
+			,OREFITEM
+			,REQ_USER_NM
+			,REQ_USER_TEL_NUM
+			,TEMP_PO_UNIT_PRICE
+			,TEMP_PO_ITEM_AMT
+			,AGENT_ATTACH_FILE_NO
+			,AGENT_MEMO
+			,VENDOR_ITEM_CD
+			,RECEIPT_DATE
+			,REJECT_DATE
+			,REJECT_RMK
+			,RETURN_TYPE
+			,RETURN_REMARK
+			,PREV_CPO_NO
+			,PREV_CPO_SEQ
+			,PREV_PO_NO
+			,PREV_PO_SEQ
+			,PREV_GR_NO
+			,PREV_GR_SEQ
+			,PREV_CLOSING_NO
+			,PREV_CLOSING_SEQ
+			,PREV_TAX_NO
+        )
+		SELECT
+			 POBK.GATE_CD --GATE_CD
+			,POBK.CUST_CD --CUST_CD
+			,#{CPO_NO} --CPO_NO
+			,#{CPO_SEQ} --CPO_SEQ
+            , <include refid="com.sql.sysdate"/> AS REG_DATE
+            , #{ses.userId} AS REG_USER_ID
+            , <include refid="com.sql.sysdate"/> AS MOD_DATE
+            , #{ses.userId} AS MOD_USER_ID
+            , '0' AS DEL_FLAG
+			,POBK.PLANT_CD --PLANT_CD
+			,#{ses.manageCd} --AGENT_CODE
+			,#{PROGRESS_CD} --PROGRESS_CD
+			,POBK.PR_TYPE --PR_TYPE
+			,POBK.CUST_ITEM_CD --CUST_ITEM_CD
+			,POBK.ITEM_CD --ITEM_CD
+			,POBK.ITEM_DESC --ITEM_DESC
+			,POBK.ITEM_SPEC --ITEM_SPEC
+			,POBK.MAKER_CD --MAKER_CD
+			,<include refid="com.sql.dbo"/>GETMKBRNAME(<include refid="com.sql.nvl"/>(MTGL.GATE_CD,POBK.GATE_CD), 'MK', <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD)) --MAKER_NM
+			,POBK.MAKER_PART_NO --MAKER_PART_NO
+			,POBK.BRAND_CD 	--BRAND_CD
+			,POBK.BRAND_CD 	--BRAND_NM
+			,POBK.ORIGIN_CD --ORIGIN_CD
+			,POBK.UNIT_CD 	--UNIT_CD
+			,POBK.VENDOR_CD --VENDOR_CD
+			,null 	--MOQ_QTY
+			,null 	--RV_QTY
+			,POBK.CPO_QTY 	--CPO_QTY
+			,POBK.CUR 		--CUR
+			,POBK.CPO_UNIT_PRICE --CPO_UNIT_PRICE
+			,POBK.CPO_ITEM_AMT   --CPO_ITEM_AMT
+			,null --BD_DEPT_CD
+			,null --ACCOUNT_CD
+			,null 	--LEAD_TIME
+			,#{HOPE_DUE_DATE} 	--HOPE_DUE_DATE
+			,#{DEAL_CD} --DEAL_CD
+			,null --LOG_CD
+			,null --WH_CD
+			,null --TC_FLAG
+			,POBK.RECIPIENT_NM 			--RECIPIENT_NM
+			,POBK.RECIPIENT_DEPT_NM 	--RECIPIENT_DEPT_NM
+			,POBK.RECIPIENT_TEL_NUM 	--RECIPIENT_TEL_NUM
+			,POBK.RECIPIENT_CELL_NUM 	--RECIPIENT_CELL_NUM
+			,POBK.RECIPIENT_FAX_NUM 	--RECIPIENT_FAX_NUM
+			,POBK.RECIPIENT_EMAIL 		--RECIPIENT_EMAIL
+			,null			 			--DELY_PLACE
+			,null 			--DELY_TYPE
+			,POBK.CSDM_SEQ 				--CSDM_SEQ
+			,POBK.DELY_NM 				--DELY_NM
+			,POBK.DELY_ZIP_CD 			--DELY_ZIP_CD
+			,POBK.DELY_ADDR_1 			--DELY_ADDR_1
+			,POBK.DELY_ADDR_2 			--DELY_ADDR_2
+			,POBK.REQ_TEXT 				--REQ_TEXT
+			,null --ATTACH_FILE_NO
+			,null --GR_COMPLETE_FLAG
+			,null --INV_QTY
+			,null --GR_QTY
+			,null --SG_CTRL_USER_ID
+			,CASE WHEN #{ses.userType} = 'C' THEN #{ses.userId} ELSE '' END --AM_USER_ID
+			,POBK.TAX_CD --TAX_CD
+			,'D' --SHIPPER_TYPE
+			,POBK.PRIOR_GR_FLAG --PRIOR_GR_FLAG
+			,null --DOC_TYPE
+			,null --FORCE_CLOSE_DATE
+			,null --FORCE_CLOSE_USER_ID
+			,null --FORCE_CLOSE_REASON
+			,POBK.CUST_CD --APPLY_COM
+			,POBK.CONT_NO --CONT_NO
+			,POBK.CONT_SEQ --CONT_SEQ
+			,POBK.PLANT_CD --APPLY_PLANT
+			,POBK.AUTO_PO_FLAG --AUTO_PO_FLAG
+			,null --IF_DATE
+			,null --IF_CPO_NO
+			,null --IF_CPO_SEQ
+			,null --IF_ID
+			,null --REF_MNG_NO
+			,null --CPO_CANCLE_DATE
+			,null --CPO_CANCLE_USER_ID
+			,null --CPO_CANCLE_REASON
+			,CUBL.ACC_CD --ACC_CD
+			,CUBL.CUBL_SQ --CUBL_SQ
+			,CUBL.CUBL_NM --CUBL_NM
+			,CUBL.CUBL_ZIP_CD --CUBL_ZIP_CD
+			,CUBL.CUBL_ADDR1 --CUBL_ADDR1
+			,CUBL.CUBL_ADDR2 --CUBL_ADDR2
+			,CUBL.COMPANY_NM --CUBL_COMPANY_NM
+			,CUBL.IRS_NUM --CUBL_IRS_NUM
+			,CUBL.CEO_USER_NM --CUBL_CEO_USER_NM
+			,CUBL.BUSINESS_TYPE --CUBL_BUSINESS_TYPE
+			,CUBL.INDUSTRY_TYPE --CUBL_INDUSTRY_TYPE
+			,CUBL.IRS_SUB_NUM --CUBL_IRS_SUB_NUM
+			,CUBL.IRS_SUB_ADDR --CUBL_IRS_SUB_ADDR
+			,CUBL.CUBL_BANK_NM --CUBL_BANK_NM
+			,CUBL.CUBL_ACCOUNT_NUM --CUBL_ACCOUNT_NUM
+			,CUBL.CUBL_ACCOUNT_NM --CUBL_ACCOUNT_NM
+			,CUBL.CUBL_USER_NM --CUBL_USER_NM
+			,CUBL.CUBL_USER_TEL_NUM --CUBL_USER_TEL_NUM
+			,CUBL.CUBL_USER_FAX_NUM --CUBL_USER_FAX_NUM
+			,CUBL.CUBL_USER_CELL_NUM --CUBL_USER_CELL_NUM
+			,CUBL.CUBL_USER_EMAIL --CUBL_USER_EMAIL
+			,CUBL.IRS_SUB_ZIP_CD --CUBL_IRS_SUB_ZIP_CD
+			,POBK.PLANT_NM --PLANT_NM
+			,POBK.COST_CENTER_CD --COST_CENTER_CD
+			,POBK.COST_CENTER_NM --COST_CENTER_NM_KOR
+			,null --NAP_FLAG
+			,null --AM_USER_CHANGE_RMK
+			,null --CONFIRM_REQ_RMK
+			,null --PO_CONFIRM_REJECT_RMK
+			,null --OREFITEM
+			,null --REQ_USER_NM
+			,null --REQ_USER_TEL_NUM
+
+
+
+			, POBK.PO_UNIT_PRICE  AS PO_UNIT_PRICE
+			, POBK.PO_UNIT_PRICE * POBK.CPO_QTY  AS PO_ITEM_AMT
+
+
+
+
+			,null --AGENT_ATTACH_FILE_NO
+			,null --AGENT_MEMO
+			,null --VENDOR_ITEM_CD
+			,null --RECEIPT_DATE
+			,null --REJECT_DATE
+			,null --REJECT_RMK
+			,null --RETURN_TYPE
+			,null --RETURN_REMARK
+			,null --PREV_CPO_NO
+			,null --PREV_CPO_SEQ
+			,null --PREV_PO_NO
+			,null --PREV_PO_SEQ
+			,null --PREV_GR_NO
+			,null --PREV_GR_SEQ
+			,null --PREV_CLOSING_NO
+			,null --PREV_CLOSING_SEQ
+			,null --PREV_TAX_NO
+        FROM STOUPOBK POBK
+        JOIN STOCCUST CUST
+            ON (POBK.GATE_CD = CUST.GATE_CD
+            AND POBK.CUST_CD = CUST.CUST_CD)
+		LEFT OUTER JOIN STOCCVUR CVUR
+			ON (POBK.GATE_CD  = CVUR.GATE_CD
+			AND POBK.CPO_USER_ID = CVUR.USER_ID
+			AND CUST.CUST_CD  = CVUR.COMPANY_CD
+			AND CVUR.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCMTGL MTGL
+            ON (POBK.GATE_CD = MTGL.GATE_CD
+            AND POBK.ITEM_CD = MTGL.ITEM_CD
+            AND MTGL.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCCUBL CUBL
+            ON (CUBL.GATE_CD  = CUST.GATE_CD
+            AND CUBL.CUST_CD  = CUST.CUST_CD
+            AND CUBL.CUBL_SQ  = #{CUBL_SQ}
+            AND CUBL.DEL_FLAG = '0')
+        WHERE POBK.GATE_CD  = #{ses.gateCd}
+          AND POBK.JOB_SEQ  = #{JOB_SEQ}
+          AND POBK.DEL_FLAG = '0'
+    </insert>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- 고객사 PODT 등록 -->
+    <insert id="bod1020_doInsertUPODT" parameterType="hashmap">
+        INSERT INTO STOUPODT (
+			 GATE_CD
+			,CUST_CD
+			,CPO_NO
+			,CPO_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PLANT_CD
+			,AGENT_CODE
+			,PROGRESS_CD
+			,PR_TYPE
+			,CUST_ITEM_CD
+			,ITEM_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,MAKER_CD
+			,MAKER_NM
+			,MAKER_PART_NO
+			,BRAND_CD
+			,BRAND_NM
+			,ORIGIN_CD
+			,UNIT_CD
+			,VENDOR_CD
+			,MOQ_QTY
+			,RV_QTY
+			,CPO_QTY
+			,CUR
+			,CPO_UNIT_PRICE
+			,CPO_ITEM_AMT
+			,BD_DEPT_CD
+			,ACCOUNT_CD
+			,LEAD_TIME
+			,HOPE_DUE_DATE
+			,DEAL_CD
+			,LOG_CD
+			,WH_CD
+			,TC_FLAG
+			,RECIPIENT_NM
+			,RECIPIENT_DEPT_NM
+			,RECIPIENT_TEL_NUM
+			,RECIPIENT_CELL_NUM
+			,RECIPIENT_FAX_NUM
+			,RECIPIENT_EMAIL
+			,DELY_PLACE
+			,DELY_TYPE
+			,CSDM_SEQ
+			,DELY_NM
+			,DELY_ZIP_CD
+			,DELY_ADDR_1
+			,DELY_ADDR_2
+			,REQ_TEXT
+			,ATTACH_FILE_NO
+			,GR_COMPLETE_FLAG
+			,INV_QTY
+			,GR_QTY
+			,SG_CTRL_USER_ID
+			,AM_USER_ID
+			,TAX_CD
+			,SHIPPER_TYPE
+			,PRIOR_GR_FLAG
+			,DOC_TYPE
+			,FORCE_CLOSE_DATE
+			,FORCE_CLOSE_USER_ID
+			,FORCE_CLOSE_REASON
+			,APPLY_COM
+			,CONT_NO
+			,CONT_SEQ
+			,APPLY_PLANT
+			,AUTO_PO_FLAG
+			,IF_DATE
+			,IF_CPO_NO
+			,IF_CPO_SEQ
+			,IF_ID
+			,REF_MNG_NO
+			,CPO_CANCLE_DATE
+			,CPO_CANCLE_USER_ID
+			,CPO_CANCLE_REASON
+			,ACC_CD
+			,CUBL_SQ
+			,CUBL_NM
+			,CUBL_ZIP_CD
+			,CUBL_ADDR1
+			,CUBL_ADDR2
+			,CUBL_COMPANY_NM
+			,CUBL_IRS_NUM
+			,CUBL_CEO_USER_NM
+			,CUBL_BUSINESS_TYPE
+			,CUBL_INDUSTRY_TYPE
+			,CUBL_IRS_SUB_NUM
+			,CUBL_IRS_SUB_ADDR
+			,CUBL_BANK_NM
+			,CUBL_ACCOUNT_NUM
+			,CUBL_ACCOUNT_NM
+			,CUBL_USER_NM
+			,CUBL_USER_TEL_NUM
+			,CUBL_USER_FAX_NUM
+			,CUBL_USER_CELL_NUM
+			,CUBL_USER_EMAIL
+			,CUBL_IRS_SUB_ZIP_CD
+			,PLANT_NM
+			,COST_CENTER_CD
+			,COST_CENTER_NM_KOR
+			,NAP_FLAG
+			,AM_USER_CHANGE_RMK
+			,CONFIRM_REQ_RMK
+			,PO_CONFIRM_REJECT_RMK
+			,OREFITEM
+			,REQ_USER_NM
+			,REQ_USER_TEL_NUM
+			,TEMP_PO_UNIT_PRICE
+			,TEMP_PO_ITEM_AMT
+			,AGENT_ATTACH_FILE_NO
+			,AGENT_MEMO
+			,VENDOR_ITEM_CD
+			,RECEIPT_DATE
+			,REJECT_DATE
+			,REJECT_RMK
+			,RETURN_TYPE
+			,RETURN_REMARK
+			,PREV_CPO_NO
+			,PREV_CPO_SEQ
+			,PREV_PO_NO
+			,PREV_PO_SEQ
+			,PREV_GR_NO
+			,PREV_GR_SEQ
+			,PREV_CLOSING_NO
+			,PREV_CLOSING_SEQ
+			,PREV_TAX_NO
+        )
+		SELECT
+			 POBK.GATE_CD --GATE_CD
+			,POBK.CUST_CD --CUST_CD
+			,#{CPO_NO} --CPO_NO
+			,#{CPO_SEQ} --CPO_SEQ
+            , <include refid="com.sql.sysdate"/> AS REG_DATE
+            , #{ses.userId} AS REG_USER_ID
+            , <include refid="com.sql.sysdate"/> AS MOD_DATE
+            , #{ses.userId} AS MOD_USER_ID
+            , '0' AS DEL_FLAG
+			,POBK.PLANT_CD --PLANT_CD
+			,#{ses.manageCd} --AGENT_CODE
+			,#{PROGRESS_CD} --PROGRESS_CD
+			,POBK.PR_TYPE --PR_TYPE
+			,POBK.CUST_ITEM_CD --CUST_ITEM_CD
+			,POBK.ITEM_CD --ITEM_CD
+			,POBK.ITEM_DESC --ITEM_DESC
+			,POBK.ITEM_SPEC --ITEM_SPEC
+			,POBK.MAKER_CD --MAKER_CD
+			,<include refid="com.sql.dbo"/>GETMKBRNAME(<include refid="com.sql.nvl"/>(MTGL.GATE_CD,POBK.GATE_CD), 'MK', <include refid="com.sql.nvl"/>(MTGL.MAKER_CD,POBK.MAKER_CD)) --MAKER_NM
+			,POBK.MAKER_PART_NO --MAKER_PART_NO
+			,POBK.BRAND_CD 	--BRAND_CD
+			,POBK.BRAND_CD 	--BRAND_NM
+			,POBK.ORIGIN_CD --ORIGIN_CD
+			,POBK.UNIT_CD 	--UNIT_CD
+			,POBK.VENDOR_CD --VENDOR_CD
+			,YINFO.MOQ_QTY 	--MOQ_QTY
+			,YINFO.RV_QTY 	--RV_QTY
+			,POBK.CPO_QTY 	--CPO_QTY
+			,POBK.CUR 		--CUR
+			,POBK.CPO_UNIT_PRICE --CPO_UNIT_PRICE
+			,POBK.CPO_ITEM_AMT   --CPO_ITEM_AMT
+			,null --BD_DEPT_CD
+			,null --ACCOUNT_CD
+			,YINFO.LEAD_TIME 	--LEAD_TIME
+			,#{HOPE_DUE_DATE} 	--HOPE_DUE_DATE
+			,<include refid="com.sql.nvl"/>(YINFO.DEAL_CD,#{DEAL_CD}) --DEAL_CD
+			,null --LOG_CD
+			,YINFO.WH_CD --WH_CD
+			,null --TC_FLAG
+			,POBK.RECIPIENT_NM 			--RECIPIENT_NM
+			,POBK.RECIPIENT_DEPT_NM 	--RECIPIENT_DEPT_NM
+			,POBK.RECIPIENT_TEL_NUM 	--RECIPIENT_TEL_NUM
+			,POBK.RECIPIENT_CELL_NUM 	--RECIPIENT_CELL_NUM
+			,POBK.RECIPIENT_FAX_NUM 	--RECIPIENT_FAX_NUM
+			,POBK.RECIPIENT_EMAIL 		--RECIPIENT_EMAIL
+			,null			 			--DELY_PLACE
+			,YINFO.DELY_TYPE 			--DELY_TYPE
+			,POBK.CSDM_SEQ 				--CSDM_SEQ
+			,POBK.DELY_NM 				--DELY_NM
+			,POBK.DELY_ZIP_CD 			--DELY_ZIP_CD
+			,POBK.DELY_ADDR_1 			--DELY_ADDR_1
+			,POBK.DELY_ADDR_2 			--DELY_ADDR_2
+			,POBK.REQ_TEXT 				--REQ_TEXT
+			,null --ATTACH_FILE_NO
+			,null --GR_COMPLETE_FLAG
+			,null --INV_QTY
+			,null --GR_QTY
+			,null --SG_CTRL_USER_ID
+			,CASE WHEN #{ses.userType} = 'C' THEN #{ses.userId} ELSE '' END --AM_USER_ID
+			,POBK.TAX_CD --TAX_CD
+			,'D' --SHIPPER_TYPE
+			,POBK.PRIOR_GR_FLAG --PRIOR_GR_FLAG
+			,null --DOC_TYPE
+			,null --FORCE_CLOSE_DATE
+			,null --FORCE_CLOSE_USER_ID
+			,null --FORCE_CLOSE_REASON
+			,POBK.CUST_CD --APPLY_COM
+			,POBK.CONT_NO --CONT_NO
+			,POBK.CONT_SEQ --CONT_SEQ
+			,POBK.PLANT_CD --APPLY_PLANT
+			,POBK.AUTO_PO_FLAG --AUTO_PO_FLAG
+			,null --IF_DATE
+			,null --IF_CPO_NO
+			,null --IF_CPO_SEQ
+			,null --IF_ID
+			,null --REF_MNG_NO
+			,null --CPO_CANCLE_DATE
+			,null --CPO_CANCLE_USER_ID
+			,null --CPO_CANCLE_REASON
+			,CUBL.ACC_CD --ACC_CD
+			,CUBL.CUBL_SQ --CUBL_SQ
+			,CUBL.CUBL_NM --CUBL_NM
+			,CUBL.CUBL_ZIP_CD --CUBL_ZIP_CD
+			,CUBL.CUBL_ADDR1 --CUBL_ADDR1
+			,CUBL.CUBL_ADDR2 --CUBL_ADDR2
+			,CUBL.COMPANY_NM --CUBL_COMPANY_NM
+			,CUBL.IRS_NUM --CUBL_IRS_NUM
+			,CUBL.CEO_USER_NM --CUBL_CEO_USER_NM
+			,CUBL.BUSINESS_TYPE --CUBL_BUSINESS_TYPE
+			,CUBL.INDUSTRY_TYPE --CUBL_INDUSTRY_TYPE
+			,CUBL.IRS_SUB_NUM --CUBL_IRS_SUB_NUM
+			,CUBL.IRS_SUB_ADDR --CUBL_IRS_SUB_ADDR
+			,CUBL.CUBL_BANK_NM --CUBL_BANK_NM
+			,CUBL.CUBL_ACCOUNT_NUM --CUBL_ACCOUNT_NUM
+			,CUBL.CUBL_ACCOUNT_NM --CUBL_ACCOUNT_NM
+			,CUBL.CUBL_USER_NM --CUBL_USER_NM
+			,CUBL.CUBL_USER_TEL_NUM --CUBL_USER_TEL_NUM
+			,CUBL.CUBL_USER_FAX_NUM --CUBL_USER_FAX_NUM
+			,CUBL.CUBL_USER_CELL_NUM --CUBL_USER_CELL_NUM
+			,CUBL.CUBL_USER_EMAIL --CUBL_USER_EMAIL
+			,CUBL.IRS_SUB_ZIP_CD --CUBL_IRS_SUB_ZIP_CD
+			,POBK.PLANT_NM --PLANT_NM
+			,POBK.COST_CENTER_CD --COST_CENTER_CD
+			,POBK.COST_CENTER_NM --COST_CENTER_NM_KOR
+			,null --NAP_FLAG
+			,null --AM_USER_CHANGE_RMK
+			,null --CONFIRM_REQ_RMK
+			,null --PO_CONFIRM_REJECT_RMK
+			,null --OREFITEM
+			,null --REQ_USER_NM
+			,null --REQ_USER_TEL_NUM
+
+
+
+--			,getPriceByCur(YINFO.CUR, YINFO.CONT_UNIT_PRICE)                --TEMP_PO_UNIT_PRICE
+--			,getPriceByCur(YINFO.CUR, YINFO.CONT_UNIT_PRICE * POBK.CPO_QTY) --TEMP_PO_ITEM_AMT
+
+			, <include refid="com.sql.dbo"/>CASE WHEN POBK.ITEM_CD IS NOT NULL THEN getPriceByCur(YINFO.CUR, YINFO.CONT_UNIT_PRICE) ELSE POBK.PO_UNIT_PRICE END AS PO_UNIT_PRICE
+			, <include refid="com.sql.dbo"/>CASE WHEN POBK.ITEM_CD IS NOT NULL THEN getPriceByCur(YINFO.CUR, YINFO.CONT_UNIT_PRICE) * POBK.CPO_QTY ELSE POBK.PO_UNIT_PRICE * POBK.CPO_QTY END AS PO_ITEM_AMT
+
+
+
+
+			,null --AGENT_ATTACH_FILE_NO
+			,null --AGENT_MEMO
+			,null --VENDOR_ITEM_CD
+			,null --RECEIPT_DATE
+			,null --REJECT_DATE
+			,null --REJECT_RMK
+			,null --RETURN_TYPE
+			,null --RETURN_REMARK
+			,null --PREV_CPO_NO
+			,null --PREV_CPO_SEQ
+			,null --PREV_PO_NO
+			,null --PREV_PO_SEQ
+			,null --PREV_GR_NO
+			,null --PREV_GR_SEQ
+			,null --PREV_CLOSING_NO
+			,null --PREV_CLOSING_SEQ
+			,null --PREV_TAX_NO
+        FROM STOUPOBK POBK
+        JOIN STOCCUST CUST
+            ON (POBK.GATE_CD = CUST.GATE_CD
+            AND POBK.CUST_CD = CUST.CUST_CD)
+		LEFT OUTER JOIN STOCCVUR CVUR
+			ON (POBK.GATE_CD  = CVUR.GATE_CD
+			AND POBK.CPO_USER_ID = CVUR.USER_ID
+			AND CUST.CUST_CD  = CVUR.COMPANY_CD
+			AND CVUR.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCMTGL MTGL
+            ON (POBK.GATE_CD = MTGL.GATE_CD
+            AND POBK.ITEM_CD = MTGL.ITEM_CD
+            AND MTGL.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOYINFO YINFO
+            ON (POBK.GATE_CD    = YINFO.GATE_CD
+            AND POBK.APPLY_COM  = YINFO.APPLY_COM
+            AND POBK.CONT_NO    = YINFO.CONT_NO
+            AND POBK.CONT_SEQ   = YINFO.CONT_SEQ
+		    AND TO_CHAR(<include refid="com.sql.sysdate"/>,'YYYYMMDD') BETWEEN YINFO.VALID_FROM_DATE AND YINFO.VALID_TO_DATE)
+        LEFT OUTER JOIN STOUINFO UINFO
+            ON (POBK.GATE_CD   = UINFO.GATE_CD
+            AND POBK.APPLY_COM = UINFO.CUST_CD
+            AND POBK.CONT_NO   = UINFO.CONT_NO
+            AND POBK.CONT_SEQ  = UINFO.CONT_SEQ
+            AND UINFO.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCCUBL CUBL
+            ON (CUBL.GATE_CD  = CUST.GATE_CD
+            AND CUBL.CUST_CD  = CUST.CUST_CD
+            AND CUBL.CUBL_SQ  = #{CUBL_SQ}
+            AND CUBL.DEL_FLAG = '0')
+        WHERE POBK.GATE_CD  = #{ses.gateCd}
+          AND POBK.JOB_SEQ  = #{JOB_SEQ}
+          AND POBK.DEL_FLAG = '0'
+    </insert>
+
+    <!-- 주문완료 후 BULK 데이터 삭제 -->
+    <update id="bod1020_doUpdateAfterCpo" parameterType="hashmap">
+        UPDATE STOUPOBK SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '1'
+            , RESULT_CD = #{RESULT_CD}
+            , RESULT_MSG = #{RESULT_MSG}
+            , CPO_NO = #{CPO_NO}
+            , CPO_SEQ = #{CPO_SEQ}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND JOB_SEQ = #{JOB_SEQ}
+    </update>
+
+    <!-- 고객사 유효성 체크 -->
+    <select id="doGetCustInfo" parameterType="hashMap" resultType="hashMap">
+        SELECT CUST_CD
+            , AUTO_PO_FLAG
+        FROM STOCCUST
+        WHERE GATE_CD  = #{ses.gateCd}
+        AND CUST_CD  =
+        <choose>
+            <when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+            <otherwise>#{ses.companyCd}</otherwise>
+        </choose>
+        AND DEL_FLAG = '0'
+    </select>
+
+
+
+    <!-- 주문자 유효성 체크 -->
+    <select id="doGetCustUser" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  A.USER_ID
+            , A.USER_NM
+            , A.DIVISION_CD
+            , A.DEPT_CD
+            , A.PART_CD
+            , A.TEL_NUM
+            , A.CELL_NUM
+            , A.USER_AUTO_PO_FLAG
+            , (
+				    SELECT MIN(CUBL.CUBL_SQ) CUBL_SEQ
+					FROM STOCCUBL CUBL
+					WHERE CUBL.GATE_CD = A.GATE_CD
+					AND CUBL.CUST_CD   = #{CUST_CD}
+				    AND CUBL.PLANT_CD  = #{PLANT_CD}
+					AND CUBL.DEL_FLAG  = '0'
+			   )CUBL_SEQ
+        FROM STOCCVUR A
+        WHERE GATE_CD = #{ses.gateCd}
+        AND USER_ID = #{CPO_USER_ID}
+        AND PROGRESS_CD = 'E'
+    </select>
+
+
+
+
+    <!-- 주문자 유효성 체크 -->
+    <select id="doGetCustUser20230224" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        	  A.USER_ID
+            , A.USER_NM
+            , A.DIVISION_CD
+            , A.DEPT_CD
+            , A.PART_CD
+            , A.TEL_NUM
+            , A.CELL_NUM
+            , A.USER_AUTO_PO_FLAG
+            , <include refid="com.sql.nvl"/>(
+					    (
+						    SELECT CUBL.CUBL_SQ CUBL_SEQ
+							FROM STOCCUBL CUBL
+							WHERE CUBL.GATE_CD = A.GATE_CD
+							AND CUBL.CUST_CD   = A.COMPANY_CD
+						    AND CUBL.PLANT_CD  = A.PLANT_CD
+						    AND CUBL_SQ =        A.CUBL_SEQ
+							AND CUBL.DEL_FLAG  = '0'
+						)
+		               ,
+			            (
+						    SELECT MIN(CUBL.CUBL_SQ) CUBL_SEQ
+							FROM STOCCUBL CUBL
+							WHERE CUBL.GATE_CD = A.GATE_CD
+							AND CUBL.CUST_CD   = A.COMPANY_CD
+						    AND CUBL.PLANT_CD  = A.PLANT_CD
+							AND CUBL.DEL_FLAG  = '0'
+					   )
+			   )CUBL_SEQ
+        FROM STOCCVUR A
+        WHERE GATE_CD = #{ses.gateCd}
+        AND USER_ID = #{CPO_USER_ID}
+        AND PROGRESS_CD = 'E'
+    </select>
+
+	<!-- 품목 유효성 체크 및 고객사코드 가져오기 -->
+	<select id="doGetItemInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT A.ITEM_CD, B.CUST_ITEM_CD, A.ITEM_STATUS
+		  FROM STOCMTGL A
+		  LEFT OUTER JOIN STOCMTGB B
+		       ON (A.GATE_CD  = B.GATE_CD
+		       AND A.ITEM_CD  = B.ITEM_CD
+		       AND B.CUST_CD  =
+     	<choose>
+			<when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+			<otherwise>#{ses.companyCd}</otherwise>
+		</choose>
+		       AND B.DEL_FLAG = '0')
+		 WHERE A.GATE_CD  = #{ses.gateCd}
+		   AND A.ITEM_CD  = #{ITEM_CD}
+		   AND A.PROGRESS_CD = 'E'  -- 승인
+		   AND A.DEL_FLAG = '0'
+	</select>
+
+	<!-- 품목 유효성 체크 및 고객사코드 가져오기 -->
+	<select id="doGetVendorInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT VENDOR_CD
+		  FROM STOCVNGL
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND PROGRESS_CD = 'E'  -- 승인
+		   AND <include refid="com.sql.nvl"/>(BLOCK_FLAG, '0') = '0'  -- BLOCK아닌 것
+		   AND DEL_FLAG  = '0'
+	</select>
+
+	<!-- 유효한 매입가 존재여부 -->
+	<select id="doGetUnitPrc" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		       X.APPLY_COM, X.CONT_NO, X.CONT_SEQ
+		FROM (
+				SELECT YINFO.APPLY_COM, YINFO.CONT_NO, YINFO.CONT_SEQ
+					, CASE WHEN YINFO.APPLY_COM =
+								<choose>
+									<when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+									<otherwise>#{ses.companyCd}</otherwise>
+								</choose>
+								 THEN '1' ELSE '2' END AS SORT_SQ
+				FROM STOYINFO YINFO
+				WHERE YINFO.GATE_CD = #{ses.gateCd}
+				AND (YINFO.APPLY_COM IN (#{ses.manageCd}, #{CUST_CD}) OR YINFO.APPLY_COM = <include refid="com.sql.dbo"/>getMgInfo(#{ses.gateCd}, #{CUST_CD}, 'CD'))
+				AND YINFO.ITEM_CD = #{ITEM_CD}
+				AND YINFO.VENDOR_CD = #{VENDOR_CD}
+				AND <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/>(YINFO.VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/>(YINFO.VALID_TO_DATE, 'yyyyMMdd')
+				AND DEL_FLAG  = '0'
+		  	) X
+		WHERE 1 = 1
+		AND ROWNUM = 1
+		ORDER BY SORT_SQ
+	</select>
+
+	<!-- 주문일괄등록 엑셀업로드시 품목정보 가져오기 -->
+    <select id="doSetExcelImportItemCpo" resultType="hashmap">
+		SELECT A.*
+		  FROM (
+			SELECT
+				  MTGL.ITEM_CD
+				, MTGL.CUST_ITEM_CD
+				, MTGL.ITEM_SPEC
+				, MTGL.ITEM_DESC
+				, MTGL.MAKER_CD
+				,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) AS MAKER_NM
+				, MTGL.BRAND_NM
+				, MTGL.MAKER_PART_NO
+				, MTGL.ORIGIN_CD
+			    , YINFO.UNIT_CD
+			    , YINFO.MOQ_QTY
+			    , YINFO.RV_QTY
+			    , YINFO.CUR
+			    , YINFO.TAX_CD
+				, UINFO.SALES_UNIT_PRICE AS CPO_UNIT_PRICE			--판매단가
+				, YINFO.CONT_UNIT_PRICE  AS TEMP_PO_UNIT_PRICE		--매입단가
+				, YINFO.DELY_TYPE
+                , YINFO.DEAL_CD
+				, YINFO.VALID_FROM_DATE
+				, YINFO.VALID_TO_DATE
+				, YINFO.VENDOR_CD
+				, <include refid="com.sql.dbo"/>GETVENDORNAME(YINFO.GATE_CD, YINFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+				, YINFO.CONT_NO
+				, YINFO.CONT_SEQ
+				, ROW_NUMBER() OVER (PARTITION BY YINFO.APPLY_COM, YINFO.ITEM_CD ORDER BY DECODE(YINFO.APPLY_PLANT, '*', 1)) AS RNUM
+			  FROM STOCMTGL MTGL
+			  LEFT JOIN STOYINFO YINFO
+			   	   ON (MTGL.GATE_CD  = YINFO.GATE_CD
+			   	   AND MTGL.ITEM_CD  = YINFO.ITEM_CD
+				<if test="CUST_CD != '' and CUST_CD != null">
+				   AND YINFO.APPLY_COM = #{CUST_CD}
+				</if>
+				<if test="PLANT_CD != '' and PLANT_CD != null">
+				   AND YINFO.APPLY_PLANT IN  ('*', #{PLANT_CD})
+				</if>
+			   	   AND TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') BETWEEN YINFO.VALID_FROM_DATE AND YINFO.VALID_TO_DATE	--유효한 매입가 존재
+			   	   AND YINFO.DEL_FLAG = '0')
+			  LEFT JOIN STOUINFO UINFO
+			   	   ON (YINFO.GATE_CD  = UINFO.GATE_CD
+			   	   AND YINFO.CONT_NO  = UINFO.CONT_NO
+				   AND YINFO.CONT_SEQ = UINFO.CONT_SEQ
+		 	   	   AND UINFO.DEL_FLAG = '0')
+			 WHERE MTGL.GATE_CD  = #{ses.gateCd}
+			   AND MTGL.ITEM_CD  = UPPER(TRIM(#{ITEM_CD}))
+			   AND MTGL.DEL_FLAG = '0'
+		 )A
+		WHERE RNUM = 1
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</mapper>

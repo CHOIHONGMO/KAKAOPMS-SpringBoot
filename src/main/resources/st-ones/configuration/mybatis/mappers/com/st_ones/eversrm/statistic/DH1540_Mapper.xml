@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1540_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+
+		SELECT IV.ITEM_CD
+			 , MT.ITEM_DESC
+			 , IV.PRODUCTION_DIV
+			 , <include refid="com.sql.nvl"/>(VN.VENDOR_NM, '')      AS VENDOR_NM
+			 , MAX(IV.EQUIP_REV)                AS EQUIP_REV
+			 , SUM(<include refid="com.sql.nvl"/>(IV.EQUIP_BID_AMT, 0)) AS EQUIP_BID_AMT
+			 , SUM(<include refid="com.sql.nvl"/>(IV.EQUIP_EST_AMT, 0)) AS EQUIP_EST_AMT
+			 , SUM(<include refid="com.sql.nvl"/>(IV.EQUIP_EXE_AMT, 0)) AS EQUIP_EXE_AMT
+			 , MAX(IV.MOLD_REV)                 AS MOLD_REV
+			 , SUM(<include refid="com.sql.nvl"/>(IV.MOLD_BID_AMT, 0))  AS MOLD_BID_AMT
+			 , SUM(<include refid="com.sql.nvl"/>(IV.MOLD_EXE_AMT, 0))  AS MOLD_EXE_AMT
+		  FROM (
+			    <!-- 설비투자비 -->
+			    SELECT DT.GATE_CD
+			    	  ,DT.MAT_GROUP
+					  ,DT.PLANT_CD
+					  ,DT.ITEM_CLS1
+					  ,DT.ITEM_CLS2
+					  ,DT.ITEM_CD
+					  ,DT.PRODUCTION_DIV
+					  ,DT.EQUIP_REV
+					  ,SUM(<include refid="com.sql.nvl"/>(DT.BID_EXCLUSIVE_PRC, 0) + <include refid="com.sql.nvl"/>(DT.BID_COMMON_PRC, 0)) AS EQUIP_BID_AMT
+					  ,SUM(<include refid="com.sql.nvl"/>(DT.EST_EXCLUSIVE_PRC, 0) + <include refid="com.sql.nvl"/>(DT.EST_COMMON_PRC, 0)) AS EQUIP_EST_AMT
+					  ,SUM(<include refid="com.sql.nvl"/>(DT.EXE_EXCLUSIVE_PRC, 0) + <include refid="com.sql.nvl"/>((CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.EXE_COMMON_PRC ELSE <include refid="com.sql.nvl"/>(MT.EQUIP_AMT, 0) END), 0)) AS EQUIP_EXE_AMT
+					  ,0    AS MOLD_REV
+					  ,0    AS MOLD_BID_AMT
+					  ,0    AS MOLD_EXE_AMT
+				  FROM STOCIEHD HD
+ 				  JOIN STOCIEDT DT
+ 				    ON (DT.GATE_CD   = HD.GATE_CD
+				   AND DT.MAT_GROUP = HD.MAT_GROUP
+				   AND DT.PLANT_CD  = HD.PLANT_CD
+				   AND DT.ITEM_CLS1 = HD.ITEM_CLS1
+				   AND DT.ITEM_CLS2 = HD.ITEM_CLS2
+				   AND DT.ITEM_CLS3 = HD.ITEM_CLS3
+				   AND DT.ITEM_CD   = HD.ITEM_CD
+				   AND DT.EQUIP_REV = (SELECT MAX(EQUIP_REV)
+										  FROM STOCIEDT
+				   						 WHERE GATE_CD   = HD.GATE_CD
+				   						   AND MAT_GROUP = HD.MAT_GROUP
+				   						   AND PLANT_CD  = HD.PLANT_CD
+				   						   AND ITEM_CLS1 = HD.ITEM_CLS1
+				   						   AND ITEM_CLS2 = HD.ITEM_CLS2
+				   						   AND ITEM_CLS3 = HD.ITEM_CLS3
+				   						   AND ITEM_CD   = HD.ITEM_CD
+										<![CDATA[
+	   									   AND EQUIP_REV <= HD.EQUIP_REV
+										]]>
+										   AND CHANGE_REASON_CD = DT.CHANGE_REASON_CD
+				   						   AND EQUIP_DIV1       = DT.EQUIP_DIV1
+				   						   AND EQUIP_DIV1_SQ    = DT.EQUIP_DIV1_SQ
+				   						   AND EQUIP_DIV2       = DT.EQUIP_DIV2
+				   						   AND EQUIP_DIV2_SQ    = DT.EQUIP_DIV2_SQ
+				   						   AND DEL_FLAG         = '0')
+				<if test="PRODUCTION_DIV != '' and PRODUCTION_DIV != null">
+				   AND DT.PRODUCTION_DIV = #{PRODUCTION_DIV}
+				</if>
+				   AND DT.DEL_FLAG = '0')
+				  LEFT OUTER JOIN STOCIEMT MT
+				    ON (MT.GATE_CD    = DT.GATE_CD
+				   <!-- AND MT.EQUIP_YEAR = DT.EQUIP_YEAR -->
+				   AND MT.EQUIP_CD   = DT.EQUIP_CD
+				   AND MT.DEL_FLAG = '0')
+				 WHERE HD.GATE_CD = #{ses.gateCd}
+				<if test="MAT_GROUP != '' and MAT_GROUP != null">
+				   AND HD.MAT_GROUP = #{MAT_GROUP}
+				</if>
+				<if test="PLANT_CD != '' and PLANT_CD != null">
+				   AND HD.PLANT_CD = #{PLANT_CD}
+				</if>
+				<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+				   AND HD.ITEM_CLS1 = #{ITEM_CLS1}
+				</if>
+				<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+				   AND HD.ITEM_CLS2 = #{ITEM_CLS2}
+				</if>
+				<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+				   AND HD.ITEM_CLS3 = #{ITEM_CLS3}
+				</if>
+				   AND HD.EQUIP_REV  = (SELECT MAX(EQUIP_REV)
+				  						  FROM STOCIEHD
+				  					     WHERE GATE_CD   = HD.GATE_CD
+				   						   AND MAT_GROUP = HD.MAT_GROUP
+				   						   AND PLANT_CD  = HD.PLANT_CD
+				   						   AND ITEM_CLS1 = HD.ITEM_CLS1
+				   						   AND ITEM_CLS2 = HD.ITEM_CLS2
+				   						   AND ITEM_CLS3 = HD.ITEM_CLS3
+				  					       AND ITEM_CD   = HD.ITEM_CD
+				  					       AND DEL_FLAG  = '0')
+ 				   AND HD.DEL_FLAG = '0'
+				 GROUP BY DT.GATE_CD, DT.MAT_GROUP, DT.PLANT_CD, DT.ITEM_CLS1, DT.ITEM_CLS2, DT.ITEM_CD, DT.PRODUCTION_DIV, DT.EQUIP_REV
+
+		  		UNION ALL
+
+			    <!-- 금형투자비 -->
+			    SELECT DT.GATE_CD
+			    	  ,DT.MAT_GROUP
+					  ,DT.PLANT_CD
+					  ,DT.ITEM_CLS1
+					  ,DT.ITEM_CLS2
+					  ,DT.ITEM_CD
+					  ,DT.PRODUCTION_DIV
+					  ,0    AS EQUIP_REV
+					  ,0    AS EQUIP_BID_AMT
+					  ,0    AS EQUIP_EST_AMT
+					  ,0    AS EQUIP_EXE_AMT
+					  ,DT.MOLD_REV
+					  ,SUM(<include refid="com.sql.nvl"/>(BID_CASTING_PRC, 0) + <include refid="com.sql.nvl"/>(BID_STEEL_PRC, 0) + <include refid="com.sql.nvl"/>(BID_PART_PRC, 0) + <include refid="com.sql.nvl"/>(BID_LASER_PRC, 0) + <include refid="com.sql.nvl"/>(BID_HEATING_PRC, 0) + <include refid="com.sql.nvl"/>(BID_MAT_OTHER_PRC, 0)
+					   + <include refid="com.sql.nvl"/>(BID_PLAN_PRC, 0) + <include refid="com.sql.nvl"/>(BID_NCDATA_PRC, 0) + <include refid="com.sql.nvl"/>(BID_PROCESS_PRC, 0) + <include refid="com.sql.nvl"/>(BID_FINISHING_PRC, 0) + <include refid="com.sql.nvl"/>(BID_PROCESS_OTHER_PRC, 0)
+					   + <include refid="com.sql.nvl"/>(BID_OTHER_PRC, 0) + <include refid="com.sql.nvl"/>(BID_ECO_PRC, 0)) AS MOLD_BID_AMT
+					  ,SUM(<include refid="com.sql.nvl"/>(EXE_CASTING_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_STEEL_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_PART_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_LASER_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_HEATING_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_MAT_OTHER_PRC, 0)
+					   + <include refid="com.sql.nvl"/>(EXE_PLAN_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_NCDATA_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_PROCESS_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_FINISHING_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_PROCESS_OTHER_PRC, 0)
+					   + <include refid="com.sql.nvl"/>(EXE_OTHER_PRC, 0) + <include refid="com.sql.nvl"/>(EXE_ECO_PRC, 0)) AS MOLD_EXE_AMT
+				  FROM STOCIMHD HD
+				  JOIN STOCIMDT DT
+ 				    ON (DT.GATE_CD   = HD.GATE_CD
+				   AND DT.MAT_GROUP = HD.MAT_GROUP
+				   AND DT.PLANT_CD  = HD.PLANT_CD
+				   AND DT.ITEM_CLS1 = HD.ITEM_CLS1
+				   AND DT.ITEM_CLS2 = HD.ITEM_CLS2
+				   AND DT.ITEM_CLS3 = HD.ITEM_CLS3
+				   AND DT.ITEM_CD   = HD.ITEM_CD
+				   AND DT.MOLD_REV  = (SELECT MAX(MOLD_REV)
+			   							  FROM STOCIMDT
+			   						     WHERE GATE_CD    = HD.GATE_CD
+				   						   AND MAT_GROUP  = HD.MAT_GROUP
+				   						   AND PLANT_CD   = HD.PLANT_CD
+				   						   AND ITEM_CLS1  = HD.ITEM_CLS1
+				   						   AND ITEM_CLS2  = HD.ITEM_CLS2
+				   						   AND ITEM_CLS3  = HD.ITEM_CLS3
+			   							   AND ITEM_CD    = HD.ITEM_CD
+										<![CDATA[
+	 		   							   AND MOLD_REV <= HD.MOLD_REV
+										]]>
+			   							   AND MOLD_DIV1  = DT.MOLD_DIV1
+			   							   AND MOLD_DIV2  = DT.MOLD_DIV2
+			   							   AND PROCESS_CD = DT.PROCESS_CD
+			   							   AND PROCESS_SQ = DT.PROCESS_SQ
+			   							   AND DEL_FLAG   = '0')
+				<if test="PRODUCTION_DIV != '' and PRODUCTION_DIV != null">
+				   AND DT.PRODUCTION_DIV = #{PRODUCTION_DIV}
+				</if>
+				   AND DT.DEL_FLAG = '0')
+				 WHERE HD.GATE_CD = #{ses.gateCd}
+				<if test="MAT_GROUP != '' and MAT_GROUP != null">
+				   AND HD.MAT_GROUP = #{MAT_GROUP}
+				</if>
+				<if test="PLANT_CD != '' and PLANT_CD != null">
+				   AND HD.PLANT_CD = #{PLANT_CD}
+				</if>
+				<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+				   AND HD.ITEM_CLS1 = #{ITEM_CLS1}
+				</if>
+				<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+				   AND HD.ITEM_CLS2 = #{ITEM_CLS2}
+				</if>
+				<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+				   AND HD.ITEM_CLS3 = #{ITEM_CLS3}
+				</if>
+				   AND HD.MOLD_REV = (SELECT MAX(MOLD_REV)
+				  					    FROM STOCIMHD
+				  					   WHERE GATE_CD   = HD.GATE_CD
+				   						 AND MAT_GROUP = HD.MAT_GROUP
+				   						 AND PLANT_CD  = HD.PLANT_CD
+				   						 AND ITEM_CLS1 = HD.ITEM_CLS1
+				   						 AND ITEM_CLS2 = HD.ITEM_CLS2
+				   						 AND ITEM_CLS3 = HD.ITEM_CLS3
+				  					     AND ITEM_CD   = HD.ITEM_CD
+				  					     AND DEL_FLAG  = '0')
+				   AND HD.DEL_FLAG = '0'
+				 GROUP BY DT.GATE_CD, DT.MAT_GROUP, DT.PLANT_CD, DT.ITEM_CLS1, DT.ITEM_CLS2, DT.ITEM_CD, DT.PRODUCTION_DIV, DT.MOLD_REV
+			   ) IV
+		  LEFT OUTER JOIN STOCMTGL MT
+		    ON (MT.GATE_CD = IV.GATE_CD
+		   AND MT.ITEM_CD = IV.ITEM_CD)
+		  LEFT OUTER JOIN STOCINFO FO
+		    ON (FO.GATE_CD         = IV.GATE_CD
+		   AND FO.PLANT_CD        = IV.PLANT_CD
+		   AND FO.ITEM_CD         = IV.ITEM_CD
+		   AND FO.VALID_FROM_DATE = (SELECT MAX(VALID_FROM_DATE)
+		   								FROM STOCINFO
+		   							   WHERE GATE_CD      = FO.GATE_CD
+		   							     AND BUYER_CD     = FO.BUYER_CD
+		   							     AND BUYER_REQ_CD = FO.BUYER_REQ_CD
+		   							     AND PLANT_CD     = FO.PLANT_CD
+		   							     AND ITEM_CD      = FO.ITEM_CD
+		   							     AND DEL_FLAG     = '0')
+		   AND FO.DEL_FLAG     = '0')
+		  LEFT OUTER JOIN STOCVNGL VN
+		    ON (VN.GATE_CD   = FO.GATE_CD
+		   AND VN.VENDOR_CD = FO.VENDOR_CD
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+		   AND VN.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		   )
+		 WHERE 1= 1
+		 GROUP BY IV.ITEM_CD, MT.ITEM_DESC, PRODUCTION_DIV, VN.VENDOR_NM
+		 ORDER BY IV.ITEM_CD
+
+    </select>
+
+</mapper>

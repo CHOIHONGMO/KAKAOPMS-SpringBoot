@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.BSOX_250Mapper">
+
+
+    <select id="doSearchRfqVendorSelection" parameterType="hashMap" resultType="hashMap">
+
+        SELECT RQHD.SUBMIT_TYPE
+            , RQHD.SETTLE_TYPE
+            , RQHD.GATE_CD
+            , RQHD.RFX_NUM
+            , RQHD.RFX_CNT
+            , RQHD.RFX_TYPE
+            , RQHD.RFX_SUBJECT
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') AS RFQ_START_DATE
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') AS RFQ_CLOSE_DATE
+            , <include refid="com.sql.dbo"/>GETPURORGNAME(RQHD.GATE_CD, RQHD.BUYER_CD, RQHD.PUR_ORG_CD, #{ses.langCd}) AS PUR_ORG_NM
+            , RQHD.PUR_ORG_CD
+            , <include refid="com.sql.dbo"/>GETDEPTNAME(RQHD.GATE_CD, RQHD.BUYER_CD, IUSER.DEPT_CD,#{ses.langCd}) AS DEPT_NM
+            , <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS BUYER_NM
+            , RQHD.CTRL_USER_ID
+            , <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+            , <include refid="com.sql.dbo"/>GETRFXVENDORBIDDCOUNT(RQHD.GATE_CD, RQHD.RFX_NUM, RQHD.RFX_CNT) AS VENDOR_BID
+            , (SELECT CASE WHEN COUNT (*) = 0 THEN 1 ELSE 0 END
+                 FROM STOCRQVN RQVN
+                WHERE 1 = 1
+                  AND RQVN.RFP_GIVEUP_DATE IS NULL
+                  AND RQVN.RFP_RECEIPT_DATE IS NOT NULL
+                  AND RQVN.NOT_PRC_SCORE IS NULL
+                  AND RQVN.DEL_FLAG = '0'
+                  AND RQVN.GATE_CD = RQHD.GATE_CD
+                  AND RQVN.RFX_NUM = RQHD.RFX_NUM
+                  AND RQVN.RFX_CNT = RQHD.RFX_CNT
+                ) AS TBE_COMPLETE
+<!--             , ( SELECT CASE WHEN COUNT (*) > 0 THEN 1 ELSE 0 END -->
+<!--                 FROM STOCRQVN RQVN JOIN STOCQTHD QTHD -->
+<!--                                              ON RQVN.GATE_CD = QTHD.GATE_CD -->
+<!--                                                 AND RQVN.RFX_NUM = QTHD.RFX_NUM -->
+<!--                                                 AND RQVN.RFX_CNT = QTHD.RFX_CNT -->
+<!--                                                 AND RQVN.VENDOR_CD =  QTHD.VENDOR_CD  -->
+<!--                                                 AND QTHD.DEL_FLAG = '0'  -->
+<!--                                    JOIN STOCQTDT QTDT -->
+<!--                                              ON QTHD.GATE_CD = QTDT.GATE_CD -->
+<!--                                                 AND QTHD.QTA_NUM = QTDT.QTA_NUM -->
+<!--                                                 AND QTDT.DEL_FLAG = '0'  -->
+<!--                  WHERE RQVN.DEL_FLAG = '0'                -->
+<!--                   AND RQVN.GATE_CD = RQHD.GATE_CD  -->
+<!--                   AND RQVN.RFX_NUM = RQHD.RFX_NUM  -->
+<!--                   AND RQVN.RFX_CNT = RQHD.RFX_CNT -->
+<!--                   AND QTDT.NEGO_DATE IS NOT NULL -->
+<!--                 ) AS NEGO_DATE                 -->
+            , (SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM STOCRQDT
+	            WHERE GATE_CD = RQHD.GATE_CD
+	              AND RFX_NUM = RQHD.RFX_NUM
+	              AND RFX_CNT = RQHD.RFX_CNT
+	              AND DEL_FLAG = '0'
+	              AND NEGO_VENDOR_CD IS NOT NULL
+                  AND NEGO_PROGRESS_CD IN ('100', '200')
+	            ) AS NEGO_DATE
+	        , (SELECT MAX(NRQDT.PROGRESS_CD)
+                        FROM STOCRQHD NRQHD, STOCRQDT NRQDT
+                        WHERE NRQHD.GATE_CD = NRQDT.GATE_CD
+                          AND NRQHD.RFX_NUM = NRQDT.RFX_NUM
+                          AND NRQHD.RFX_CNT = NRQDT.RFX_CNT
+                          AND NRQDT.GATE_CD = RQHD.GATE_CD
+                          AND NRQDT.DEL_FLAG = '0'
+                          AND NRQHD.DEL_FLAG = '0'
+                      ) AS NEGO_STATUS
+<!--             , <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS( -->
+<!--                     (SELECT MAX(NRQDT.NEGO_PROGRESS_CD) -->
+<!--                         FROM STOCRQHD NRQHD, STOCRQDT NRQDT -->
+<!--                         WHERE NRQHD.GATE_CD = NRQDT.GATE_CD -->
+<!--                           AND NRQHD.RFX_NUM = NRQDT.RFX_NUM -->
+<!--                           AND NRQHD.RFX_CNT = NRQDT.RFX_CNT -->
+<!--                           AND NRQDT.GATE_CD = RQHD.GATE_CD -->
+<!--                           AND NRQDT.ORIGIN_RFX_NUM = RQHD.RFX_NUM -->
+<!--                           AND NRQDT.ORIGIN_RFX_CNT = RQHD.RFX_CNT -->
+<!--                           AND NRQDT.DEL_FLAG = '0'  -->
+<!--                           AND NRQHD.DEL_FLAG = '0' -->
+<!--                       ), RQHD.RFQ_CLOSE_DATE -->
+<!--                )  AS NEGO_STATUS  -->
+            , RQHD.GATE_CD
+            , RQHD.PURCHASE_TYPE
+            , RQHD.VENDOR_OPEN_TYPE
+            , RQHD.SUBMIT_TYPE
+            , RQHD.PRC_STL_TYPE
+<!--            , RQHD.PROGRESS_CD -->
+            , <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) AS PROGRESS_CD
+        FROM STOCRQHD RQHD
+        LEFT JOIN STOCUSER IUSER ON RQHD.GATE_CD=IUSER.GATE_CD AND RQHD.CTRL_USER_ID=IUSER.USER_ID AND IUSER.DEL_FLAG='0'
+       WHERE RQHD.GATE_CD = #{ses.gateCd}
+         AND RQHD.RFX_TYPE IN ('RFQ', 'RFP')
+      <![CDATA[
+         AND (<include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) >= '2400'
+          OR RQHD.PROGRESS_CD = '1300')
+      ]]>
+<!--
+      <![CDATA[
+       AND (<include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) < '2500' OR <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD , RQHD.RFQ_CLOSE_DATE) = '2550')
+       AND <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) < '2500'
+      ]]>
+-->
+         AND RQHD.RFQ_OPEN_DATE IS NOT NULL
+<!--                AND (CASE WHEN RQHD.RFX_OPEN_TYPE = 'SEL' THEN    -->
+<!--                        	(CASE WHEN RQHD.RFQ_OPEN_DATE IS NULL THEN '0' ELSE '1' END)  -->
+<!--                    	  WHEN RQHD.RFX_OPEN_TYPE = 'ONE' THEN                            -->
+<!--                        	(CASE WHEN GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) = '2400' THEN '1' ELSE '0' END)  -->
+<!--                    	  ELSE '1' END) = '1'   -->
+         AND RQHD.DEL_FLAG = '0'
+      	 <!--
+        	PF0055 : 부품구매 OR 구매원가
+        	PF0054 : 일반구매
+        	부품구매 / 일반구매 구분해서 조회한다.
+ 		 -->
+ 		 <!--
+ 		 AND CASE WHEN #{ses.grantedAuthCd} = 'PF0055' or #{ses.grantedAuthCd} = 'PF0057' THEN
+ 		               CASE WHEN RQHD.PURCHASE_TYPE = 'NORMAL' THEN '1' ELSE '0' END
+ 			   	  WHEN #{ses.grantedAuthCd} = 'PF0054' THEN
+ 			 		   CASE WHEN RQHD.PURCHASE_TYPE != 'NORMAL' THEN '1' ELSE '0' END
+ 			 	  ELSE '1'
+ 			 END = '1' -->
+
+            <if test="REG_DATE_FROM !='' and REG_DATE_FROM != null and REG_DATE_TO !='' and REG_DATE_TO != null">
+	            <if test='DATE_TYPE == "S"'>
+	                AND RQHD.RFQ_START_DATE
+	            </if>
+	            <if test='DATE_TYPE == "R"'>
+	                AND RQHD.REG_DATE
+	            </if>
+                <if test='DATE_TYPE == "C"'>
+                    AND RQHD.RFQ_CLOSE_DATE
+                </if>
+                BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+            </if>
+            <if test="RFX_NUM != '' and RFX_NUM != null">
+                AND RQHD.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+                AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="SUBMIT_TYPE != '' and SUBMIT_TYPE != null">
+                AND RQHD.SUBMIT_TYPE = #{SUBMIT_TYPE}
+            </if>
+            <if test="RFX_TYPE != '' and RFX_TYPE != null">
+                AND RQHD.RFX_TYPE = #{RFX_TYPE}
+            </if>
+            <if test="SETTLE_TYPE != '' and SETTLE_TYPE != null">
+                AND RQHD.SETTLE_TYPE = #{SETTLE_TYPE}
+            </if>
+            <if test="PURCHASE_NM != '' and PURCHASE_NM != null">
+               	AND <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PURCHASE_NM} <include refid="com.sql.likeR"/>
+           	</if>
+           	<!-- HMCHOI-151102 -->
+           	<!-- PROGRESS_CD=2335,2355이면 협력회사선정대기(2400) ELSE PROGRESS_CD를 사용하여 조회함 -->
+           	<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+	           	<choose>
+					<when test="PROGRESS_CD == '2400'">
+	           	    AND <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) = '2400'
+					</when>
+					<otherwise>
+	            	AND RQHD.PROGRESS_CD = #{PROGRESS_CD}
+					</otherwise>
+				</choose>
+			</if>
+           	<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+                AND RQHD.PURCHASE_TYPE = #{PURCHASE_TYPE}
+            </if>
+           	<if test="SUBMIT_TYPE != '' and SUBMIT_TYPE != null">
+                AND RQHD.SUBMIT_TYPE = #{SUBMIT_TYPE}
+            </if>
+        --ORDER BY RQHD.RFQ_CLOSE_DATE DESC
+        ORDER BY RQHD.RFQ_CLOSE_DATE DESC, RQHD.RFX_NUM DESC, RQHD.RFX_CNT DESC
+    </select>
+
+
+</mapper>

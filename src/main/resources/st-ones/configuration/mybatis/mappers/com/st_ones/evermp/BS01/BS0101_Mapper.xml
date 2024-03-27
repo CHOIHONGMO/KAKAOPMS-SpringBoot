@@ -1,0 +1,1492 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS01.BS0101_Mapper">
+
+	<!-- 고객사관리 (BS01_001) 조회 -->
+    <select id="bs01001_doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT CUST.GATE_CD
+             , <include refid="com.sql.toDateChar"/>(CUST.REG_DATE, 'yyyyMMdd') AS REG_DATE
+             , <include refid="com.sql.toDateChar"/>(CUST.MOD_DATE, 'yyyyMMdd') AS MOD_DATE
+             , <include refid="com.sql.dbo"/>GETUSERNAME(CUST.GATE_CD, CUST.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+             , CUST.CUST_CD
+             , CUST.CUST_NM
+             , CUST.PROGRESS_CD
+             , CUST.COMPANY_TYPE
+             , CUST.CORP_TYPE
+             , CUST.SCALE_TYPE
+             , CUST.IRS_NUM AS IRS_NO
+             , CUST.CEO_USER_NM
+             , CUST.TEL_NUM
+             , CUST.BUSINESS_TYPE
+             , CUST.INDUSTRY_TYPE
+             , CUST.MAJOR_ITEM_NM
+             , CUST.SHIN_YN
+             , CUST.DELY_TYPE
+             , CUST.CREDIT_CD
+			 , 0 CUTS_CNT
+             , CUST.PROFIT_RATIO
+             , CUST.ACC_NUM
+             , CUST.WMS_FLAG
+             , CUST.MY_SITE_FLAG
+             , CUST.APPROVE_USE_FLAG
+             , CUST.BUDGET_USE_FLAG
+             , CUST.AUTO_PO_FLAG
+             , <include refid="com.sql.nvl"/>(CUST.NEW_COMPANY_FLAG, 0) AS NEW_COMPANY_FLAG
+             , CUST.STOP_FLAG
+             , CUST.STOP_REMARK
+             , CUST.RELAT_YN
+             , <include refid="com.sql.nvl"/>((SELECT MAX(SEQ) FROM STOCCUSH
+						                        WHERE GATE_CD = CUST.GATE_CD
+						                          AND CUST_CD = CUST.CUST_CD
+						                          AND SEQ <![CDATA[>]]> 0), '0') AS CHANGE_CNT
+             , CUST.MOD_USER_ID
+          FROM STOCCUST CUST
+         WHERE CUST.GATE_CD  = #{ses.gateCd}
+           AND CUST.DEL_FLAG = '0'
+           AND CUST.PROGRESS_CD = 'E'
+        <if test="CUST_CD != '' and CUST_CD != null"> <!-- 고객사코드 -->
+            AND UPPER(CUST.CUST_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null"> <!-- 고객사명 -->
+            AND UPPER(CUST.CUST_NM) <include refid="com.sql.likeL"/> UPPER(#{CUST_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IRS_NO != '' and IRS_NO != null">
+            AND REPLACE(CUST.IRS_NUM,'-','') <include refid="com.sql.likeL"/> REPLACE(#{IRS_NO},'-','') <include refid="com.sql.likeR"/>
+        </if>
+        <if test="COMPANY_TYPE != '' and COMPANY_TYPE != null"> <!-- 사업자구분(개인사업자, 법인사업자 등) -->
+            AND CUST.COMPANY_TYPE = #{COMPANY_TYPE}
+        </if>
+        <if test="CORP_TYPE != '' and CORP_TYPE != null"> <!-- 법인구분(주식회사, 사단법인 등) -->
+            AND CUST.CORP_TYPE = #{CORP_TYPE}
+        </if>
+        <if test="SCALE_TYPE != '' and SCALE_TYPE != null"> <!-- 기업구분(대기업, 중견기업, 중소기업 등) -->
+            AND CUST.SCALE_TYPE = #{SCALE_TYPE}
+        </if>
+        <if test="RELAT_YN != '' and RELAT_YN != null">
+            AND CUST.RELAT_YN = #{RELAT_YN}
+        </if>
+        <if test="CEO_USER_NM != '' and CEO_USER_NM != null">
+            AND UPPER(CUST.CEO_USER_NM) <include refid="com.sql.likeL"/> UPPER(#{CEO_USER_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SH_VALUE_COMBO != '' and SH_VALUE_COMBO != null and SEARCH_COMBO != '' and SEARCH_COMBO != null">
+            AND
+            <choose>
+                <when test="SEARCH_COMBO == 'WMS_FLAG' ">
+                    CUST.WMS_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <when test="SEARCH_COMBO == 'APRV_USE_FLAG' ">
+                    CUST.APPROVE_USE_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <when test="SEARCH_COMBO == 'BUDGET_USE_FLAG' ">
+                    CUST.BUDGET_USE_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <when test="SEARCH_COMBO == 'AUTO_PO_FLAG' ">
+                    CUST.AUTO_PO_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <when test="SEARCH_COMBO == 'MY_SITE_FLAG' ">
+                    CUST.MY_SITE_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <when test="SEARCH_COMBO == 'RELAT_YN' ">
+                    CUST.RELAT_YN = (CASE WHEN #{SH_VALUE_COMBO} = '1' THEN 'Y' ELSE 'N' END)
+                </when>
+                <when test="SEARCH_COMBO == 'NEW_COMPANY_FLAG' ">
+                    CUST.NEW_COMPANY_FLAG = #{SH_VALUE_COMBO}
+                </when>
+                <otherwise>
+                    CUST.STOP_FLAG = #{SH_VALUE_COMBO}
+                </otherwise>
+            </choose>
+        </if>
+		<if test="REG_DATE_FROM!= '' and REG_DATE_FROM != null">
+			AND CUST.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{REG_DATE_FROM}<include refid="com.sql.dateFrom"/> -- 00 00 00
+		</if>
+		<if test="REG_DATE_TO!= '' and REG_DATE_TO != null">
+			AND CUST.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{REG_DATE_TO}<include refid="com.sql.dateTo"/> -- 23:23:59
+		</if>
+		ORDER BY <include refid="com.sql.nvl"/>(CUST.STOP_FLAG,'0') ASC, CUST.MOD_DATE DESC, CUST.REG_DATE DESC
+	</select>
+
+    <!-- 고객사 변경이력 (BS01_001P) 조회 -->
+    <select id="bs01001p_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT CUSH.GATE_CD
+             , CUSH.SEQ
+             , CUSH.CEO_USER_NM
+             , CUSH.ZIP_CD
+             , CUSH.ADDR_1
+             , CUSH.ADDR_2
+             , CUSH.PROFIT_RATIO
+             , CUSH.CH_USER_ID
+             , <include refid="com.sql.dbo"/> GETUSERNAME(CUSH.GATE_CD, CUSH.CH_USER_ID, #{ses.langCd})  AS CH_USER_NM
+             , <include refid="com.sql.toDateChar"/>(CUSH.CH_DATE, 'YYYY-MM-DD HH24:MI') AS CH_DATE
+             , CUSH.CH_REASON
+          FROM STOCCUSH CUSH
+         WHERE CUSH.GATE_CD  = #{ses.gateCd}
+           AND CUSH.CUST_CD  = #{CUST_CD}
+           AND CUSH.DEL_FLAG = '0'
+         ORDER BY LEN(CUSH.SEQ) DESC, CUSH.SEQ DESC
+    </select>
+
+	<!-- 고객사 거래정지 또는 거래정지 해제 -->
+	<update id="bs01001_doSuspensionOrTrading" parameterType="hashmap">
+		UPDATE STOCCUST
+		   SET STOP_FLAG = #{STOP_FLAG}
+		     , STOP_REMARK = #{STOP_REMARK}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CUST_CD = #{CUST_CD}
+		   AND DEL_FLAG = '0'
+	</update>
+
+    <!-- 고객사 등록/상세 (BS01_002) -->
+    <!-- 고객사 상세정보 조회 -->
+    <select id="bs01002_doSearchInfo" parameterType="hashmap" resultType="hashmap">
+        SELECT
+			  CUST.GATE_CD
+			, CUST.CUST_CD
+			, <include refid="com.sql.toDateChar"/>(CUST.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			, CUST.REG_USER_ID
+			, <include refid="com.sql.toDateChar"/>(CUST.MOD_DATE, 'YYYY-MM-DD') AS MOD_DATE
+			, CUST.MOD_USER_ID
+			, CUST.DEL_FLAG
+			, CUST.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>GETCODENAME(CUST.GATE_CD, 'M019', CUST.PROGRESS_CD, #{ses.langCd}) AS PROGRESS_NM
+			, CUST.CUST_NM
+			, CUST.CUST_ENG_NM
+			, CUST.COMPANY_TYPE
+			, CUST.CORP_TYPE
+			, CUST.SCALE_TYPE
+			, CUST.SHIN_YN
+			, CUST.IRS_NUM
+			, CUST.IRS_SUB_NUM
+			, CUST.IRS_SUB_NM
+			, CUST.COMPANY_REG_NUM
+			, CUST.ZIP_CD AS HQ_ZIP_CD
+			, CUST.ADDR1  AS HQ_ADDR_1
+			, CUST.ADDR2  AS HQ_ADDR_2
+			, CUST.SUB_ZIP_CD
+			, CUST.SUB_ADDR
+			, CUST.BUSINESS_TYPE
+			, CUST.INDUSTRY_TYPE
+			, CUST.MAJOR_ITEM_NM
+			, CUST.CEO_USER_NM
+			, CUST.TEL_NUM
+			, CUST.FAX_NUM
+			, CUST.EMAIL
+			, <include refid="com.sql.toDateChar"/>(CUST.FOUNDATION_DATE, 'yyyyMMdd') AS FOUNDATION_DATE
+			, <include refid="com.sql.toDateChar"/>(CUST.DEAL_APRV_DATE, 'yyyyMMdd') AS DEAL_APRV_DATE
+			, <include refid="com.sql.nvl"/>(CUST.EMPLOYEE_CNT, 0) AS EMPLOYEE_CNT
+			, CUST.PAY_CD
+			, CUST.PAY_DEPT_NM
+			, CUST.PAY_USER_TEL_NUM
+			, CUST.DELY_TYPE
+			, <include refid="com.sql.nvl"/>(CUST.IPO_FLAG, '0') AS IPO_FLAG
+			, <include refid="com.sql.toDateChar"/>(CUST.IPO_DATE, 'yyyyMMdd') AS IPO_DATE
+			, CUST.CREDIT_AGENCY_NM
+			, CUST.CREDIT_CD
+			, <include refid="com.sql.nvl"/>(CUST.CREDIT_AMT, 0) AS CREDIT_LIMIT_AMT
+			, CUST.ATTACH_FILE_NUM
+			, CUST.ATTACH_FILE1_NUM
+			, CUST.ATTACH_FILE2_NUM
+			, CUST.ATTACH_FILE3_NUM
+			, CUST.ATTACH_FILE4_NUM
+			, CUST.CI_FILE_NUM
+			, CUST.REMARK
+			, CUST.ERP_IF_ID
+			, CUST.ERP_CUST_CD
+			, CUST.ERP_IF_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.APPROVE_USE_FLAG, '0') AS APPROVE_USE_FLAG
+			, CUST.APP_DOC_NUM
+			, CUST.APP_DOC_CNT
+			, CUST.SIGN_STATUS
+			, CUST.SIGN_DATE
+			, CUST.STD_YYYY
+			, CUST.DATA_REF_CD
+			, <include refid="com.sql.nvl"/>(CUST.TOT_ASSET, 0) AS TOT_ASSET
+			, <include refid="com.sql.nvl"/>(CUST.TOT_SDEPT, 0) AS TOT_SDEPT
+			, <include refid="com.sql.nvl"/>(CUST.TOT_FUND, 0)  AS TOT_FUND
+			, <include refid="com.sql.nvl"/>(CUST.TOT_SALES, 0) AS TOT_SALES
+			, <include refid="com.sql.nvl"/>(CUST.NET_INCOM, 0) AS NET_INCOM
+			, <include refid="com.sql.nvl"/>(CUST.BUSINESS_PROFIT, 0) AS BUSINESS_PROFIT
+			, <include refid="com.sql.nvl"/>(CUST.PROFIT_RATIO, 0) AS PROFIT_RATIO
+			, CUST.MANAGE_ID
+			, CUST.MANAGE_NM
+			, CUST.TAX_USER_ID
+			, CUST.TAX_USER_NM
+			, CUST.TAX_TYPE
+			, CUST.DEAL_TRADE_CD
+			, CUST.ACC_NUM
+			<if test="_databaseId == 'mssql'">
+            , STUFF(( SELECT ',' + RG.REGION_CD FROM STOCCURG RG
+                       WHERE RG.GATE_CD = CUST.GATE_CD
+                         AND RG.CUST_CD = CUST.CUST_CD
+                         FOR XML PATH('')
+                   ),1,1,'') AS REGION_CD
+			</if>
+			/* <if test="_databaseId == 'oracle'">
+            , ( SELECT LISTAGG(RG.REGION_CD, ',') FROM STOCCURG RG
+                       WHERE RG.GATE_CD = CUST.GATE_CD
+                         AND RG.CUST_CD = CUST.CUST_CD
+                   ) AS REGION_CD
+			</if> */
+			, CUST.REGION_NM AS REGION_CD
+			, <include refid="com.sql.nvl"/>(CUST.WMS_FLAG, '0') AS WMS_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.MY_SITE_FLAG, '0') AS MY_SITE_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.BUDGET_USE_FLAG, '0') AS BUDGET_USE_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.AUTO_PO_FLAG, '0') AS AUTO_PO_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.STOP_FLAG, '0') AS STOP_FLAG
+			, CUST.STOP_REMARK
+			, CUST.RELAT_YN
+			, <include refid="com.sql.nvl"/>(CUST.MNG_COM_TAX_YN, '0') AS MNG_COM_TAX_YN
+			, CUST.TAX_ASP_NM
+			, CUST.TAX_SEND_TYPE
+			, CUST.E_BILL_ASP_TYPE
+			,(SELECT A.CH_REASON FROM STOCCUSH A
+			   WHERE A.GATE_CD  = CUST.GATE_CD
+			     AND A.CUST_CD  = CUST.CUST_CD
+			     AND A.SEQ      = (SELECT MAX(B.SEQ) FROM STOCCUSH B
+			                        WHERE B.GATE_CD  = A.GATE_CD
+			                          AND B.CUST_CD  = A.CUST_CD
+			                          AND B.DEL_FLAG = '0')
+			     AND A.DEL_FLAG = '0') AS CHANGE_REMARK
+			, CUST.PAY_CONDITION
+			, CUST.PAY_DAY
+			, <include refid="com.sql.nvl"/>(CUST.PLANT_FLAG, '0') AS PLANT_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.COST_CENTER_FLAG, '0') AS COST_CENTER_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.NEW_COMPANY_FLAG, '0') AS NEW_COMPANY_FLAG
+			, <include refid="com.sql.nvl"/>(CUST.DEPT_PRICE_FLAG, '0') AS DEPT_PRICE_FLAG
+			, CUST.OLD_CUST_CD
+            , CUST.CASH_CD
+            , CUST.TRUNC_TYPE
+        	, CUST.HOMEPAGE_URL
+            , CUST.ERP_IF_FLAG
+			, CUBL.CUBL_BANK_NM
+			, CUBL.CUBL_ACCOUNT_NUM
+			, CUBL.CUBL_ACCOUNT_NM
+         	, CUBL.CUBL_SQ
+          FROM STOCCUST CUST
+	 	  LEFT JOIN STOCCUBL CUBL
+			   ON (CUBL.GATE_CD  = CUST.GATE_CD
+			   AND CUBL.CUST_CD  = CUST.CUST_CD
+			   AND CUBL.CUBL_SQ  = (SELECT MIN(CUBL_SQ) FROM STOCCUBL
+			   						 WHERE GATE_CD  = CUBL.GATE_CD
+			   						   AND CUST_CD  = CUBL.CUST_CD
+			   						   AND PLANT_CD = '001'	-- 2022.09.07 (HMCHOI): 고객사의 청구지의 PLANT_CD는 '001'로 초기 고객사 신규 등록시 자동 등록됨
+			   						   AND USE_FLAG = '1'
+			   						   AND DEL_FLAG = '0')
+			   AND CUBL.DEL_FLAG = '0')
+         WHERE CUST.GATE_CD  = #{ses.gateCd}
+		   AND CUST.DEL_FLAG = '0'
+		<if test="CUST_CD != null and CUST_CD != ''">
+		   AND CUST.CUST_CD  = #{CUST_CD}
+		</if>
+		<if test="APP_DOC_NUM != null and APP_DOC_NUM != ''">
+			AND CUST.APP_DOC_NUM = #{APP_DOC_NUM}
+			AND CUST.APP_DOC_CNT = #{APP_DOC_CNT}
+		</if>
+
+    </select>
+
+	<!-- BS01_002 -->
+	<!-- 고객사담당자 조회 -->
+	<select id="bs01002_doSearchUser" parameterType="hashmap" resultType="hashmap">
+		SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+			  GATE_CD
+			, USER_ID
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, COMPANY_CD
+			, MNG_YN
+			, USER_TYPE
+			, WORK_TYPE
+			, USER_NM
+			, EMPLOYEE_NO
+			, DEPT_CD
+			, DEPT_NM
+			, POSITION_NM
+			, TEL_NUM AS RECIPIENT_TEL_NUM
+			, FAX_NUM AS RECIPIENT_FAX_NUM
+			, CELL_NUM AS RECIPIENT_CELL_NUM
+			, EMAIL AS RECIPIENT_EMAIL
+			, ZIP_CD AS UR_ZIP_CD
+			, ADDR_1 AS UR_ADDR1
+			, ADDR_2 AS UR_ADDR2
+			, BUDGET_DEPT_CD
+			, <include refid="com.sql.dbo"/>GETDEPTNAME(GATE_CD, COMPANY_CD, BUDGET_DEPT_CD, #{ses.langCd}) AS BUDGET_DEPT_NM
+			, <include refid="com.sql.nvl"/>(WMS_FLAG, '0') AS WMS_FLAG
+			, <include refid="com.sql.nvl"/>(MY_SITE_FLAG, '0') AS MY_SITE_FLAG
+			, <include refid="com.sql.nvl"/>(BUDGET_FLAG, '0') AS BUDGET_FLAG
+			, <include refid="com.sql.nvl"/>(GR_FLAG, '0') AS GR_FLAG
+			, <include refid="com.sql.nvl"/>(FINANCIAL_FLAG, '0') AS FINANCIAL_FLAG
+			, RECIPIENT_NM
+			, RECIPIENT_DEPT_NM
+			, RECIPIENT_TEL_NUM
+			, RECIPIENT_CELL_NUM
+			, RECIPIENT_EMAIL
+			, DELY_ZIP_CD
+			, DELY_ADDR_1
+			, DELY_ADDR_2
+			, <include refid="com.sql.nvl"/>(SMS_FLAG, '0') AS SMS_FLAG
+			, <include refid="com.sql.nvl"/>(MAIL_FLAG, '0') AS MAIL_FLAG
+			, <include refid="com.sql.nvl"/>(BLOCK_FLAG, '0') AS BLOCK_FLAG
+			, BLOCK_REASON
+			, PW_WRONG_CNT
+			, <include refid="com.sql.nvl"/>(PW_RESET_FLAG, '0') AS PW_RESET_FLAG
+			, PW_RESET_DATE
+			, LAST_LOGIN_DATE
+			, IP_ADDR
+			, <include refid="com.sql.nvl"/>(USE_FLAG, '0') AS USE_FLAG
+			, PROGRESS_CD
+			, CONFIRM_USER_ID
+			, CONFIRM_DATE
+			, DATA_CREATION_TYPE
+			, ERP_IF_ID
+			, ERP_IF_SEND_FLAG
+			, M_USER_YN
+			, P_USER_YN
+			, AGREE_ATT_FILE_NUM
+            , <include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M044', <include refid="com.sql.nvl"/>(AGREE_YN, '0'), 0, #{ses.langCd})  <include refid="com.sql.stringMerge"/>' / '  <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(AGREE_YN_DATE) AS AGREE_YN
+            , DUTY_NM AS DUTY_NM
+			, USER_AUTO_PO_FLAG
+		 FROM STOCCVUR
+        WHERE GATE_CD    = #{ses.gateCd}
+          AND COMPANY_CD = #{CUST_CD}
+          AND MNG_YN     = '1' -- 관리자만 조회
+          AND DEL_FLAG   = '0'
+          <if test="_databaseId == 'oracle'"> AND ROWNUM = 1</if>
+    </select>
+
+	<select id="bs01002_getSignStatus" parameterType="hashmap" resultType="string">
+		SELECT SIGN_STATUS
+		  FROM STOCCUST
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CUST_CD = #{CUST_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<!-- BS01_002 -->
+	<!-- 사업자등록번호 중복 체크 -->
+	<select id="bs01002_checkIrsNum" parameterType="hashmap" resultType="java.lang.String">
+		SELECT (CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END) AS IRS_NUM_DUP_FLAG
+		  FROM STOCCUST
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND IRS_NUM = REPLACE(#{IRS_NUM}, '-', '')
+	</select>
+
+	<!-- BS01_002 -->
+	<!-- 담당자ID 중복 체크 -->
+	<select id="bs01002_checkDupCustUser" parameterType="hashmap" resultType="java.lang.String">
+		SELECT (CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END) AS USER_DUP_FLAG
+		  FROM STOCCVUR
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND USER_ID = UPPER(#{USER_ID})
+	</select>
+
+	<!-- BS01_002 -->
+	<!-- 사업자등록번호, 종사업자번호 중복 체크 -->
+	<select id="bs01002_doCheckNum" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(*)
+		  FROM STOCCUST
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND COMPANY_REG_NUM <include refid="com.sql.stringMerge"/> IRS_NUM <include refid="com.sql.stringMerge"/> IRS_SUB_NUM = #{CEHCK_NUM}
+        <if test="CUST_CD != '' and CUST_CD != null">
+		   AND CUST_CD != #{CUST_CD}
+		 </if>
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<!-- BS01_002 -->
+	<!-- 고객사 등록 및 수정 -->
+    <insert id="bs01002_doMergeCust" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCCUST<include refid="com.sql.mergeAs"/>CUST
+        USING (SELECT #{ses.gateCd} AS GATE_CD, #{CUST_CD} AS CUST_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+               ON (CUST.GATE_CD = B.GATE_CD
+               AND CUST.CUST_CD = B.CUST_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+			, PROGRESS_CD = #{PROGRESS_CD}
+			, CUST_NM = #{CUST_NM}
+			, CUST_ENG_NM = #{CUST_ENG_NM}
+			, COMPANY_TYPE = #{COMPANY_TYPE}
+			, CORP_TYPE = #{CORP_TYPE}
+			, SCALE_TYPE = #{SCALE_TYPE}
+			, SHIN_YN = #{SHIN_YN}
+			, IRS_NUM = #{IRS_NUM}
+			, IRS_SUB_NUM = #{IRS_SUB_NUM}
+			, IRS_SUB_NM = #{IRS_SUB_NM}
+			, COMPANY_REG_NUM = #{COMPANY_REG_NUM}
+			, ZIP_CD = #{HQ_ZIP_CD}
+			, ADDR1 = #{HQ_ADDR_1}
+			, ADDR2 = #{HQ_ADDR_2}
+			, SUB_ZIP_CD = #{SUB_ZIP_CD}
+			, SUB_ADDR = #{SUB_ADDR}
+			, BUSINESS_TYPE = #{BUSINESS_TYPE}
+			, INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+			, MAJOR_ITEM_NM = #{MAJOR_ITEM_NM}
+			, CEO_USER_NM = #{CEO_USER_NM}
+			, TEL_NUM = #{TEL_NUM}
+			, FAX_NUM = #{FAX_NUM}
+			, EMAIL = #{EMAIL}
+			, FOUNDATION_DATE = #{FOUNDATION_DATE}
+			, DEAL_APRV_DATE = #{DEAL_APRV_DATE}
+			, EMPLOYEE_CNT = <include refid="com.sql.nvl"/>(#{EMPLOYEE_CNT}, 0)
+			, DELY_TYPE = #{DELY_TYPE}
+			, IPO_FLAG = <include refid="com.sql.nvl"/>(#{IPO_FLAG}, '0')
+			, IPO_DATE =
+            <choose>
+              <when  test="IPO_DATE eq ''.toString()">null</when>
+              <otherwise>#{IPO_DATE}</otherwise>
+            </choose>
+			, CREDIT_AGENCY_NM = #{CREDIT_AGENCY_NM}
+			, CREDIT_CD = #{CREDIT_CD}
+			, CREDIT_AMT = <include refid="com.sql.nvl"/>(#{CREDIT_LIMIT_AMT}, 0)
+			, ATTACH_FILE_NUM = #{ATTACH_FILE_NUM}
+			, ATTACH_FILE1_NUM = #{ATTACH_FILE1_NUM}
+			, ATTACH_FILE2_NUM = #{ATTACH_FILE2_NUM}
+			, ATTACH_FILE3_NUM = #{ATTACH_FILE3_NUM}
+			, ATTACH_FILE4_NUM = #{ATTACH_FILE4_NUM}
+			, CI_FILE_NUM = #{CI_FILE_NUM}
+			, REMARK = #{REMARK}
+			, APPROVE_USE_FLAG = <include refid="com.sql.nvl"/>(#{APPROVE_USE_FLAG}, '0')
+			, STD_YYYY = #{STD_YYYY}
+			, DATA_REF_CD = #{DATA_REF_CD}
+			, TOT_ASSET = <include refid="com.sql.nvl"/>(#{TOT_ASSET}, 0)
+			, TOT_SDEPT = <include refid="com.sql.nvl"/>(#{TOT_SDEPT}, 0)
+			, TOT_FUND = <include refid="com.sql.nvl"/>(#{TOT_FUND}, 0)
+			, TOT_SALES = <include refid="com.sql.nvl"/>(#{TOT_SALES}, 0)
+			, NET_INCOM = <include refid="com.sql.nvl"/>(#{NET_INCOM}, 0)
+			, BUSINESS_PROFIT = <include refid="com.sql.nvl"/>(#{BUSINESS_PROFIT}, 0)
+			, PROFIT_RATIO = <include refid="com.sql.nvl"/>(#{PROFIT_RATIO}, 0)
+			, MANAGE_ID = #{MANAGE_ID}
+			, MANAGE_NM = #{MANAGE_NM}
+			, TAX_USER_ID = #{TAX_USER_ID}
+			, TAX_USER_NM = #{TAX_USER_NM}
+			, TAX_TYPE = #{TAX_TYPE}
+			, DEAL_TRADE_CD = #{DEAL_TRADE_CD}
+			, ACC_NUM = #{ACC_NUM}
+			, REGION_NM = #{REGION_CD}
+			, WMS_FLAG = <include refid="com.sql.nvl"/>(#{WMS_FLAG}, '0')
+			, MY_SITE_FLAG = <include refid="com.sql.nvl"/>(#{MY_SITE_FLAG}, '0')
+			, BUDGET_USE_FLAG = <include refid="com.sql.nvl"/>(#{BUDGET_USE_FLAG}, '0')
+			, AUTO_PO_FLAG = <include refid="com.sql.nvl"/>(#{AUTO_PO_FLAG}, '0')
+			, STOP_FLAG = <include refid="com.sql.nvl"/>(#{STOP_FLAG}, '0')
+			, STOP_REMARK = #{STOP_REMARK}
+			, RELAT_YN = #{RELAT_YN}
+			, MNG_COM_TAX_YN = #{MNG_COM_TAX_YN}
+			, TAX_ASP_NM = #{TAX_ASP_NM}
+			, TAX_SEND_TYPE = #{TAX_SEND_TYPE}
+			, E_BILL_ASP_TYPE = #{E_BILL_ASP_TYPE}
+			, PAY_CONDITION = #{PAY_CONDITION}
+			, PAY_DAY = #{PAY_DAY}
+			, PLANT_FLAG = <include refid="com.sql.nvl"/>(#{PLANT_FLAG}, '0')
+			, COST_CENTER_FLAG = <include refid="com.sql.nvl"/>(#{COST_CENTER_FLAG}, '0')
+			, NEW_COMPANY_FLAG = <include refid="com.sql.nvl"/>(#{NEW_COMPANY_FLAG}, '0')
+			, DEPT_PRICE_FLAG = <include refid="com.sql.nvl"/>(#{DEPT_PRICE_FLAG}, '0')
+			, OLD_CUST_CD = #{OLD_CUST_CD}
+            , HOMEPAGE_URL = #{HOMEPAGE_URL}
+            , CASH_CD = #{CASH_CD}
+            , TRUNC_TYPE = #{TRUNC_TYPE}
+            , APP_DOC_NUM = #{APP_DOC_NUM}
+            , APP_DOC_CNT = #{APP_DOC_CNT}
+            , SIGN_STATUS = #{SIGN_STATUS}
+            , ERP_IF_FLAG = #{ERP_IF_FLAG}
+        WHEN NOT MATCHED THEN
+        INSERT (
+			  GATE_CD
+			, CUST_CD
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, PROGRESS_CD
+			, CUST_NM
+			, CUST_ENG_NM
+			, COMPANY_TYPE
+			, CORP_TYPE
+			, SCALE_TYPE
+			, SHIN_YN
+			, IRS_NUM
+			, IRS_SUB_NUM
+			, IRS_SUB_NM
+			, COMPANY_REG_NUM
+			, ZIP_CD
+			, ADDR1
+			, ADDR2
+			, SUB_ZIP_CD
+			, SUB_ADDR
+			, BUSINESS_TYPE
+			, INDUSTRY_TYPE
+			, MAJOR_ITEM_NM
+			, CEO_USER_NM
+			, TEL_NUM
+			, FAX_NUM
+			, EMAIL
+			, FOUNDATION_DATE
+			, DEAL_APRV_DATE
+			, EMPLOYEE_CNT
+			, DELY_TYPE
+			, IPO_FLAG
+			, IPO_DATE
+			, CREDIT_AGENCY_NM
+			, CREDIT_CD
+			, CREDIT_AMT
+			, ATTACH_FILE_NUM
+			, ATTACH_FILE1_NUM
+			, ATTACH_FILE2_NUM
+			, ATTACH_FILE3_NUM
+			, ATTACH_FILE4_NUM
+			, CI_FILE_NUM
+			, REMARK
+			, APPROVE_USE_FLAG
+			, STD_YYYY
+			, DATA_REF_CD
+			, TOT_ASSET
+			, TOT_SDEPT
+			, TOT_FUND
+			, TOT_SALES
+			, NET_INCOM
+			, BUSINESS_PROFIT
+			, PROFIT_RATIO
+			, MANAGE_ID
+			, MANAGE_NM
+			, TAX_USER_ID
+			, TAX_USER_NM
+			, TAX_TYPE
+			, DEAL_TRADE_CD
+			, ACC_NUM
+			, REGION_NM
+			, WMS_FLAG
+			, MY_SITE_FLAG
+			, BUDGET_USE_FLAG
+			, AUTO_PO_FLAG
+			, STOP_FLAG
+			, STOP_REMARK
+			, RELAT_YN
+			, MNG_COM_TAX_YN
+			, TAX_ASP_NM
+			, TAX_SEND_TYPE
+			, E_BILL_ASP_TYPE
+			, PAY_CONDITION
+			, PAY_DAY
+			, PLANT_FLAG
+			, COST_CENTER_FLAG
+			, NEW_COMPANY_FLAG
+			, DEPT_PRICE_FLAG
+			, OLD_CUST_CD
+        	, HOMEPAGE_URL
+        	, CASH_CD
+        	, TRUNC_TYPE
+        	, APP_DOC_NUM
+			, APP_DOC_CNT
+        	, SIGN_STATUS
+        	, ERP_IF_FLAG
+        ) VALUES (
+        	  #{ses.gateCd}
+            , #{CUST_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+			, #{PROGRESS_CD}
+			, #{CUST_NM}
+			, #{CUST_ENG_NM}
+			, #{COMPANY_TYPE}
+			, #{CORP_TYPE}
+			, #{SCALE_TYPE}
+			, <include refid="com.sql.nvl"/>(#{SHIN_YN}, '0')
+			, #{IRS_NUM}
+			, #{IRS_SUB_NUM}
+			, #{IRS_SUB_NM}
+			, #{COMPANY_REG_NUM}
+			, #{HQ_ZIP_CD}
+			, #{HQ_ADDR_1}
+			, #{HQ_ADDR_2}
+			, #{SUB_ZIP_CD}
+			, #{SUB_ADDR}
+			, #{BUSINESS_TYPE}
+			, #{INDUSTRY_TYPE}
+			, #{MAJOR_ITEM_NM}
+			, #{CEO_USER_NM}
+			, #{TEL_NUM}
+			, #{FAX_NUM}
+			, #{EMAIL}
+			, #{FOUNDATION_DATE}
+			, #{DEAL_APRV_DATE}
+			, <include refid="com.sql.nvl"/>(#{EMPLOYEE_CNT}, 0)
+			, #{DELY_TYPE}
+			, <include refid="com.sql.nvl"/>(#{IPO_FLAG}, '0')
+	        <choose>
+	          <when test="IPO_DATE eq ''.toString()">, null</when>
+	          <otherwise>, #{IPO_DATE}</otherwise>
+            </choose>
+			, #{CREDIT_AGENCY_NM}
+			, #{CREDIT_CD}
+			, <include refid="com.sql.nvl"/>(#{CREDIT_LIMIT_AMT}, 0)
+			, #{ATTACH_FILE_NUM}
+			, #{ATTACH_FILE1_NUM}
+			, #{ATTACH_FILE2_NUM}
+			, #{ATTACH_FILE3_NUM}
+			, #{ATTACH_FILE4_NUM}
+			, #{CI_FILE_NUM}
+			, #{REMARK}
+			, <include refid="com.sql.nvl"/>(#{APPROVE_USE_FLAG}, '0')
+			, #{STD_YYYY}
+			, #{DATA_REF_CD}
+			, <include refid="com.sql.nvl"/>(#{TOT_ASSET}, 0)
+			, <include refid="com.sql.nvl"/>(#{TOT_SDEPT}, 0)
+			, <include refid="com.sql.nvl"/>(#{TOT_FUND}, 0)
+			, <include refid="com.sql.nvl"/>(#{TOT_SALES}, 0)
+			, <include refid="com.sql.nvl"/>(#{NET_INCOM}, 0)
+			, <include refid="com.sql.nvl"/>(#{BUSINESS_PROFIT}, 0)
+			, <include refid="com.sql.nvl"/>(#{PROFIT_RATIO}, 0)
+			, #{MANAGE_ID}
+			, #{MANAGE_NM}
+			, #{TAX_USER_ID}
+			, #{TAX_USER_NM}
+			, #{TAX_TYPE}
+			, #{DEAL_TRADE_CD}
+			, #{ACC_NUM}
+			, #{REGION_CD}
+			, <include refid="com.sql.nvl"/>(#{WMS_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{MY_SITE_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{BUDGET_USE_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{AUTO_PO_FLAG}, '0')
+			, #{STOP_FLAG}
+			, #{STOP_REMARK}
+			, #{RELAT_YN}
+			, <include refid="com.sql.nvl"/>(#{MNG_COM_TAX_YN}, '0')
+			, #{TAX_ASP_NM}
+			, #{TAX_SEND_TYPE}
+			, #{E_BILL_ASP_TYPE}
+			, #{PAY_CONDITION}
+			, #{PAY_DAY}
+			, <include refid="com.sql.nvl"/>(#{PLANT_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{COST_CENTER_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{NEW_COMPANY_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{DEPT_PRICE_FLAG}, '0')
+			, #{OLD_CUST_CD}
+			, #{HOMEPAGE_URL}
+			, #{CASH_CD}
+			, #{TRUNC_TYPE}
+			, #{APP_DOC_NUM}
+			, #{APP_DOC_CNT}
+			, #{SIGN_STATUS}
+			, #{ERP_IF_FLAG}
+        )
+    </insert>
+
+	<!-- BS01_002 -->
+	<!-- 고객사 등록 및 수정 -->
+    <insert id="bs01002_doInsertCVSH" parameterType="hashMap">
+    	INSERT INTO STOCCUSH (
+			GATE_CD
+			, CUST_CD
+			, SEQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, CEO_USER_NM
+			, ZIP_CD
+			, ADDR_1
+			, ADDR_2
+			, PROFIT_RATIO
+			, CH_DATE
+			, CH_USER_ID
+			, CH_REASON
+    	)
+    	VALUES (
+			#{ses.gateCd}
+            , #{CUST_CD}
+            , <include refid="com.sql.nvl"/>((SELECT MAX(SEQ)+1 FROM STOCCUSH WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{CUST_CD}), 0)
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+			, #{CEO_USER_NM}
+			, #{HQ_ZIP_CD}
+			, #{HQ_ADDR_1}
+			, #{HQ_ADDR_2}
+			, #{PROFIT_RATIO}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, #{CHANGE_REMARK}
+    	)
+    </insert>
+
+	<!-- BS01_002 -->
+	<!-- 납품가능지역 등록 -->
+    <insert id="bs01002_doMergCURG" parameterType="hashMap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCCURG<include refid="com.sql.mergeAs"/>CURG
+        USING (SELECT #{ses.gateCd} AS GATE_CD, #{CUST_CD} AS CUST_CD, ${REGION_CD} AS REGION_CD <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+              ON (CURG.GATE_CD = B.GATE_CD
+              AND CURG.CUST_CD = B.CUST_CD
+              AND CURG.REGION_CD = B.REGION_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+              MOD_DATE= <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , CUST_CD
+            , REGION_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+        ) VALUES (
+              #{ses.gateCd}
+            , #{CUST_CD}
+            , #{REGION_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+        )
+    </insert>
+
+	<!-- BS01_002 -->
+	<!-- 담당자정보 수정 -->
+	<update id="bs01002_doMergeCVUR" parameterType="hashmap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCCVUR<include refid="com.sql.mergeAs"/>CVUR
+        USING (SELECT #{ses.gateCd} AS GATE_CD, #{CUST_CD} AS CUST_CD, UPPER(#{USER_ID}) AS USER_ID <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+              ON (CVUR.GATE_CD    = B.GATE_CD
+              AND CVUR.COMPANY_CD = B.CUST_CD
+              AND UPPER(CVUR.USER_ID) = B.USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , MNG_YN = '1'
+             , USER_NM = #{USER_NM}
+			<if test="PASSWORD != '' and PASSWORD != null">
+			 , PASSWORD = #{PASSWORD}
+		 	</if>
+			 , EMPLOYEE_NO = #{EMPLOYEE_NO}
+			 , DEPT_CD = #{DEPT_CD}
+			 , DEPT_NM = #{DEPT_NM}
+			 , POSITION_NM = #{POSITION_NM}
+			 , TEL_NUM = #{RECIPIENT_TEL_NUM}
+			 , FAX_NUM = #{RECIPIENT_FAX_NUM}
+			 , CELL_NUM = #{RECIPIENT_CELL_NUM}
+			 , EMAIL = #{RECIPIENT_EMAIL}
+			 , ZIP_CD = #{UR_ZIP_CD}
+			 , ADDR_1 = #{UR_ADDR1}
+			 , ADDR_2 = #{UR_ADDR2}
+			 , BUDGET_DEPT_CD = #{BUDGET_DEPT_CD}
+			 , WMS_FLAG = <include refid="com.sql.nvl"/>(#{WMS_FLAG}, '0')
+			 , MY_SITE_FLAG = <include refid="com.sql.nvl"/>(#{MY_SITE_FLAG}, '0')
+			 , BUDGET_FLAG = <include refid="com.sql.nvl"/>(#{BUDGET_FLAG}, '0')
+			 , GR_FLAG = <include refid="com.sql.nvl"/>(#{GR_FLAG}, '0')
+			 , FINANCIAL_FLAG = <include refid="com.sql.nvl"/>(#{FINANCIAL_FLAG}, '0')
+			 , SMS_FLAG = <include refid="com.sql.nvl"/>(#{SMS_FLAG}, '0')
+			 , MAIL_FLAG = <include refid="com.sql.nvl"/>(#{MAIL_FLAG}, '0')
+			 , BLOCK_FLAG = <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+			 , BLOCK_REASON = #{BLOCK_REASON}
+			 , USE_FLAG = <include refid="com.sql.nvl"/>(#{USE_FLAG}, '1')
+			 , PROGRESS_CD = 'E'
+			 , AGREE_ATT_FILE_NUM = #{AGREE_ATT_FILE_NUM}
+			 , DUTY_NM = #{DUTY_NM}
+             , USER_AUTO_PO_FLAG = #{USER_AUTO_PO_FLAG}
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+			, USER_ID
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, COMPANY_CD
+			, MNG_YN
+			, USER_TYPE
+			, WORK_TYPE
+			, USER_NM
+			, PASSWORD
+			, EMPLOYEE_NO
+			, DEPT_CD
+			, DEPT_NM
+			, POSITION_NM
+			, TEL_NUM
+			, FAX_NUM
+			, CELL_NUM
+			, EMAIL
+			, ZIP_CD
+			, ADDR_1
+			, ADDR_2
+			, BUDGET_DEPT_CD
+			, WMS_FLAG
+			, MY_SITE_FLAG
+			, BUDGET_FLAG
+			, GR_FLAG
+			, FINANCIAL_FLAG
+			, SMS_FLAG
+			, MAIL_FLAG
+			, BLOCK_FLAG
+			, BLOCK_REASON
+			, USE_FLAG
+			, PROGRESS_CD
+			, AGREE_ATT_FILE_NUM
+			, DUTY_NM
+        	, USER_AUTO_PO_FLAG
+        	, PLANT_CD
+        ) VALUES (
+              #{ses.gateCd}
+            , UPPER(#{USER_ID})
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+			, #{CUST_CD}
+			, '1' -- MNG_YN
+			, 'B' -- USER_TYPE
+			, ''  -- WORK_TYPE
+			, #{USER_NM}
+			, #{PASSWORD}
+			, #{EMPLOYEE_NO}
+			, #{DEPT_CD}
+			, #{DEPT_NM}
+			, #{POSITION_NM}
+			, #{RECIPIENT_TEL_NUM}
+			, #{RECIPIENT_FAX_NUM}
+			, #{RECIPIENT_CELL_NUM}
+			, #{RECIPIENT_EMAIL}
+			, #{UR_ZIP_CD}
+			, #{UR_ADDR1}
+			, #{UR_ADDR2}
+			, #{BUDGET_DEPT_CD}
+			, <include refid="com.sql.nvl"/>(#{WMS_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{MY_SITE_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{BUDGET_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{GR_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{FINANCIAL_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{SMS_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{MAIL_FLAG}, '0')
+			, <include refid="com.sql.nvl"/>(#{BLOCK_FLAG}, '0')
+			, #{BLOCK_REASON}
+			, <include refid="com.sql.nvl"/>(#{USE_FLAG}, '1')
+			, 'E' -- PROGRESS_CD
+			, #{AGREE_ATT_FILE_NUM}
+			, #{DUTY_NM}
+			, #{USER_AUTO_PO_FLAG}
+			, '001' --PLANT_CD
+        )
+
+    </update>
+
+	<!-- 고객사 등록/상세 (BS01_002) : 고객사 등록시 기본 청구지는 PLANT_CD=001로 등록함 -->
+	<update id="bs01002_doMergeCUBL" parameterType="hashmap">
+		MERGE<include refid="com.sql.mergeInto"/>STOCCUBL<include refid="com.sql.mergeAs"/>CUBL
+		USING (SELECT #{ses.gateCd} AS GATE_CD
+					, #{CUST_CD} AS CUST_CD
+					, #{CUBL_SQ} AS CUBL_SQ
+				  <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			  ON (CUBL.GATE_CD  = B.GATE_CD
+			  AND CUBL.CUST_CD  = B.CUST_CD
+			  AND CUBL.PLANT_CD = #{PLANT_CD} -- 고객사 마스터의 기본 사업장(001)
+			  AND CUBL.CUBL_SQ  = B.CUBL_SQ)
+		WHEN MATCHED THEN
+		UPDATE SET
+		      MOD_DATE = <include refid="com.sql.sysdate"/>
+		    , MOD_USER_ID = #{ses.userId}
+		    , DEL_FLAG = '0'
+		    , USE_FLAG = '1'
+		    --, PLANT_CD = {PLANT_CD}	-- 고객사 마스터의 기본 사업장(001)
+		    , ACC_CD   = #{ACC_CD}
+		    , CUBL_NM  = #{CUBL_NM}
+		    , CUBL_ZIP_CD = #{HQ_ZIP_CD}
+		    , CUBL_ADDR1  = #{HQ_ADDR_1}
+		    , CUBL_ADDR2  = #{HQ_ADDR_2}
+		    , COMPANY_NM  = #{CUST_NM}
+		    , IRS_NUM = #{IRS_NUM}
+		    , CEO_USER_NM   = #{CEO_USER_NM}
+		    , BUSINESS_TYPE = #{BUSINESS_TYPE}
+		    , INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+		    , IRS_SUB_NUM   = #{IRS_SUB_NUM}
+		    , IRS_SUB_ADDR  = #{IRS_SUB_ADDR}
+		    , CUBL_BANK_NM  = #{CUBL_BANK_NM}
+		    , CUBL_ACCOUNT_NUM = #{CUBL_ACCOUNT_NUM}
+		    , CUBL_ACCOUNT_NM = #{CUBL_ACCOUNT_NM}
+		    , CUBL_USER_NM = #{USER_NM}
+		    , CUBL_USER_TEL_NUM = #{RECIPIENT_TEL_NUM}
+		    , CUBL_USER_FAX_NUM = #{RECIPIENT_FAX_NUM}
+		    , CUBL_USER_CELL_NUM = #{RECIPIENT_CELL_NUM}
+		    , MNG_ID = #{ses.userId}
+		    , IRS_SUB_ZIP_CD = #{IRS_SUB_ZIP_CD}
+		    , CUBL_USER_EMAIL = #{RECIPIENT_EMAIL}
+		WHEN NOT MATCHED THEN
+		INSERT (
+		      GATE_CD
+			, CUST_CD
+			, PLANT_CD
+		 	, CUBL_SQ
+			, REG_DATE
+			, REG_USER_ID
+			, DEL_FLAG
+			, USE_FLAG
+			, ACC_CD
+			, CUBL_NM
+			, CUBL_ZIP_CD
+			, CUBL_ADDR1
+			, CUBL_ADDR2
+			, COMPANY_NM
+			, IRS_NUM
+			, CEO_USER_NM
+			, BUSINESS_TYPE
+			, INDUSTRY_TYPE
+			, IRS_SUB_NUM
+			, IRS_SUB_ADDR
+			, CUBL_BANK_NM
+			, CUBL_ACCOUNT_NUM
+			, CUBL_ACCOUNT_NM
+			, CUBL_USER_NM
+			, CUBL_USER_TEL_NUM
+			, CUBL_USER_FAX_NUM
+			, CUBL_USER_CELL_NUM
+			, MNG_ID
+			, IRS_SUB_ZIP_CD
+			, CUBL_USER_EMAIL
+		) VALUES(
+			  #{ses.gateCd}
+		    , #{CUST_CD}
+		    , #{PLANT_CD} --고객사 마스터의 기본사업장(001)
+		    ,(SELECT <include refid="com.sql.nvl"/>(MAX(CUBL_SQ)+1, 1) FROM STOCCUBL WHERE GATE_CD = #{ses.gateCd}) -- CUBL_SQ
+		    , <include refid="com.sql.sysdate"/>
+		    , #{ses.userId}
+		    , '0' -- DEL_FLAG
+		    , '1' -- USE_FLAG
+		    , #{ACC_CD}
+		    , #{CUBL_NM}
+		    , #{HQ_ZIP_CD}
+		    , #{HQ_ADDR_1}
+		    , #{HQ_ADDR_2}
+		    , #{CUST_NM}
+		    , #{IRS_NUM}
+		    , #{CEO_USER_NM}
+		    , #{BUSINESS_TYPE}
+		    , #{INDUSTRY_TYPE}
+		    , #{IRS_SUB_NUM}
+		    , #{IRS_SUB_ADDR}
+		    , #{CUBL_BANK_NM}
+		    , #{CUBL_ACCOUNT_NUM}
+		    , #{CUBL_ACCOUNT_NM}
+		    , #{USER_NM}
+		    , #{RECIPIENT_TEL_NUM}
+		    , #{RECIPIENT_FAX_NUM}
+		    , #{RECIPIENT_CELL_NUM}
+		    , #{ses.userId}
+		    , #{IRS_SUB_ZIP_CD}
+		    , #{RECIPIENT_EMAIL}
+		)
+	</update>
+
+	<!-- 승인상태 업데이트 -->
+	<update id="bs01002_doUpdateSignStatus">
+		 UPDATE STOCCUST
+			SET PROGRESS_CD = #{PROGRESS_CD}
+			  , APPROVE_USE_FLAG = '1'
+			  , SIGN_STATUS = #{SIGN_STATUS}
+			  , SIGN_DATE = <include refid="com.sql.sysdate"/>
+			WHERE GATE_CD = #{ses.gateCd}
+			  AND APP_DOC_NUM = #{APP_DOC_NUM}
+			  AND APP_DOC_CNT = #{APP_DOC_CNT}
+	</update>
+
+	<!-- 고객사 마스터 등록시 사업장은 기본 사업장 등록함(PLANT_CD=001) -->
+	<insert id="bs01002_insertSTOCCUPL">
+		INSERT INTO STOCCUPL (
+			   GATE_CD
+			 , CUST_CD
+			 , PLANT_CD
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , PLANT_NM
+			 , COM_NM
+			 , IRS_NUM
+			 , COMPANY_REG_NUM
+			 , CEO_USER_NM
+			 , FOUNDATION_DATE
+			 , ZIP_CD
+			 , ADDR1
+			 , ADDR2
+			 , BUSINESS_TYPE
+			 , INDUSTRY_TYPE
+			 , IRS_SUB_NUM
+			 , IRS_SUB_NM
+			 , MNG_ID
+			 , SORT_SQ
+			 , TEL_NUM
+			 , FAX_NUM
+			 , EMAIL
+			 , PAY_CONDITION
+			 , PAY_DAY
+			 , ATTACH_FILE_NUM
+			 , GR_PERSON
+			 , GR_PERSON_TEL_NUM
+			 , ACC_PERSON
+			 , ACC_PERSON_TEL_NUM
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{CUST_CD}
+			 , '001'	--PLANT_CD (고객사 마스터의 기본사업장 : PLANT_CD=001)
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'		--DEL_FLAG
+			 , #{CUST_NM}
+			 , #{CUST_NM}
+			 , #{IRS_NUM}
+			 , #{COMPANY_REG_NUM}
+			 , #{CEO_USER_NM}
+			 , #{FOUNDATION_DATE}
+			 , #{HQ_ZIP_CD}
+			 , #{HQ_ADDR_1}
+			 , #{HQ_ADDR_2}
+			 , #{BUSINESS_TYPE}
+			 , #{INDUSTRY_TYPE}
+			 , #{IRS_SUB_NUM}
+			 , #{IRS_SUB_NM}
+			 , #{MANAGE_ID}
+			 , 0
+			 , #{TEL_NUM}
+			 , #{FAX_NUM}
+			 , #{EMAIL}
+			 , #{PAY_CONDITION}
+			 , 0
+			 , #{ATTACH_FILE_NUM}
+			 , null
+			 , null
+			 , null
+			 , null
+		)
+	</insert>
+
+	<!-- Tier : 사용안함 -->
+    <insert id="bs01002_doInsert" parameterType="hashMap">
+        INSERT INTO STOCCUTS (
+            GATE_CD
+            ,CUST_CD
+            ,HIS_SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,PREV_TIER
+            ,AFTER_TIER
+            ,AMEND_REASON
+            ,REQ_USER_NM
+        )
+        VALUES (
+            #{ses.gateCd}
+            ,#{CUST_CD}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(HIS_SEQ)+1,1) FROM STOCCUTS  WHERE GATE_CD = #{ses.gateCd} AND CUST_CD= #{CUST_CD})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{PREV_TIER}
+            ,#{AFTER_TIER}
+            ,#{AMEND_REASON}
+            ,#{REQ_USER_NM}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+	<!-- Tier : 사용안함 -->
+    <select id="bs01005_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT
+              <include refid="com.sql.toDateChar"/>(MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+            , <include refid="com.sql.dbo"/>getUserName(GATE_CD, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            , REQ_USER_NM
+            , AMEND_REASON
+            , PREV_TIER
+            , AFTER_TIER
+         FROM STOCCUTS
+        WHERE GATE_CD = #{ses.gateCd}
+          AND DEL_FLAG = '0'
+          AND CUST_CD = #{CUST_CD}
+        ORDER BY MOD_DATE DESC
+    </select>
+
+	<!-- 고객사부서 -->
+    <select id="bs01004_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT
+              OGDP.DEPT_CD
+            , OGDP.DEPT_CD AS HIDDEN_DEPT_CD
+            , OGDP.DEPT_NM
+            , OGDP.ACC_CODE
+            , OGDP.PARENT_DEPT_CD
+            ,(CASE WHEN OGDP.DIVISION_YN = '1' THEN <include refid="com.sql.dbo"/>GETCOMPANYNAME(OGDP.GATE_CD, OGDP.BUYER_CD, #{ses.langCd})
+            ELSE (SELECT A.DEPT_NM FROM STOCOGDP A WHERE A.GATE_CD = OGDP.GATE_CD AND A.BUYER_CD = OGDP.BUYER_CD AND A.DEPT_CD = OGDP.PARENT_DEPT_CD) END) AS PARENT_DEPT_NM
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(OGDP.DEL_FLAG, '0') = '0' THEN '1' ELSE '0' END) AS DEL_FLAG
+            , OGDP.DEPT_TYPE
+            , <include refid="com.sql.dbo"/>GETUSERNAME(OGDP.GATE_CD, OGDP.TEAM_LEADER_USER_ID, #{ses.langCd}) AS TEAM_LEADER_USER_NM
+            , OGDP.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+            , OGDP.SEQ
+         FROM STOCOGDP OGDP
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND UPPER(OGDP.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.dbo"/>GETCOMPANYNAME(OGDP.GATE_CD, OGDP.BUYER_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DIVISION_YN != '' and DIVISION_YN != null">
+          AND OGDP.DIVISION_YN = #{DIVISION_YN}
+        </if>
+        <if test="DEPT_TYPE != '' and DEPT_TYPE != null">
+            AND OGDP.DEPT_TYPE = #{DEPT_TYPE}
+        </if>
+        <if test="PARENT_DEPT_CD != '' and PARENT_DEPT_CD != null">
+            AND OGDP.PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND UPPER(OGDP.DEPT_NM) <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY <if test="_databaseId == 'mssql'">convert(INT, OGDP.SEQ)</if><if test="_databaseId == 'oracle'">TO_NUMBER(OGDP.SEQ)</if>, OGDP.LVL, OGDP.INDEPT, OGDP.DEPT_NM
+    </select>
+
+    <select id="bs01004_doSearch_parent" parameterType="hashmap" resultType="hashMap">
+        SELECT
+            OGDP.DEPT_CD
+            ,OGDP.DEPT_CD AS HIDDEN_DEPT_CD
+            ,OGDP.DEPT_NM
+            ,OGDP.ACC_CODE
+            ,OGDP.PARENT_DEPT_CD
+            ,(CASE WHEN OGDP.DIVISION_YN = '1' THEN <include refid="com.sql.dbo"/>GETCOMPANYNAME(OGDP.GATE_CD, OGDP.BUYER_CD, #{ses.langCd})
+            ELSE (SELECT A.DEPT_NM FROM STOCOGDP A WHERE A.GATE_CD = OGDP.GATE_CD AND A.BUYER_CD = OGDP.BUYER_CD AND A.DEPT_CD = OGDP.PARENT_DEPT_CD) END) AS PARENT_DEPT_NM
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(OGDP.DEL_FLAG, '0') = '0' THEN '1' ELSE '0' END) AS DEL_FLAG
+            ,OGDP.DEPT_TYPE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(OGDP.GATE_CD, OGDP.TEAM_LEADER_USER_ID, #{ses.langCd}) AS TEAM_LEADER_USER_NM
+            ,OGDP.TEAM_LEADER_USER_ID AS TEAM_LEADER_USER_ID
+        FROM STOCOGDP OGDP
+        WHERE OGDP.GATE_CD = #{ses.gateCd}
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND UPPER(OGDP.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.dbo"/>GETCOMPANYNAME(OGDP.GATE_CD, OGDP.BUYER_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PARENT_DEPT_CD != '' and PARENT_DEPT_CD != null">
+            AND OGDP.PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>
+
+            <if test="STEP2 != '' and STEP2 != null">
+                AND OGDP.DEPT_TYPE = '200'
+                OR OGDP.DEPT_CD IN (SELECT OGDP.PARENT_DEPT_CD FROM STOCOGDP OGDP
+                WHERE OGDP.GATE_CD =  #{ses.gateCd}
+                  AND UPPER(OGDP.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+                  AND OGDP.DEPT_TYPE ='300'
+                  AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+            </if>
+            <if test="STEP1 != '' and STEP1 != null">
+                AND OGDP.DIVISION_YN='1'
+                OR OGDP.DEPT_CD IN (SELECT T.PARENT_DEPT_CD FROM STOCOGDP T
+                                                           WHERE T.GATE_CD =  #{ses.gateCd}
+                                                             AND UPPER(T.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+                                                             AND T.DEPT_TYPE = '200'
+                                                             AND T.DEPT_CD IN (SELECT OGDP.PARENT_DEPT_CD FROM STOCOGDP OGDP
+                                                                                                         WHERE OGDP.GATE_CD = #{ses.gateCd}
+                                                                                                           AND UPPER(OGDP.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+                                                                                                           AND OGDP.DEPT_TYPE ='300'
+                                                                                                           AND OGDP.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+                                    )
+                OR OGDP.DEPT_CD IN (SELECT T.PARENT_DEPT_CD FROM STOCOGDP T WHERE T.GATE_CD =  #{ses.gateCd}
+                                                                              AND UPPER(T.BUYER_CD) <include refid="com.sql.likeL"/> UPPER(#{CUST_CD}) <include refid="com.sql.likeR"/>
+                                                                              AND T.DEPT_TYPE = '200'
+                                                                              AND T.DEPT_NM <include refid="com.sql.likeL"/> UPPER(#{DEPT_NM}) <include refid="com.sql.likeR"/>)
+            </if>
+        </if>
+
+
+
+        ORDER BY <if test="_databaseId == 'mssql'">convert(INT, OGDP.SEQ)</if><if test="_databaseId == 'oracle'">TO_NUMBER(OGDP.SEQ)</if>, OGDP.LVL, OGDP.INDEPT, OGDP.DEPT_NM
+
+    </select>
+
+	<insert id="bs01002_doMergeTX" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCCUTX<include refid="com.sql.mergeAs"/>TX
+		USING (SELECT #{ses.gateCd} AS GATE_CD, #{CUST_CD} AS COM_CODE, #{TX_SEQ} AS TX_SEQ <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+		  ON (TX.GATE_CD = B.GATE_CD
+		  AND TX.COM_CODE = B.COM_CODE
+		  AND TX.TX_SEQ = B.TX_SEQ)
+		WHEN MATCHED THEN
+		UPDATE SET
+			MOD_DATE= <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,TX_USER_NM = <include refid="com.sql.nvl"/>(#{TX_USER_NM_$TP}, #{TX_USER_NM})
+			,TX_USER_DEPT_NM = #{TX_USER_DEPT_NM}
+			,TX_USER_TEL_NO = <include refid="com.sql.nvl"/>(#{TX_USER_TEL_NO_$TP}, #{TX_USER_TEL_NO})
+			,TX_USER_CELL_NO = <include refid="com.sql.nvl"/>(#{TX_USER_CELL_NO_$TP}, #{TX_USER_CELL_NO})
+			,TX_USER_FAX_NO = <include refid="com.sql.nvl"/>(#{TX_USER_FAX_NO_$TP}, #{TX_USER_FAX_NO})
+			,TX_USER_EMAIL = <include refid="com.sql.nvl"/>(#{TX_USER_EMAIL_$TP}, #{TX_USER_EMAIL})
+			,TX_ASP_ID = <include refid="com.sql.nvl"/>(#{TX_ASP_ID_$TP}, #{TX_ASP_ID})
+		WHEN NOT MATCHED THEN
+		INSERT (
+			GATE_CD
+			,COM_CODE
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,TX_USER_NM
+			,TX_USER_DEPT_NM
+			,TX_USER_TEL_NO
+			,TX_USER_CELL_NO
+			,TX_USER_FAX_NO
+			,TX_USER_EMAIL
+			,TX_ASP_ID
+		) VALUES (
+			#{ses.gateCd}
+			,#{CUST_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,<include refid="com.sql.nvl"/>(#{TX_USER_NM_$TP}, #{TX_USER_NM})
+			,#{TX_USER_DEPT_NM}
+			,<include refid="com.sql.nvl"/>(#{TX_USER_TEL_NO_$TP}, #{TX_USER_TEL_NO})
+			,<include refid="com.sql.nvl"/>(#{TX_USER_CELL_NO_$TP}, #{TX_USER_CELL_NO})
+			,<include refid="com.sql.nvl"/>(#{TX_USER_FAX_NO_$TP}, #{TX_USER_FAX_NO})
+			,<include refid="com.sql.nvl"/>(#{TX_USER_EMAIL_$TP}, #{TX_USER_EMAIL})
+			,<include refid="com.sql.nvl"/>(#{TX_ASP_ID_$TP}, #{TX_ASP_ID})
+		<include refid="com.sql.mergeEnd"/>
+
+	</insert>
+
+	<delete id="bs01002_dodeleteTX" parameterType="hashmap">
+
+		UPDATE STOCCUTX
+		SET DEL_FLAG = '1'
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD    = #{ses.gateCd}
+		AND COM_CODE = #{CUST_CD}
+		AND TX_SEQ = #{TX_SEQ}
+	</delete>
+
+    <select id="existsCust_OPDP" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT
+          COUNT(A.DEPT_CD) AS CNT
+        FROM STOCOGDP A
+        WHERE A.GATE_CD = #{ses.gateCd}
+          AND A.BUYER_CD = #{BUYER_CD}
+          AND A.DEPT_CD = (CASE WHEN #{HIDDEN_DEPT_CD}='' THEN #{DEPT_CD} ELSE (CASE WHEN #{HIDDEN_DEPT_CD} = #{DEPT_CD} THEN NULL ELSE #{DEPT_CD} END) END)
+
+    </select>
+
+    <insert id="bs01004_mergeData" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCOGDP<include refid="com.sql.mergeAs"/>OGDP
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{BUYER_CD} AS BUYER_CD
+                    , #{DEPT_CD} AS DEPT_CD  <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+        ON (OGDP.GATE_CD = B.GATE_CD
+         AND OGDP.BUYER_CD = B.BUYER_CD
+         AND OGDP.DEPT_CD = B.DEPT_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+          MOD_DATE = <include refid="com.sql.sysdate"/>
+          ,MOD_USER_ID = #{ses.userId}
+          ,DEL_FLAG = (CASE WHEN #{DEL_FLAG} = '1' THEN '0' ELSE '1' END)
+          ,DEPT_NM = #{DEPT_NM}
+          ,DEPT_NM_ENG = #{DEPT_NM}
+          ,PARENT_DEPT_CD = #{PARENT_DEPT_CD}
+          ,DEPT_TYPE = #{DEPT_TYPE}
+          ,ACC_CODE = #{ACC_CODE}
+          ,TEAM_LEADER_USER_ID = #{TEAM_LEADER_USER_ID}
+          ,SEQ = #{SEQ}
+
+        WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,BUYER_CD
+            ,DEPT_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,DEPT_NM
+            ,DEPT_NM_ENG
+            ,PARENT_DEPT_CD
+            --,ADDR
+            --,ADDR_ENG
+            --,TEL_NUM
+            --,FAX_NUM
+            --,DEPT_CHIEF_NM
+            ,DEPT_TYPE
+            ,ACC_CODE
+            --,LVL
+            --,INDEPT
+            ,TEAM_LEADER_USER_ID
+            ,SEQ
+            ,DIVISION_YN
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{BUYER_CD}
+          ,#{DEPT_CD}
+          ,<include refid="com.sql.sysdate"/>
+          ,#{ses.userId}
+          ,<include refid="com.sql.sysdate"/>
+          ,#{ses.userId}
+          ,(CASE WHEN #{DEL_FLAG} = '1' THEN '0' ELSE '1' END)
+          ,#{DEPT_NM}
+          ,#{DEPT_NM}
+          ,#{PARENT_DEPT_CD}
+          ,#{DEPT_TYPE}
+          ,#{ACC_CODE}
+          ,#{TEAM_LEADER_USER_ID}
+          ,#{SEQ}
+          ,#{DIVISION_YN}
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <select id="bs01003_doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+            CUST.GATE_CD
+            , CUST.CUST_CD
+            , CUST.CUST_NM
+            , <include refid="com.sql.nvl"/>(CUST.MANAGE_ID, CUST.AM_USER_ID) AS AM_USER_ID
+            , <include refid="com.sql.dbo"/>getUserName(CUST.GATE_CD, <include refid="com.sql.nvl"/>(CUST.MANAGE_ID, CUST.AM_USER_ID), #{ses.langCd}) AS AM_USER_NM
+            , CUCL.CLOSING_SEQ
+            , <include refid="com.sql.lpad"/>(<include refid="com.sql.nvl"/>(CUCL.CLOSING_CNT, 1), 2, '0') AS CLOSING_CNT
+            , <include refid="com.sql.nvl"/>(CUCL.CLOSING_START_DATE, '01') AS CLOSING_START_DATE
+            , <include refid="com.sql.nvl"/>(CUCL.CLOSING_END_DATE, '01') AS CLOSING_END_DATE
+            , CUCL.YEAR_MONTH
+            , CUCL.DOC_TYPE
+            , 'U' AS INSERT_FLAG
+        FROM STOCCUST CUST LEFT OUTER JOIN STOCCUCL CUCL
+        ON (CUST.GATE_CD = CUCL.GATE_CD
+        AND CUST.CUST_CD = CUCL.CUST_CD
+        AND CUCL.DEL_FLAG = '0')
+        WHERE CUST.GATE_CD = #{ses.gateCd}
+        AND CUST.DEL_FLAG = '0'
+
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND CUST.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="AM != '' and AM != null">
+            AND <include refid="com.sql.nvl"/>(CUST.MANAGE_ID, CUST.AM_USER_ID) = #{AM}
+        </if>
+        <if test="YEAR_MONTH != '' and YEAR_MONTH != null">
+            AND CUCL.YEAR_MONTH = #{YEAR_MONTH}
+        </if>
+    </select>
+
+    <insert id="bs01003_mergeData" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCCUCL<include refid="com.sql.mergeAs"/>CUCL
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS CUST_CD
+                    , (CASE WHEN #{CLOSING_SEQ} ='' THEN 0 ELSE <if test="_databaseId == 'mssql'">convert(INT, #{CLOSING_SEQ})</if><if test="_databaseId == 'oracle'">TO_NUMBER(#{CLOSING_SEQ})</if> END) AS CLOSING_SEQ  <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+        ON (CUCL.GATE_CD = B.GATE_CD
+          AND CUCL.CUST_CD = B.CUST_CD
+          AND CUCL.CLOSING_SEQ = B.CLOSING_SEQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+            ,CLOSING_CNT =#{CLOSING_CNT}
+            ,CLOSING_START_DATE =#{CLOSING_START_DATE}
+            ,CLOSING_END_DATE =#{CLOSING_END_DATE}
+            ,YEAR_MONTH =#{YEAR_MONTH}
+            ,DOC_TYPE =#{DOC_TYPE}
+        WHEN NOT MATCHED THEN
+        INSERT (
+            GATE_CD
+            ,CUST_CD
+            ,CLOSING_SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,CLOSING_CNT
+            ,CLOSING_START_DATE
+            ,CLOSING_END_DATE
+            ,YEAR_MONTH
+            ,DOC_TYPE
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{CUST_CD}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(CLOSING_SEQ),0) +1 FROM STOCCUCL WHERE GATE_CD=#{ses.gateCd} AND CUST_CD=#{CUST_CD})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{CLOSING_CNT}
+            ,#{CLOSING_START_DATE}
+            ,#{CLOSING_END_DATE}
+            ,#{YEAR_MONTH}
+            ,#{DOC_TYPE}
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs01003_doDelete" parameterType="hashmap">
+        UPDATE STOCCUCL SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND CLOSING_SEQ = <if test="_databaseId == 'mssql'">convert(INT, #{CLOSING_SEQ})</if><if test="_databaseId == 'oracle'">TO_NUMBER(#{CLOSING_SEQ})</if>
+    </update>
+
+
+
+
+
+    <select id="bs01003_doCheckIrsNo" parameterType="hashmap" resultType="java.lang.String">
+        SELECT
+            (CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END)
+        FROM(
+
+                SELECT '1'
+                FROM STOCCUST
+                WHERE GATE_CD = #{ses.gateCd}
+                      AND IRS_NUM = #{IRS_NUM}
+            )A
+    </select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</mapper>

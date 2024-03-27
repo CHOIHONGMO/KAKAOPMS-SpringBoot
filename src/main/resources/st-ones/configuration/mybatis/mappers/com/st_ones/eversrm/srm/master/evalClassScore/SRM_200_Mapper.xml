@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.master.evalClassScore.SRM_200_Mapper">
+
+	<select id="doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT EVSS.EVAL_YEAR
+		    , EVSS.EVAL_GRADE_CLS
+		    , EVSS.FROM_VALUE
+		    , EVSS.FROM_CONDITION_CD
+		    , EVSS.TO_VALUE
+		    , EVSS.TO_CONDITION_CD
+		    , EVSS.PURCHASE_TYPE
+		FROM STOCEVSS EVSS
+		WHERE GATE_CD = #{ses.gateCd}
+	        AND DEL_FLAG = '0'
+			<if test="EVAL_YEAR != '' and EVAL_YEAR != null">
+				AND EVSS.EVAL_YEAR = #{EVAL_YEAR}
+			</if>
+			<if test="EVAL_GRADE_CLS != '' and EVAL_GRADE_CLS != null">
+	            AND EVSS.EVAL_GRADE_CLS = #{EVAL_GRADE_CLS}
+	        </if>
+			<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+	            AND EVSS.PURCHASE_TYPE = #{PURCHASE_TYPE}
+	        </if>
+		ORDER BY EVSS.EVAL_YEAR DESC, EVSS.PURCHASE_TYPE, EVSS.EVAL_GRADE_CLS
+	</select>
+	
+	<insert id="doInsertEvalClassScore" parameterType="hashMap">
+        INSERT 
+        INTO STOCEVSS (
+              GATE_CD
+            , EVAL_YEAR
+            , EVAL_GRADE_CLS
+            , FROM_VALUE
+            , FROM_CONDITION_CD
+            , TO_VALUE
+            , TO_CONDITION_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , PURCHASE_TYPE
+        ) 
+        VALUES (
+              #{ses.gateCd}
+            , #{EVAL_YEAR}
+            , #{EVAL_GRADE_CLS}
+            , #{FROM_VALUE} 
+            , #{FROM_CONDITION_CD}
+            , #{TO_VALUE}
+            , #{TO_CONDITION_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{PURCHASE_TYPE_R}
+        )
+	</insert>
+	
+    <insert id="doUpdateEvalClassScore" parameterType="hashMap">
+        UPDATE 
+        STOCEVSS SET 
+              EVAL_YEAR = #{EVAL_YEAR}
+            , EVAL_GRADE_CLS = #{EVAL_GRADE_CLS}
+            , FROM_VALUE = #{FROM_VALUE} 
+            , FROM_CONDITION_CD = #{FROM_CONDITION_CD}
+            , TO_VALUE = #{TO_VALUE}
+            , TO_CONDITION_CD = #{TO_CONDITION_CD}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '0'
+        WHERE GATE_CD = #{ses.gateCd}
+            AND EVAL_GRADE_CLS = #{EVAL_GRADE_CLS}
+            AND EVAL_YEAR = #{EVAL_YEAR}
+            AND PURCHASE_TYPE = #{PURCHASE_TYPE_R}
+    </insert>	
+    
+    <select id="doSearchDetail" parameterType="hashMap" resultType="hashMap">
+        SELECT EVSS.EVAL_YEAR
+            , CODD.CODE AS EVAL_GRADE_CLS
+            , <include refid="com.sql.nvl"/>(EVSS.FROM_VALUE, 0.0) AS FROM_VALUE
+            , EVSS.FROM_CONDITION_CD
+            , <include refid="com.sql.nvl"/>(EVSS.TO_VALUE, 0.0) AS TO_VALUE
+            , EVSS.TO_CONDITION_CD
+            , EVSS.PURCHASE_TYPE
+        FROM STOCCODD CODD LEFT OUTER JOIN STOCEVSS EVSS
+	        ON CODD.GATE_CD = EVSS.GATE_CD
+	        AND CODD.CODE = EVSS.EVAL_GRADE_CLS
+	        AND EVSS.EVAL_YEAR = #{EVAL_YEAR}
+	        AND EVSS.PURCHASE_TYPE = #{PURCHASE_TYPE}
+        WHERE CODD.GATE_CD = #{ses.gateCd}
+	        AND CODD.CODE_TYPE = 'M126'
+	        AND CODD.LANG_CD = #{ses.langCd}
+	        AND CODD.DEL_FLAG = '0'
+        ORDER BY CODD.CODE
+    </select>
+    
+    <select id="checkExistEvalClassScore" parameterType="hashMap" resultType="int">
+        SELECT COUNT(*) FROM STOCEVSS 
+        WHERE GATE_CD = #{ses.gateCd}
+            AND EVAL_GRADE_CLS = #{EVAL_GRADE_CLS}
+            AND EVAL_YEAR = #{EVAL_YEAR}
+            AND PURCHASE_TYPE = #{PURCHASE_TYPE_R}
+    </select>
+</mapper>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prRequestReg.BPRM_040_Mapper">
+
+    <select id="doPreviousPrSearch" resultType="hashMap">
+        SELECT PRHD.PR_NUM
+        , PRHD.SUBJECT
+        , <include refid="com.sql.dbo"/>GETGMTDATE( PRHD.REQ_DATE,#{ses.userGmt},#{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS REQ_DATE
+        , <include refid="com.sql.dbo"/>GETDEPTNAME(#{ses.gateCd},#{ses.companyCd},USERS.DEPT_CD,#{ses.langCd}) AS
+        REQ_DEPT_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd},PRHD.REQ_USER_ID,#{ses.langCd}) AS REQ_USER_ID
+        , PRHD.PR_TYPE
+        , PRHD.CUR
+        , PRHD.PR_AMT
+        FROM STOCPRHD PRHD
+        LEFT JOIN STOCUSER USERS
+        ON ( PRHD.REQ_USER_ID = USERS.USER_ID
+        AND USERS.DEL_FLAG = '0'
+        AND USERS.GATE_CD = PRHD.GATE_CD)
+        WHERE PRHD.DEL_FLAG = '0'
+        AND (PRHD.BUYER_REQ_CD IN
+        ( SELECT #{ses.companyCd} <include refid="com.sql.dual"/>
+        UNION
+        SELECT BUYER_CD
+        FROM STOCOGCM
+        WHERE REAL_BUYER_CD = #{ses.companyCd}
+        AND DEL_FLAG = '0'
+        AND GATE_CD = #{ses.gateCd}))
+        <if test="PR_FROM_DATE != '' and PR_TO_DATE != '' and PR_FROM_DATE != null and PR_TO_DATE != null">
+            AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{PR_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND
+            <include refid="com.sql.toDate"/>#{PR_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+        <if test="PR_NUM !='' and PR_NUM != null">
+            AND PRHD.PR_NUM <include refid="com.sql.likeL"/> #{PR_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_NUM !='' and PR_NUM != null">
+            AND PRHD.PR_NUM <include refid="com.sql.likeL"/> #{PR_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_SUBJECT != '' and PR_SUBJECT != null">
+            AND PRHD.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="PR_TYPE !='' and PR_TYPE != null">
+            AND PRHD.PR_TYPE = #{PR_TYPE}
+        </if>
+
+        <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD, PRHD.REQ_USER_ID, #{ses.langCd})
+          <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY PRHD.REQ_DATE DESC, PRHD.PR_NUM DESC
+    </select>
+
+</mapper>

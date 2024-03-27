@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.BOG_020_Mapper">
+
+	<select id="selectGoodsReceiptList" parameterType="hashmap" resultType="hashmap">
+
+		SELECT GRDT.GR_NUM
+			  ,<include refid="com.sql.dbo"/>getGmtDate(GRDT.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS GR_DATE
+			  ,GRDT.PLANT_CD
+		      ,GRDT.VENDOR_CD
+		      ,<include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		      ,GRDT.ITEM_CD
+		      ,GRDT.ITEM_DESC
+		      ,GRDT.ITEM_SPEC
+		      ,GRDT.UNIT_CD
+		      ,GRDT.GR_QT
+		      ,GRDT.UNIT_PRC
+		      ,GRDT.GR_AMT
+		      ,<include refid="com.sql.dbo"/>GETUSERNAME(GRDT.GATE_CD, GRDT.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+		      ,GRDT.PURCHASE_TYPE
+		      ,GRDT.INV_NUM
+		      ,PODT.PO_QT
+		      ,<include refid="com.sql.dbo"/>getGmtDate(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS PO_CREATE_DATE
+		      ,<include refid="com.sql.dbo"/>getGmtDate(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS DUE_DATE
+			  ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.REG_USER_ID, #{ses.langCd}) AS PO_REG_USER_NM
+			  ,DLDT.DEAL_NUM
+			  ,<include refid="com.sql.dbo"/>getGmtDate(GRDT.PROOF_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS PROOF_DATE
+			  ,GRDT.ACCOUNT_CD
+			  ,GRDT.COST_CD
+			  ,GRDT.TAX_CD
+              ,PRDT.PLAN_NUM
+			  -- HIDDEN COLUMNS
+			  ,GRDT.GR_YEAR
+		      ,GRDT.GR_SQ
+              ,GRDT.ORIGIN_GR_NUM
+              ,GRDT.CANCEL_FLAG
+              ,GRDT.PO_NUM
+              ,GRDT.PO_SQ
+              ,GRDT.CUR
+              ,GRDT.REG_USER_ID
+              ,GRDT.GR_REMARK
+              ,POHD.INSPECT_USER_ID
+              ,GRDT.SAP_GR_NUM
+              ,GRDT.BUYER_CD
+              ,POHD.PUR_ORG_CD
+		  FROM STOCGRDT GRDT
+		  LEFT OUTER JOIN STOCPODT PODT
+			  ON (GRDT.GATE_CD = PODT.GATE_CD
+			  AND GRDT.PO_NUM = PODT.PO_NUM
+			  AND GRDT.PO_SQ = PODT.PO_SQ
+			  AND PODT.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCPOHD POHD
+			  ON (PODT.GATE_CD = POHD.GATE_CD
+			  AND PODT.PO_NUM = POHD.PO_NUM
+			  AND POHD.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCDLDT DLDT
+			  ON (GRDT.GATE_CD = DLDT.GATE_CD
+			  AND GRDT.GR_NUM = DLDT.GR_NUM
+			  AND GRDT.GR_SQ = DLDT.GR_SQ
+			  AND DLDT.DEL_FLAG = '0')
+		<if test="MAT_GROUP != null and MAT_GROUP != ''">
+          JOIN STOCMTGL MTGL
+	          ON (GRDT.GATE_CD = MTGL.GATE_CD
+	          AND GRDT.ITEM_CD = MTGL.ITEM_CD
+	          AND MTGL.DEL_FLAG = '0'
+              AND MTGL.MAT_GROUP = #{MAT_GROUP})
+		</if>
+          LEFT OUTER JOIN STOCPRDT PRDT
+	          ON (PODT.GATE_CD = PRDT.GATE_CD
+	          AND PODT.PR_NUM = PRDT.PR_NUM
+	          AND PODT.PR_SQ = PRDT.PR_SQ
+	          AND PRDT.DEL_FLAG = '0')
+		 WHERE GRDT.GATE_CD = #{ses.gateCd}
+		   AND GRDT.DEL_FLAG = '0'
+           <!-- 
+         	PF0055 : 부품구매 OR 구매원가
+         	PF0054 : 일반구매
+         	
+         	부품구매 / 일반구매 구분해서 조회한다.
+ 		   -->
+ 		   <!-- 
+ 		   AND CASE WHEN #{ses.grantedAuthCd} = 'PF0055' or #{ses.grantedAuthCd} = 'PF0057' THEN
+ 			 		     CASE WHEN GRDT.PURCHASE_TYPE = 'NORMAL' THEN '1' ELSE '0' END
+ 			 	    WHEN #{ses.grantedAuthCd} = 'PF0054' THEN
+ 			 		     CASE WHEN GRDT.PURCHASE_TYPE != 'NORMAL' THEN '1' ELSE '0' END
+ 			 	    ELSE '1'
+ 			   END = '1'
+ 			    -->
+		   <!-- 현재 사용자의 PLANT 만 조회한다. -->
+		   AND EXISTS (SELECT 'X' FROM STOCUSPL USPL 
+					    WHERE USPL.GATE_CD = GRDT.GATE_CD 
+						  AND USPL.PLANT_CD = GRDT.PLANT_CD 
+						  AND USPL.USER_ID = #{ses.userId}
+						  AND USPL.DEL_FLAG = '0')
+		
+		<if test="GR_FROM_DATE != null and GR_FROM_DATE != '' and GR_TO_DATE != null and GR_TO_DATE != ''">
+			<if test='_databaseId=="oracle"'>
+				AND GRDT.GR_DATE BETWEEN TO_DATE(#{GR_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND TO_DATE(#{GR_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+			<if test='_databaseId=="mssql"'>
+				AND GRDT.GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			</if>
+		</if>
+		<if test="GR_NUM != null and GR_NUM != ''">
+			AND GRDT.GR_NUM <include refid="com.sql.likeL"/> #{GR_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="GR_REG_USER_NM != null and GR_REG_USER_NM != ''">
+			AND <include refid="com.sql.dbo"/>GETUSERNAME(GRDT.GATE_CD, GRDT.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{GR_REG_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CD != null and ITEM_CD != ''">
+			AND GRDT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_CD != null and PLANT_CD != ''">
+			AND GRDT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="COMBO_NUM != null and COMBO_NUM != ''">
+			<choose>
+				<when test="COMBO_DATA == 'PO_NUM'">
+					AND GRDT.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+				</when>
+				<when test="COMBO_DATA == 'GR_NUM'">
+					AND GRDT.GR_NUM <include refid="com.sql.likeL"/> #{GR_NUM} <include refid="com.sql.likeR"/>
+				</when>
+				<when test="COMBO_DATA == 'INV_NUM'">
+					AND GRDT.INV_NUM <include refid="com.sql.likeL"/> #{INV_NUM} <include refid="com.sql.likeR"/>
+				</when>
+			</choose>
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+			AND <include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_DESC != null and ITEM_DESC != ''">
+			AND ${ITEM_DESC_L} GRDT.ITEM_DESC + GRDT.ITEM_SPEC ${ITEM_DESC_R}
+		</if>
+		<choose>
+			<when test="DEAL_FLAG eq '1'.toString()">
+				AND DLDT.DEAL_NUM IS NOT NULL OR DLDT.DEAL_NUM != ''
+			</when>
+			<when test="DEAL_FLAG eq '0'.toString()">
+				AND DLDT.DEAL_NUM IS NULL OR DLDT.DEAL_NUM = ''
+			</when>
+		</choose>
+		<if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+			AND GRDT.PURCHASE_TYPE IN ${PURCHASE_TYPE}
+		</if>
+		
+		<if test="PLAN_NUM != null and PLAN_NUM != ''">
+			AND PRDT.PLAN_NUM <include refid="com.sql.likeL"/> #{PLAN_NUM} <include refid="com.sql.likeR"/>
+		</if>
+
+        <if test="CANCEL_FLAG != null and CANCEL_FLAG != ''">
+            <choose>
+                <when test="CANCEL_FLAG eq '1'.toString()">
+                    AND GRDT.CANCEL_FLAG = 'Y'
+                </when>
+                <when test="CANCEL_FLAG eq '0'.toString()">
+                    AND (GRDT.CANCEL_FLAG = '' OR GRDT.CANCEL_FLAG IS NULL)
+                </when>
+            </choose>
+		</if>
+
+        ORDER BY GRDT.GR_NUM DESC
+	</select>
+
+	<insert id="insertExcelGoodsReceipt" parameterType="hashmap">
+        INSERT INTO STOCGRDT (
+             GATE_CD
+            ,GR_NUM
+            ,GR_YEAR
+            ,GR_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,BUYER_CD
+            ,PLANT_CD
+            ,BUYER_REQ_CD
+            ,ITEM_CD
+            ,ITEM_DESC
+            ,ITEM_SPEC
+            ,UNIT_CD
+            ,VENDOR_CD
+            ,INV_NUM
+            ,INV_SQ
+            ,PO_NUM
+            ,PO_SQ
+            ,GR_DATE
+            ,INSPECT_QT
+            ,UNIT_PRC
+            ,CUR
+            ,GR_AMT
+            ,GR_QT
+            ,GR_CREATE_TYPE
+            ,VAT_CD
+            ,PAY_TERMS
+            ,ORIGIN_GR_NUM
+            ,ORIGIN_GR_YEAR
+            ,ORIGIN_GR_SQ
+            ,SAP_GR_NUM
+            ,PROOF_DATE
+            ,ACCOUNT_CD
+            ,COST_CD
+            ,TAX_CD
+            ,PURCHASE_TYPE
+            ,GR_REMARK
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{GR_NUM}
+            ,#{GR_YEAR}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(GR_SQ), 0)+1
+                FROM STOCGRDT
+               WHERE GATE_CD = #{ses.gateCd}
+		         AND GR_NUM = #{GR_NUM}
+		         AND GR_YEAR = #{GR_YEAR})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,(SELECT BUYER_CD FROM STOCOGPL
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND PLANT_CD = #{PLANT_CD}
+                 AND DEL_FLAG = '0')
+            ,#{PLANT_CD}
+            ,#{BUYER_REQ_CD}
+            ,#{ITEM_CD}
+            ,#{ITEM_DESC}
+            ,#{ITEM_SPEC}
+            ,#{UNIT_CD}
+            ,#{VENDOR_CD}
+            ,#{INV_NUM}
+            ,#{INV_SQ}
+            ,#{PO_NUM}
+            ,#{PO_SQ}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{GR_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- GR_DATE
+            ,#{INSPECT_QT}
+            ,#{UNIT_PRC}
+            ,#{CUR}
+            <choose>
+                <when test="GR_AMT != '' and GR_AMT != null">
+                    ,#{GR_AMT}
+                </when>
+                <otherwise>
+                    ,(${UNIT_PRC} * ${GR_QT})
+                </otherwise>
+            </choose>
+            ,#{GR_QT}
+            ,#{GR_CREATE_TYPE}
+            ,#{VAT_CD}
+            ,#{PAY_TERMS}
+            ,#{ORIGIN_GR_NUM}
+            ,#{ORIGIN_GR_YEAR}
+            ,#{ORIGIN_GR_SQ}
+            ,#{SAP_GR_NUM}
+            ,<include refid="com.sql.dbo"/>setGmtDate(<include refid="com.sql.sysdate"/>, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- PROOF_DATE
+            ,#{ACCOUNT_CD}
+            ,#{COST_CD}
+            ,#{TAX_CD}
+            ,#{PURCHASE_TYPE}
+            ,#{GR_REMARK}
+        )
+	</insert>
+
+    <update id="updateGoodsReceiptCanceled" parameterType="hashmap">
+        UPDATE STOCGRDT
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,CANCEL_FLAG = 'Y'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND GR_NUM = #{GR_NUM}
+           AND GR_YEAR = #{GR_YEAR}
+           AND GR_SQ = #{GR_SQ}
+           AND DEL_FLAG = '0'
+    </update>
+
+	<insert id="insertMinusGoodsReceipt" parameterType="hashmap">
+		INSERT INTO STOCGRDT (
+             GATE_CD
+            ,GR_NUM
+            ,GR_YEAR
+            ,GR_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,BUYER_CD
+            ,PLANT_CD
+            ,BUYER_REQ_CD
+            ,ITEM_CD
+            ,ITEM_DESC
+            ,ITEM_SPEC
+            ,UNIT_CD
+            ,VENDOR_CD
+            ,INV_NUM
+            ,INV_SQ
+            ,PO_NUM
+            ,PO_SQ
+            ,GR_DATE
+            ,INSPECT_QT
+            ,UNIT_PRC
+            ,CUR
+            ,GR_AMT
+            ,GR_QT
+            ,GR_CREATE_TYPE
+            ,VAT_CD
+            ,PAY_TERMS
+            ,ORIGIN_GR_NUM
+            ,ORIGIN_GR_YEAR
+            ,ORIGIN_GR_SQ
+            ,SAP_GR_NUM
+            ,PROOF_DATE
+            ,ACCOUNT_CD
+            ,COST_CD
+            ,TAX_CD
+            ,PURCHASE_TYPE
+            ,CANCEL_FLAG
+            ,GR_REMARK
+		)
+		SELECT GATE_CD
+              ,GR_NUM
+              ,GR_YEAR
+              ,(SELECT <include refid="com.sql.nvl"/>(MAX(GR_SQ), 0)+1
+                 FROM STOCGRDT
+                WHERE GATE_CD = #{ses.gateCd}
+		          AND GR_NUM = #{GR_NUM}
+		          AND GR_YEAR = #{GR_YEAR})
+			  ,<include refid="com.sql.sysdate"/>
+			  ,#{ses.userId}
+			  ,<include refid="com.sql.sysdate"/>
+			  ,#{ses.userId}
+              ,'0'
+              ,BUYER_CD
+              ,PLANT_CD
+              ,BUYER_REQ_CD
+              ,ITEM_CD
+              ,ITEM_DESC
+              ,ITEM_SPEC
+              ,UNIT_CD
+              ,VENDOR_CD
+              ,INV_NUM
+              ,INV_SQ
+              ,PO_NUM
+              ,PO_SQ
+              ,GR_DATE
+              ,INSPECT_QT
+              ,UNIT_PRC
+              ,CUR
+              ,(GR_AMT * -1)
+              ,(GR_QT * -1)
+              ,GR_CREATE_TYPE
+              ,VAT_CD
+              ,PAY_TERMS
+              ,#{GR_NUM}			-- ORIGIN_GR_NUM
+              ,#{GR_YEAR}			-- ORIGIN_GR_YEAR
+              ,#{GR_SQ}				-- ORIGIN_GR_SQ
+              ,''					-- SAP_GR_NUM
+              ,PROOF_DATE
+              ,ACCOUNT_CD
+              ,COST_CD
+              ,TAX_CD
+              ,PURCHASE_TYPE
+              ,'Y' AS CANCEL_FLAG
+              ,#{GR_REMARK}
+          FROM STOCGRDT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND GR_NUM = #{GR_NUM}
+           AND GR_YEAR = #{GR_YEAR}
+           AND GR_SQ = #{GR_SQ}
+           AND DEL_FLAG = '0'
+	</insert>
+
+	<update id="updateGoodsReceiptUnitPrc" parameterType="hashmap">
+        UPDATE STOCGRDT
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,UNIT_PRC = #{UNIT_PRC}
+              ,GR_AMT = (GR_QT * ${UNIT_PRC})
+         WHERE GATE_CD = #{ses.gateCd}
+           AND GR_NUM = #{GR_NUM}
+           AND GR_YEAR = #{GR_YEAR}
+           AND GR_SQ = #{GR_SQ}
+           AND DEL_FLAG = '0'
+	</update>
+
+	<select id="getVendorCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		  FROM STOCVNGL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="getPlantCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		  FROM STOCOGPL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND PLANT_CD = #{PLANT_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="getCostCdCount" parameterType="hashmap" resultType="int">
+        SELECT COUNT(*)
+          FROM STOCCOST COST
+         WHERE COST.GATE_CD = #{ses.gateCd}
+           AND COST.BUYER_CD = (SELECT DISTINCT BUYER_CD FROM STOCOGPL WHERE GATE_CD = COST.GATE_CD AND PLANT_CD = #{PLANT_CD})
+           <!--AND PLANT_CD = #{PLANT_CD}-->
+           AND COST.COST_CD = #{COST_CD}
+           AND COST.DEL_FLAG = '0'
+	</select>
+
+	<select id="getAccountCdCount" parameterType="hashmap" resultType="int">
+        SELECT COUNT(*)
+          FROM STOCACMT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ACCOUNT_CD = #{ACCOUNT_CD}
+           AND DEL_FLAG = '0'
+	</select>
+
+    <select id="getValidUnitPrice" parameterType="hashmap" resultType="string">
+        SELECT <include refid="com.sql.dbo"/>GETPRICEBYCUR(#{CUR}, INFO.UNIT_PRC) AS UNIT_PRC
+          FROM STOCMTGL MTGL
+          JOIN STOCINFO INFO
+            ON(MTGL.GATE_CD = INFO.GATE_CD
+           AND MTGL.ITEM_CD = INFO.ITEM_CD
+           AND INFO.DEL_FLAG = '0')
+         WHERE MTGL.GATE_CD = #{ses.gateCd}
+           AND MTGL.ITEM_CD = #{ITEM_CD}
+           AND INFO.BUYER_CD = #{BUYER_CD}
+           AND INFO.PUR_ORG_CD = #{PUR_ORG_CD}
+           AND INFO.VALID_FROM_DATE <![CDATA[ <= ]]> <include refid="com.sql.sysdate"/>
+           AND INFO.VALID_TO_DATE >= <include refid="com.sql.sysdate"/>
+           AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+           AND MTGL.DEL_FLAG = '0'
+    </select>
+
+</mapper>

@@ -1,0 +1,880 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.eApproval.eApprovalModule.BAPM_Mapper">
+
+    <select id="selectPath" resultType="hashMap">
+
+        SELECT RULM.MAIN_PATH_FLAG
+             , RULM.SIGN_PATH_NM
+             , (SELECT COUNT(PATH_SQ) FROM STOCLULP LULP
+                  JOIN STOCUSER USERTB
+	                   ON (LULP.GATE_CD = USERTB.GATE_CD
+	                   AND LULP.SIGN_USER_ID = USERTB.USER_ID)
+                 WHERE LULP.GATE_CD    = RULM.GATE_CD
+                   AND LULP.PATH_NUM   = RULM.PATH_NUM
+                   AND LULP.DEL_FLAG   = '0'
+                   AND USERTB.DEL_FLAG = '0') PATH_SQ
+             , RULM.SIGN_RMK
+             , <include refid="com.sql.dbo"/>getGmtDate(RULM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , <include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS MOD_DATE
+             , RULM.GATE_CD
+             , RULM.PATH_NUM
+             , '' as MAIN_PATH_NM
+          FROM STOCRULM RULM
+         WHERE RULM.GATE_CD = #{ses.gateCd}
+           AND RULM.DEL_FLAG = '0'
+           AND RULM.PATH_USER_ID = #{ses.userId}
+         <if test="SIGN_PATH_NM != '' and SIGN_PATH_NM != null">
+           AND RULM.SIGN_PATH_NM <include refid="com.sql.likeL"/> #{SIGN_PATH_NM} <include refid="com.sql.likeR"/>
+         </if>
+         ORDER BY REG_DATE DESC
+
+    </select>
+
+    <select id="getMyPath" resultType="hashMap">
+
+        SELECT RULM.SIGN_PATH_NM
+             , (SELECT COUNT( DISTINCT PATH_SQ )
+                  FROM STOCLULP LULP
+                  JOIN USERCVUR_VW USERTB
+	                   ON (LULP.GATE_CD = USERTB.GATE_CD
+	                   AND LULP.SIGN_USER_ID = USERTB.USER_ID)
+                 WHERE LULP.GATE_CD  = RULM.GATE_CD
+                   AND LULP.PATH_NUM = RULM.PATH_NUM
+                   AND LULP.DEL_FLAG = '0') PATH_SQ
+             , <include refid="com.sql.dbo"/>getGmtDate(RULM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , RULM.GATE_CD
+             , RULM.PATH_NUM
+             , RULM.SIGN_RMK
+          FROM STOCRULM RULM
+         WHERE RULM.GATE_CD  = #{ses.gateCd}
+           AND BUYER_CD      = #{ses.companyCd}
+           AND PATH_USER_ID  = #{ses.userId}
+           AND RULM.DEL_FLAG = '0'
+
+    </select>
+
+    <select id="getPathNo" resultType="java.lang.String">
+        SELECT
+        <if test="_databaseId == 'oracle'">
+        	<include refid="com.sql.lpad"/>(<include refid="com.sql.nvl"/>(MAX(TO_NUMBER(PATH_NUM))+1, 1), 10, '0')
+        </if>
+        <if test="_databaseId == 'mssql'">
+        	<include refid="com.sql.lpad"/>(<include refid="com.sql.nvl"/>(MAX(CAST(PATH_NUM AS FLOAT))+1, 1), 10, '0')
+        </if>
+          FROM STOCRULM
+         WHERE  GATE_CD=#{ses.gateCd}
+
+    </select>
+
+    <insert id="insertPath" parameterType="hashMap">
+
+        INSERT INTO STOCRULM (
+               GATE_CD
+             , PATH_NUM
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , MAIN_PATH_FLAG
+             , SIGN_PATH_NM
+             , SIGN_RMK
+             , BUYER_CD
+             , PATH_USER_ID
+        )
+        VALUES (
+        	   UPPER(#{ses.gateCd})
+             , #{PATH_NUM}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , (CASE WHEN <include refid="com.sql.nvl"/>(#{MAIN_PATH_FLAG}, '0') = 'on' THEN '1' ELSE '0' END)
+             , #{SIGN_PATH_NM}
+             , #{SIGN_RMK}
+             , #{ses.companyCd}
+             , #{ses.userId}
+        )
+
+    </insert>
+
+    <update id="updatePath" parameterType="hashMap">
+
+        UPDATE STOCRULM
+        SET    MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MAIN_PATH_FLAG = (CASE WHEN <include refid="com.sql.nvl"/>(#{MAIN_PATH_FLAG}, '0') = 'on' THEN '1' ELSE '0' END)
+             , SIGN_PATH_NM= #{SIGN_PATH_NM}
+             , SIGN_RMK = #{SIGN_RMK}
+        WHERE  GATE_CD  = #{GATE_CD}
+          AND PATH_NUM = #{PATH_NUM}
+
+    </update>
+
+    <update id="deletePath" parameterType="hashMap">
+        UPDATE STOCRULM
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+        WHERE  GATE_CD  = #{GATE_CD}
+          AND PATH_NUM = #{PATH_NUM}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <select id="selectPathDetail" resultType="hashmap">
+
+        SELECT
+        	   LULP.GATE_CD
+             , LULP.PATH_SQ
+             , LULP.SIGN_USER_ID AS SIGN_USER_ID
+             ,<include refid="com.sql.dbo"/>getUserName(LULP.GATE_CD, LULP.SIGN_USER_ID, #{ses.langCd}) AS USER_NM
+             ,<include refid="com.sql.dbo"/>getUserInfo(LULP.GATE_CD, LULP.SIGN_USER_ID, 'DEPT_CD') AS DEPT_CD
+             ,<include refid="com.sql.dbo"/>getUserDeptName(LULP.GATE_CD, LULP.SIGN_USER_ID, #{ses.langCd}) AS DEPT_NM
+             , USERTB.POSITION_NM
+             , USERTB.DUTY_NM
+             , LULP.SIGN_REQ_STATUS
+             , LULP.PATH_NUM
+             , 'R' as INSERT_FLAG
+        FROM STOCLULP LULP
+        JOIN STOCCVUR USERTB
+	         ON (LULP.GATE_CD = USERTB.GATE_CD
+	         AND LULP.SIGN_USER_ID = USERTB.USER_ID
+	         AND USERTB.DEL_FLAG = '0')
+        WHERE LULP.GATE_CD    = #{ses.gateCd}
+          AND LULP.PATH_NUM   = #{PATH_NUM}
+          AND LULP.DEL_FLAG   = '0'
+        ORDER BY LULP.PATH_SQ
+
+    </select>
+
+    <insert id="insertPathDetail" parameterType="hashMap">
+        INSERT
+        INTO   STOCLULP (
+               GATE_CD
+             , PATH_NUM
+             , PATH_SQ
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , SIGN_PATH_SQ
+             , SIGN_REQ_STATUS
+             , SIGN_USER_ID
+             )
+        VALUES (UPPER(#{ses.gateCd})
+             , #{PATH_NUM}
+             , (SELECT <include refid="com.sql.nvl"/>(MAX(PATH_SQ) + 1, 1) FROM STOCLULP WHERE GATE_CD = #{ses.gateCd} AND PATH_NUM = #{PATH_NUM} )
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+              , '0'
+             , (SELECT <include refid="com.sql.nvl"/>(MAX(SIGN_PATH_SQ) + 1, 1) FROM STOCLULP WHERE GATE_CD = #{ses.gateCd} AND PATH_NUM = #{PATH_NUM} )
+             , #{SIGN_REQ_STATUS}
+             , #{SIGN_USER_ID}
+             )
+    </insert>
+
+    <delete id="deleteLULP" parameterType="hashMap">
+        DELETE STOCLULP
+         WHERE GATE_CD  = #{GATE_CD}
+           AND PATH_NUM = #{PATH_NUM}
+    </delete>
+
+    <update id="deletePathDetail" parameterType="hashMap">
+        UPDATE STOCLULP
+        SET    DEL_FLAG = '1'
+             , MOD_USER_ID = #{ses.userId}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD  = #{GATE_CD}
+           AND PATH_NUM = #{PATH_NUM}
+    </update>
+
+    <select id="selectPathPopup" resultType="hashmap">
+
+        SELECT
+          	   SCTP.GATE_CD
+             , SCTP.SIGN_PATH_SQ
+             , SCTP.SIGN_USER_ID
+             , SCTP.SIGN_REQ_TYPE
+             , USERS.USER_NM
+             , SCTP.DEPT_CD
+            , <include refid="com.sql.dbo"/>getUserDeptInfo(#{ses.gateCd}, SCTP.SIGN_USER_ID, #{ses.langCd}) AS DEPT_NM
+             , SCTP.POSITION_NM
+             , SCTP.DUTY_NM
+             ,(CASE WHEN SCTP.SIGN_REQ_TYPE = 'CC' THEN '-' ELSE SCTP.SIGN_STATUS END) AS SIGN_STATUS
+             , SCTP.SIGN_STATUS AS SIGN_STATUS_CD
+		<if test="_databaseId == 'oracle'">
+         	 ,<include refid="com.sql.dbo"/>getGmtDate(SCTP.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') AS SIGN_TIME
+		</if>
+		<if test="_databaseId == 'mssql'">
+         	 ,<include refid="com.sql.dbo"/>getGmtDate(SCTP.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}+' hh24:mi') AS SIGN_TIME
+		</if>
+             , SCTP.SIGN_RMK
+             ,<include refid="com.sql.dbo"/>GETCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, #{ses.langCd}) AS COMPANY_NM
+             ,<include refid="com.sql.dbo"/>getUserPlantName(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS PLANT_NM
+			 ,<include refid="com.sql.dbo"/>getUserDivisionName(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS DIVISION_NM
+        <choose>
+        	<when test='userType == "B"'>
+		  FROM STOCSCTP SCTP <include refid="com.sql.noLock"/>
+          JOIN STOCCVUR USERS
+          	   ON (SCTP.GATE_CD = USERS.GATE_CD
+          	   AND SCTP.SIGN_USER_ID = USERS.USER_ID
+          	   AND USERS.DEL_FLAG = '0')
+          	</when>
+          	<otherwise>
+          FROM STOCSCTP SCTP <include refid="com.sql.noLock"/>
+          JOIN STOCUSER USERS
+          	   ON (SCTP.GATE_CD = USERS.GATE_CD
+          	   AND SCTP.SIGN_USER_ID = USERS.USER_ID
+          	   AND USERS.DEL_FLAG = '0')
+          	</otherwise>
+        </choose>
+         WHERE SCTP.GATE_CD  = #{GATE_CD}
+           AND SCTP.DEL_FLAG = '0'
+           AND SCTP.APP_DOC_NUM = #{APP_DOC_NUM}
+           AND SCTP.APP_DOC_CNT = #{APP_DOC_CNT}
+         ORDER BY SCTP.SIGN_PATH_SQ
+
+    </select>
+
+	<select id="getUserInfoByName" resultType="hashMap">
+
+		SELECT <include refid="com.sql.mtop1"/>
+		       USER_ID,
+		       <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd}) AS USER_NM,
+		       USER_NM_ENG,
+		       DEPT_CD,
+		       POSITION_NM,
+		       DUTY_NM,
+		       <include refid="com.sql.dbo"/>GETDEPTNAME(#{ses.gateCd}, COMPANY_CD , DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		 FROM STOCUSER
+		WHERE GATE_CD  = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+		  AND USE_FLAG = '1'
+		  AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd})) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+		  <include refid="com.sql.otop1"/>
+    </select>
+
+    <select id="matchUserCountByName" resultType="int">
+		SELECT COUNT(*)
+		  FROM STOCUSER
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND DEL_FLAG = '0'
+		   AND USE_FLAG = '1'
+		   AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd})) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+    </select>
+
+    <select id="selectSTOCSCTPSignStatusHistory" resultType="string">
+
+		SELECT SIGN_STATUS
+		  FROM STOCSCTM <include refid="com.sql.noLock"/>
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND SIGN_STATUS NOT IN ('R', 'C', 'E')
+		   AND DEL_FLAG = '0'
+
+    </select>
+
+    <insert id="insertSTOCSCTM" >
+
+        INSERT INTO STOCSCTM (
+			GATE_CD,
+			APP_DOC_NUM,
+			APP_DOC_CNT,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			BUYER_CD,
+			DOC_TYPE,
+			IMPORTANCE_STATUS,
+			SUBJECT,
+			CONTENTS_TEXT_NUM,
+			ATT_FILE_NUM,
+			SIGN_STATUS,
+			NEXT_SIGN_USER_ID,
+			BLSM_USE_FALG,
+			BLSM_STATUS,
+			BLSM_APPLY_FLAG,
+			BLSM_HTML,
+			APP_DOC_NUM2	--G/W 연동시 본사품의번호
+        )
+        VALUES (
+			#{ses.gateCd},
+			#{APP_DOC_NUM},
+			#{APP_DOC_CNT},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{ses.companyCd},
+			#{DOC_TYPE},
+			#{IMPORTANCE_STATUS},
+			#{SUBJECT},
+			#{CONTENTS_TEXT_NUM},
+			#{ATT_FILE_NUM},
+			#{SIGN_STATUS},
+			#{NEXT_SIGN_USER_ID},
+			#{BLSM_USE_FALG},
+			#{BLSM_STATUS},
+			#{BLSM_APPLY_FLAG},
+			#{BLSM_HTML},
+			REPLACE(#{APP_DOC_NUM}, 'AP', 'AE')
+       )
+    </insert>
+
+	<!-- 결재선 저장 -->
+    <insert id="insertSTOCSCTP" >
+
+        INSERT INTO STOCSCTP (
+			GATE_CD,
+			APP_DOC_NUM,
+			APP_DOC_CNT,
+			DOC_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			SIGN_PATH_SQ,
+			SIGN_STATUS,
+			SIGN_REQ_TYPE,
+			SIGN_USER_ID,
+			DEPT_CD,
+			DEPT_NM,
+			DEPT_NM_ENG,
+			POSITION_NM,
+			DUTY_NM,
+			SIGN_RMK,
+			PLANT_CD,
+			DIVISION_CD,
+			PART_CD
+		) VALUES (
+			#{ses.gateCd},
+			#{APP_DOC_NUM},
+			#{APP_DOC_CNT},
+			(SELECT <include refid="com.sql.nvl"/>(MAX(DOC_SQ),0) + 1
+			   FROM STOCSCTP
+			  WHERE GATE_CD     = #{ses.gateCd}
+			    AND APP_DOC_NUM = #{APP_DOC_NUM}
+			    AND APP_DOC_CNT = #{APP_DOC_CNT}),
+			<include refid="com.sql.sysdate"/>,
+			<choose>
+			    <when test="REG_USER_ID !='' and REG_USER_ID !=null">
+			        #{REG_USER_ID},
+			    </when>
+			    <otherwise>
+			        #{ses.userId},
+			    </otherwise>
+			</choose>
+			'0',
+			#{SIGN_PATH_SQ},
+			'P',
+			#{SIGN_REQ_TYPE},
+			#{SIGN_USER_ID},
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DEPT_CD'),
+			<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd}, #{ses.companyCd}, <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'PLANT_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DIVISION_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DEPT_CD'), 'KO'),
+			<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd}, #{ses.companyCd}, <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'PLANT_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DIVISION_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DEPT_CD'), 'EN'),
+			#{POSITION_NM},
+			#{DUTY_NM},
+			#{SIGN_RMK},
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'PLANT_CD'),
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'DIVISION_CD'),
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, #{SIGN_USER_ID}, 'PART_CD')
+		)
+
+    </insert>
+
+	<!-- [미사용] G/W 연동 -->
+	<select id="executeBlossom" statementType="CALLABLE" parameterType="hashmap" resultType="java.util.HashMap">
+
+		call P_HTTP_MAIN(#{SYSTEM_CODE}, #{CONDITION_ID}, #{SYSTEM_KEY}, #{LYSP_PARAM}
+			   ,#{av_ret_code,    mode=OUT, javaType=string, jdbcType=VARCHAR}
+			   ,#{av_ret_message, mode=OUT, javaType=string, jdbcType=VARCHAR} )
+
+	</select>
+
+	<!-- G/W 연동결과 등록 -->
+	<update id="doUpdateApprovalRequest" parameterType="hashMap">
+
+		<if test='BLSM_STATUS == "P" and BLSM_STATUS != null'>
+
+		UPDATE STOCSCTM <include refid="com.sql.rowLock"/>
+           SET BLSM_STATUS = #{BLSM_STATUS}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = #{APP_DOC_CNT}
+		   AND BLSM_STATUS != 'S'
+
+		</if>
+
+		<if test='BLSM_STATUS == "W" and BLSM_STATUS != null'>
+
+		UPDATE STOCSCTM <include refid="com.sql.rowLock"/>
+           SET BLSM_MSG = #{BLSM_MSG}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = #{APP_DOC_CNT}
+
+		</if>
+
+	</update>
+
+    <select id="getCCuserList" resultType="hashMap">
+
+		SELECT 'CC' AS SIGN_REQ_TYPE
+		      ,LD.REF_USER_ID AS SIGN_USER_ID
+		      ,UR.USER_NM AS SIGN_USER_NM
+		      ,'' AS SIGN_USER_NM_IMG
+		      ,UR.POSITION_NM
+		      ,UR.DEPT_NM
+		      ,UR.DEPT_CD
+		      ,UR.DUTY_NM
+		  FROM STOCDMLD LD LEFT JOIN STOCUSER UR
+			   ON (LD.GATE_CD = UR.GATE_CD
+			   AND LD.REF_USER_ID = UR.USER_ID
+			   AND UR.DEL_FLAG = '0')
+		 WHERE LD.GATE_CD  = #{ses.gateCd}
+		   AND LD.DML_TYPE = 'REF'
+		   AND LD.REF_CD   = #{REF_CD}
+		   AND LD.DEL_FLAG = '0'
+		   AND LD.USE_FLAG = '1'
+		 ORDER BY UR.POSITION_CD
+    </select>
+
+    <select id="getCurrentDocCount" resultType="string">
+        SELECT <include refid="com.sql.nvl"/>(MAX(APP_DOC_CNT),0)
+          FROM STOCSCTM WHERE GATE_CD = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+    </select>
+
+    <select id="getAuthorizedCount" resultType="int">
+
+       SELECT COUNT(*)
+         FROM STOCSCTP SCTP <include refid="com.sql.noLock"/>
+         LEFT JOIN STOCSCTM SCTM <include refid="com.sql.noLock"/>
+	          ON (SCTM.GATE_CD = SCTP.GATE_CD
+	          AND SCTM.APP_DOC_NUM = SCTP.APP_DOC_NUM
+	          AND SCTM.APP_DOC_CNT = SCTP.APP_DOC_CNT)
+        WHERE SCTM.GATE_CD = #{ses.gateCd}
+          AND SCTM.APP_DOC_NUM = #{APP_DOC_NUM}
+          AND SCTM.APP_DOC_CNT = #{APP_DOC_CNT}
+          AND (SCTM.REG_USER_ID = #{ses.userId}
+                OR (SCTP.SIGN_STATUS IN ('E', 'R') AND SCTP.SIGN_USER_ID = #{ses.userId})
+                OR (SCTP.SIGN_REQ_TYPE = 'CC' AND SCTP.SIGN_USER_ID = #{ses.userId})
+                OR (SCTM.NEXT_SIGN_USER_ID = #{ses.userId}))
+          AND SCTM.DEL_FLAG = '0'
+          AND SCTP.DEL_FLAG = '0'
+
+    </select>
+
+     <select id="selectMySignStatus" resultType="string">
+
+        SELECT DISTINCT SIGN_STATUS AS MY_SIGN_STATUS
+          FROM STOCSCTP <include refid="com.sql.noLock"/>
+         WHERE GATE_CD      = #{ses.gateCd}
+           AND APP_DOC_NUM  = #{APP_DOC_NUM}
+           AND APP_DOC_CNT  = #{APP_DOC_CNT}
+           AND SIGN_USER_ID = #{ses.userId}
+           AND SIGN_PATH_SQ = #{SIGN_PATH_SQ}
+           AND DEL_FLAG     = '0'
+
+    </select>
+
+    <select id="selectSTOCSCTM" resultType="hashMap">
+
+		SELECT
+			 GATE_CD,
+             APP_DOC_NUM,
+             APP_DOC_CNT,
+             DOC_TYPE,
+             IMPORTANCE_STATUS,
+             <include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M053', IMPORTANCE_STATUS, 0, #{ses.langCd}) AS IMPORTANCE_STATUS_NM,
+             <if test="_databaseId == 'oracle'">
+             	<include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi:ss') AS MOD_DATE,
+             </if>
+             <if test="_databaseId == 'mssql'">
+             	<include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}+' hh24:mi:ss') AS MOD_DATE,
+             </if>
+             <include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS MOD_DATE,
+             SUBJECT,
+             <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM,
+             CONTENTS_TEXT_NUM,
+             ATT_FILE_NUM,
+             SIGN_STATUS,
+             <include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M038', DOC_TYPE, 0, #{ses.langCd}) AS DOC_TITLE,
+             REG_USER_ID
+        FROM STOCSCTM
+       WHERE GATE_CD  = #{ses.gateCd}
+         AND APP_DOC_NUM = #{APP_DOC_NUM}
+         AND APP_DOC_CNT = #{APP_DOC_CNT}
+         AND DEL_FLAG = '0'
+
+    </select>
+
+    <select id="selectSTOCSCTP" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	  SCTP.SIGN_PATH_SQ
+            ,(CASE WHEN SCTP.SIGN_REQ_TYPE = 'CC' THEN '-' ELSE SCTP.SIGN_STATUS END) AS SIGN_STATUS
+            , SCTP.SIGN_REQ_TYPE
+            , SCTP.SIGN_USER_ID
+            , <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, SCTP.SIGN_USER_ID, #{ses.langCd}) AS SIGN_USER_NM
+            , <include refid="com.sql.dbo"/>getGmtDate(SCTP.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SIGN_DATE
+            , SCTP.SIGN_RMK
+            , SCTP.DEPT_CD
+            , getUserDeptInfo(SCTP.GATE_CD, SCTP.SIGN_USER_ID, #{ses.langCd}) AS DEPT_NM
+            , SCTP.POSITION_NM
+            , SCTP.DUTY_NM
+            , SCTM.BUYER_CD
+		    ,<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, SCTM.BUYER_CD, #{ses.langCd}) AS COMPANY_NM
+            , SCTP.PLANT_CD
+		    ,<include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, SCTM.BUYER_CD, SCTP.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+            , SCTP.DIVISION_CD
+		    ,<include refid="com.sql.dbo"/>getDivisionNm(#{ses.gateCd}, SCTM.BUYER_CD, SCTP.PLANT_CD, SCTP.DIVISION_CD, #{ses.langCd}) AS DIVISION_NM
+            , SCTP.PART_CD
+		    ,<include refid="com.sql.dbo"/>getPartNm(#{ses.gateCd}, SCTM.BUYER_CD, SCTP.PLANT_CD, SCTP.DIVISION_CD, SCTP.DEPT_CD, SCTP.PART_CD, #{ses.langCd}) AS PART_NM
+          FROM STOCSCTP SCTP
+          JOIN STOCSCTM SCTM
+          	   ON (SCTP.GATE_CD  = SCTM.GATE_CD
+          	   AND SCTP.APP_DOC_NUM = SCTM.APP_DOC_NUM
+          	   AND SCTP.APP_DOC_CNT = SCTM.APP_DOC_CNT)
+         WHERE SCTP.GATE_CD     = #{ses.gateCd}
+           AND SCTP.APP_DOC_NUM = #{APP_DOC_NUM}
+           AND SCTP.APP_DOC_CNT = #{APP_DOC_CNT}
+           AND SCTP.DEL_FLAG    = '0'
+         ORDER BY SCTP.SIGN_PATH_SQ
+    </select>
+
+    <update id="updateSTOCSCTP">
+        UPDATE STOCSCTP SET
+            SIGN_STATUS = #{SIGN_STATUS}
+            , SIGN_RMK = #{SIGN_RMK}
+            , SIGN_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD    = #{ses.gateCd}
+          AND APP_DOC_NUM  = #{APP_DOC_NUM}
+          AND APP_DOC_CNT  = #{APP_DOC_CNT}
+          AND SIGN_USER_ID = #{ses.userId}
+          AND SIGN_PATH_SQ = #{SIGN_PATH_SQ}
+          AND DEL_FLAG     = '0'
+    </update>
+
+    <select id="getNextSignUserCnt" resultType="java.lang.Integer">
+
+        SELECT COUNT(SIGN_USER_ID)
+          FROM STOCSCTP
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND SIGN_REQ_TYPE IN ('A','E')
+          AND DEL_FLAG = '0'
+
+		<if test="_databaseId == 'oracle'">
+        AND SIGN_PATH_SQ <![CDATA[>=]]> (SELECT DISTINCT SIGN_PATH_SQ + 1
+		                                    FROM STOCSCTP
+		                                   WHERE GATE_CD = #{ses.gateCd}
+		                                     AND APP_DOC_NUM = #{APP_DOC_NUM}
+		                                     AND APP_DOC_CNT = #{APP_DOC_CNT}
+		                                     AND SIGN_PATH_SQ = #{SIGN_PATH_SQ}
+		                                     AND SIGN_USER_ID = #{ses.userId})
+		</if>
+		<if test="_databaseId == 'mssql'">
+        AND CONVERT(INT, SIGN_PATH_SQ) <![CDATA[>=]]> CONVERT(INT, (SELECT DISTINCT SIGN_PATH_SQ + 1
+                                                                    FROM STOCSCTP
+                                                                    WHERE GATE_CD = #{ses.gateCd}
+                                                                    AND APP_DOC_NUM = #{APP_DOC_NUM}
+                                                                    AND APP_DOC_CNT = #{APP_DOC_CNT}
+                                                                    AND SIGN_PATH_SQ = #{SIGN_PATH_SQ}
+                                                                    AND SIGN_USER_ID = #{ses.userId}))
+		</if>
+
+    </select>
+
+    <select id="getNextSignUserId" resultType="java.util.Map">
+
+        SELECT SIGN_USER_ID AS SIGN_USER_ID
+          FROM STOCSCTP
+        WHERE GATE_CD = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND DEL_FLAG = '0'
+          AND SIGN_PATH_SQ IN (SELECT DISTINCT SIGN_PATH_SQ
+                                 FROM STOCSCTP
+                                WHERE GATE_CD  = #{ses.gateCd}
+                                  AND APP_DOC_NUM  = #{APP_DOC_NUM}
+                                  AND APP_DOC_CNT  = #{APP_DOC_CNT}
+                                  AND SIGN_STATUS != 'E'
+                                  AND DEL_FLAG = '0'
+                                  AND SIGN_REQ_TYPE != 'CC')
+    </select>
+
+    <update id="setNextUser" >
+
+        UPDATE STOCSCTM
+           SET NEXT_SIGN_USER_ID = #{NEXT_SIGN_USER_ID},
+               MOD_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+           AND APP_DOC_CNT = #{APP_DOC_CNT}
+           AND DEL_FLAG = '0'
+
+    </update>
+
+    <update id="updateSTOCSCTM" >
+
+        UPDATE STOCSCTM SET
+        	SIGN_STATUS = #{SIGN_STATUS},
+        	MOD_DATE = <include refid="com.sql.sysdate"/>,
+        	MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND DEL_FLAG = '0'
+
+    </update>
+
+    <select id="getNextSignPathSeq" resultType="string">
+        SELECT <include refid="com.sql.mtop1"/> SIGN_PATH_SQ
+        FROM STOCSCTP
+        WHERE GATE_CD = #{ses.gateCd}
+        AND APP_DOC_NUM = #{APP_DOC_NUM}
+        AND APP_DOC_CNT = #{APP_DOC_CNT}
+        AND SIGN_STATUS = 'P'
+        AND DEL_FLAG = '0'
+        AND SIGN_USER_ID = (SELECT NEXT_SIGN_USER_ID
+                            FROM STOCSCTM
+                            WHERE GATE_CD = #{ses.gateCd}
+                            AND APP_DOC_NUM = #{APP_DOC_NUM}
+                            AND APP_DOC_CNT = #{APP_DOC_CNT}
+                            AND DEL_FLAG = '0')
+         AND DEL_FLAG = '0'
+        <include refid="com.sql.otop1"/>
+    </select>
+
+    <select id="getUpdateFlag" resultType="java.lang.String">
+
+        SELECT (CASE WHEN SIGN_DATE IS NULL THEN 'Y' ELSE 'N' END) AS UPDATE_FLAG
+        FROM STOCSCTP <include refid="com.sql.noLock"/>
+        WHERE GATE_CD = #{ses.gateCd}
+        AND APP_DOC_NUM = #{APP_DOC_NUM}
+        AND APP_DOC_CNT = #{APP_DOC_CNT}
+        AND SIGN_REQ_TYPE = 'CC'
+        AND SIGN_USER_ID = #{ses.userId}
+        AND DEL_FLAG = '0'
+    </select>
+
+    <update id="updateReadDate">
+
+        UPDATE STOCSCTP <include refid="com.sql.rowLock"/> SET
+            SIGN_DATE  = <include refid="com.sql.sysdate"/>
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND SIGN_REQ_TYPE = 'CC'
+          AND SIGN_USER_ID = #{ses.userId}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <select id="selectLULP" resultType="hashMap">
+        SELECT Z.*
+          FROM (
+	        SELECT DISTINCT
+	        	   LULP.GATE_CD
+	             , LULP.PATH_SQ
+	             , LULP.SIGN_USER_ID
+	             ,<include refid="com.sql.nvl"/>(USERTB.USER_NM, USERTB.USER_NM_ENG) AS USER_NM
+	             ,<include refid="com.sql.nvl"/>(USERTB.USER_NM, USERTB.USER_NM_ENG) AS SIGN_USER_NM
+	             , USERTB.DEPT_CD
+	             ,<include refid="com.sql.dbo"/>getUserDeptName(LULP.GATE_CD, LULP.SIGN_USER_ID, #{ses.langCd}) AS DEPT_NM
+	             , USERTB.POSITION_NM
+	             , USERTB.DUTY_NM
+	             , LULP.SIGN_REQ_STATUS
+	             , LULP.SIGN_REQ_STATUS AS SIGN_REQ_TYPE
+	             , USERTB.COMPANY_CD AS PLANT_CD
+	             , '' AS DIVISION_CD
+	             , USERTB.PART_CD
+	          FROM STOCLULP LULP
+	          JOIN STOCUSER USERTB
+	               ON (LULP.GATE_CD = USERTB.GATE_CD
+	               AND LULP.SIGN_USER_ID = USERTB.USER_ID
+	               AND USERTB.DEL_FLAG = '0')
+	         WHERE LULP.GATE_CD  = #{gateCd}
+	           AND LULP.PATH_NUM = #{pathNo}
+	           AND LULP.DEL_FLAG = '0'
+
+	        UNION ALL
+
+	        SELECT DISTINCT
+	        	   LULP.GATE_CD
+	             , LULP.PATH_SQ
+	             , LULP.SIGN_USER_ID
+	             , CVUR.USER_NM
+	             , CVUR.USER_NM AS SIGN_USER_NM
+	             , CVUR.DEPT_CD
+	             ,<include refid="com.sql.dbo"/>getUserDeptName(LULP.GATE_CD, LULP.SIGN_USER_ID, #{ses.langCd}) AS DEPT_NM
+	             , CVUR.POSITION_NM
+	             , CVUR.DUTY_NM
+	             , LULP.SIGN_REQ_STATUS
+	             , LULP.SIGN_REQ_STATUS AS SIGN_REQ_TYPE
+	             , CVUR.PLANT_CD
+	             , CVUR.DIVISION_CD
+	             , CVUR.PART_CD
+	          FROM STOCLULP LULP
+	          JOIN STOCCVUR CVUR
+	               ON (LULP.GATE_CD = CVUR.GATE_CD
+	               AND LULP.SIGN_USER_ID = CVUR.USER_ID
+	               AND CVUR.DEL_FLAG = '0')
+	         WHERE LULP.GATE_CD  = #{gateCd}
+	           AND LULP.PATH_NUM = #{pathNo}
+	           AND LULP.DEL_FLAG = '0'
+		  ) Z
+		 WHERE 1 = 1
+         ORDER BY Z.PATH_SQ
+    </select>
+
+    <select id="isCancellable" resultType="int">
+
+        SELECT COUNT(*)
+          FROM STOCSCTP
+        WHERE GATE_CD  = #{GATE_CD}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND SIGN_STATUS != 'P'
+          AND DEL_FLAG = '0'
+    </select>
+
+    <update id="deleteSCTM" >
+
+        UPDATE STOCSCTM <include refid="com.sql.rowLock"/>
+           SET DEL_FLAG = '1',
+               MOD_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <update id="deleteSCTP">
+
+        UPDATE STOCSCTP <include refid="com.sql.rowLock"/>
+           SET DEL_FLAG = '1',
+               MOD_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <select id="selectPathDetail1" parameterType="hashmap" resultType="hashmap">
+
+		SELECT RULM.SIGN_PATH_NM
+			 , RULM.SIGN_RMK
+		  FROM STOCRULM RULM
+		 WHERE RULM.GATE_CD  = #{ses.gateCd}
+		   AND RULM.DEL_FLAG = '0'
+		   AND RULM.PATH_USER_ID = #{ses.userId}
+		   AND RULM.PATH_NUM = #{PATH_NUM}
+    </select>
+
+    <update id="updateInterfaceFlag">
+
+        UPDATE STOCSCTM SET
+            IF_FLAG = '0'
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND SIGN_STATUS = #{SIGN_STATUS}
+          AND DEL_FLAG = '0'
+          AND IF_FLAG  = '1'
+    </update>
+
+	<!-- 결재선 변경시 결재자 삭제 -->
+    <update id="bapp053_deleteSCTP">
+
+        UPDATE STOCSCTP SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND DEL_FLAG = '0'
+          AND SIGN_DATE IS NULL
+    </update>
+
+	<!-- 결재선 변경 -->
+    <insert id="bapp053_insertSCTP">
+
+        INSERT INTO STOCSCTP (
+			GATE_CD,
+			APP_DOC_NUM,
+			APP_DOC_CNT,
+			DOC_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			SIGN_PATH_SQ,
+			SIGN_STATUS,
+			SIGN_REQ_TYPE,
+			SIGN_USER_ID,
+			DEPT_CD,
+			DEPT_NM,
+			DEPT_NM_ENG,
+			POSITION_NM,
+			DUTY_NM,
+			SIGN_RMK,
+			PLANT_CD,
+			DIVISION_CD,
+			PART_CD
+		) VALUES (
+			#{ses.gateCd},
+			#{APP_DOC_NUM},
+			#{APP_DOC_CNT},
+			(SELECT <include refid="com.sql.nvl"/>(MAX(DOC_SQ),0) + 1
+			   FROM STOCSCTP
+			  WHERE GATE_CD     = #{ses.gateCd}
+			    AND APP_DOC_NUM = #{APP_DOC_NUM}
+			    AND APP_DOC_CNT = #{APP_DOC_CNT}),
+			#{ses.userId},
+			'0',
+			#{SIGN_PATH_SQ},
+			'P',
+			#{SIGN_REQ_TYPE},
+			#{SIGN_USER_ID},
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DEPT_CD'),
+			<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd}, #{ses.companyCd}, <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'PLANT_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DIVISION_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DEPT_CD'), 'KO'),
+			<include refid="com.sql.dbo"/>getDeptNm(#{ses.gateCd}, #{ses.companyCd}, <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'PLANT_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DIVISION_CD'), <include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DEPT_CD'), 'EN'),
+			#{POSITION_NM},
+			#{DUTY_NM},
+			#{SIGN_RMK},
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'PLANT_CD'),
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'DIVISION_CD'),
+			<include refid="com.sql.dbo"/>getUserInfo(#{ses.gateCd}, SIGN_USER_ID, 'PART_CD')
+        )
+    </insert>
+
+	<update id="updateBeforGwSTOCSCTM" >
+
+        UPDATE STOCSCTM SET
+        	BLSM_HTML 	= #{xmlParam},
+        	MOD_DATE  	= <include refid="com.sql.sysdate"/>,
+        	MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD 	  = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+          AND DEL_FLAG 	  = '0'
+
+    </update>
+
+    <select id="elctRequiedCheck" resultType="int">
+
+       SELECT COUNT(*)
+	   FROM COM_ELCT_CONFM_IF
+	   WHERE ELCT_CONFM_IF_SEQ = #{APP_DON_NUM2}
+	   AND ELCT_CONFM_STAT_CD != '9'
+    </select>
+</mapper>

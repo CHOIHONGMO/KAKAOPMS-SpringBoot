@@ -1,0 +1,750 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.vendor.cont.CT0600Mapper">
+
+    <select id="doSearchContractProgressStatus" parameterType="hashMap" resultType="hashMap">
+
+		SELECT DISTINCT
+			  'A' AS STYPE
+			, A.BUYER_CD AS PR_BUYER_CD
+			,<include refid="com.sql.dbo"/>GETBUYERNAME(A.GATE_CD,A.BUYER_CD,#{ses.langCd}) AS PR_BUYER_NM
+			,<include refid="com.sql.dbo"/>GETPURORGNAME(A.GATE_CD, A.BUYER_CD, A.PUR_ORG_CD, #{ses.langCd}) AS PUR_ORG_CD
+			,(CASE WHEN A.RECEIPT_YN IS NULL OR A.RECEIPT_YN = '' THEN '0'
+			      WHEN A.RECEIPT_YN = '1' THEN '200'
+				  WHEN A.RECEIPT_YN = '0' THEN '100'
+			  END) AS RECEIPT_YN
+			, A.PROGRESS_CD
+			, A.CONTRACT_FORM_TYPE
+			, A.CONT_NUM
+			, null PO_NUM
+			, A.CONT_CNT
+			, A.CONT_DESC SUBJECT
+			, A.CUR
+			, A.CONT_AMT AMT
+			, A.CONT_DATE CONT_PO_DATE
+			, VENDOR_TEST_REQ_YN REQ_GUNSU
+			, '' CONT_PO
+			, A.RECEIPT_DATE
+			, A.REJECT_RMK
+			, A.BUYER_CD
+			, NULL AS CONSULT_YN
+			, NULL AS CONSULT_STATUS
+			, MANUAL_CONT_FLAG
+			, TO_CHAR (A.BUYER_SIGN_DATE  , 'YYYY-MM-DD HH24:MI' ) AS BUYER_SIGN_DATE
+			, TO_CHAR (A.SUPPLY_SIGN_DATE , 'YYYY-MM-DD HH24:MI' ) AS SUPPLY_SIGN_DATE
+			,(SELECT COUNT(*) FROM STOCATCH
+			   WHERE GATE_CD 	= A.GATE_CD
+			  	 AND UUID 		= A.CONT_ATT_FILE_NUM
+			  	 AND DEL_FLAG 	= '0') AS CONT_ATT_FILE_CNT
+			, A.CONT_ATT_FILE_NUM
+			,(SELECT COUNT(*) FROM STOCATCH
+			   WHERE GATE_CD 	= A.GATE_CD
+			 	 AND UUID 		= A.ADV_ATT_FILE_NUM
+			 	 AND DEL_FLAG 	= '0') AS ADV_ATT_FILE_CNT
+			, A.ADV_ATT_FILE_NUM
+			,(SELECT COUNT(*) FROM STOCATCH
+			   WHERE GATE_CD	 = A.GATE_CD
+			 	 AND UUID		 = A.WARR_ATT_FILE_NUM
+			 	 AND DEL_FLAG 	 = '0') AS WARR_ATT_FILE_CNT
+			, A.WARR_ATT_FILE_NUM
+			, (SELECT COUNT(*)
+				 FROM STOCATCH
+				WHERE GATE_CD = A.GATE_CD
+				  AND UUID = A.ETC_ATT_FILE_NUM
+				  AND DEL_FLAG = '0') AS ETC_ATT_FILE_CNT
+			, A.ETC_ATT_FILE_NUM
+			,(CASE WHEN (SELECT COUNT(*) FROM STOCECCT SUB
+			 			  WHERE SUB.GATE_CD  = A.GATE_CD
+			 				AND SUB.CONT_NUM = A.CONT_NUM
+			 				AND SUB.CONT_CNT = A.CONT_CNT + 1
+			 				AND SUB.DEL_FLAG = '0')  >  0 THEN 'Y' ELSE 'N' END) AS NEXT_CONT_CNT_FLAG
+			, CONT_INSU_BILL_FLAG
+			, ADV_INSU_BILL_FLAG
+			, WARR_INSU_BILL_FLAG
+			, CONT_GUAR_AMT
+			, ADV_GUAR_AMT
+			, WARR_GUAR_AMT
+			, CONT_GUAR_PERCENT
+			, ADV_GUAR_PERCENT
+			, WARR_GUAR_PERCENT
+			, CONT_INSU_STATUS
+			, ADV_INSU_STATUS
+			, WARR_INSU_STATUS
+			, CONT_INSU_NUM
+			, ADV_INSU_NUM
+			, WARR_INSU_NUM
+			, DECODE(CONT_INSU_BILL_FLAG,'1','O','X') ||'/'|| 
+			  CASE WHEN CONT_GUAR_TYPE = 'EL' THEN CASE WHEN (CONT_INSU_STATUS != 'TA' AND CONT_INSU_STATUS != 'SA' OR CONT_INSU_STATUS IS NULL) THEN 'X' ELSE 'O' END
+			       WHEN CONT_INSU_BILL_FLAG = '1' AND CONT_GUAR_TYPE = 'EX' THEN 'O'
+			       ELSE CASE WHEN getFileCount(A.GATE_CD, CONT_ATT_FILE_NUM) = 0 THEN 'X' ELSE 'O' END
+			  END AS CONT_COMMIT_FLAG
+			, DECODE(ADV_INSU_BILL_FLAG,'1','O','X') ||'/'|| 
+			  CASE WHEN ADV_GUAR_TYPE = 'EL' THEN CASE WHEN (ADV_INSU_STATUS != 'TA' AND ADV_INSU_STATUS != 'SA' OR ADV_INSU_STATUS IS NULL) THEN 'X' ELSE 'O' END
+			       WHEN ADV_INSU_BILL_FLAG = '1' AND ADV_GUAR_TYPE = 'EX' THEN 'O'
+			       ELSE CASE WHEN getFileCount(A.GATE_CD, ADV_ATT_FILE_NUM) = 0 THEN 'X' ELSE 'O' END
+			  END AS ADV_COMMIT_FLAG
+			, DECODE(WARR_INSU_BILL_FLAG,'1','O','X') ||'/'|| 
+			  CASE WHEN WARR_GUAR_TYPE = 'EL' THEN CASE WHEN (WARR_INSU_STATUS != 'TA' AND WARR_INSU_STATUS != 'SA' OR WARR_INSU_STATUS IS NULL) THEN 'X' ELSE 'O' END
+			       WHEN WARR_INSU_BILL_FLAG = '1' AND WARR_GUAR_TYPE = 'EX' THEN 'O'
+			       ELSE CASE WHEN getFileCount(A.GATE_CD, WARR_ATT_FILE_NUM) = 0 THEN 'X' ELSE 'O' END
+			  END AS WARR_COMMIT_FLAG
+			,A.BELONG_DEPT_CD
+			,<include refid="com.sql.dbo"/>GETPLANTNAME(A.GATE_CD, A.BELONG_DIVISION_CD, A.BELONG_DEPT_CD, #{ses.langCd}) AS BELONG_DEPT_NM
+		FROM STOCECCT A
+		LEFT OUTER JOIN STOCECDT B
+			 ON (A.GATE_CD  = B.GATE_CD
+			 AND A.CONT_NUM = B.CONT_NUM
+			 AND A.CONT_CNT = B.CONT_CNT
+			 AND B.DEL_FLAG = '0')
+		WHERE A.GATE_CD 	= #{ses.gateCd}
+          AND A.SIGN_STATUS = 'E'
+		  AND A.DEL_FLAG 	= '0'
+		  AND A.MANUAL_CONT_FLAG = '0'	-- 수기계약 제외
+		  AND (CASE WHEN #{ses.userType} = 'S' THEN A.VENDOR_CD ELSE A.BUYER_CD END) = #{ses.companyCd}
+        
+	<choose>
+		<when test='CT0620FG == "Y"'> <!-- 계약완료현황 플래그 계약완료만 보여집니다 -->
+          AND A.PROGRESS_CD = '4300'
+	    </when>
+	    <otherwise> <!-- 공급사 화면에서는 협력사서명대기, 협력사서명완료, 협력사서명반려만 조회 -->
+		    <if test="ses.userType != '' and ses.userType != null and ses.userType == 'S'.toString()">
+          AND A.PROGRESS_CD IN ('4200', '4210', '4220')
+		    </if>
+	    </otherwise>
+    </choose>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+          AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="REG_DATE_FROM != '' and REG_DATE_FROM != null">
+          AND A.CONT_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{REG_DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="REG_DATE_TO != '' and REG_DATE_TO != null">
+          AND A.CONT_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{REG_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null ">
+          AND A.CONT_NUM <include refid="com.sql.likeL"/> #{CONT_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_DESC != '' and CONT_DESC != null ">
+          AND A.CONT_DESC <include refid="com.sql.likeL"/> #{CONT_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+		  AND CASE WHEN A.RECEIPT_YN IS NULL OR A.RECEIPT_YN = '' THEN '0'
+			       WHEN A.RECEIPT_YN = '1' THEN '200'
+			       WHEN A.RECEIPT_YN = '0' THEN '100'
+			  END = #{RECEIPT_YN}
+        </if>
+        <if test="CONTRACT_FORM_TYPE != '' and CONTRACT_FORM_TYPE != null">
+          AND A.CONTRACT_FORM_TYPE = #{CONTRACT_FORM_TYPE}
+        </if>
+		<if test="MANUAL_CONT_FLAG != '' and MANUAL_CONT_FLAG != null">
+          AND A.MANUAL_CONT_FLAG = #{MANUAL_CONT_FLAG}
+        </if>
+	<if test="ses.userType eq 'B'.toString()">
+          AND A.APAR_TYPE = 'S' -- 매출(S)
+		<if test="ses.mngYn != '1'.toString() and BELONG_DEPT_CD != '' and BELONG_DEPT_CD != null">	<!-- 관리자가 아닌 경우 : 자신의 사업장 계약서만 보이도록 -->
+          AND A.BELONG_DEPT_CD = #{BELONG_DEPT_CD}
+        </if>
+	</if>
+		<if test="ses.userType eq 'S'.toString()">
+          AND A.APAR_TYPE = 'P' -- 매입
+		</if>
+		
+        ORDER BY CONT_PO_DATE DESC
+    </select>
+
+	<select id="getContractAllContents" parameterType="hashmap" resultType="hashmap">
+
+		SELECT CONTRACT_TEXT
+		  FROM STOCECRL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND DEL_FLAG = '0'
+		 ORDER BY FORM_SQ
+
+	</select>
+
+	<update id="doUpdateContractStatusECCT" parameterType="hashMap">
+		UPDATE STOCECCT SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+		    ,MOD_USER_ID = #{ses.userId}
+		    ,PROGRESS_CD = #{PROGRESS_CD}
+
+        <if test="PROGRESS_CD == '4220'">
+		    ,SUPPLY_SIGN_DATE = <include refid="com.sql.sysdate"/>
+		</if>
+
+		    ,VENDOR_PIC_USER_NM    = #{VENDOR_PIC_USER_NM}
+		    ,VENDOR_PIC_USER_EMAIL = #{VENDOR_PIC_USER_EMAIL}
+		    ,VENDOR_PIC_TEL_NUM    = #{VENDOR_PIC_TEL_NUM}
+	     WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND DEL_FLAG = '0'
+	</update>
+
+
+
+	<update id="doSupplyReceiptEcct" parameterType="hashMap">
+		UPDATE STOCECCT SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+		    ,MOD_USER_ID = #{ses.userId}
+
+			,RECEIPT_DATE = <include refid="com.sql.sysdate"/>
+			,RECEIPT_YN = '1'
+
+		    ,VENDOR_PIC_USER_NM    = #{VENDOR_PIC_USER_NM}
+		    ,VENDOR_PIC_USER_EMAIL = #{VENDOR_PIC_USER_EMAIL}
+		    ,VENDOR_PIC_TEL_NUM    = #{VENDOR_PIC_TEL_NUM}
+	     WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND DEL_FLAG = '0'
+	</update>
+
+
+
+
+	<delete id="doDeleteSignedData" parameterType="hashMap">
+
+		DELETE FROM STOCECSV
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND SIGN_ID = #{ses.userId}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+
+	</delete>
+
+	<insert id="doInsertSignedData" parameterType="hashmap">
+
+		INSERT INTO STOCECSV (
+			 GATE_CD
+			,SIGN_ID
+			,CONT_NUM
+			,CONT_CNT
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,SIGN_DATE
+			,SIGN_VALUE
+			,USER_TYPE
+		) VALUES (
+			 #{ses.gateCd}
+			,#{ses.userId}
+			,#{CONT_NUM}
+			,#{CONT_CNT}
+			,#{FORM_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{SIGN_VALUE}
+			,#{ses.userType}
+		)
+
+	</insert>
+
+	<update id="doMergeRejectHistoryECRJ" parameterType="hashmap">
+
+		INSERT INTO STOCECRJ (
+			 GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,REJECT_SQ
+			,REG_DATE
+			,REG_USER_ID
+			,REJECT_RMK
+		) VALUES (
+			 #{ses.gateCd}
+			,#{CONT_NUM}
+			,#{CONT_CNT}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(REJECT_SQ)+1, '1')
+			    FROM STOCECRJ
+			   WHERE GATE_CD = #{ses.gateCd}
+			     AND CONT_NUM = #{CONT_NUM}
+			     AND CONT_CNT = #{CONT_CNT})
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,#{REJECT_RMK}
+		)
+
+	</update>
+
+	<select id="getContractFormTypeAndBusinessUserEmail" parameterType="hashmap" resultType="hashmap">
+
+		SELECT ECCT.VENDOR_CD
+			  ,VNGL.BUSINESS_USER_ID
+			  ,UZER.USER_NM AS BIZ_USER_NM
+			  ,UZER.EMAIL   AS BIZ_EMAIL
+			  ,ECCF.CONTRACT_FORM_TYPE
+		FROM STOCECCT ECCT
+			JOIN STOCVNGL VNGL
+			ON (ECCT.GATE_CD = VNGL.GATE_CD
+			AND ECCT.VENDOR_CD = VNGL.VENDOR_CD
+			AND VNGL.DEL_FLAG = '0')
+			JOIN STOCUSER UZER
+			ON (VNGL.GATE_CD = UZER.GATE_CD
+			AND VNGL.BUSINESS_USER_ID = UZER.EMPLOYEE_NUM
+			AND VNGL.BUYER_CD = UZER.COMPANY_CD)
+			JOIN STOCECRL ECRL
+			ON (ECCT.GATE_CD = ECRL.GATE_CD
+			AND ECCT.CONT_NUM = ECRL.CONT_NUM
+			AND ECCT.CONT_CNT = ECRL.CONT_CNT)
+			JOIN STOCECCF ECCF
+			ON (ECRL.GATE_CD = ECCF.GATE_CD
+			AND ECRL.FORM_NUM = ECCF.FORM_NUM)
+		WHERE ECCT.GATE_CD = '100'
+		  AND ECCT.DEL_FLAG = '0'
+		  AND ECCF.CONTRACT_FORM_TYPE IN ('02')
+		  AND ECCT.CONT_NUM = #{CONT_NUM}
+		  AND ECCT.CONT_CNT = #{CONT_CNT}
+
+	</select>
+
+	<select id="ecob0050_doSearchSupAttachFileInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 (CASE WHEN AT.ATT_FILE_CD IS NOT NULL THEN '1' ELSE '0' END) AS SELECTED
+			,CD.CODE_DESC AS ATT_FILE_NM
+			,AT.CONT_NUM
+			,AT.CONT_CNT
+			,AT.ATT_SQ
+			,CD.CODE AS ATT_FILE_CD
+			,AT.ATT_FILE_NUM
+			,(SELECT COUNT(ATCH.UUID_SQ) FROM STOCATCH ATCH
+			   WHERE ATCH.GATE_CD = AT.GATE_CD
+				 AND ATCH.UUID = AT.ATT_FILE_NUM
+				 AND ATCH.DEL_FLAG = '0') AS ATT_FILE_CNT
+		  FROM STOCCODD CD
+		  LEFT OUTER JOIN STOCECAT AT
+		   ON (CD.GATE_CD = AT.GATE_CD
+		   AND CD.CODE = AT.ATT_FILE_CD)
+		 WHERE CD.GATE_CD = #{ses.gateCd}
+		   AND CD.CODE_TYPE = 'M221'
+		   AND CD.USE_FLAG = '1'
+		   AND CD.DEL_FLAG = '0'
+		   AND CD.TEXT1 = #{CONTRACT_FORM_TYPE}
+		   AND AT.CONT_NUM = #{CONT_NUM}
+		   AND AT.CONT_CNT = (CASE WHEN (#{CONT_CNT} = '' OR #{CONT_CNT} IS NULL) THEN NULL ELSE #{CONT_CNT} END)
+		   AND AT.DEL_FLAG = '0'
+		 ORDER BY CD.SORT_SQ
+
+	</select>
+
+	<select id="ecob0050_doSearchPayInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             PY.PAY_CNT
+            ,PY.PAY_CNT_TYPE
+            ,PY.PAY_CNT_NM
+            ,PY.PAY_PERCENT
+            ,PY.PAY_AMT
+            ,PY.VAT_TYPE
+            ,PY.PAY_METHOD_NM
+            ,PY.CONT_CNT
+            ,PY.CONT_NUM
+            ,PY.VENDOR_CD
+          FROM STOCECPY PY
+         WHERE PY.GATE_CD = #{ses.gateCd}
+           AND PY.CONT_NUM = #{CONT_NUM}
+           AND PY.CONT_CNT = #{CONT_CNT}
+           AND PY.VENDOR_CD = #{VENDOR_CD}
+           AND PY.DEL_FLAG = '0'
+         ORDER BY PY.PAY_CNT
+
+    </select>
+
+    <update id="doUpdateFileNumECAT" parameterType="hashMap">
+
+        UPDATE STOCECAT SET
+			ATT_FILE_NUM = #{ATT_FILE_NUM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND ATT_SQ = #{ATT_SQ}
+
+    </update>
+
+	<delete id="doDeleteFileECRL" parameterType="hashMap">
+
+		DELETE FROM STOCECRL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND FORM_NUM IN (SELECT CF.FORM_NUM FROM STOCECCF CF WHERE CF.GATE_CD = #{ses.gateCd} AND CF.FORM_TYPE = '900' AND CF.DEL_FLAG = '0')
+
+	</delete>
+
+	<select id="getFileFormList" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 FORM_NUM
+			,(SELECT ISNULL(MAX(RL.FORM_SQ), 0) + 1 FROM STOCECRL RL
+			   WHERE RL.GATE_CD = #{ses.gateCd}
+				 AND RL.CONT_NUM = #{CONT_NUM}
+				 AND RL.CONT_CNT = #{CONT_CNT}) AS FORM_SQ
+			,FORM_TEXT AS CONTRACT_TEXT
+		  FROM STOCECCF
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND FORM_TYPE = '900'
+		   AND DEL_FLAG = '0'
+		   AND USE_FLAG = '1'
+
+	</select>
+	<select id="getEcInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		    ECCT.CONT_NUM
+		  , TO_CHAR(ECCT.CONT_CNT) CONT_CNT
+		  , ECCT.APAR_TYPE
+		  , ECCT.VENDOR_EDIT_FLAG
+		  , ECCT.WARR_GUAR_QT
+		  , ECCT.CONT_DESC
+		  , TO_CHAR(ECCT.CONT_DATE 			,'YYYYMMDD') AS CONT_DATE
+		  , TO_CHAR(ECCT.CONT_START_DATE 	,'YYYYMMDD') AS CONT_START_DATE
+		  , TO_CHAR(ECCT.CONT_END_DATE 		,'YYYYMMDD') AS CONT_END_DATE
+		  , ECCT.CONT_AMT
+		  , ECCT.SUPPLY_AMT
+		  , G.IRS_NO
+		  , G.CEO_USER_NM
+		  , G.VENDOR_NM
+		  , ECCT.ATT_FILE_NUM
+		  , ECCT.CONT_USER_ID
+
+		  , ECCT.CONT_GUAR_AMT 			 AS CONT_GUAR_AMT
+		  , ECCT.CONT_ATT_FILE_NUM       AS CONT_ATT_FILE_NUM
+		  , ECCT.CONT_GUAR_TYPE 		 AS CONT_GUAR_TYPE
+		  , ECCT.CONT_GUAR_PERCENT       AS CONT_GUAR_PERCENT
+		  , ECCT.CONT_VAT_TYPE           AS CONT_VAT_TYPE
+		  , ECCT.CONT_INSU_BILL_FLAG     AS CONT_INSU_BILL_FLAG
+		  , ECCT.CONT_INSU_NUM			 AS CONT_INSU_NUM
+		  , ECCT.CONT_INSU_RMK           AS CONT_INSU_RMK
+		  , ECCT.CONT_INSU_ORG_CD        AS CONT_INSU_ORG_CD
+		  , ECCT.CONT_INSU_INFORM_SEQ    AS CONT_INSU_INFORM_SEQ
+
+		  , ECCT.CONT_INSU_STATUS        AS CONT_INSU_STATUS
+		  , ECCT.ADV_GUAR_AMT   		 AS ADV_GUAR_AMT
+		  , ECCT.ADV_ATT_FILE_NUM        AS ADV_ATT_FILE_NUM
+		  , ECCT.ADV_GUAR_TYPE 			 AS ADV_GUAR_TYPE
+		  , ECCT.ADV_GUAR_PERCENT        AS ADV_GUAR_PERCENT
+		  , ECCT.ADV_VAT_TYPE            AS VAT_TYPE
+		  , ECCT.ADV_INSU_BILL_FLAG      AS ADV_INSU_BILL_FLAG
+		  , ECCT.ADV_INSU_NUM			 AS ADV_INSU_NUM
+		  , ECCT.ADV_INSU_RMK            AS ADV_INSU_RMK
+		  , ECCT.ADV_INSU_ORG_CD         AS ADV_INSU_ORG_CD
+		  , ECCT.ADV_INSU_STATUS         AS ADV_INSU_STATUS
+		  , ECCT.ADV_INSU_INFORM_SEQ     AS ADV_INSU_INFORM_SEQ
+
+		  , ECCT.WARR_GUAR_AMT		     AS WARR_GUAR_AMT
+		  , ECCT.WARR_ATT_FILE_NUM       AS WARR_ATT_FILE_NUM
+		  , ECCT.WARR_GUAR_TYPE 		 AS WARR_GUAR_TYPE
+		  , ECCT.WARR_GUAR_PERCENT       AS WARR_GUAR_PERCENT
+		  , ECCT.WARR_VAT_TYPE           AS WARR_VAT_TYPE
+		  , ECCT.WARR_INSU_BILL_FLAG     AS WARR_INSU_BILL_FLAG
+		  , ECCT.WARR_INSU_NUM			 AS WARR_INSU_NUM
+		  , ECCT.WARR_INSU_RMK           AS WARR_INSU_RMK
+		  , ECCT.WARR_INSU_ORG_CD        AS WARR_INSU_ORG_CD
+		  , ECCT.WARR_INSU_STATUS		 AS WARR_INSU_STATUS
+		  , ECCT.WARR_INSU_INFORM_SEQ    AS WARR_INSU_INFORM_SEQ
+
+	  FROM STOCECCT ECCT
+	  JOIN STOCVNGL G ON G.GATE_CD   = ECCT.GATE_CD
+				     AND G.VENDOR_CD = ECCT.VENDOR_CD
+				     AND G.DEL_FLAG  = '0'
+	  WHERE ECCT.GATE_CD  = #{ses.gateCd}
+	    AND ECCT.CONT_NUM = #{CONT_NUM}
+        AND ECCT.CONT_CNT = #{CONT_CNT}
+
+
+	</select>
+
+    <select id="getFileInfoList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+			 A.REAL_FILE_NM
+			,A.HASH_NUM
+			,A.FILE_TYPE
+			,A.SORT_SQ1, A.SORT_SQ2, A.SORT_SQ3
+		  FROM (
+			SELECT
+				 CH.REAL_FILE_NM
+				,CH.HASH_NUM
+				,1 AS SORT_SQ1
+				,1 AS SORT_SQ2
+				,CH.UUID_SQ AS SORT_SQ3
+				,'M_ATT_FILE_NUM' AS FILE_TYPE
+			  FROM STOCECCT CT LEFT JOIN STOCATCH CH
+			   ON (CT.GATE_CD = CH.GATE_CD
+			   AND CT.M_ATT_FILE_NUM = CH.UUID)
+			 WHERE CT.GATE_CD = #{ses.gateCd}
+			   AND CT.CONT_NUM = #{CONT_NUM}
+			   AND CT.CONT_CNT = #{CONT_CNT}
+			   AND CH.DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT
+				 CH.REAL_FILE_NM
+				,CH.HASH_NUM
+				,2 AS SORT_SQ1
+				,1 AS SORT_SQ2
+				,CH.UUID_SQ AS SORT_SQ3
+				,'ATT_FILE_NUM' AS FILE_TYPE
+			  FROM STOCECCT CT LEFT JOIN STOCATCH CH
+			   ON (CT.GATE_CD = CH.GATE_CD
+			   AND CT.ATT_FILE_NUM = CH.UUID)
+			 WHERE CT.GATE_CD = #{ses.gateCd}
+			   AND CT.CONT_NUM = #{CONT_NUM}
+			   AND CT.CONT_CNT = #{CONT_CNT}
+			   AND CH.DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT
+				 CH.REAL_FILE_NM
+				,CH.HASH_NUM
+				,3 AS SORT_SQ1
+				,AT.ATT_SQ AS SORT_SQ2
+				,CH.UUID_SQ AS SORT_SQ3
+				,'VENDOR_ATT_FILE_NUM' AS FILE_TYPE
+			  FROM STOCECAT AT LEFT JOIN STOCATCH CH
+			   ON (AT.GATE_CD = CH.GATE_CD
+			   AND AT.ATT_FILE_NUM = CH.UUID)
+			 WHERE AT.GATE_CD = #{ses.gateCd}
+			   AND AT.CONT_NUM = #{CONT_NUM}
+			   AND AT.CONT_CNT = #{CONT_CNT}
+			   AND AT.DEL_FLAG = '0'
+			   AND CH.DEL_FLAG = '0'
+		  ) A
+		 ORDER BY A.SORT_SQ1, A.SORT_SQ2, A.SORT_SQ3
+
+    </select>
+
+	<insert id="doInsertFileECRL" parameterType="hashMap">
+
+		INSERT INTO STOCECRL (
+			 GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,FORM_SQ
+			,CONTRACT_TEXT
+		) VALUES (
+			 #{ses.gateCd}
+			,#{CONT_NUM}
+			,#{CONT_CNT}
+			,#{FORM_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{FORM_SQ}
+			,#{CONTRACT_TEXT}
+		)
+
+	</insert>
+
+
+
+	<insert id="contReceiptOrReject" parameterType="hashMap">
+		UPDATE STOCECCT SET
+			 RECEIPT_DATE = CASE WHEN #{RECEIPT_YN} = '200' THEN <include refid="com.sql.sysdate"/> ELSE null END
+			,RECEIPT_YN = CASE WHEN #{RECEIPT_YN} = '200' THEN '1' ELSE '0' END  -- 1 : 접수 , 0 : 반려
+			,REJECT_RMK = CASE WHEN #{RECEIPT_YN} = '100' THEN #{REJECT_RMK} ELSE null END
+		    ,PROGRESS_CD = CASE WHEN #{RECEIPT_YN} = '100' THEN '4210' ELSE PROGRESS_CD END
+
+
+
+		WHERE GATE_CD = #{ses.gateCd}
+		AND CONT_NUM = #{CONT_NUM}
+		AND CONT_CNT = #{CONT_CNT}
+	</insert>
+
+	<insert id="poReceiptOrReject" parameterType="hashMap">
+		UPDATE STOPPOHD SET
+			 RECEIPT_DATE = CASE WHEN #{RECEIPT_YN} = '200' THEN <include refid="com.sql.sysdate"/> ELSE null END
+			,RECEIPT_USER_ID = CASE WHEN #{RECEIPT_YN} = '200' THEN '5220' ELSE '5210' END
+			,RECEIPT_YN = #{RECEIPT_YN} -- 1 : 접수 , 0 : 반려
+			,REJECT_DATE = CASE WHEN #{RECEIPT_YN} = '100' THEN <include refid="com.sql.sysdate"/> ELSE null END
+			,REJECT_RMK = CASE WHEN #{RECEIPT_YN} = '100' THEN #{REJECT_RMK} ELSE null END
+			,PROGRESS_CD = CASE WHEN #{RECEIPT_YN} = '200' THEN '5220' ELSE '5210' END
+		WHERE GATE_CD = #{ses.gateCd}
+		AND PO_NUM = #{PO_NUM}
+	</insert>
+
+	<update id="doUpdateEc" parameterType="hashMap">
+		UPDATE STOCECCT SET
+			   MOD_DATE                 = <include refid="com.sql.sysdate"/>
+			  ,MOD_USER_ID              = #{ses.userId}
+			  , ATT_FILE_NUM        	= #{ATT_FILE_NUM}
+
+		 	  , CONT_GUAR_AMT 			= #{CONT_GUAR_AMT      }
+			  , CONT_ATT_FILE_NUM       = #{CONT_ATT_FILE_NUM  }
+			  , CONT_GUAR_TYPE 		    = #{CONT_GUAR_TYPE     }
+			  , CONT_GUAR_PERCENT       = #{CONT_GUAR_PERCENT  }
+			  , CONT_INSU_BILL_FLAG     = #{CONT_INSU_BILL_FLAG}
+			  , CONT_INSU_RMK           = #{CONT_INSU_RMK      }
+			  , CONT_INSU_ORG_CD		= #{CONT_INSU_ORG_CD}
+			  <if test='CONT_INSU_NUM != "" and CONT_INSU_NUM != null'>
+			  , CONT_INSU_NUM		    = #{CONT_INSU_NUM}
+<!-- 			  , CONT_INSU_STATUS		= #{CONT_INSU_STATUS} -->
+			  </if>
+			  , ADV_GUAR_AMT   		 	= #{ADV_GUAR_AMT      }
+			  , ADV_ATT_FILE_NUM        = #{ADV_ATT_FILE_NUM  }
+			  , ADV_GUAR_TYPE 			= #{ADV_GUAR_TYPE     }
+			  , ADV_GUAR_PERCENT        = #{ADV_GUAR_PERCENT  }
+			  , ADV_INSU_BILL_FLAG      = #{ADV_INSU_BILL_FLAG}
+			  , ADV_INSU_RMK            = #{ADV_INSU_RMK      }
+			  , ADV_INSU_ORG_CD		    = #{ADV_INSU_ORG_CD	  }
+			  <if test='ADV_INSU_NUM != "" and ADV_INSU_NUM != null'>
+			  , ADV_INSU_NUM		    = #{ADV_INSU_NUM}
+<!-- 			  , ADV_INSU_STATUS			= #{ADV_INSU_STATUS} -->
+			  </if>
+			  , WARR_GUAR_AMT  		 	= #{WARR_GUAR_AMT      }
+			  , WARR_ATT_FILE_NUM       = #{WARR_ATT_FILE_NUM  }
+			  , WARR_GUAR_TYPE 		 	= #{WARR_GUAR_TYPE     }
+			  , WARR_GUAR_PERCENT       = #{WARR_GUAR_PERCENT  }
+			  , WARR_INSU_BILL_FLAG     = #{WARR_INSU_BILL_FLAG}
+			  , WARR_INSU_RMK           = #{WARR_INSU_RMK      }
+			  , WARR_INSU_ORG_CD		= #{WARR_INSU_ORG_CD   }
+			  <if test='WARR_INSU_NUM != "" and WARR_INSU_NUM != null'>
+			  , WARR_INSU_NUM			= #{WARR_INSU_NUM}
+<!-- 			  , WARR_INSU_STATUS		= #{WARR_INSU_STATUS} -->
+			  </if>
+
+		WHERE GATE_CD   = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<update id="updateSaInfo" parameterType="hashMap">
+		UPDATE STOCECCT SET
+			   MOD_DATE    = <include refid="com.sql.sysdate"/>
+			  ,MOD_USER_ID = 'SGI'
+<!-- 	전송일때 		 -->
+		 	  <if test='GUBN == "CONT"'>
+		 	  	,CONT_INSU_STATUS 	   = #{RESP_CODE}
+		 	  	,CONT_INSU_INFORM_SEQ  = #{MASTER_CONT_NO_NEW}
+		 	  </if>
+		 	  <if test='GUBN == "ADV"'>
+		 	  	,ADV_INSU_STATUS  	  = #{RESP_CODE}
+		 	  	,ADV_INSU_INFORM_SEQ  = #{MASTER_CONT_NO_NEW}
+		 	  </if>
+		 	  <if test='GUBN == "WARR"'>
+		 	  	,WARR_INSU_STATUS 	  = #{RESP_CODE}
+		 	  	,WARR_INSU_INFORM_SEQ = #{MASTER_CONT_NO_NEW}
+		 	  </if>
+<!-- 		전송일때 	   -->
+		WHERE GATE_CD   = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+		   AND DEL_FLAG = '0'
+	</update>
+	<update id="updateRecvSaInfo" parameterType="hashMap">
+		UPDATE STOCECCT SET
+				   MOD_DATE    = SYSDATE
+				  ,MOD_USER_ID = 'SGI'
+		 <!-- 		리턴일때 	   -->
+				<if test='recvDocCode == "CONGUA"'>
+					,CONT_INSU_NUM 	   = #{bond_numb_text}
+					,CONT_INSU_STATUS = #{status}
+				</if>
+				<if test='recvDocCode == "PREGUA"'>
+					,ADV_INSU_NUM  	   = #{bond_numb_text}
+					,ADV_INSU_STATUS  = #{status}
+				</if>
+				<if test='recvDocCode == "FLRGUA"'>
+					,WARR_INSU_NUM 	   = #{bond_numb_text}
+					,WARR_INSU_STATUS = #{status}
+				</if>
+				<if test="recvDocCode != '' and recvDocCode != null">
+					,INSU_START_DATE 		  = #{bond_begn_date}
+					,INSU_END_DATE 		  	  = #{bond_fnsh_date}
+				</if>
+		<!-- 		리턴일때 	   -->
+		WHERE  DEL_FLAG = '0'
+			<if test='recvDocCode == "CONGUA"'>
+				AND CONT_INSU_INFORM_SEQ = #{contNumText}
+		    </if>
+			<if test='recvDocCode == "PREGUA"'>
+				AND ADV_INSU_INFORM_SEQ  = #{contNumText}
+			</if>
+			<if test='recvDocCode == "FLRGUA"'>
+				AND WARR_INSU_INFORM_SEQ = #{contNumText}
+			</if>
+	</update>
+	<select id="getRequiedInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		    ECCT.CONT_NUM
+		  , TO_CHAR(ECCT.CONT_CNT) CONT_CNT
+		  <if test='GUBN == "CONT"'>
+			  , ECCT.CONT_GUAR_TYPE 		 AS GUAR_TYPE
+			  , ECCT.CONT_VAT_TYPE           AS VAT_TYPE
+			  , ECCT.CONT_INSU_BILL_FLAG     AS INSU_BILL_FLAG
+			  , ECCT.CONT_INSU_NUM			 AS INSU_NUM
+			  , ECCT.CONT_INSU_RMK           AS INSU_RMK
+			  , ECCT.CONT_INSU_ORG_CD        AS INSU_ORG_CD
+			  , ECCT.CONT_INSU_STATUS        AS INSU_STATUS
+		  </if>
+		  <if test='GUBN == "ADV"'>
+			  , ECCT.ADV_GUAR_TYPE 		     AS GUAR_TYPE
+			  , ECCT.ADV_VAT_TYPE            AS VAT_TYPE
+			  , ECCT.ADV_INSU_BILL_FLAG      AS INSU_BILL_FLAG
+			  , ECCT.ADV_INSU_NUM			 AS INSU_NUM
+			  , ECCT.ADV_INSU_RMK            AS INSU_RMK
+			  , ECCT.ADV_INSU_ORG_CD         AS INSU_ORG_CD
+			  , ECCT.ADV_INSU_STATUS         AS INSU_STATUS
+		  </if>
+		  <if test='GUBN == "WARR"'>
+			  , ECCT.WARR_GUAR_TYPE 		 AS GUAR_TYPE
+			  , ECCT.WARR_VAT_TYPE           AS VAT_TYPE
+			  , ECCT.WARR_INSU_BILL_FLAG     AS INSU_BILL_FLAG
+			  , ECCT.WARR_INSU_NUM			 AS INSU_NUM
+			  , ECCT.WARR_INSU_RMK           AS INSU_RMK
+			  , ECCT.WARR_INSU_ORG_CD        AS INSU_ORG_CD
+			  , ECCT.WARR_INSU_STATUS        AS INSU_STATUS
+		  </if>
+
+	  FROM STOCECCT ECCT
+
+	  WHERE ECCT.GATE_CD  = #{ses.gateCd}
+	    AND ECCT.CONT_NUM = #{CONT_NUM}
+        AND ECCT.CONT_CNT = #{CONT_CNT}
+	</select>
+	<select id="overlapRecvInfo" resultType="int">
+		SELECT count(*)
+		FROM STOCECCT
+		WHERE  DEL_FLAG = '0'
+		<if test='recvDocCode == "CONGUA"'>
+			AND CONT_INSU_INFORM_SEQ = #{contNumText}
+			AND CONT_INSU_NUM IS NOT NULL
+	    </if>
+		<if test='recvDocCode == "PREGUA"'>
+			AND ADV_INSU_INFORM_SEQ  = #{contNumText}
+			AND ADV_INSU_NUM IS NOT NULL
+
+		</if>
+		<if test='recvDocCode == "FLRGUA"'>
+			AND WARR_INSU_INFORM_SEQ = #{contNumText}
+			AND ADV_INSU_NUM IS NOT NULL
+		</if>
+	</select>
+	<!-- 접수할시 계약회수건 밸리데이션 체크 -->
+	<select id="receiptCheck" resultType="int">
+		 SELECT COUNT(*)
+		 	FROM STOCECCT
+	     WHERE GATE_CD  	= #{ses.gateCd}
+	     	AND CONT_NUM 	= #{CONT_NUM}
+	     	AND CONT_CNT 	= #{CONT_CNT}
+	        AND PROGRESS_CD = '4200'
+	        AND DEL_FLAG 	= '0'
+	</select>
+</mapper>

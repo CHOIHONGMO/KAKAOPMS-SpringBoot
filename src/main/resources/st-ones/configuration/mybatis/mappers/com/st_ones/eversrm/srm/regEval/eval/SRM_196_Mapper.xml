@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.regEval.eval.SRM_196_Mapper">
+
+<!--    SRM_196 -->
+    <select id="doSearchType" parameterType="hashMap" resultType="hashMap">
+	SELECT EVIM.EV_ITEM_TYPE_CD
+	            ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},CASE EVIM.EV_ITEM_KIND_CD WHEN 'E' THEN 'M114' ELSE 'M113' END,EVIM.EV_ITEM_TYPE_CD,#{ses.langCd}) AS EV_ITEM_TYPE_NM
+		FROM STOCEVTM EVTM
+		INNER JOIN STOCEVTD EVTD
+		    ON EVTM.EV_TPL_NUM 	= EVTD.EV_TPL_NUM
+		   AND EVTM.GATE_CD 		= EVTD.GATE_CD
+		INNER JOIN STOCEVIM EVIM
+		    ON EVTD.EV_ITEM_NUM 	= EVIM.EV_ITEM_NUM
+		   AND EVTD.GATE_CD 			= EVIM.GATE_CD
+		INNER JOIN STOCEVVM MASTER
+			ON MASTER.SCRE_EV_TPL_NUM = EVTM.EV_TPL_NUM
+		  AND MASTER.GATE_CD 					= EVTM.GATE_CD
+     WHERE MASTER.GATE_CD 					=  #{ses.gateCd}
+		  AND MASTER.EV_NUM 					= #{EV_NUM}
+		   AND EVTM.GATE_CD 					= #{ses.gateCd}
+		   AND EVTM.DEL_FLAG 					= '0'
+		  AND MASTER.DEL_FLAG 				= '0'    
+	      AND EVTD.DEL_FLAG 						= '0'
+  GROUP BY EVIM.EV_ITEM_TYPE_CD, EVIM.EV_ITEM_KIND_CD
+  ORDER BY EVIM.EV_ITEM_TYPE_CD
+    </select>
+    
+    <select id="doSearchSubject" parameterType="hashMap" resultType="hashMap">
+	SELECT EVIM.EV_ITEM_TYPE_CD
+	      ,EVIM.EV_ITEM_SUBJECT
+          ,EVIM.EV_ITEM_CONTENTS
+	      ,EVTD.WEIGHT
+		FROM STOCEVTM EVTM
+		INNER JOIN STOCEVTD EVTD
+		    ON EVTM.EV_TPL_NUM 	= EVTD.EV_TPL_NUM
+		   AND EVTM.GATE_CD 		= EVTD.GATE_CD
+		INNER JOIN STOCEVIM EVIM
+		    ON EVTD.EV_ITEM_NUM 	= EVIM.EV_ITEM_NUM
+		   AND EVTD.GATE_CD 			= EVIM.GATE_CD
+		INNER JOIN STOCEVVM MASTER
+			ON MASTER.SCRE_EV_TPL_NUM = EVTM.EV_TPL_NUM
+		  AND MASTER.GATE_CD 					= EVTM.GATE_CD
+     WHERE MASTER.GATE_CD 					=  #{ses.gateCd}
+		  AND MASTER.EV_NUM 					= #{EV_NUM}
+		   AND EVTM.GATE_CD 					= #{ses.gateCd}
+		   AND EVTM.DEL_FLAG 					= '0'
+		  AND MASTER.DEL_FLAG 				= '0'    
+	      AND EVTD.DEL_FLAG 						= '0'
+	ORDER BY EVIM.EV_ITEM_TYPE_CD, EVTD.SORT_SQ    
+    </select>
+    
+    <select id="doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT EVTM.GATE_CD
+		      ,EVTM.EV_TPL_NUM
+		      ,EVTM.EV_TPL_TYPE_CD
+		      ,EVTM.EV_TPL_SUBJECT
+		      ,EVIM.EV_ITEM_NUM
+		      ,EVIM.EV_ITEM_TYPE_CD
+		      ,<include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},CASE EVIM.EV_ITEM_KIND_CD WHEN 'E' THEN 'M114' ELSE 'M113' END,EVIM.EV_ITEM_TYPE_CD,#{ses.langCd}) AS EV_ITEM_TYPE_NM
+		      ,EVIM.EV_ITEM_SUBJECT
+		      ,EVIM.EV_ITEM_CONTENTS
+		      ,EVIM.EV_ITEM_KIND_CD
+		      ,EVIM.EV_ITEM_METHOD_CD
+		      ,EVIM.SCALE_TYPE_CD
+		      ,EVIM.QTY_ITEM_CD
+		      ,EVTD.WEIGHT
+		      ,EVID.EV_ID_SQ
+		      ,EVID.EV_ID_ORDER
+		      ,EVID.EV_ID_CONTENTS
+		      ,EVID.EV_ID_SCORE
+		      ,EVID.PASS_FAIL_CD
+		      ,EVID.EV_ID_METHOD
+		      ,EVID.FROM_VALUE
+		      ,EVID.FROM_CONDITION_CD
+		      ,EVID.TO_VALUE
+		      ,EVID.TO_CONDITION_CD
+		      ,EVUR.EV_ID_SQ AS EV_ID_SQ2
+		      ,<include refid="com.sql.nvl"/>(EVUR.EV_ID_SCORE,0) AS EV_ID_SCORE2
+		      ,<include refid="com.sql.nvl"/>(EVUR.EV_REMARK,'') AS EV_REMARK
+		FROM STOCEVTM EVTM
+		INNER JOIN STOCEVTD EVTD
+		ON EVTM.EV_TPL_NUM 				= EVTD.EV_TPL_NUM
+		AND EVTM.GATE_CD 					= EVTD.GATE_CD
+		INNER JOIN STOCEVIM EVIM
+		ON EVTD.EV_ITEM_NUM 				= EVIM.EV_ITEM_NUM
+		AND EVTD.GATE_CD 					= EVIM.GATE_CD
+		INNER JOIN STOCEVID EVID
+		ON EVIM.EV_ITEM_NUM 				= EVID.EV_ITEM_NUM
+		AND EVIM.GATE_CD 						= EVID.GATE_CD
+		INNER JOIN STOCEVVM MASTER
+		ON MASTER.SITE_EV_TPL_NUM = EVTM.EV_TPL_NUM
+		AND MASTER.GATE_CD 				= EVTM.GATE_CD
+		LEFT OUTER JOIN STOCEVUR EVUR
+	   		 ON EVID.EV_ITEM_NUM 	= EVUR.EV_ITEM_NUM
+		   AND EVID.EV_ID_SQ 			= EVUR.EV_ID_SQ
+		   AND EVTM.EV_TPL_NUM 	= EVUR.EV_TPL_NUM
+		   AND EVID.GATE_CD 			= EVUR.GATE_CD
+		   AND MASTER.EV_NUM 		= EVUR.EV_NUM
+		   AND EVUR.EV_USER_ID 	= #{EV_USER_ID}
+      WHERE MASTER.GATE_CD 	= #{ses.gateCd}
+		   AND MASTER.EV_NUM 		= #{EV_NUM}
+		   AND MASTER.DEL_FLAG 	= '0'
+           AND EVTD.DEL_FLAG 		= '0'
+		   AND EVID.DEL_FLAG			= '0'
+		ORDER BY EVTM.EV_TPL_NUM, EVIM.EV_ITEM_TYPE_CD, EVTD.EV_ITEM_NUM, EVID.EV_ID_SQ, EVID.EV_ID_ORDER
+		 
+     </select>
+     
+     
+    <select id="doSearchEvvu" parameterType="hashMap" resultType="hashMap">
+    	SELECT  EV_NUM
+	                , #{EV_TPL_NUM}		AS EV_TPL_NUM
+		            , #{VENDOR_CD}			AS VENDOR_CD
+		            , #{VENDOR_NM}			AS VENDOR_NM
+    	            , EV_USER_ID
+                    , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, EV_USER_ID, #{ses.langCd}) AS EV_USER_NM    	              
+    	            , <include refid="com.sql.nvl"/>(EVAL_SCORE,'-1') AS EVAL_SCORE
+    	            , PROGRESS_CD
+    	            , ATT_FILE_NUM
+    	            , RMK
+    	   FROM STOCEVVU
+    	 WHERE GATE_CD	 	=  #{ses.gateCd}
+    	      AND DEL_FLAG 		= '0'
+    	      AND EV_NUM 			= #{EV_NUM}
+    	      AND EV_USER_ID	= #{EV_USER_ID}
+    </select>
+    
+    <select id="doCheck" parameterType="hashMap" resultType="hashMap">
+		 SELECT  <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETGMTDATE(MASTER.COMPLETE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}),'-') AS  COMPLETE_DATE
+		      		  ,<include refid="com.sql.nvl"/>(EVVU.PROGRESS_CD,'-') AS PROGRESS_CD
+		      		  ,MASTER.EV_NUM
+		   FROM STOCEVVM MASTER
+		INNER JOIN STOCEVVU EVVU
+		ON  MASTER.EV_NUM   	= EVVU.EV_NUM
+		AND MASTER.GATE_CD  	= EVVU.GATE_CD
+		AND MASTER.GATE_CD	=  #{ses.gateCd}
+		AND MASTER.DEL_FLAG 	= '0'
+		AND MASTER.EV_NUM   	= #{EV_NUM}
+		AND EVVU.EV_USER_ID 	= #{EV_USER_ID}
+		AND EVVU.DEL_FLAG   		= '0'
+    </select>
+    
+    <update id="doUpdateEvur" parameterType="hashMap" >
+		MERGE INTO STOCEVUR TARGET
+		USING (
+		        SELECT #{ses.gateCd} 			AS GATE_CD
+		                    ,#{EV_NUM} 				AS EV_NUM
+		                    ,' ' 								AS SG_NUM
+		                    ,#{EV_USER_ID} 			AS EV_USER_ID
+		                    ,#{EV_TPL_NUM} 		AS EV_TPL_NUM
+		                    ,#{EV_ITEM_NUM} 		AS EV_ITEM_NUM
+		                    ,#{EV_ID_SQ} 				AS EV_ID_SQ
+		                    ,#{EV_ID_SCORE} 		AS EV_ID_SCORE
+		                    ,#{EV_REMARK} 			AS EV_REMARK
+		                    ,'0' 								AS DEL_FLAG
+		                    ,<include refid="com.sql.sysdate"/> 	AS REG_DATE
+		                    ,#{ses.userId} AS REG_USER_ID
+		          <include refid="com.sql.dual"/>
+		      ) SOURCE
+		ON    (     TARGET.GATE_CD      		= SOURCE.GATE_CD
+		        AND TARGET.EV_NUM       		= SOURCE.EV_NUM
+		        AND TARGET.SG_NUM       		= SOURCE.SG_NUM
+		        AND TARGET.EV_USER_ID   		= SOURCE.EV_USER_ID
+		        AND TARGET.EV_TPL_NUM   	= SOURCE.EV_TPL_NUM
+		        AND TARGET.EV_ITEM_NUM  	= SOURCE.EV_ITEM_NUM )
+		WHEN MATCHED THEN
+		UPDATE SET
+		       EV_ID_SQ     								= SOURCE.EV_ID_SQ
+		      ,EV_ID_SCORE  							= SOURCE.EV_ID_SCORE
+		      ,EV_REMARK  							= SOURCE.EV_REMARK
+		      ,MOD_USER_ID  							= SOURCE.REG_USER_ID
+		      ,MOD_DATE     							= SOURCE.REG_DATE
+		WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, EV_NUM, SG_NUM, EV_USER_ID, EV_TPL_NUM, EV_ITEM_NUM, EV_ID_SQ
+		      , EV_ID_SCORE, EV_REMARK, DEL_FLAG, REG_DATE, REG_USER_ID, MOD_DATE, MOD_USER_ID)
+		VALUES (SOURCE.GATE_CD, SOURCE.EV_NUM, SOURCE.SG_NUM, SOURCE.EV_USER_ID, SOURCE.EV_TPL_NUM
+		      , SOURCE.EV_ITEM_NUM, SOURCE.EV_ID_SQ, SOURCE.EV_ID_SCORE, SOURCE.EV_REMARK, SOURCE.DEL_FLAG
+		      , SOURCE.REG_DATE, SOURCE.REG_USER_ID, SOURCE.REG_DATE, SOURCE.REG_USER_ID<include refid="com.sql.mergeEnd"/>
+    </update>
+    
+    <update id="doUpdateEvvu" parameterType="hashMap" >
+		UPDATE STOCEVVU
+		   SET EVAL_SCORE  	 	= #{EVAL_SCORE}
+		         ,ATT_FILE_NUM		= #{ATT_FILE_NUM}
+		         ,RMK						= #{RMK}
+		         ,MOD_DATE     		= <include refid="com.sql.sysdate"/>
+		         ,MOD_USER_ID  		= #{ses.userId}
+		 WHERE GATE_CD      		= #{ses.gateCd}
+		      AND EV_NUM       		= #{EV_NUM}
+		      AND SG_NUM       		= ' '
+		     AND EV_USER_ID   		= #{EV_USER_ID}   
+    </update>
+ 
+</mapper>

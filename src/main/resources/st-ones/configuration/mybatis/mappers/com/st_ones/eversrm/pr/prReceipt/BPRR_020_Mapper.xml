@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prReceipt.BPRR_020_Mapper">
+
+    <select id="doSearchPrReceipt" parameterType="hashMap" resultType="hashMap">
+    
+		 SELECT PRHD.BUYER_REQ_CD
+              , PRDT.PLANT_CD
+              , PRHD.PR_TYPE
+		      , PRHD.PR_NUM
+		      , PRHD.SUBJECT
+              , PRDT.CTRL_USER_ID
+		      , <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+              , PRDT.PROGRESS_CD
+              , <include refid="com.sql.dbo"/>GETGMTDATE(PRHD.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQ_DATE
+              , PRHD.REQ_USER_ID
+              , <include refid="com.sql.dbo"/>GETUSERNAME(PRDT.GATE_CD, PRHD.REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+              , PRDT.ITEM_CD
+			  ,	PRDT.ITEM_DESC
+			  , PRDT.ITEM_SPEC
+			  , PRDT.PR_QT			  
+			  , PRDT.UNIT_CD
+			  , PRHD.CUR
+			  , PRDT.UNIT_PRC
+	          , PRDT.PR_AMT
+              , <include refid="com.sql.dbo"/>GETGMTDATE(PRDT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE
+              , PRDT.CTRL_CD
+              ,(SELECT CTRL_NM FROM STOCBACO
+                 WHERE GATE_CD = PRDT.GATE_CD
+                   AND CTRL_CD = PRDT.CTRL_CD
+                   AND DEL_FLAG = '0') AS CTRL_NM
+			  , PRHD.GATE_CD
+			  , PRDT.PR_SQ
+			  , PRHD.BUYER_REQ_CD
+		   FROM STOCPRHB PRHB LEFT JOIN STOCPRDT PRDT
+			      ON(PRHB.GATE_CD = PRDT.GATE_CD
+			     AND PRHB.PR_NUM = PRDT.PR_NUM
+			     AND PRHB.PR_SQ = PRDT.PR_SQ
+			     AND PRDT.DEL_FLAG = '0')
+	       LEFT JOIN STOCPRHD PRHD
+			      ON(PRDT.GATE_CD = PRHD.GATE_CD
+			     AND PRDT.PR_NUM = PRHD.PR_NUM
+			     AND PRHD.DEL_FLAG = '0')
+	      WHERE PRHB.GATE_CD = #{ses.gateCd}
+            AND PRHD.DEL_FLAG = '0'
+            AND PRHD.PR_TYPE NOT IN ('DC','ISP') <!-- 구매유형이 "품의,투자품의(M136_ISP)"인 건은 제외(업무진행관리에서 진행함) -->
+            <!-- 접수대기(2100), 접수완료(2200), 유찰(1300) -->
+            <!-- 입찰/견적서 작성시 STOCPRHD(구매접수대기) 테이블에서 삭제함 -->
+            <!-- 해당 구매요청 품목이 유찰되는 경우 STOCPRHB에 등록되어야 함 -->
+            <!--
+            AND PRDT.PROGRESS_CD IN ('1300', '2100', '2200')
+            -->
+            AND PRHD.SIGN_STATUS = 'E'
+ 		    <!-- 구매담당자의 가능 플랜트 구매건만 조회하도록 함(2016.01.13) -->
+	        AND EXISTS (SELECT 'X' FROM STOCUSPL WHERE GATE_CD = PRHD.GATE_CD 
+	  		            AND PLANT_CD = PRDT.PLANT_CD AND USER_ID = #{ses.userId} AND DEL_FLAG = '0')
+			<!-- 자신이 구매담당자로 맵핑되어 있는 구매그룹만 조회하도록 함(15.10.19 HMCHOI) -->
+			<!-- 제외(2016.01.13) -->
+			<!--
+		    AND EXISTS (
+			      SELECT 'X' FROM STOCBACP
+			       WHERE GATE_CD = PRDT.GATE_CD
+			         AND DEL_FLAG = '0'
+			         AND USE_FLAG = '1'
+			         AND CTRL_CD = PRDT.CTRL_CD
+			         AND CTRL_USER_ID = #{ses.userId}
+		      )
+		    -->
+
+        <if test="REQ_DATE_FROM !='' and REQ_DATE_FROM !=null and REQ_DATE_TO !='' and REQ_DATE_TO !=null">
+            AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND PRDT.PLANT_CD = #{PLANT_CD}
+        </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+            AND PRHD.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="PR_NUM != '' and PR_NUM != null">
+            AND PRHD.PR_NUM <include refid="com.sql.likeL"/> #{PR_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null">
+            AND PRHD.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_USER_ID != '' and REQ_USER_ID != null">
+           	AND UPPER(PRHD.REQ_USER_ID) <include refid="com.sql.likeL"/> #{REQ_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD, PRHD.REQ_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_CD != '' and CTRL_CD != null">
+            AND PRDT.CTRL_CD <include refid="com.sql.likeL"/> #{CTRL_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="(CTRL_USER_ID != '' and CTRL_USER_ID != null) or (CTRL_USER_NM != '' and CTRL_USER_NM != null)">
+	        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           		AND (UPPER(PRDT.CTRL_USER_ID) <include refid="com.sql.likeL"/> #{CTRL_USER_ID} <include refid="com.sql.likeR"/> OR PRDT.CTRL_USER_ID IS NULL)
+           	</if>
+    	    <if test="CTRL_USER_NM != '' and CTRL_USER_NM != null">
+	    		AND (<include refid="com.sql.dbo"/>GETUSERNAME(PRDT.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_USER_NM} <include refid="com.sql.likeR"/>
+                    <if test='PIC_FLAG != "Y"'>
+                        OR PRDT.CTRL_USER_ID IS NULL
+                    </if>
+                    )
+        	</if>
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            AND PRDT.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        
+         ORDER BY PRHD.REQ_DATE DESC, PRDT.PR_NUM DESC, PRDT.ITEM_CD
+    </select>
+
+	<select id="checkTransferPrReceipt" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCPRDT
+        WHERE 		GATE_CD = #{GATE_CD}
+		        AND PR_NUM = #{PR_NUM}
+		        AND PR_SQ = #{PR_SQ}
+		        AND PROGRESS_CD > '2200'
+    </select>  
+
+    <update id="doTransferPrReceipt" parameterType="hashmap">
+        UPDATE STOCPRDT SET
+            DEL_FLAG = '0',
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            CTRL_USER_ID = #{CTRL_USER_ID},
+            PROGRESS_CD = '2100'
+        WHERE GATE_CD = #{GATE_CD}
+            AND PR_NUM = #{PR_NUM}
+            AND PR_SQ = #{PR_SQ}
+    </update>
+    
+    <select id="checkReceiptPrReceipt" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCPRDT
+        WHERE 		GATE_CD = #{GATE_CD}
+		        AND PR_NUM = #{PR_NUM}
+		        AND PR_SQ = #{PR_SQ}
+		        AND PROGRESS_CD > '2100'
+    </select>  
+
+    <update id="doReceiptPrReceipt" parameterType="hashmap">   
+        UPDATE STOCPRDT SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            RECEIPT_DATE = <include refid="com.sql.sysdate"/>,
+            CTRL_USER_ID = #{ses.userId},
+            PROGRESS_CD = '2200'
+        WHERE GATE_CD = #{GATE_CD}
+          AND PR_NUM = #{PR_NUM}
+          AND PR_SQ = #{PR_SQ}
+    </update>
+    
+    <select id="checkLastPricePrReceipt" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+	      FROM STOCPRDT PRDT 
+	      JOIN STOCPRHD PRHD
+		   ON (PRDT.GATE_CD = PRHD.GATE_CD
+		   AND PRDT.PR_NUM = PRHD.PR_NUM)
+         WHERE PRDT.GATE_CD = #{ses.gateCd}
+           AND <include refid="com.sql.dbo"/>GETITEMSTATUSBYUNITPRICE(PRDT.GATE_CD, PRDT.ITEM_CD, PRDT.BUYER_CD, PRHD.BUYER_REQ_CD, PRDT.PUR_ORG_CD) != '300'
+           AND PRDT.PR_NUM <include refid="com.sql.stringMerge"/> CAST(PRDT.PR_SQ AS VARCHAR(6)) IN (${PR_NUM_SQ})
+    </select>
+  
+  <!--     searchVendorIssuing - BPR_180   -->
+
+    <select id="doSearchVendorIssuing" parameterType="hashMap" resultType="hashMap">
+		 SELECT INFO.VENDOR_CD
+		 	  , <include refid="com.sql.dbo"/>GETVENDORNAME(INFO.GATE_CD , INFO.VENDOR_CD , #{ses.langCd}) AS VENDOR_NM
+			  , <include refid="com.sql.dbo"/>GETGMTDATE(INFO.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+			  , <include refid="com.sql.dbo"/>GETGMTDATE(INFO.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+			  , INFO.UNIT_CD
+			  ,	INFO.CUR
+			  , INFO.UNIT_PRC
+			  , INFO.DELY_TERMS
+			  , INFO.PAY_TERMS
+		 FROM STOCINFO INFO
+	     WHERE INFO.GATE_CD = #{ses.gateCd}
+          AND INFO.DEL_FLAG = '0' 
+          AND INFO.BUYER_CD = #{BUYER_CD} 
+          AND INFO.BUYER_REQ_CD = #{BUYER_REQ_CD}
+          AND INFO.PUR_ORG_CD = #{PUR_ORG_CD}
+          AND INFO.ITEM_CD = #{ITEM_CD}
+          <![CDATA[ AND <include refid="com.sql.sysdate"/> >= INFO.VALID_FROM_DATE 
+          AND INFO.VALID_FROM_DATE <= <include refid="com.sql.sysdate"/> ]]>      
+    </select>
+
+	<update id="afterAutoPo" parameterType="hashmap">   
+        UPDATE STOCPRDT SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            PROGRESS_CD = #{PROGRESS_CD}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND PR_NUM <include refid="com.sql.stringMerge"/> CAST(PR_SQ AS VARCHAR(6)) IN (${PR_NUM_SQ})
+    </update>
+    
+    <select id="getPrProgressCode" parameterType="hashMap" resultType="int">
+    	SELECT PROGRESS_CD 
+        FROM STOCPRDT
+        WHERE GATE_CD = #{ses.gateCd}
+	      AND PR_NUM = #{PR_NUM}
+	      AND PR_SQ = #{PR_SQ}
+    </select>
+    
+    <update id="doPrReturn" parameterType="hashmap">   
+        UPDATE STOCPRDT 
+        SET
+            PROGRESS_CD = '1200', 
+            REJECT_RMK = #{REJECT_RMK},
+            REJECT_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_DATE = <include refid="com.sql.sysdate"/>, 
+            MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+          AND PR_NUM = #{PR_NUM}
+          AND PR_SQ = #{PR_SQ}
+    </update>
+
+    <delete id="doDeletePrhb" parameterType="hashmap">   
+        DELETE STOCPRHB 
+        WHERE GATE_CD = #{GATE_CD}
+          AND PR_NUM = #{PR_NUM}
+          AND PR_SQ = #{PR_SQ}
+    </delete>
+
+    <select id="getUserInfo" parameterType="hashmap" resultType="hashmap">
+        SELECT PRHD.REQ_USER_ID AS RECV_USER_ID
+             , USR.USER_NM AS RECV_NM
+             , BUYER_REQ_CD AS VENDOR_CD
+             ,<include refid="com.sql.dbo"/>GETDECTEL(USR.CELL_NUM) AS RECV_TEL_NUM
+             , USR.COMPANY_CD AS VENDOR_CD
+             ,<include refid="com.sql.dbo"/>GETDECEMAIL(USR.EMAIL) AS RECV_EMAIL
+          FROM STOCPRHD PRHD
+          JOIN STOCUSER USR
+            ON(PRHD.GATE_CD = USR.GATE_CD
+           AND PRHD.REQ_USER_ID = USR.USER_ID
+           AND PRHD.BUYER_REQ_CD = USR.COMPANY_CD
+           AND USR.DEL_FLAG = '0')
+         WHERE PRHD.GATE_CD = #{ses.gateCd}
+           AND PRHD.PR_NUM = #{PR_NUM}
+           AND PRHD.DEL_FLAG = '0'
+    </select>
+
+
+
+    <select id="getSearchJongGa1" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		 <include refid="com.sql.dbo"/>GETPURORGNAME(A.GATE_CD, A.BUYER_CD, A.PUR_ORG_CD, #{ses.langCd}) PUR_ORG_CD
+		,A.VENDOR_CD
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD , A.VENDOR_CD , #{ses.langCd}) AS VENDOR_NM 
+		,A.CUR
+		,A.UNIT_PRC
+		,<include refid="com.sql.dbo"/>GETGMTDATE(A.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)  VALID_FROM_DATE
+		,<include refid="com.sql.dbo"/>GETGMTDATE(A.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)  VALID_TO_DATE
+		FROM STOCINFO A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.BUYER_CD = #{BUYER_CD}
+		AND A.PLANT_CD = #{PLANT_CD}
+		AND A.ITEM_CD = #{ITEM_CD}
+		AND <include refid="com.sql.sysdate"/> BETWEEN A.VALID_FROM_DATE AND A.VALID_TO_DATE
+		AND A.DEL_FLAG = '0'
+		AND <include refid="com.sql.nvl"/>(A.TERMINATE_FLAG, '0') = '0'
+		
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+           AND <include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD , A.VENDOR_CD , #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+           AND A.PUR_ORG_CD <include refid="com.sql.likeL"/> #{PUR_ORG_CD} <include refid="com.sql.likeR"/>
+        </if>		
+
+        <if test="PUR_ORG_NM != '' and PUR_ORG_NM != null">
+           AND <include refid="com.sql.dbo"/>GETPURORGNAME(A.GATE_CD, A.BUYER_CD, A.PUR_ORG_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PUR_ORG_NM} <include refid="com.sql.likeR"/>
+        </if>		
+
+		
+	</select>
+
+    <select id="getSearchJongGa2" parameterType="hashMap" resultType="hashMap">
+
+        SELECT 
+		 PODT.PO_NUM
+		,POHD.SUBJECT
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},POHD.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+		,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) PO_DATE
+		,PODT.PO_QT
+		,PODT.UNIT_CD
+		,POHD.CUR
+		,PODT.UNIT_PRC
+		,PODT.ITEM_AMT
+		,POHD.VENDOR_CD
+        ,PODT.PO_SQ
+        ,POHD.PO_TYPE
+        ,PODT.ITEM_CD
+        ,PODT.ITEM_DESC
+        ,PODT.ITEM_SPEC
+        ,PRDT.PLAN_NUM
+	      FROM STOCPODT PODT
+	      JOIN STOCPOHD POHD
+	       ON (PODT.GATE_CD = POHD.GATE_CD
+	       AND PODT.PO_NUM = POHD.PO_NUM
+	       AND POHD.DEL_FLAG = '0')
+	      LEFT OUTER JOIN STOCPRDT PRDT
+	       ON  PODT.GATE_CD = PRDT.GATE_CD
+	       AND PODT.PR_NUM = PRDT.PR_NUM
+	       AND PODT.PR_SQ = PRDT.PR_SQ
+	       AND PRDT.DEL_FLAG = '0'
+	     WHERE PODT.GATE_CD = #{ses.gateCd}
+           AND POHD.PROGRESS_CD = '300'
+	       AND PODT.DEL_FLAG = '0'
+	       <!-- 
+		   AND CASE WHEN #{ses.grantedAuthCd} = 'PF0055' or #{ses.grantedAuthCd} = 'PF0057' THEN
+		 		         CASE WHEN POHD.PO_TYPE = 'NORMAL' THEN '1' ELSE '0' END
+		 	        WHEN #{ses.grantedAuthCd} = 'PF0054' THEN
+		 		         CASE WHEN POHD.PO_TYPE != 'NORMAL' THEN '1' ELSE '0' END
+		 	        ELSE '1'
+		   END = '1' -->
+
+			AND POHD.PO_CREATE_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+         
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},POHD.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND POHD.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND PODT.PLANT_CD = #{PLANT_CD}
+        </if>
+        <if test="ITEM_CD != '' and ITEM_CD != null">
+            AND PODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> 
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+            AND PODT.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ITEM_SPEC != '' and ITEM_SPEC != null">
+            AND PODT.ITEM_SPEC <include refid="com.sql.likeL"/> #{ITEM_SPEC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PLAN_NUM != '' and PLAN_NUM != null">
+            AND PRDT.PLAN_NUM <include refid="com.sql.likeL"/> #{PLAN_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PO_TYPE != '' and PO_TYPE != null">
+            AND POHD.PO_TYPE = #{PO_TYPE}
+        </if>       
+        
+        ORDER BY PODT.PO_NUM DESC, PODT.ITEM_DESC ASC
+
+	</select>
+
+    <update id="insChhb" parameterType="hashmap">   
+		INSERT INTO STOCCNHB (
+		 GATE_CD
+		,QTA_NUM
+		,QTA_SQ
+		,REG_DATE
+		,REG_USER_ID
+		,RFX_NUM
+		,RFX_CNT
+		,RFX_SQ
+		,PR_NUM
+		,PR_SQ
+		,REQ_DATE
+		,BUYER_CD
+		,PUR_ORG_CD
+		,CTRL_USER_ID
+		,CTRL_CD
+		,RFX_TYPE
+		,ITEM_CD
+		,RFX_REQ_DATE
+		) VALUES (
+		 #{ses.gateCd}--GATE_CD
+		,#{PR_NUM}--QTA_NUM
+		,#{PR_SQ}--QTA_SQ
+		,<include refid="com.sql.sysdate"/> --REG_DATE
+		,#{ses.userId}--REG_USER_ID
+		,null--RFX_NUM
+		,null--RFX_CNT
+		,null--RFX_SQ
+		,#{PR_NUM}--PR_NUM
+		,#{PR_SQ}--PR_SQ
+		,(SELECT REG_DATE FROM STOCPRDT WHERE GATE_CD=#{ses.gateCd} AND PR_NUM = #{PR_NUM} AND PR_SQ = #{PR_SQ}  )--REQ_DATE
+		,(SELECT BUYER_CD FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND PLANT_CD=#{PLANT_CD}  )--BUYER_CD
+		,null--PUR_ORG_CD
+		,#{ses.userId}--CTRL_USER_ID
+		,#{ses.ctrlCd}--CTRL_CD
+		,'PR'--RFX_TYPE
+		,#{ITEM_CD}   --ITEM_CD
+		,<include refid="com.sql.sysdate"/>--RFX_REQ_DATE
+		)
+    </update>
+
+    <delete id="doDeletePrhbData" parameterType="hashMap">
+        DELETE FROM STOCPRHB
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PR_NUM = #{PR_NUM}
+           AND PR_SQ = #{PR_SQ}
+    </delete>
+
+
+
+    <update id="doUpdateJungGa" parameterType="hashmap">   
+        UPDATE STOCPRDT
+        SET
+			 LAST_VENDOR_CD = #{VENDOR_CD}
+			,LAST_UNIT_PRC = #{UNIT_PRC}
+			,LAST_ITEM_AMT = ${UNIT_PRC} * ${PR_QT}
+			,LAST_PO_NUM = #{PO_NUM}
+			,LAST_PO_SQ = #{PO_SQ}
+			,LAST_PO_FLAG = '1'
+			,LAST_PO_CUR = #{CUR}
+            ,MOD_DATE = <include refid="com.sql.sysdate"/> 
+            ,MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND PR_NUM = #{PR_NUM}
+          AND PR_SQ = #{PR_SQ}
+    </update>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+	<insert id="DH0680_doSaveSub" parameterType="hashmap">
+		<selectKey keyProperty="prSq" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(PR_SQ), 0) + 1 FROM STOCPRDT WHERE GATE_CD = #{ses.gateCd} AND PR_NUM = #{PR_NUM}
+		</selectKey>
+		 MERGE STOCPRDT AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{PR_NUM} AS PR_NUM, #{PR_SQ} AS PR_SQ) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND 	A.PR_NUM = B.PR_NUM
+		   AND A.PR_SQ = B.PR_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   DEL_FLAG = '0'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , PROGRESS_CD = CASE WHEN #{wait_flag} = '1' THEN '2500'
+			 					  WHEN PROGRESS_CD > '1100' THEN PROGRESS_CD 
+			 					  ELSE '1100' END <!-- 업무진행관리 등록시 품목의 진행상태는 구매요청중(M062_1100)으로 등록 -->
+
+			 , LAST_VENDOR_CD = #{LAST_VENDOR_CD2}
+			 , PR_QT = #{PR_QT}
+			 , LAST_UNIT_PRC = #{LAST_UNIT_PRC}
+			 , LAST_ITEM_AMT = #{LAST_ITEM_AMT}
+			 , UNIT_CD = #{UNIT_CD}
+			 , LAST_PO_CUR = #{CUR}
+			 , PURCHASE_TYPE = #{PR_TYPE}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , PR_NUM
+			 , PR_SQ
+			 , DEL_FLAG
+			 , REG_DATE
+			 , REG_USER_ID
+			 , PROGRESS_CD
+			 , PURCHASE_TYPE
+			 , PLANT_CD
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , DUE_DATE
+			 , ABLE_DELY_DATE_TEXT
+			 , RECEIPT_DATE
+			 , CN_DATE
+			 , INVEST_AMT_OPER
+			 , INVEST_AMT_BASIC
+			 , PR_AMT
+			 , CTRL_USER_ID
+			 , ITEM_RMK
+			 , LAST_VENDOR_CD
+			 , PR_QT
+			 , LAST_UNIT_PRC
+			 , LAST_ITEM_AMT
+			 , UNIT_CD
+			 , LAST_PO_CUR
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{PR_NUM}
+			 , #{prSq}
+			 , '0'
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '1100' <!-- 업무진행관리 등록시 품목의 진행상태는 구매요청중(M062_1100)으로 등록 -->
+			 , #{PR_TYPE} <!-- PRHD.PR_TYPE 을 INSERT -->
+			 , #{PLANT_CD}
+			 , #{ITEM_CD}
+			 , #{ITEM_DESC}
+			 , #{DUE_DATE}
+			 , #{ABLE_DELY_DATE_TEXT}
+			 , #{RECEIPT_DATE}
+			 , #{CN_DATE}
+			 , #{INVEST_AMT_OPER}
+			 , #{INVEST_AMT_BASIC}
+			 , #{PR_AMT}
+			 , #{CTRL_USER_ID}
+			 , #{ITEM_RMK}
+			 , #{LAST_VENDOR_CD}
+			 , #{PR_QT}
+			 , #{LAST_UNIT_PRC}
+			 , #{LAST_ITEM_AMT}
+			 , #{UNIT_CD}
+			 , #{LAST_PO_CUR}
+		<include refid="com.sql.mergeEnd"/>
+	</insert>
+	
+	<insert id="DH0680_doInsertPOHB" parameterType="hashmap">
+       INSERT INTO STOCPOHB(
+			 GATE_CD
+			,PO_WT_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PR_NUM
+			,PR_SQ
+			,EXEC_NUM
+			,EXEC_SQ
+			,PO_CREATE_TYPE
+			,ITEM_CD
+			,BUYER_CD
+			,PUR_ORG_CD
+			,CTRL_USER_ID
+			,CTRL_CD
+			,VENDOR_CD
+			,CUR
+			,PO_QT
+			,UNIT_PRC
+			,ITEM_AMT
+			,DELY_TERMS
+			,PAY_TERMS
+			,SHIPPER_TYPE
+			,SHIPPING_CD
+			,PURCHASE_TYPE
+        )
+        SELECT
+             #{ses.gateCd}--GATE_CD
+            , #{PO_WT_NUM}--PO_WT_NUM
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'DH0680'
+			,'0'
+			,#{PR_NUM}
+			,#{PR_SQ}
+			,null
+			,null
+			,'PR'
+			,A.ITEM_CD
+			,(SELECT BUYER_CD FROM STOCOGPL WHERE GATE_CD = #{ses.gateCd} AND PLANT_CD = A.PLANT_CD) 
+			,null
+			,A.CTRL_USER_ID
+			,A.CTRL_CD
+			,A.LAST_VENDOR_CD
+			,A.LAST_PO_CUR
+			,A.PR_QT
+			,A.LAST_UNIT_PRC
+			,A.LAST_ITEM_AMT
+			,null
+			,B.PAY_TERMS
+			,B.SHIPPER_TYPE
+			,null
+			,A.PURCHASE_TYPE
+		FROM STOCPRDT A 
+		JOIN STOCVNGL B ON A.GATE_CD = B.GATE_CD
+						AND A.LAST_VENDOR_CD = B.VENDOR_CD
+						AND B.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.PR_NUM = #{PR_NUM}
+		AND A.PR_SQ = #{PR_SQ}
+		AND A.DEL_FLAG='0'
+		AND NOT EXISTS 
+		(SELECT 'X' FROM STOCPOHB POHB
+		 WHERE POHB.GATE_CD = A.GATE_CD
+		  AND POHB.PR_NUM = A.PR_NUM
+		  AND POHB.PR_SQ = A.PR_SQ
+		  AND <include refid="com.sql.nvl"/>(POHB.DEL_FLAG, '0') = '0'
+		)	
+		AND NOT EXISTS 
+		(SELECT 'X' FROM STOCPODT PODT
+		 WHERE PODT.GATE_CD = A.GATE_CD
+		  AND PODT.PR_NUM = A.PR_NUM
+		  AND PODT.PR_SQ = A.PR_SQ
+		  AND <include refid="com.sql.nvl"/>(PODT.DEL_FLAG, '0') = '0'
+		)	
+ 
+        
+	</insert>
+
+</mapper>

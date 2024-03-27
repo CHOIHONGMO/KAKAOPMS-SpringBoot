@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1620_Mapper">
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT 
+		 A.PLANT_CD
+		,A.SALES_YM 
+		,A.SALES_AMT
+		FROM STOCSTPS A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.DEL_FLAG ='0'
+        <if test="START_DATE != null and START_DATE != ''">
+            AND A.SALES_YM BETWEEN <include refid="com.sql.subStr"/>(#{START_DATE},1,6) AND <include refid="com.sql.subStr"/>(#{END_DATE},1,6)
+        </if>
+	    <if test="PLANT_CD !='' and PLANT_CD !=null">
+	        AND A.PLANT_CD  IN (${PLANT_CD})
+	    </if>
+		ORDER BY A.SALES_YM ,A.PLANT_CD
+	</select>
+	
+
+    <update id="saveMatm" parameterType="hashMap">
+         MERGE STOCSTPS AS A
+         USING (
+         	SELECT #{ses.gateCd} GATE_CD,#{SALES_YM} SALES_YM,#{PLANT_CD} PLANT_CD
+         ) AS B
+            ON (A.GATE_CD = B.GATE_CD
+            AND A.SALES_YM = B.SALES_YM
+            AND A.PLANT_CD = B.PLANT_CD
+         )
+          WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , SALES_AMT = #{SALES_AMT}
+             , DEL_FLAG = '0'
+          WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,SALES_YM
+			,PLANT_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,SALES_AMT
+        ) VALUES (
+              #{ses.gateCd}
+            , #{SALES_YM}
+            , #{PLANT_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+
+            , '0'
+            , #{SALES_AMT}
+        <include refid="com.sql.mergeEnd"/>
+
+	</update>	
+    <update id="delMatm" parameterType="hashMap">
+        UPDATE STOCSTPS
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND SALES_YM = #{SALES_YM}
+           AND PLANT_CD = #{PLANT_CD}
+    </update>
+	
+</mapper>

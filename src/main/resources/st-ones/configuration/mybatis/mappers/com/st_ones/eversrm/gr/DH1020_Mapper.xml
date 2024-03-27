@@ -1,0 +1,694 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.DH1020_Mapper">
+
+    <delete id="DH1020_doDeleteDLTP" parameterType="hashmap">
+        DELETE FROM STOCDLTP
+         WHERE GATE_CD = #{ses.gateCd}
+           AND REG_USER_ID = #{ses.userId}
+           AND DEAL_NUM IS NULL
+           AND DEL_FLAG = '0'
+    </delete>
+
+    <insert id="DH1020_doInsertDLTP" parameterType="hashmap">
+        INSERT INTO STOCDLTP (
+             GATE_CD
+            ,WORK_NUM
+            ,WORK_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,GR_NUM
+            ,GR_YEAR
+            ,GR_SQ
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{WORK_NUM}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(WORK_SQ), 0)+1
+                FROM STOCDLTP
+               WHERE WORK_NUM = #{WORK_NUM})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{GR_NUM}
+            ,#{GR_YEAR}
+            ,#{GR_SQ}
+        )
+    </insert>
+
+    <select id="DH1020_doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT
+              A.PLANT_CD
+            , A.BUYER_CD
+            , A.VENDOR_CD
+            , A.VENDOR_NM
+            , A.PURCHASE_TYPE
+            , MAX(A.TAX_CD) AS TAX_CD
+            , MAX(A.PAY_TERMS) AS PAY_TERMS
+            , A.CUR
+            , SUM(A.GR_AMT) AS GR_AMT
+            --, SUM(A.VAT_AMT) AS VAT_AMT
+            , ROUND(SUM(A.GR_AMT) * 0.1, 0) AS VAT_AMT
+            --, SUM(A.TOTAL_AMT) AS TOTAL_AMT
+            , SUM(A.GR_AMT) + ROUND(SUM(A.GR_AMT) * 0.1, 0) AS TOTAL_AMT
+            , CASE 
+                WHEN A.PURCHASE_TYPE IN ('AS', 'NEW') THEN
+                    A.VENDOR_NM + '-일반자재 구매마감'
+                WHEN A.PURCHASE_TYPE IN ('SMT') THEN
+                    A.VENDOR_NM + '-부자재 구매마감'
+                WHEN A.PURCHASE_TYPE IN ('DMRO') THEN
+                    A.VENDOR_NM + '-국내MRO 구매마감'
+                WHEN A.PURCHASE_TYPE IN ('SMRO') THEN
+                    A.VENDOR_NM + '-해외MRO 구매마감'
+                ELSE 
+                    A.VENDOR_NM + '-구매마감'
+              END AS REMARK
+            --, MAX(A.REMARK) AS REMARK
+            , A.PLANT_CD AS BIZ_AREA_CD
+            , MAX(A.COST_CD) AS COST_CD
+            , A.GRDT_TYPE
+            , A.SAP_PR_NUM
+            , A.GL_ACCOUNT_CD
+            , A.GL_ACCOUNT_NM
+            ,'' AS SAP_ORDER_NUM
+            ,'' AS MATL_GROUP
+            ,'' AS TRACKING_NUM             
+            ,'' AS CO_AREA
+        FROM (
+            SELECT GRDT.PLANT_CD
+                  ,GRDT.GATE_CD
+                  ,GRDT.BUYER_CD
+                  ,GRDT.VENDOR_CD
+                  ,<include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+                  ,CASE 
+                    WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN 'AS'
+                    ELSE GRDT.PURCHASE_TYPE
+                   END AS PURCHASE_TYPE
+                  ,GRDT.TAX_CD AS TAX_CD
+                  ,GRDT.PAY_TERMS AS PAY_TERMS
+                  ,GRDT.CUR
+                  ,GRDT.GR_AMT AS GR_AMT
+                  ,GRDT.GR_AMT * 0.1 AS VAT_AMT
+                  ,GRDT.GR_AMT * 1.1 AS TOTAL_AMT
+                  ,GRDT.ITEM_DESC AS REMARK
+                  ,GRDT.PLANT_CD AS BIZ_AREA_CD
+                  ,GRDT.COST_CD AS COST_CD
+                  ,CASE 
+                        WHEN <include refid="com.sql.subStr"/>(GRDT.VENDOR_CD, 1, 1) = 'Y' AND GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN GRDT.GR_NUM
+                        ELSE '1' 
+                   END AS GRDT_TYPE
+                  <!-- ,GRDT.COST_CD -->
+                  ,'' AS SAP_PR_NUM
+                  ,CASE 
+                        WHEN GRDT.PURCHASE_TYPE = 'SMT' THEN '91112601'
+                        WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN '21113101' 
+                        ELSE '' 
+                   END AS GL_ACCOUNT_CD
+                  ,CASE WHEN GRDT.PURCHASE_TYPE = 'SMT' THEN 'GR/IR-부재료'
+                        WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN '미지급금-국내'                                                              
+                        ELSE '' END AS GL_ACCOUNT_NM
+              FROM STOCGRDT GRDT
+             WHERE GRDT.GATE_CD = #{ses.gateCd}
+--               AND GRDT.PURCHASE_TYPE NOT IN ('NORMAL') -- 부품 제외
+--               AND GRDT.PURCHASE_TYPE IN ('AS', 'NEW', 'SMT', 'DMRO', 'SMRO')
+               AND GRDT.DEL_FLAG = '0'
+               AND NOT EXISTS (
+                  SELECT 1
+                    FROM STOCDLDT
+                   WHERE GATE_CD = GRDT.GATE_CD
+                     AND GR_NUM = GRDT.GR_NUM
+                     AND GR_YEAR = GRDT.GR_YEAR
+                     AND GR_SQ = GRDT.GR_SQ
+                     AND DEL_FLAG = '0'
+               )
+               <!-- 현재 사용자의 PLANT 만 조회한다. -->
+               AND EXISTS (SELECT 'X' FROM STOCUSPL USPL WHERE USPL.GATE_CD = GRDT.GATE_CD 
+                           AND USPL.PLANT_CD = GRDT.PLANT_CD AND USPL.USER_ID = #{ses.userId} AND USPL.DEL_FLAG = '0')
+    
+               <if test="REG_FROM_DATE != null and REG_FROM_DATE != '' and REG_TO_DATE != null and REG_TO_DATE != ''">
+                   AND GR_DATE BETWEEN ${stringFromDateStart}#{REG_FROM_DATE}${stringFromDateEnd} AND <include refid="com.sql.toDate"/>#{REG_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+               </if>
+               <if test="PLANT_CD != null and PLANT_CD != ''">
+                   AND PLANT_CD = #{PLANT_CD}
+               </if>
+               <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+                   AND PURCHASE_TYPE IN ${PURCHASE_TYPE}
+               </if>
+               <if test="VENDOR_NM != null and VENDOR_NM != ''">
+                   AND <include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+               </if>
+               <if test="PO_NUM != null and PO_NUM != ''">
+                   AND GRDT.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+               </if>
+               <if test="TAX_CD != null and TAX_CD != ''">
+                   AND GRDT.TAX_CD = #{TAX_CD}
+               </if>
+               <if test="PAY_TERMS != null and PAY_TERMS != ''">
+                   AND GRDT.PAY_TERMS = #{PAY_TERMS}
+               </if>
+         ) A
+         WHERE 1 = 1
+         GROUP BY A.BUYER_CD
+                 ,A.PLANT_CD
+                 ,A.VENDOR_CD
+                 ,A.VENDOR_NM
+                 ,A.CUR
+                 ,A.PURCHASE_TYPE
+                 ,A.GRDT_TYPE
+                 ,A.SAP_PR_NUM
+                 ,A.GL_ACCOUNT_CD
+                 ,A.GL_ACCOUNT_NM
+         HAVING SUM(A.GR_AMT) > 0
+
+        UNION
+
+        SELECT GRDT.PLANT_CD
+              ,GRDT.BUYER_CD
+              ,GRDT.VENDOR_CD
+              ,<include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+              ,GRDT.PURCHASE_TYPE
+              ,GRDT.TAX_CD
+              ,GRDT.PAY_TERMS
+              ,GRDT.CUR
+              ,SUM(GRDT.GR_AMT) AS GR_AMT
+              ,ROUND(SUM(GRDT.GR_AMT * 0.1), 0) AS VAT_AMT
+              ,SUM(GRDT.GR_AMT) + ROUND(SUM(GRDT.GR_AMT * 0.1), 0) AS TOTAL_AMT
+              ,POHD.SUBJECT <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> POHD.PO_NUM AS REMARK
+              ,GRDT.PLANT_CD AS BIZ_AREA_CD
+              ,MAX(GRDT.COST_CD) AS COST_CD
+              ,'2' AS GRDT_TYPE
+              <!-- ,GRDT.COST_CD -->
+              ,(SELECT DISTINCT SAP_PR_NUM
+                  FROM STOCPODT PODT
+                  JOIN STOCPRDT PRDT 
+                    ON (PRDT.GATE_CD  = PODT.GATE_CD
+                    AND PRDT.PR_NUM   = PODT.PR_NUM
+                    AND PRDT.DEL_FLAG = '0'
+                   AND PRDT.PR_SQ    = PODT.PR_SQ)
+                 WHERE PODT.GATE_CD  = GRDT.GATE_CD
+                   AND PODT.PO_NUM   = GRDT.PO_NUM
+                   AND PODT.DEL_FLAG = '0') AS SAP_PR_NUM
+              ,CASE 
+                    WHEN max(DL.GL_ACCOUNT_CD) IS NOT NULL THEN max(DL.GL_ACCOUNT_CD)
+                    WHEN GRDT.PURCHASE_TYPE = 'SMT' THEN '91112601'
+                    WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN '21113101' 
+                    ELSE '' 
+               END AS GL_ACCOUNT_CD
+              ,CASE
+                    WHEN max(DL.GL_ACCOUNT_CD) IS NOT NULL THEN max(DL.GL_ACCOUNT_NM)
+                    WHEN GRDT.PURCHASE_TYPE = 'SMT' THEN 'GR/IR-부재료'
+                    WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN '미지급금-국내'
+                    ELSE '' END AS GL_ACCOUNT_NM
+              ,max(DL.SAP_ORDER_NUM) AS SAP_ORDER_NUM
+              ,max(DL.MATL_GROUP)    AS MATL_GROUP
+              ,max(DL.TRACKING_NUM)  AS TRACKING_NUM
+              ,max(DL.CO_AREA)       AS CO_AREA
+          FROM STOCGRDT GRDT
+          JOIN STOCPOHD POHD
+            ON (GRDT.GATE_CD = POHD.GATE_CD
+           AND GRDT.PO_NUM = POHD.PO_NUM
+           AND POHD.DEL_FLAG = '0')
+          LEFT OUTER JOIN (SELECT 
+                                  GR.PO_NUM
+                                 ,max(HD.GL_ACCOUNT_CD) AS GL_ACCOUNT_CD
+                                 ,max(AC.ACCOUNT_NM)    AS GL_ACCOUNT_NM
+                                 ,max(HD.SAP_ORDER_NUM) AS SAP_ORDER_NUM
+                                 ,max(HD.MATL_GROUP)    AS MATL_GROUP
+                                 ,max(HD.TRACKING_NUM)  AS TRACKING_NUM
+                                 ,max(HD.CO_AREA)       AS CO_AREA
+                             FROM STOCDLHD HD
+                             JOIN STOCDLDT DT
+                               ON (DT.GATE_CD  = HD.GATE_CD
+                              AND DT.DEAL_NUM = HD.DEAL_NUM
+                              AND DT.DEL_FLAG = '0')
+                             JOIN  STOCGRDT GR
+                               ON (GR.GATE_CD  = DT.GATE_CD
+                              AND GR.GR_NUM   = DT.GR_NUM
+                              AND GR.GR_YEAR  = DT.GR_YEAR
+                              AND GR.GR_SQ    = DT.GR_SQ
+                              AND GR.DEL_FLAG = '0')
+                             JOIN STOCACMT AC
+                               ON (AC.GATE_CD    = HD.GATE_CD
+                              AND AC.ACCOUNT_CD = HD.GL_ACCOUNT_CD
+                              AND AC.USE_FLAG   = '1'
+                              AND AC.DEL_FLAG   = '0')
+                            WHERE HD.PURCHASE_TYPE = 'ISP'
+                              AND HD.DEL_FLAG = '0'
+                            GROUP BY GR.PO_NUM) DL
+            ON (DL.PO_NUM = POHD.PO_NUM)
+         WHERE GRDT.GATE_CD = #{ses.gateCd}
+           AND GRDT.PURCHASE_TYPE NOT IN ('NORMAL') -- 부품 제외
+           AND GRDT.PURCHASE_TYPE IN ('DC', 'ISP')
+           AND GRDT.DEL_FLAG = '0'
+           AND NOT EXISTS (
+              SELECT 1
+                FROM STOCDLDT
+               WHERE GATE_CD = GRDT.GATE_CD
+                 AND GR_NUM = GRDT.GR_NUM
+                 AND GR_YEAR = GRDT.GR_YEAR
+                 AND GR_SQ = GRDT.GR_SQ
+                 AND DEL_FLAG = '0'
+           )
+           <!-- 현재 사용자의 PLANT 만 조회한다. -->
+           AND EXISTS (SELECT 'X' FROM STOCUSPL USPL WHERE USPL.GATE_CD = GRDT.GATE_CD 
+                       AND USPL.PLANT_CD = GRDT.PLANT_CD AND USPL.USER_ID = #{ses.userId} AND USPL.DEL_FLAG = '0')
+
+           <if test="REG_FROM_DATE != null and REG_FROM_DATE != '' and REG_TO_DATE != null and REG_TO_DATE != ''">
+               AND GR_DATE BETWEEN ${stringFromDateStart}#{REG_FROM_DATE}${stringFromDateEnd} AND <include refid="com.sql.toDate"/>#{REG_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+           </if>
+           <if test="PLANT_CD != null and PLANT_CD != ''">
+               AND PLANT_CD = #{PLANT_CD}
+           </if>
+           <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+               AND PURCHASE_TYPE IN ${PURCHASE_TYPE}
+           </if>
+           <if test="VENDOR_NM != null and VENDOR_NM != ''">
+               AND <include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="PO_NUM != null and PO_NUM != ''">
+               AND GRDT.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="TAX_CD != null and TAX_CD != ''">
+               AND GRDT.TAX_CD = #{TAX_CD}
+           </if>
+           <if test="PAY_TERMS != null and PAY_TERMS != ''">
+               AND GRDT.PAY_TERMS = #{PAY_TERMS}
+           </if>
+         GROUP BY GRDT.GATE_CD
+                 ,GRDT.BUYER_CD
+                 ,GRDT.PLANT_CD
+                 ,GRDT.VENDOR_CD
+                 ,GRDT.TAX_CD
+                 ,GRDT.PAY_TERMS
+                 ,GRDT.CUR
+                 ,GRDT.PURCHASE_TYPE
+                 ,GRDT.PO_NUM
+                 ,POHD.SUBJECT <include refid="com.sql.stringMerge"/> '-' <include refid="com.sql.stringMerge"/> POHD.PO_NUM
+         HAVING SUM(GRDT.GR_AMT) > 0
+         ORDER BY PLANT_CD
+                 ,VENDOR_CD
+                 ,TAX_CD
+                 ,PAY_TERMS
+                 ,PURCHASE_TYPE
+ 
+    </select>
+
+    <insert id="DH1020_doInsertDLHD" parameterType="hashmap">
+        INSERT INTO STOCDLHD (
+             GATE_CD
+            ,DEAL_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,VENDOR_CD
+            ,DEAL_DATE
+            ,BUYER_CD
+            ,VAT_CD
+            ,PAY_TERMS
+            ,IRS_NUM
+            ,CUR
+            ,SUP_AMT
+            ,VAT_AMT
+            ,TAX_NUM
+            ,PLANT_CD
+            ,INVEST_CD
+            ,REMARK
+            ,BIZ_AREA_CD
+            ,PURCHASE_TYPE
+            ,GL_ACCOUNT_CD
+            ,PROOF_DATE
+            ,ATT_FILE_NUM
+            ,IF_TRGT
+            ,JOB_SQ
+            ,SL_NUM
+            ,COST_CD
+            ,TAX_CD
+            ,DATA_CREATE_TYPE
+            ,SAP_ORDER_NUM
+            ,SL_TYPE
+            ,MATL_GROUP
+            ,TRACKING_NUM
+            ,CO_AREA
+        ) VALUES (
+            #{ses.gateCd}
+           ,#{DEAL_NUM}
+           ,<include refid="com.sql.sysdate"/>
+           ,#{ses.userId}
+           ,<include refid="com.sql.sysdate"/>
+           ,#{ses.userId}
+           ,'0'
+           ,#{VENDOR_CD}
+           ,<include refid="com.sql.dbo"/>setGmtDate(#{DEAL_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- DEAL_DATE
+           ,#{BUYER_CD}
+           ,#{VAT_CD}
+           ,#{PAY_TERMS}
+           ,(SELECT IRS_NUM
+               FROM STOCVNGL
+              WHERE GATE_CD = #{ses.gateCd}
+                AND VENDOR_CD = #{VENDOR_CD}
+                AND DEL_FLAG = '0')
+           ,#{CUR}
+           ,#{GR_AMT}
+           ,#{VAT_AMT}
+           ,#{TAX_NUM}
+           ,#{PLANT_CD}
+           ,#{INVEST_CD}
+           ,#{REMARK}
+           ,#{BIZ_AREA_CD}
+           ,#{PURCHASE_TYPE}
+           ,#{GL_ACCOUNT_CD}
+           ,<include refid="com.sql.dbo"/>setGmtDate(#{PROOF_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- PROOF_DATE
+           ,#{ATT_FILE_NUM}
+           ,#{IF_TRGT}
+           ,#{JOB_SQ}
+           ,#{SL_NUM}
+           ,#{COST_CD}
+           ,#{TAX_CD}
+           ,'S'
+           ,#{SAP_ORDER_NUM}
+           ,(CASE #{PURCHASE_TYPE}
+                                WHEN 'ISP' THEN 'IN'
+                                WHEN 'SMT' THEN 'IV'
+                                ELSE 'GE'
+              END)
+            ,#{MATL_GROUP}
+            ,#{TRACKING_NUM}
+            ,#{CO_AREA}
+        )
+    </insert>
+
+    <select id="DH1020_doSearchMaxDealSq" parameterType="hashmap" resultType="string">
+        SELECT <include refid="com.sql.nvl"/>(MAX(DEAL_SQ), 0)+1
+          FROM STOCDLTP
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DEAL_NUM = #{DEAL_NUM}
+    </select>
+
+    <select id="DH1020_getGrdtListFromGroupedData" parameterType="hashmap" resultType="hashmap">
+        <!-- SELECT *
+          FROM STOCGRDT GRDT
+         WHERE GRDT.GATE_CD = #{ses.gateCd}
+           AND GRDT.BUYER_CD = #{BUYER_CD}
+           AND GRDT.PLANT_CD = #{PLANT_CD}
+           AND GRDT.VENDOR_CD = #{VENDOR_CD}
+           
+           AND CASE WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN #{TAX_CD}
+                    ELSE GRDT.TAX_CD
+               END = #{TAX_CD}
+
+           AND CASE WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN #{PAY_TERMS}
+                    ELSE GRDT.PAY_TERMS
+               END = #{PAY_TERMS}
+
+           AND CASE WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN #{PURCHASE_TYPE}
+                    ELSE GRDT.PURCHASE_TYPE
+               END = #{PURCHASE_TYPE}
+
+           AND GRDT.CUR = #{CUR}
+           AND GRDT.COST_CD = #{COST_CD}
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM STOCDLDT
+                WHERE GATE_CD = GRDT.GATE_CD
+                  AND GR_NUM = GRDT.GR_NUM
+                  AND GR_YEAR = GRDT.GR_YEAR
+                  AND GR_SQ = GRDT.GR_SQ
+                  AND DEL_FLAG = '0'
+           )
+           AND GRDT.DEL_FLAG = '0' -->
+
+        SELECT GRDT.*
+          FROM STOCGRDT GRDT
+         WHERE GRDT.GATE_CD = #{ses.gateCd}
+           --AND GRDT.PURCHASE_TYPE NOT IN ('NORMAL') -- 부품 제외
+           --AND GRDT.PURCHASE_TYPE IN ('AS', 'NEW', 'SMT', 'DMRO', 'SMRO')
+           AND GRDT.DEL_FLAG = '0'
+           AND NOT EXISTS (
+              SELECT 1
+                FROM STOCDLDT
+               WHERE GATE_CD = GRDT.GATE_CD
+                 AND GR_NUM = GRDT.GR_NUM
+                 AND GR_YEAR = GRDT.GR_YEAR
+                 AND GR_SQ = GRDT.GR_SQ
+                 AND DEL_FLAG = '0'
+           )
+           <!-- 현재 사용자의 PLANT 만 조회한다. -->
+           AND EXISTS (SELECT 'X' FROM STOCUSPL USPL WHERE USPL.GATE_CD = GRDT.GATE_CD 
+                       AND USPL.PLANT_CD = GRDT.PLANT_CD AND USPL.USER_ID = #{ses.userId} AND USPL.DEL_FLAG = '0')
+                       
+           <if test="REG_FROM_DATE != null and REG_FROM_DATE != '' and REG_TO_DATE != null and REG_TO_DATE != ''">
+               AND GRDT.GR_DATE BETWEEN ${stringFromDateStart}#{REG_FROM_DATE}${stringFromDateEnd} AND <include refid="com.sql.toDate"/>#{REG_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+           </if>
+           <if test="PLANT_CD != null and PLANT_CD != ''">
+               AND GRDT.PLANT_CD = #{PLANT_CD}
+           </if>
+           <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+               AND GRDT.PURCHASE_TYPE IN ${PURCHASE_TYPE}
+           </if>
+           <if test="VENDOR_NM != null and VENDOR_NM != ''">
+               AND <include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="PO_NUM != null and PO_NUM != ''">
+               AND GRDT.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="TAX_CD != null and TAX_CD != ''">
+               AND GRDT.TAX_CD = #{TAX_CD}
+           </if>
+           <if test="PAY_TERMS != null and PAY_TERMS != ''">
+               AND GRDT.PAY_TERMS = #{PAY_TERMS}
+           </if>
+           
+           <if test="PLANT_CD_G != null and PLANT_CD_G != ''">
+                AND GRDT.PLANT_CD = #{PLANT_CD_G}
+           </if>
+
+           <if test="BUYER_CD_G != null and BUYER_CD_G != ''">
+                AND GRDT.BUYER_CD = #{BUYER_CD_G}
+           </if>
+
+           <if test="VENDOR_CD_G != null and VENDOR_CD_G != ''">
+                AND GRDT.VENDOR_CD = #{VENDOR_CD_G}
+           </if>
+           
+           <if test="CUR_G != null and CUR_G != ''">
+                AND GRDT.CUR = #{CUR_G}
+           </if>
+
+           <if test="PURCHASE_TYPE_G != null and PURCHASE_TYPE_G != ''">
+                AND CASE 
+                        WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN 'AS'
+                        ELSE GRDT.PURCHASE_TYPE
+                    END = #{PURCHASE_TYPE_G}
+           </if>
+           
+           <if test="GRDT_TYPE_G != null and GRDT_TYPE_G != ''">
+                <if test='GRDT_TYPE_G == "1"'>
+                    AND '1' = #{GRDT_TYPE_G}
+                </if>
+                
+                <if test='GRDT_TYPE_G != "1"'>
+                    AND GRDT.GR_NUM = #{GRDT_TYPE_G}
+                </if>
+           </if>
+           
+        UNION
+        
+        SELECT GRDT.*
+          FROM STOCGRDT GRDT INNER JOIN STOCPOHD POHD
+          ON  GRDT.GATE_CD = POHD.GATE_CD
+          AND GRDT.PO_NUM = POHD.PO_NUM
+          AND POHD.DEL_FLAG = '0'
+         WHERE GRDT.GATE_CD = #{ses.gateCd}
+          -- AND GRDT.PURCHASE_TYPE NOT IN ('NORMAL') -- 부품 제외
+          -- AND GRDT.PURCHASE_TYPE IN ('DC', 'ISP')
+           AND GRDT.DEL_FLAG = '0'
+           AND NOT EXISTS (
+              SELECT 1
+                FROM STOCDLDT
+               WHERE GATE_CD = GRDT.GATE_CD
+                 AND GR_NUM = GRDT.GR_NUM
+                 AND GR_YEAR = GRDT.GR_YEAR
+                 AND GR_SQ = GRDT.GR_SQ
+                 AND DEL_FLAG = '0'
+           )
+           <!-- 현재 사용자의 PLANT 만 조회한다. -->
+           AND EXISTS (SELECT 'X' FROM STOCUSPL USPL WHERE USPL.GATE_CD = GRDT.GATE_CD 
+                       AND USPL.PLANT_CD = GRDT.PLANT_CD AND USPL.USER_ID = #{ses.userId} AND USPL.DEL_FLAG = '0')
+                       
+           <if test="REG_FROM_DATE != null and REG_FROM_DATE != '' and REG_TO_DATE != null and REG_TO_DATE != ''">
+               AND GRDT.GR_DATE BETWEEN ${stringFromDateStart}#{REG_FROM_DATE}${stringFromDateEnd} AND <include refid="com.sql.toDate"/>#{REG_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+           </if>
+           <if test="PLANT_CD != null and PLANT_CD != ''">
+               AND GRDT.PLANT_CD = #{PLANT_CD}
+           </if>
+           <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+               AND GRDT.PURCHASE_TYPE IN ${PURCHASE_TYPE}
+           </if>
+           <if test="VENDOR_NM != null and VENDOR_NM != ''">
+               AND <include refid="com.sql.dbo"/>getVendorName(GRDT.GATE_CD, GRDT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="PO_NUM != null and PO_NUM != ''">
+               AND GRDT.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+           </if>
+           <if test="TAX_CD != null and TAX_CD != ''">
+               AND GRDT.TAX_CD = #{TAX_CD}
+           </if>
+           <if test="PAY_TERMS != null and PAY_TERMS != ''">
+               AND GRDT.PAY_TERMS = #{PAY_TERMS}
+           </if>
+
+           <if test="PLANT_CD_G != null and PLANT_CD_G != ''">
+                AND GRDT.PLANT_CD = #{PLANT_CD_G}
+           </if>
+
+           <if test="BUYER_CD_G != null and BUYER_CD_G != ''">
+                AND GRDT.BUYER_CD = #{BUYER_CD_G}
+           </if>
+
+           <if test="VENDOR_CD_G != null and VENDOR_CD_G != ''">
+                AND GRDT.VENDOR_CD = #{VENDOR_CD_G}
+           </if>
+           
+           <if test="CUR_G != null and CUR_G != ''">
+                AND GRDT.CUR = #{CUR_G}
+           </if>
+
+           <if test="PURCHASE_TYPE_G != null and PURCHASE_TYPE_G != ''">
+                AND GRDT.PURCHASE_TYPE = #{PURCHASE_TYPE_G}
+           </if>
+
+           <if test="TAX_CD_G != null and TAX_CD_G != ''">
+                AND GRDT.TAX_CD = #{TAX_CD_G}
+           </if>
+
+           <if test="PAY_TERMS_G != null and PAY_TERMS_G != ''">
+                AND GRDT.PAY_TERMS = #{PAY_TERMS_G}
+           </if>
+
+           <if test="REMARK_G != null and REMARK_G != ''">
+                AND POHD.SUBJECT + '-' + POHD.PO_NUM = #{REMARK_G}
+           </if>
+           
+           <if test="GRDT_TYPE_G != null and GRDT_TYPE_G != ''">
+                AND '2' = #{GRDT_TYPE_G}
+           </if>           
+    </select>
+
+    <insert id="DH1020_doInsertDLDT" parameterType="hashmap">
+        INSERT INTO STOCDLDT (
+             GATE_CD
+            ,DEAL_NUM
+            ,DEAL_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,GR_NUM
+            ,GR_YEAR
+            ,GR_SQ
+            ,GR_QT
+            ,UNIT_PRC
+            ,GR_AMT
+            ,VAT_AMT
+            ,ACCOUNT_CD
+            ,ITEM_CD
+            ,ITEM_DESC
+            ,ITEM_SPEC
+            ,UNIT_CD
+            ,REMARK
+            ,COST_CD
+            ,BIZ_AREA_CD
+        )
+        SELECT
+             #{ses.gateCd}
+            ,#{DEAL_NUM}
+            ,ROW_NUMBER() OVER (ORDER BY DEAL_NUM) AS DEAL_SQ
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,GRDT.GR_NUM
+            ,GRDT.GR_YEAR
+            ,GRDT.GR_SQ
+            ,GRDT.GR_QT
+            ,GRDT.UNIT_PRC
+            ,GRDT.GR_AMT
+            ,#{VAT_AMT}
+            ,GRDT.ACCOUNT_CD
+            ,GRDT.ITEM_CD
+            ,GRDT.ITEM_DESC
+            ,GRDT.ITEM_SPEC
+            ,GRDT.UNIT_CD
+            ,CASE WHEN GRDT.PURCHASE_TYPE IN ('AS', 'NEW') THEN GRDT.ITEM_DESC ELSE GRDT.GR_REMARK END
+            ,GRDT.COST_CD
+            ,CASE WHEN GRDT.COST_CD IS NOT NULL THEN 
+                    CASE WHEN <include refid="com.sql.nvl"/>(COST.PLANT_CD, ' ') = ' ' THEN #{BIZ_AREA_CD} ELSE COST.PLANT_CD END 
+                  ELSE #{BIZ_AREA_CD}
+             END AS BIZ_AREA_CD
+          FROM STOCGRDT GRDT
+          JOIN STOCDLTP DLTP
+          ON (GRDT.GATE_CD = DLTP.GATE_CD
+          AND GRDT.GR_NUM = DLTP.GR_NUM
+          AND GRDT.GR_YEAR = DLTP.GR_YEAR
+          AND GRDT.GR_SQ = DLTP.GR_SQ
+          AND DLTP.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCCOST COST
+          ON  GRDT.GATE_CD = COST.GATE_CD
+          AND GRDT.BUYER_CD = COST.BUYER_CD
+          AND GRDT.COST_CD = COST.COST_CD
+          AND COST.DEL_FLAG = '0'
+         WHERE GRDT.GATE_CD = #{ses.gateCd}
+           AND GRDT.DEL_FLAG = '0'
+           AND DLTP.WORK_NUM = #{WORK_NUM}
+    </insert>
+
+    <update id="DH1020_doUpdateDLTP" parameterType="hashmap">
+        UPDATE STOCDLTP
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,DEAL_NUM = #{DEAL_NUM}
+              ,DEAL_SQ = (SELECT DEAL_SQ
+                            FROM STOCDLDT
+                           WHERE GATE_CD = STOCDLTP.GATE_CD
+                             AND GR_NUM = STOCDLTP.GR_NUM
+                             AND GR_YEAR = STOCDLTP.GR_YEAR
+                             AND GR_SQ = STOCDLTP.GR_SQ
+                             AND DEL_FLAG = '0')
+         WHERE GATE_CD = #{ses.gateCd}
+           AND WORK_NUM = #{WORK_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="DH1020P_doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT GRDT.GR_NUM
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(GRDT.GR_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS GR_DATE
+              ,GRDT.ITEM_CD
+              ,GRDT.ITEM_DESC
+              ,GRDT.ITEM_SPEC
+              ,GRDT.UNIT_CD
+              ,GRDT.GR_QT
+              ,<include refid="com.sql.dbo"/>GETPRICEBYCUR(GRDT.CUR, GRDT.UNIT_PRC) AS UNIT_PRC
+              ,<include refid="com.sql.dbo"/>GETAMOUNTBYCUR(GRDT.CUR, GRDT.GR_AMT) AS GR_AMT
+          FROM STOCDLTP DLTP
+          JOIN STOCGRDT GRDT
+            ON (DLTP.GATE_CD = GRDT.GATE_CD
+            AND DLTP.GR_NUM = GRDT.GR_NUM
+            AND DLTP.GR_YEAR = GRDT.GR_YEAR
+            AND DLTP.GR_SQ = GRDT.GR_SQ
+            AND GRDT.DEL_FLAG = '0')
+         WHERE DLTP.GATE_CD = #{ses.gateCd}
+           AND DLTP.WORK_NUM = #{WORK_NUM}
+           AND DLTP.DEL_FLAG = '0'
+         ORDER BY GRDT.GR_DATE ASC
+    </select>
+    
+</mapper>

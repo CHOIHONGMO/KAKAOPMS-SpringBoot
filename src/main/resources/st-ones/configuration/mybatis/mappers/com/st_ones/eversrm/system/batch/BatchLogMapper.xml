@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.batch.BatchLogMapper">
+
+	<select id="getBatchManagerSms" resultType="hashMap">
+
+        SELECT
+        	  DD.CODE      as RECV_TEL_NUM
+        	 ,DD.CODE_DESC as RECV_USER_NM
+		  FROM STOCCODD DD
+		 WHERE DD.GATE_CD   = #{ses.gateCd}
+		   AND DD.CODE_TYPE = 'M170'
+		   AND LANG_CD      = #{ses.langCd}
+		   AND USE_FLAG     = '1'
+		   AND DEL_FLAG     = '0'
+
+	</select>
+
+	<select id="doSearchBatchLogList" resultType="hashMap">
+
+        SELECT
+        	  T.JOB_NM
+        	 ,T.JOB_DATE
+        	 ,T.JOB_END_DATE
+        	 ,T.JOB_RLT
+        	 ,T.JOB_RLT_MSG
+		  FROM (SELECT
+					  (CASE BL.JOB_ID WHEN 'HDxxxxJob' THEN ''
+					   				  ELSE ''
+					    END) as JOB_NM
+					 ,<include refid="com.sql.dbo"/>GETGMTDATE(BL.JOB_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYY/MM/DD HH24:MI:SS') as JOB_DATE
+					 ,<include refid="com.sql.dbo"/>GETGMTDATE(BL.JOB_END_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYY/MM/DD HH24:MI:SS') as JOB_END_DATE
+					 ,BL.JOB_RLT
+			 		 ,(CASE BL.JOB_RLT WHEN 'E' THEN BL.JOB_RLT_MSG ELSE '' END) as JOB_RLT_MSG
+		  		  FROM STOCBLOG BL
+				 WHERE BL.JOB_TYPE = 'Batch'
+				<if test="JOB_DATE_FROM != '' and JOB_DATE_FROM != null">
+					<if test="JOB_DATE_TO !='' and JOB_DATE_TO != null">
+						AND BL.JOB_DATE BETWEEN <include refid="com.sql.toDate"/>#{JOB_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{JOB_DATE_TO}<include refid="com.sql.dateTo"/>
+					</if>
+				</if>
+				<if test="JOB_NM != '' and JOB_NM != null">
+					AND BL.JOB_ID = #{JOB_NM}
+				</if>
+				<if test="JOB_RLT != '' and JOB_RLT != null">
+				   AND BL.JOB_RLT = #{JOB_RLT}
+				</if>
+		 	   ) T
+		  WHERE 1 = 1
+         ORDER BY T.JOB_DATE DESC
+
+	</select>
+
+</mapper>

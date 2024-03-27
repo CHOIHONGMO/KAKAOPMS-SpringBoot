@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.eversrm.board.notice.BBD01_Mapper">
+
+	<!--공지사항 (MY01_002 > BBD01_010)-->
+	<select id="BBD01_010_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+       		  ROW_NUMBER() OVER( ORDER BY NOTC.REG_DATE DESC, NOTC.NOTICE_NUM DESC) AS ROW_NUM
+       		, NOTC.USER_TYPE
+	       	, NOTC.SUBJECT
+			, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) as REG_DATE
+			, <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , 'YYYY-MM-DD' ) AS NOTICE_DATE
+			, NOTC.REG_USER_ID AS REG_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+			, NOTC.ATT_FILE_NUM AS ATTACH_FILE_NO
+			, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) END AS ATTACH_FILE_NO_DISPLAY
+			, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+														   WHERE GATE_CD = #{ses.gateCd}
+															 AND UUID = NOTC.ATT_FILE_NUM
+															 AND DEL_FLAG = '0') <![CDATA[>]]> 0
+				  THEN '0' ELSE '1' END AS ATTACH_FILE_NO_DISPLAY_IMAGE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, NOTC.GATE_CD
+			, NOTC.NOTICE_NUM
+			, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		  FROM STOCNOTC NOTC
+		 WHERE NOTC.GATE_CD  = #{ses.gateCd}
+		   AND NOTC.DEL_FLAG = '0'
+		   AND NOTC.NOTICE_TYPE = 'PCN'
+
+		  <if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+			AND ( NOTC.START_DATE  <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.START_DATE <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>
+           	 OR  NOTC.END_DATE  <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.END_DATE <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>)
+		</if>
+		 <if test="USER_TYPE != '' and USER_TYPE != null ">
+		   AND NOTC.USER_TYPE = #{USER_TYPE}
+		 </if>
+	     <if test="ADD_USER_ID != '' and ADD_USER_ID != null">
+		     AND NOTC.REG_USER_ID <include refid="com.sql.likeL"/> #{ADD_USER_ID} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="ADD_USER_NAME != '' and ADD_USER_NAME != null">
+		     AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{ADD_USER_NAME} <include refid="com.sql.likeR"/>
+		 </if>
+
+	</select>
+
+	<update id="BBD01_010_doDelete" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET
+							 DEL_FLAG = '1'
+							,MOD_DATE = <include refid="com.sql.sysdate"/>
+							,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<!--공지사항-작성  (MY01_002 > BBD01_011)-->
+	<select id="BBD01_011_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  NOTC.SUBJECT
+			, NOTC.NOTICE_NUM
+			, NOTC.NOTICE_TEXT_NUM
+			, NOTC.USER_TYPE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , <include refid="com.sql.dateFormat"/>) as START_DATE
+			, <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , <include refid="com.sql.dateFormat"/> ) as END_DATE
+			, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+			, NOTC.REG_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+			, NOTC.ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		 FROM STOCNOTC NOTC
+		WHERE NOTC.GATE_CD = #{ses.gateCd}
+		  AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+
+	</select>
+
+	<update id="BBD01_011_doSaveCount" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET VIEW_CNT = #{VIEW_CNT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<insert id="BBD01_011_doInsert" parameterType="hashMap">
+
+     	INSERT INTO STOCNOTC (
+								  GATE_CD
+								, NOTICE_NUM
+								, SUBJECT
+								, REG_DATE
+								, REG_USER_ID
+								, MOD_DATE
+								, MOD_USER_ID
+								, DEL_FLAG
+								, START_DATE
+								, END_DATE
+								, USER_TYPE
+								, ATT_FILE_NUM
+								, NOTICE_TEXT_NUM
+								, NOTICE_TYPE
+								, ANN_FLAG
+							) VALUES (
+								  #{ses.gateCd}
+								, #{NOTICE_NUM}
+								, #{SUBJECT}
+								, <include refid="com.sql.sysdate"/>
+								, #{ses.userId}
+								, <include refid="com.sql.sysdate"/>
+								, #{ses.userId}
+								, '0'
+								, #{START_DATE}
+								, #{END_DATE}
+								, #{USER_TYPE}
+								, #{ATT_FILE_NUM}
+								, #{NOTICE_TEXT_NUM}
+								, 'PCN'
+								, <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+		)
+
+     </insert>
+
+     <update id="BBD01_011_doUpdate" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET
+							  MOD_DATE = <include refid="com.sql.sysdate"/>
+							, MOD_USER_ID = #{ses.userId}
+							, SUBJECT = #{SUBJECT}
+							, USER_TYPE = #{USER_TYPE}
+							, START_DATE = #{START_DATE}
+							, END_DATE = #{END_DATE}
+							, NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+							, ATT_FILE_NUM = #{ATT_FILE_NUM}
+							, ANN_FLAG = <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<!--게시판  (MY01_003 > BBD01_020)-->
+	<select id="BBD01_020_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+       		  ROW_NUMBER() OVER( ORDER BY NOTC.FIXED_TOP_FLAG ASC, NOTC.REG_DATE ASC, NOTC.NOTICE_NUM ASC) AS ROW_NUM
+       		, NOTC.BUYER_CD
+       		, CUST.CUST_NM AS BUYER_NM
+	       	, NOTC.SUBJECT
+			, NOTC.START_DATE
+			, NOTC.END_DATE
+			, NOTC.REG_USER_ID
+		<if test="NOTICE_TYPE != 'PC4'">
+			, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) as REG_DATE
+		</if>
+		<if test="NOTICE_TYPE == 'PC4'">
+			, <include refid="com.sql.toDateChar"/>( NOTC.INS_DATE , 'YYYY-MM-DD' ) as REG_DATE
+		</if>
+			, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			, <include refid="com.sql.stringMergeStart"/> <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , 'YYYY-MM-DD' )<include refid="com.sql.stringMergeEnd"/> AS NOTICE_DATE
+			, NOTC.ATT_FILE_NUM AS ATT_FILE_NUM
+			, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM)
+			  END AS ATT_FILE_NUM_ICON
+			, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+														    WHERE GATE_CD  = #{ses.gateCd}
+															  AND UUID     = NOTC.ATT_FILE_NUM
+															  AND DEL_FLAG = '0') <![CDATA[>]]> 0
+				   THEN '0' ELSE '1'
+			  END AS ATT_FILE_NUM_ICON_IMAGE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, NOTC.NOTICE_NUM
+			, NOTC.NOTICE_TYPE
+			,  <include refid="com.sql.toDateChar"/>( NOTC.MOD_DATE , 'YYYY-MM-DD' ) as MOD_DATE
+		 FROM STOCNOTC NOTC
+		 LEFT JOIN STOCCUST CUST
+		      ON (NOTC.GATE_CD  = CUST.GATE_CD
+		      AND NOTC.BUYER_CD = CUST.CUST_CD
+		      AND CUST.DEL_FLAG = '0')
+		WHERE NOTC.GATE_CD  = #{ses.gateCd}
+		  AND NOTC.DEL_FLAG = '0'
+		  AND NOTC.NOTICE_TYPE = #{NOTICE_TYPE}
+		  
+		<if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null and NOTICE_TYPE != PC4">
+			AND (NOTC.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>)
+		</if>
+		<if test="REG_USER_NM != '' and REG_USER_NM != null">
+		  AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REG_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="SUBJECT != '' and SUBJECT != null">
+			AND UPPER(NOTC.SUBJECT) <include refid="com.sql.likeL"/> UPPER(#{SUBJECT}) <include refid="com.sql.likeR"/>
+		</if>
+		<if test="REG_USER_ID != '' and REG_USER_ID != null">
+			AND ((NOTC.REG_USER_ID <include refid="com.sql.likeL"/> #{REG_USER_ID} <include refid="com.sql.likeR"/>) OR (<include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REG_USER_ID} <include refid="com.sql.likeR"/>))
+		</if>
+		ORDER BY NOTC.FIXED_TOP_FLAG DESC
+		<if test="NOTICE_TYPE != 'PC4'">
+		       , NOTC.REG_DATE DESC
+		</if>
+		<if test="NOTICE_TYPE == 'PC4'">
+		       , NOTC.INS_DATE DESC
+		</if>
+		       , NOTC.NOTICE_NUM DESC
+	</select>
+
+	<update id="BBD01_020_doDelete" parameterType="hashMap">
+		UPDATE STOCNOTC SET
+							 DEL_FLAG = '1'
+							,MOD_DATE = <include refid="com.sql.sysdate"/>
+							,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<!--게시판-작성  (MY01_004 > BBD01_021)-->
+	<select id="BBD01_021_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT
+				  NOTC.SUBJECT
+				, NOTC.NOTICE_NUM
+				, NOTC.NOTICE_TEXT_NUM
+				, NOTC.USER_TYPE
+				, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+				, <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , <include refid="com.sql.dateFormat"/> ) as START_DATE
+				, <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , <include refid="com.sql.dateFormat"/> ) as END_DATE
+				, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) AS REG_DATE
+				, UR.USER_NM AS REG_USER_NM
+				, NOTC.REG_USER_ID
+				, NOTC.ATT_FILE_NUM
+				, NOTC.BUYER_CD
+				, CUST.CUST_NM AS BUYER_NM
+				, NOTC.NOTICE_TYPE
+				, <include refid="com.sql.toDateChar"/>( NOTC.INS_DATE , <include refid="com.sql.dateFormat"/> ) AS INS_DATE
+		  FROM STOCNOTC NOTC
+		  LEFT JOIN STOCUSER UR
+		       ON (NOTC.GATE_CD = UR.GATE_CD
+		       AND NOTC.REG_USER_ID = UR.USER_ID)
+		  LEFT JOIN STOCCUST CUST
+		       ON (NOTC.GATE_CD  = CUST.GATE_CD
+		       AND NOTC.BUYER_CD = CUST.CUST_CD
+		       AND CUST.DEL_FLAG = '0')
+		 WHERE NOTC.GATE_CD = #{ses.gateCd}
+		   AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+	</select>
+
+	<update id="BBD01_021_doSaveCount" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET VIEW_CNT = #{VIEW_CNT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+           AND NOTICE_TYPE = #{NOTICE_TYPE}
+
+    </update>
+
+	<insert id="BBD01_021_doInsert" parameterType="hashMap">
+     	INSERT INTO STOCNOTC (
+								 GATE_CD
+								,NOTICE_NUM
+								,SUBJECT
+								,REG_DATE
+								,REG_USER_ID
+								,MOD_DATE
+								,MOD_USER_ID
+								,DEL_FLAG
+								,START_DATE
+								,END_DATE
+								,USER_TYPE
+								,ATT_FILE_NUM
+								,NOTICE_TEXT_NUM
+								,NOTICE_TYPE
+								,BUYER_CD
+								<if test="INS_DATE != null and INS_DATE != '' ">
+								,INS_DATE
+								</if>
+							) VALUES (
+								 #{ses.gateCd}
+								,#{NOTICE_NUM}
+								,TRIM(#{SUBJECT})
+								,<include refid="com.sql.sysdate"/>
+								,#{ses.userId}
+								,<include refid="com.sql.sysdate"/>
+								,#{ses.userId}
+								,'0'
+								,#{START_DATE}
+								,#{END_DATE}
+								,#{USER_TYPE}
+								,#{ATT_FILE_NUM}
+								,#{NOTICE_TEXT_NUM}
+								,#{NOTICE_TYPE}
+								,#{BUYER_CD}
+								<if test="INS_DATE != null and INS_DATE != '' ">
+								,#{INS_DATE}
+								</if>
+		)
+     </insert>
+
+     <update id="BBD01_021_doUpdate" parameterType="hashMap">
+        UPDATE STOCNOTC SET
+							 MOD_DATE = <include refid="com.sql.sysdate"/>
+							,MOD_USER_ID = #{ses.userId}
+							,SUBJECT = TRIM(#{SUBJECT})
+							,USER_TYPE = #{USER_TYPE}
+							,START_DATE = #{START_DATE}
+							,END_DATE = #{END_DATE}
+							,NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+							,ATT_FILE_NUM = #{ATT_FILE_NUM}
+							,BUYER_CD = #{BUYER_CD}
+							<if test="INS_DATE != null and INS_DATE != '' ">
+							,INS_DATE = #{INS_DATE}
+							</if>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+           AND NOTICE_TYPE = #{NOTICE_TYPE}
+    </update>
+
+	<!--ESH 게시판 (BBD01_030)-->
+	<select id="BBD01_030_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		<if test="_databaseId == 'oracle'">
+				  ROWNUM AS ROW_NUM
+		</if>
+		<if test="_databaseId == 'mssql'">
+				  ROW_NUMBER() OVER( ORDER BY NOTC.FIXED_TOP_FLAG DESC, NOTC.REG_DATE DESC, NOTC.NOTICE_NUM DESC) AS ROW_NUM
+		</if>
+				, NOTC.USER_TYPE
+				, NOTC.FIXED_TOP_FLAG
+				, NOTC.SUBJECT
+				, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) as REG_DATE
+				, <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , 'YYYY-MM-DD' ) AS NOTICE_DATE
+				, NOTC.REG_USER_ID AS REG_USER_ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+				, NOTC.ATT_FILE_NUM AS ATTACH_FILE_NO
+				, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				       ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) END AS ATTACH_FILE_NO_DISPLAY
+				, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+																WHERE GATE_CD = #{ses.gateCd}
+																  AND UUID = NOTC.ATT_FILE_NUM
+																  AND DEL_FLAG = '0') <![CDATA[>]]> 0
+					   THEN '0' ELSE '1' END AS ATTACH_FILE_NO_DISPLAY_IMAGE
+				, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+				, NOTC.GATE_CD
+				, NOTC.NOTICE_NUM
+				, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		FROM STOCNOTC NOTC
+		WHERE NOTC.GATE_CD = #{ses.gateCd}
+		AND NOTC.DEL_FLAG = '0'
+		AND NOTC.NOTICE_TYPE = 'ESH'
+
+		<if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+			AND ( NOTC.START_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.START_DATE <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>
+			OR  NOTC.END_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{ADD_FROM_DATE} <include refid="com.sql.dateFrom"/> AND NOTC.END_DATE <![CDATA[<=]]>  <include refid="com.sql.toDate"/> #{ADD_TO_DATE} <include refid="com.sql.dateTo"/>)
+		</if>
+		<if test="SUBJECT != '' and SUBJECT != null">
+			AND NOTC.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="ADD_USER_ID != '' and ADD_USER_ID != null">
+			AND NOTC.REG_USER_ID = #{ADD_USER_ID}
+		</if>
+		<if test="ADD_USER_NAME != '' and ADD_USER_NAME != null">
+			AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{ADD_USER_NAME} <include refid="com.sql.likeR"/>
+		</if>
+
+		ORDER BY   NOTC.FIXED_TOP_FLAG DESC
+		         , NOTC.REG_DATE DESC
+		         , NOTC.NOTICE_NUM DESC
+
+	</select>
+
+	<update id="BBD01_030_doDelete" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET
+							DEL_FLAG = '1'
+						  , MOD_DATE = <include refid="com.sql.sysdate"/>
+						  , MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<!--ESH게시판-작성  (BBD01_031)-->
+	<select id="BBD01_031_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+				NOTC.SUBJECT
+				, NOTC.NOTICE_NUM
+				, NOTC.NOTICE_TEXT_NUM
+				, NOTC.USER_TYPE
+				, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+				, <include refid="com.sql.toDateChar"/>( NOTC.START_DATE , <include refid="com.sql.dateFormat"/> ) as START_DATE
+				, <include refid="com.sql.toDateChar"/>( NOTC.END_DATE , <include refid="com.sql.dateFormat"/> ) as END_DATE
+				, <include refid="com.sql.toDateChar"/>( NOTC.REG_DATE , 'YYYY-MM-DD' ) <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+				, NOTC.REG_USER_ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+				, NOTC.ATT_FILE_NUM
+				, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+				, <include refid="com.sql.nvl"/>(NOTC.FIXED_TOP_FLAG, '0') AS FIXED_TOP_FLAG
+		 FROM STOCNOTC NOTC
+		WHERE NOTC.GATE_CD = #{ses.gateCd}
+		  AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+
+	</select>
+
+	<update id="BBD01_031_doSaveCount" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET VIEW_CNT = #{VIEW_CNT}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<insert id="BBD01_031_doInsert" parameterType="hashMap">
+
+		INSERT INTO STOCNOTC (
+								  GATE_CD
+								, NOTICE_NUM
+								, SUBJECT
+								, REG_DATE
+								, REG_USER_ID
+								, MOD_DATE
+								, MOD_USER_ID
+								, DEL_FLAG
+								, START_DATE
+								, END_DATE
+								, USER_TYPE
+								, ATT_FILE_NUM
+								, NOTICE_TEXT_NUM
+								, NOTICE_TYPE
+								, ANN_FLAG
+								, FIXED_TOP_FLAG
+								) VALUES (
+											#{ses.gateCd}
+											, #{NOTICE_NUM}
+											, #{SUBJECT}
+											, <include refid="com.sql.sysdate"/>
+											, #{ses.userId}
+											, <include refid="com.sql.sysdate"/>
+											, #{ses.userId}
+											, '0'
+											, #{START_DATE}
+											, #{END_DATE}
+											, #{USER_TYPE}
+											, #{ATT_FILE_NUM}
+											, #{NOTICE_TEXT_NUM}
+											, 'ESH'
+											, <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+											, <include refid="com.sql.nvl"/>(#{FIXED_TOP_FLAG}, '0')
+		)
+
+	</insert>
+
+	<update id="BBD01_031_doUpdate" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET
+							  MOD_DATE = <include refid="com.sql.sysdate"/>
+							, MOD_USER_ID = #{ses.userId}
+							, SUBJECT = #{SUBJECT}
+							, USER_TYPE = #{USER_TYPE}
+							, START_DATE = #{START_DATE}
+							, END_DATE = #{END_DATE}
+							, NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+							, ATT_FILE_NUM = #{ATT_FILE_NUM}
+							, ANN_FLAG = <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+							, FIXED_TOP_FLAG = <include refid="com.sql.nvl"/>(#{FIXED_TOP_FLAG}, '0')
+		WHERE GATE_CD = #{ses.gateCd}
+		AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+
+</mapper>

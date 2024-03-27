@@ -1,0 +1,682 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.DH1030_Mapper">
+
+	<select id="DH1030_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT DLDT.ACCOUNT_CD
+		      ,DLDT.ITEM_CD
+		      ,DLDT.ITEM_DESC
+		      ,DLDT.ITEM_SPEC
+		      ,DLDT.GR_QT
+		      ,DLDT.UNIT_CD
+		      ,DLDT.UNIT_PRC
+		      ,DLDT.GR_AMT
+		      ,DLDT.REMARK
+		      ,DLDT.GR_NUM
+		      ,DLDT.GR_YEAR
+		      ,DLDT.GR_SQ
+		      ,DLDT.DEAL_NUM
+		      ,DLDT.DEAL_SQ
+			  ,DLDT.BIZ_AREA_CD
+			  ,DLDT.SAP_ORDER_NUM
+			  ,DLDT.COST_CD		   
+			  ,COST.COST_NM AS COST_CD_NM
+			  ,ACMT.ACCOUNT_NM   
+		  FROM STOCDLDT DLDT LEFT OUTER JOIN STOCCOST COST
+		  	ON  DLDT.GATE_CD = COST.GATE_CD 
+		  	AND DLDT.COST_CD = COST.COST_CD
+		  	AND COST.DEL_FLAG = '0'
+		  LEFT OUTER JOIN STOCACMT ACMT
+		  	ON  DLDT.GATE_CD = ACMT.GATE_CD
+		  	AND DLDT.ACCOUNT_CD = ACMT.ACCOUNT_CD
+		  	AND ACMT.DEL_FLAG = '0'
+		 WHERE DLDT.GATE_CD = #{ses.gateCd}
+		   AND DLDT.DEAL_NUM = #{DEAL_NUM}
+		   AND DLDT.DEL_FLAG = '0'
+	</select>
+
+    <select id="doAccountSearch" parameterType="hashmap" resultType="java.util.Map">
+        SELECT ACCOUNT_NUM
+             , ACCOUNT_NM
+          FROM STOCACMT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ACCOUNT_NUM = #{ACCOUNT_NUM}
+           AND DEL_FLAG = '0'
+         ORDER BY ACCOUNT_NUM ASC
+    </select>
+
+    <select id="doCostSearch" parameterType="hashmap" resultType="java.util.Map">
+        SELECT COST_CD
+		     , COST_NM
+	      FROM STOCCOST
+	     WHERE GATE_CD = #{ses.gateCd}
+	       AND COST_CD = #{COST_CD}
+	     --이대규변경 2016.1.27
+		 --송장생성에서 다른 사업장의 코스트센터도 조회가 가능해야 함.
+		   AND BUYER_CD IN
+		   (SELECT OGPL.BUYER_CD
+		    FROM STOCOGPL OGPL
+		    WHERE OGPL.GATE_CD = STOCCOST.GATE_CD
+		      AND OGPL.DEL_FLAG = '0'
+		      AND PLANT_CD = #{PLANT_CD})
+	       AND DEL_FLAG = '0'
+    </select>
+
+    <select id="doPlantCostSearch" parameterType="hashmap" resultType="java.util.Map">
+    
+        SELECT <if test='_databaseId == "mssql"'>TOP 1</if>
+        	CODE_DESC AS PLANT_COST_CD
+          FROM STOCCODD
+         WHERE GATE_CD   = #{ses.gateCd}
+           AND CODE_TYPE = 'M242'
+           AND LANG_CD   = #{ses.langCd}
+           AND CODE      = #{PLANT_CD}
+           AND DEL_FLAG  = '0'
+         <if test='_databaseId == "oracle"'>
+		   AND ROWNUM = 1 
+		 </if>
+         
+    </select>
+
+	<insert id="DH1030_doInsertDLHD" parameterType="hashmap">
+		INSERT INTO STOCDLHD (
+			 GATE_CD
+			,DEAL_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,VENDOR_CD
+			,DEAL_DATE
+			,BUYER_CD
+			,VAT_CD
+			,PAY_TERMS
+			,IRS_NUM
+			,CUR
+			,SUP_AMT
+			,VAT_AMT
+			,TAX_NUM
+			,PLANT_CD
+			,INVEST_CD
+			,REMARK
+			,BIZ_AREA_CD
+			,PURCHASE_TYPE
+			,GL_ACCOUNT_CD
+			,PROOF_DATE
+			,ATT_FILE_NUM
+			,IF_TRGT
+			,JOB_SQ
+			,SL_NUM
+			,COST_CD
+			,TAX_CD
+			,DATA_CREATE_TYPE
+			,VAT_GL_ACCOUNT_CD
+			,SAP_ORDER_NUM
+			,SL_TYPE
+
+		    ,PROVISION_ITEM_CD
+		    ,DISTRIBUTION_CD
+		    ,DR_REMARK			
+
+
+		    ,PROVISION_ITEM_KEY
+		    ,DISTRIBUTION_KEY
+		    ,SL_DIV
+		    ,REF_DOC_NUM
+
+		) VALUES (
+		    #{ses.gateCd}
+		   ,#{DEAL_NUM}
+		   ,<include refid="com.sql.sysdate"/>
+		   ,#{ses.userId}
+		   ,<include refid="com.sql.sysdate"/>
+		   ,#{ses.userId}
+		   ,'0'
+		   ,#{VENDOR_CD}
+		   ,<include refid="com.sql.dbo"/>setGmtDate(#{DEAL_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- DEAL_DATE
+		   <if test="BUYER_CD != '' and BUYER_CD != null">
+		   ,#{BUYER_CD}
+		   </if>
+		   <if test="BUYER_CD == '' or BUYER_CD == null">
+		   ,(SELECT MAX(BUYER_CD)
+		       FROM STOCOGPL
+		      WHERE GATE_CD = #{ses.gateCd}
+		        AND PLANT_CD = #{PLANT_CD}
+		        AND DEL_FLAG = '0')
+		   </if>
+		   ,#{VAT_CD}
+		   ,#{PAY_TERMS}
+		   ,#{IRS_NUM}
+		   ,#{CUR}
+		   ,#{SUP_AMT}
+		   ,#{VAT_AMT}
+		   ,NULL
+		   ,#{PLANT_CD}
+		   ,#{INVEST_CD}
+		   ,#{REMARK}
+		   ,#{BIZ_AREA_CD}
+		   ,#{PURCHASE_TYPE}
+		   ,#{GL_ACCOUNT_CD}
+		   ,<include refid="com.sql.dbo"/>setGmtDate(#{PROOF_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) -- PROOF_DATE
+		   ,#{ATT_FILE_NUM}
+		   ,#{IF_TRGT}
+		   ,#{JOB_SQ}
+		   ,#{SL_NUM}
+		   ,#{COST_CD}
+		   ,#{TAX_CD}
+		   ,'M'
+		   ,#{VAT_GL_ACCOUNT_CD}
+		   ,#{SAP_ORDER_NUM}
+		   ,#{SL_TYPE}
+		   ,<include refid="com.sql.subStr"/>(#{PROVISION_ITEM_CD},1,4)
+		   ,<include refid="com.sql.subStr"/>(#{DISTRIBUTION_CD},6,4)
+		   ,#{DR_REMARK}	
+		   ,#{PROVISION_ITEM_CD}
+		   ,#{DISTRIBUTION_CD}
+		   ,#{SL_DIV}
+		   ,#{REF_DOC_NUM}
+		)
+
+	</insert>
+
+	<update id="DH1030_doUpdateDLHD" parameterType="hashmap">
+		UPDATE STOCDLHD SET
+			 VENDOR_CD = #{VENDOR_CD}
+			,DEAL_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{DEAL_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+			,BUYER_CD = (SELECT MAX(BUYER_CD)
+						   FROM STOCOGPL
+						  WHERE GATE_CD = #{ses.gateCd}
+							AND PLANT_CD = #{PLANT_CD}
+							AND DEL_FLAG = '0')
+			,VAT_CD = #{VAT_CD}
+			,PAY_TERMS = #{PAY_TERMS}
+			,IRS_NUM = #{IRS_NUM}
+			,CUR = #{CUR}
+			,SUP_AMT = #{SUP_AMT}
+			,VAT_AMT = #{VAT_AMT}
+			,TAX_NUM = NULL
+			,PLANT_CD = #{PLANT_CD}
+			,INVEST_CD = #{INVEST_CD}
+			,REMARK = #{REMARK}
+			,BIZ_AREA_CD = #{BIZ_AREA_CD}
+			,PURCHASE_TYPE = #{PURCHASE_TYPE}
+			,GL_ACCOUNT_CD = #{GL_ACCOUNT_CD}
+			,COST_CD = #{COST_CD}
+			,PROOF_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{PROOF_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+			,TAX_CD = #{TAX_CD}
+			,ATT_FILE_NUM = #{ATT_FILE_NUM}
+			,VAT_GL_ACCOUNT_CD = #{VAT_GL_ACCOUNT_CD}
+			,SAP_ORDER_NUM = #{SAP_ORDER_NUM}
+			,SL_TYPE = #{SL_TYPE}
+		    ,PROVISION_ITEM_CD = <include refid="com.sql.subStr"/>(#{PROVISION_ITEM_CD},1,4)
+		    ,DISTRIBUTION_CD = <include refid="com.sql.subStr"/>(#{DISTRIBUTION_CD},6,4)
+		    ,DR_REMARK = #{DR_REMARK}				
+		    ,PROVISION_ITEM_KEY = #{PROVISION_ITEM_CD}
+		    ,DISTRIBUTION_KEY   = #{DISTRIBUTION_CD}
+			,SL_DIV = #{SL_DIV}
+			,REF_DOC_NUM = #{REF_DOC_NUM}
+	   WHERE GATE_CD = #{ses.gateCd}
+	     AND DEAL_NUM = #{DEAL_NUM}
+	     AND DEL_FLAG = '0'
+	</update>
+
+	<delete id="DH1030_doDeleteAllDLDT" parameterType="hashmap">
+		DELETE FROM STOCDLDT
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</delete>
+
+	<insert id="DH1030_doInsertDLDT" parameterType="hashmap">
+		INSERT INTO STOCDLDT (
+			 GATE_CD
+			,DEAL_NUM
+			,DEAL_SQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,GR_NUM
+			,GR_YEAR
+			,GR_SQ
+			,GR_QT
+			,UNIT_PRC
+			,GR_AMT
+			,VAT_AMT
+			,ACCOUNT_CD
+			,ITEM_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,UNIT_CD
+			,REMARK
+			
+			,BIZ_AREA_CD
+			,SAP_ORDER_NUM
+			,COST_CD
+		) VALUES (
+		     #{ses.gateCd}
+			,#{DEAL_NUM}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(DEAL_SQ), 0)+1
+			    FROM STOCDLDT
+			   WHERE GATE_CD = #{ses.gateCd}
+			     AND DEAL_NUM = #{DEAL_NUM})
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{GR_NUM}
+			,#{GR_YEAR}
+			,#{GR_SQ}
+			,#{GR_QT}
+			,#{UNIT_PRC}
+			,#{GR_AMT}
+			,#{VAT_AMT}
+			,#{ACCOUNT_CD}
+			,#{ITEM_CD}
+			,#{ITEM_DESC}
+			,#{ITEM_SPEC}
+			,#{UNIT_CD}
+			,#{REMARK}
+			
+			,#{BIZ_AREA_CD}
+			,#{SAP_ORDER_NUM}
+			,#{COST_CD}
+			
+		)
+	</insert>
+
+	<select id="DH1030_doSelectDLHD" parameterType="hashmap" resultType="hashmap">
+		SELECT DLHD.DEAL_NUM
+		      ,DLHD.REMARK
+		      ,DLHD.VENDOR_CD
+		      ,<include refid="com.sql.dbo"/>getVendorName(DLHD.GATE_CD, DLHD.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+		      ,DLHD.PLANT_CD
+		      ,(SELECT PLANT_NM
+		          FROM STOCOGPL
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND PLANT_CD = DLHD.PLANT_CD
+		           AND DEL_FLAG = '0') AS PLANT_NM
+		      ,DLHD.BIZ_AREA_CD
+		      ,DLHD.PURCHASE_TYPE
+		      ,DLHD.TAX_NUM
+		      ,DLHD.PAY_TERMS
+		      ,(SELECT CODE_DESC
+		          FROM STOCCODD
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND CODE_TYPE = 'M018'
+		           AND CODE = DLHD.PAY_TERMS
+		           AND DEL_FLAG = '0') AS PAY_TERMS_NM
+		      ,<include refid="com.sql.dbo"/>getGmtDate(DLHD.DEAL_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS DEAL_DATE
+		      ,<include refid="com.sql.dbo"/>getGmtDate(DLHD.PROOF_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) AS PROOF_DATE
+		      ,DLHD.GL_ACCOUNT_CD
+		      ,(SELECT ACCOUNT_NM
+		          FROM STOCACMT
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND ACCOUNT_CD = DLHD.GL_ACCOUNT_CD
+		           AND DEL_FLAG = '0') AS GL_ACCOUNT_NM
+		      ,DLHD.REG_USER_ID
+		      ,<include refid="com.sql.dbo"/>GETUSERNAME(DLHD.GATE_CD, DLHD.REG_USER_ID, #{ses.langCd})  AS REG_USER_NM
+		      ,DLHD.SUP_AMT
+		      ,DLHD.VAT_AMT
+		      ,(DLHD.SUP_AMT+DLHD.VAT_AMT) AS TOTAL_AMT
+		      ,DLHD.ATT_FILE_NUM
+		      ,DLHD.CUR
+		      ,DLHD.COST_CD
+		      ,DLHD.SL_NUM
+		      ,(SELECT COST_NM
+		          FROM STOCCOST
+	  			 WHERE GATE_CD = DLHD.GATE_CD
+		           AND BUYER_CD = DLHD.BUYER_CD
+		           AND PLANT_CD = DLHD.PLANT_CD
+		           AND COST_CD = DLHD.COST_CD
+		           AND DEL_FLAG = '0') AS COST_NM
+		      ,DLHD.TAX_CD
+		      ,(SELECT CODE_DESC
+		          FROM STOCCODD
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND CODE = DLHD.TAX_CD
+		           AND CODE_TYPE = 'M214'
+		           AND DEL_FLAG = '0') AS TAX_NM
+		      ,DLHD.VAT_GL_ACCOUNT_CD
+		      ,DLHD.DATA_CREATE_TYPE
+		      ,DLHD.SAP_ORDER_NUM
+		      ,DLHD.SL_TYPE
+		      ,DLHD.DR_REMARK
+		      ,DLHD.PROVISION_ITEM_KEY PROVISION_ITEM_CD
+		      ,DLHD.DISTRIBUTION_KEY DISTRIBUTION_CD
+			  ,(SELECT CODE_DESC
+		          FROM STOCCODD
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND CODE_TYPE = 'M231'
+		           AND CODE = PROVISION_ITEM_KEY
+		           AND DEL_FLAG = '0') AS PROVISION_ITEM_NM
+
+			  ,(SELECT CODE_DESC
+		          FROM STOCCODD
+		         WHERE GATE_CD = DLHD.GATE_CD
+		           AND CODE_TYPE = 'M232'
+		           AND CODE = DISTRIBUTION_KEY
+		           AND DEL_FLAG = '0') AS DISTRIBUTION_NM
+		           
+		      ,DLHD.SL_DIV
+		      ,DLHD.REF_DOC_NUM
+			  ,CASE WHEN <include refid="com.sql.nvl"/>(DLHD.REF_DOC_NUM,'') != '' THEN DLHD.REF_DOC_NUM
+	                ELSE (SELECT top 1 CODE_DESC FROM STOCCODD 
+	                       WHERE GATE_CD = DLHD.GATE_CD 
+	                         AND CODE_TYPE = 'M242'
+	                         AND CODE = DLHD.PLANT_CD
+	                         AND DEL_FLAG = '0')
+	           END AS REF_DOC_NUM_TEXT
+		  FROM STOCDLHD DLHD
+	     WHERE DLHD.GATE_CD = #{ses.gateCd}
+	       AND DLHD.DEAL_NUM = #{DEAL_NUM}
+	       AND DLHD.DEL_FLAG = '0'
+	</select>
+
+	<select id="DH1030_doSelectDLDT" parameterType="hashmap" resultType="hashmap">
+
+	</select>
+
+	<delete id="DH1030_doDeleteGWLK" parameterType="hashmap">
+		DELETE FROM STOCGWLK
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DOC_ID = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</delete>
+
+	<insert id="DH1030_doInsertGWLK" parameterType="hashmap">
+		INSERT INTO STOCGWLK (
+			GATE_CD
+			,DOC_ID
+			,DOC_SQ
+			,PURC_GRP
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,APRV_NO
+			,APRV_URL
+			,RMKS
+		) VALUES (
+			 #{ses.gateCd}
+			,#{DEAL_NUM}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(DOC_SQ), 0)+1
+			    FROM STOCGWLK
+		       WHERE GATE_CD = #{ses.gateCd}
+		         AND DOC_ID = #{DEAL_NUM})
+			,'DL'
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{APRV_NO}
+			,#{APRV_URL}
+			,#{RMKS}
+		)
+	</insert>
+
+	<select id="DH1030_doSearchGroupwareDocs" parameterType="hashmap" resultType="hashmap">
+		SELECT DOC_ID,
+               DOC_SQ,
+               APRV_NO,
+               APRV_URL
+          FROM STOCGWLK
+         WHERE GATE_CD = #{ses.gateCd}
+           AND DOC_ID = #{DEAL_NUM}
+           AND PURC_GRP = 'DL'
+           AND DEL_FLAG = '0'
+	</select>
+
+	<select id="DH1030_getCountPayTerms" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT
+		  FROM STOCCODD
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CODE_TYPE = 'M018'
+		   AND CODE = #{PAY_TERMS}
+		   AND USE_FLAG = '1'
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="DH1030_getCountGlAccount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT
+		  FROM STOCACMT
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND ACCOUNT_CD = #{GL_ACCOUNT_CD}
+		   AND USE_FLAG = '1'
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="DH1030_getCountCostCenter" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT
+		  FROM STOCCOST
+		 WHERE GATE_CD = #{ses.gateCd}
+		 <if test="PLANT_CD != '' and PLANT_CD != null">
+		   AND PLANT_CD = #{PLANT_CD}
+		 </if>
+		   AND COST_CD = #{COST_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="DH1030_getCountAccountCode" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT
+		  FROM STOCACMT
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND ACCOUNT_CD = CASE WHEN #{ACCOUNT_CD} = '' THEN ACCOUNT_CD ELSE #{ACCOUNT_CD} END
+		   AND USE_FLAG = '1'
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<update id="DH1030_doUpdateAmountsDLHD" parameterType="hashmap">
+		UPDATE STOCDLHD
+		   SET MOD_DATE = <include refid="com.sql.sysdate"/>
+		      ,MOD_USER_ID = #{ses.userId}
+		      ,SUP_AMT = (SELECT SUM(DLDT.UNIT_PRC * DLDT.GR_QT)
+		                    FROM STOCDLDT DLDT
+		                   WHERE DLDT.GATE_CD = STOCDLHD.GATE_CD
+		                     AND DLDT.DEAL_NUM = STOCDLHD.DEAL_NUM
+		                     AND DLDT.DEL_FLAG = '0')
+		      ,VAT_AMT = (SELECT SUM(DLDT.UNIT_PRC * DLDT.GR_QT) * ${vatFlag}
+		                    FROM STOCDLDT DLDT
+		                   WHERE DLDT.GATE_CD = STOCDLHD.GATE_CD
+		                     AND DLDT.DEAL_NUM = STOCDLHD.DEAL_NUM
+		                     AND DLDT.DEL_FLAG = '0')
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<update id="DH1030_doDeleteEachDLDT" parameterType="hashmap">
+		UPDATE STOCDLDT SET
+			   DEL_FLAG = '1'
+			  ,MOD_DATE = <include refid="com.sql.sysdate"/>
+			  ,MOD_USER_ID = #{ses.userId}
+	 	 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEAL_SQ = #{DEAL_SQ}
+		   AND DEL_FLAG = '0'
+	</update>
+
+	<update id="DH1030_doDeleteDLTP" parameterType="hashmap">
+		DELETE FROM STOCDLTP
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEAL_NUM = #{DEAL_NUM}
+		   AND DEAL_SQ = #{DEAL_SQ}
+		   AND DEL_FLAG = '0'
+	</update>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<insert id="DH1030_doInsertDLDT2" parameterType="hashmap">
+		INSERT INTO STOCDLDT (
+			 GATE_CD
+			,DEAL_NUM
+			,DEAL_SQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+
+			
+			,GR_NUM
+			,GR_YEAR
+			,GR_SQ
+			,GR_QT
+			,UNIT_PRC
+			,GR_AMT
+			,VAT_AMT
+			,ACCOUNT_CD
+			,ITEM_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,UNIT_CD
+			,REMARK
+			,BIZ_AREA_CD
+			,COST_CD
+			,SAP_ORDER_NUM
+			,END_FLAG
+			,SL_DIV
+			,PROOF_DATE
+			,DEAL_DATE
+			,CUR
+			,EXCHANGE_RATE
+			,REF_DOC_NUM
+			,H_REMARK
+			,TAX_AUTO_FLAG
+			,DEAL_KEY
+			,SP_ACCOUNT_CD
+			,DEAL_TYPE
+			,DEAL_MINUS
+			,LOCAL_AMT
+			,TAX_CD
+			,PLANT_CD
+			,SECTION_CD
+			,PROFIT_LOSS_CENTER
+			,ACTIVITY
+			,EXPIRATION_DATE
+			,STANDARD_DATE
+			,PAY_TERMS
+			,PAY_METHOD
+			,PAY_WITHHOLD
+			,DESIGNATION
+
+		) VALUES (
+		     #{ses.gateCd}
+			,#{DEAL_NUM}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(DEAL_SQ), 0)+1
+			    FROM STOCDLDT
+			   WHERE GATE_CD = #{ses.gateCd}
+			     AND DEAL_NUM = #{DEAL_NUM})
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+
+			
+			,#{GR_NUM}
+			,#{GR_YEAR}
+			,(CASE WHEN #{GR_SQ} = '' THEN null ELSE #{GR_SQ} END) 
+			,(CASE WHEN #{GR_QT} = '' THEN null ELSE #{GR_QT} END) 
+			,(CASE WHEN #{UNIT_PRC} = '' THEN null ELSE #{UNIT_PRC} END)
+			,(CASE WHEN #{GR_AMT} = '' THEN null ELSE #{GR_AMT} END)
+			,(CASE WHEN #{VAT_AMT} = '' THEN null ELSE #{VAT_AMT} END)
+			,#{ACCOUNT_CD}
+			,#{ITEM_CD}
+			,#{ITEM_DESC}
+			,#{ITEM_SPEC}
+			,#{UNIT_CD}
+			,#{REMARK}
+			,#{BIZ_AREA_CD}
+			,#{COST_CD}
+			,#{SAP_ORDER_NUM}
+			,#{END_FLAG}
+			,#{SL_DIV}
+			,#{PROOF_DATE}
+			,#{DEAL_DATE}
+			,#{CUR}
+			,(CASE WHEN #{EXCHANGE_RATE} = '' THEN null ELSE #{EXCHANGE_RATE} END)
+			,#{REF_DOC_NUM}
+			,#{H_REMARK}
+			,#{TAX_AUTO_FLAG}
+			,#{DEAL_KEY}
+			,#{SP_ACCOUNT_CD}
+			,#{DEAL_TYPE}
+			,#{DEAL_MINUS}
+			,(CASE WHEN #{LOCAL_AMT} = '' THEN null ELSE #{LOCAL_AMT} END)
+			,#{TAX_CD}
+			,#{PLANT_CD}
+			,#{SECTION_CD}
+			,#{PROFIT_LOSS_CENTER}
+			,#{ACTIVITY}
+			,(CASE WHEN #{EXPIRATION_DATE} = '' THEN null ELSE #{EXPIRATION_DATE} END) 
+			,(CASE WHEN #{STANDARD_DATE} = '' THEN null ELSE #{STANDARD_DATE} END) 
+			,#{PAY_TERMS}
+			,#{PAY_METHOD}
+			,#{PAY_WITHHOLD}
+			,#{DESIGNATION}
+		)
+	</insert>
+
+
+
+	<select id="DH1032_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+				
+		  DLDT.END_FLAG
+		, <include refid="com.sql.dbo"/>getGmtDate(PROOF_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) PROOF_DATE
+		, DLDT.SL_DIV
+		, <include refid="com.sql.dbo"/>getGmtDate(DEAL_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) DEAL_DATE
+		, DLDT.CUR
+		, DLDT.EXCHANGE_RATE
+		, DLDT.REF_DOC_NUM
+		, DLDT.H_REMARK
+		, DLDT.TAX_AUTO_FLAG
+		, DLDT.DEAL_KEY
+		, DLDT.ACCOUNT_CD
+		, DLDT.SP_ACCOUNT_CD
+		, DLDT.DEAL_TYPE
+		, DLDT.DEAL_MINUS
+		, DLDT.GR_AMT
+		, DLDT.LOCAL_AMT
+		, DLDT.TAX_CD
+		, DLDT.PLANT_CD
+		, DLDT.SECTION_CD
+		, DLDT.VAT_AMT
+		, DLDT.COST_CD
+		, DLDT.SAP_ORDER_NUM
+		, DLDT.PROFIT_LOSS_CENTER
+		, DLDT.BIZ_AREA_CD
+		, DLDT.ACTIVITY
+		, <include refid="com.sql.dbo"/>getGmtDate(EXPIRATION_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) EXPIRATION_DATE
+		, <include refid="com.sql.dbo"/>getGmtDate(STANDARD_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) STANDARD_DATE
+		, DLDT.PAY_TERMS
+		, DLDT.PAY_METHOD
+		, DLDT.PAY_WITHHOLD
+		, DLDT.DESIGNATION
+		  FROM STOCDLDT DLDT
+		 WHERE DLDT.GATE_CD = #{ses.gateCd}
+		   AND DLDT.DEAL_NUM = #{DEAL_NUM}
+		   AND DLDT.DEL_FLAG = '0'
+	</select>
+
+</mapper>

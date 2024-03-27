@@ -1,0 +1,953 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.screen.BSYS_Mapper">
+
+    <select id="doSearchScreenManagement" parameterType="hashmap" resultType="hashmap">
+
+		SELECT
+        	GATE_CD, MODULE_TYPE
+	        , SCREEN_ID
+	        , SCREEN_ID_ORG, SCREEN_NM
+	        , SCREEN_URL, USE_FLAG
+	        , DATA_AUTH_FLAG
+	        , REG_USER_ID
+	        ,('') AS SCREEN_NM_IMG
+	        ,POPUP_NM AS POPUP_NM_IMG
+	        , REG_DATE
+	        , INSERT_FLAG, SCREEN_TYPE
+	        , DEVELOPER_CD
+	        , GRID_TYPE
+	        , EXCEL_OPTION
+	        , AUTH_IMG
+	        , HELP_INFO
+	        , PANEL_USE_FLAG
+	        FROM
+		        (SELECT SCRN.GATE_CD
+		        , SCRN.MODULE_TYPE
+		        , <include refid="com.sql.dbo"/>GETCOMCODE(SCRN.GATE_CD, 'M009', SCRN.MODULE_TYPE, 0, #{ses.langCd}) AS MODULE_TYPE_VALUE
+		        , SCRN.SCREEN_ID
+		        , SCRN.SCREEN_ID as SCREEN_ID_ORG
+		        , <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) AS SCREEN_NM
+		        , <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SCP', #{ses.langCd}, '', SCRN.SCREEN_ID) AS POPUP_NM
+		        , SCRN.SCREEN_URL
+		        , SCRN.USE_FLAG
+		        , SCRN.DATA_AUTH_FLAG
+		        , (SELECT UR.USER_NM FROM STOCUSER UR WHERE UR.GATE_CD = SCRN.GATE_CD AND UR.USER_ID = SCRN.REG_USER_ID) AS REG_USER_ID
+		        , <include refid="com.sql.dbo"/>GETGMTDATE(SCRN.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+		        , 'U' AS INSERT_FLAG
+		        , SCRN.SCREEN_TYPE
+		        , SCRN.DEVELOPER_CD
+		        , SCRN.GRID_TYPE
+		        , SCRN.EXCEL_OPTION
+		        , (CASE WHEN HELP_TEXT_NUM IS NULL THEN (CASE WHEN HELP_ATT_FILE_NUM IS NULL THEN '' ELSE '1' END)
+	        			ELSE '1' END) AS HELP_INFO
+		        , (SELECT CASE WHEN SUM(CASE WHEN <include refid="com.sql.nvl"/>(TEXT1, '-') != '-' OR <include refid="com.sql.nvl"/>(TEXT2, '-') != '-' OR <include refid="com.sql.nvl"/>(TEXT3, '-') != '-' OR <include refid="com.sql.nvl"/>(TEXT4, '-') != '-' THEN 1 ELSE 0 END) > 0 THEN 'Y' ELSE '' END
+		        	 FROM STOCCODD
+	         		WHERE GATE_CD = SCRN.GATE_CD
+	           		  AND CODE_TYPE = 'SCRN_AUTH'
+	           		  AND LANG_CD = 'KO'
+	           		  AND CODE = SCRN.SCREEN_ID
+	           		  AND DEL_FLAG = '0') AS AUTH_IMG
+	            , <include refid="com.sql.nvl"/>(SCRN.PANEL_USE_FLAG, '0') AS PANEL_USE_FLAG
+	         FROM STOCSCRN SCRN
+	        WHERE SCRN.GATE_CD = #{ses.gateCd}
+	          AND SCRN.DEL_FLAG = '0'
+	        
+	        <if test="SCREEN_TYPE != '' and SCREEN_TYPE != null">
+	            AND SCREEN_TYPE = #{SCREEN_TYPE}
+	        </if>
+	        <if test="MODULE_TYPE !='' and MODULE_TYPE != null">
+	            AND MODULE_TYPE = #{MODULE_TYPE}
+	        </if>
+	        <if test="SCREEN_ID !='' and SCREEN_ID != null">
+	            AND SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="SCREEN_URL != '' and SCREEN_URL != null">
+	            AND SCREEN_URL <include refid="com.sql.likeL"/> #{SCREEN_URL} <include refid="com.sql.likeR"/>
+	        </if>
+	        <if test="DEVELOPER_CD != '' and DEVELOPER_CD != null">
+	            AND DEVELOPER_CD = #{DEVELOPER_CD}
+	        </if>
+	        <if test="SCREEN_NM !='' and SCREEN_NM != null">
+	            AND <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+	        </if>
+	        ) SC
+        WHERE 1=1
+        ORDER BY MODULE_TYPE, SCREEN_ID
+    </select>
+
+    <select id="checkScreenManagement" parameterType="hashMap" resultType="java.lang.Integer">
+
+        <if test="_databaseId == 'oracle'">
+            SELECT COUNT(SCREEN_ID)
+            FROM ${TABLE_NM}
+            WHERE ROWNUM = 1
+            AND GATE_CD = #{ses.gateCd}
+            AND SCREEN_ID = #{SCREEN_ID}
+        </if>
+
+        <if test="_databaseId == 'mssql'">
+            SELECT TOP 1 COUNT(SCREEN_ID) AS CNT
+            FROM ${TABLE_NM}
+            WHERE GATE_CD = #{ses.gateCd}
+            AND SCREEN_ID = #{SCREEN_ID}
+        </if>
+
+    </select>
+
+    <insert id="doInsertScreenManagement" parameterType="hashMap">
+
+        INSERT INTO ${TABLE_NM}(
+	         GATE_CD
+	        , SCREEN_ID
+	        , REG_DATE
+	        , REG_USER_ID
+	        , MOD_DATE
+	        , MOD_USER_ID
+	        , DEL_FLAG
+	        , USE_FLAG
+	        , MODULE_TYPE
+	        , SCREEN_URL
+	        , DATA_AUTH_FLAG
+	        , SCREEN_TYPE
+	        , DEVELOPER_CD
+	        , GRID_TYPE
+	        , EXCEL_OPTION
+	        , PANEL_USE_FLAG
+        ) VALUES(
+	          #{ses.gateCd}
+	        , #{SCREEN_ID}
+	        , <include refid="com.sql.sysdate"/>
+	        , #{ses.userId}
+	        , <include refid="com.sql.sysdate"/>
+	        , #{ses.userId}
+	        , '0'
+	        , #{USE_FLAG}
+	        , #{MODULE_TYPE}
+	        , #{SCREEN_URL}
+	        , #{DATA_AUTH_FLAG}
+	        , #{SCREEN_TYPE}
+	        , #{DEVELOPER_CD}
+	        , #{GRID_TYPE}
+	        , #{EXCEL_OPTION}
+	        , #{PANEL_USE_FLAG}
+        )
+
+    </insert>
+
+    <update id="doUpdateScreenManagement" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+	          MOD_USER_ID = #{ses.userId}
+	        , MOD_DATE = <include refid="com.sql.sysdate"/>
+	        , SCREEN_ID = #{SCREEN_ID}
+	        , USE_FLAG = #{USE_FLAG}
+	        , MODULE_TYPE = #{MODULE_TYPE}
+	        , SCREEN_TYPE = #{SCREEN_TYPE}
+	        , SCREEN_URL = #{SCREEN_URL}
+	        , DATA_AUTH_FLAG= #{DATA_AUTH_FLAG}
+	        , GRID_TYPE = #{GRID_TYPE}
+	        , DEL_FLAG = '0'
+	        , DEVELOPER_CD = #{DEVELOPER_CD}
+	        , EXCEL_OPTION = #{EXCEL_OPTION}
+	        , PANEL_USE_FLAG = #{PANEL_USE_FLAG}
+         WHERE GATE_CD = #{GATE_CD}
+           AND SCREEN_ID = #{SCREEN_ID}
+
+    </update>
+
+    <update id="doDeleteScreenManagement" parameterType="hashMap">
+
+        UPDATE ${TABLE_NM} SET
+	          DEL_FLAG = '1'
+	        , MOD_USER_ID = #{ses.userId}
+	        , MOD_DATE = <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD = #{GATE_CD}
+           AND SCREEN_ID  = #{SCREEN_ID_ORG}
+
+    </update>
+
+	<select id="checkScreenId" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(SCREEN_ID) AS CNT
+          FROM STOCSCRN
+         WHERE GATE_CD = #{ses.gateCd}
+           AND SCREEN_ID = #{NEW_SCREEN_ID}
+
+    </select>
+
+	<insert id="doCopyScreenManagementSCRN" parameterType="hashMap">
+
+        INSERT INTO STOCSCRN (
+        	 GATE_CD
+			,SCREEN_ID
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,USE_FLAG
+			,MODULE_TYPE
+			,SCREEN_URL
+			,DATA_AUTH_FLAG
+			,SCREEN_TYPE
+			,DEVELOPER_CD
+			,GRID_TYPE
+			,SSL_FLAG
+			,EXCEL_OPTION
+			,PANEL_USE_FLAG
+		)(SELECT
+				 GATE_CD
+				,#{NEW_SCREEN_ID}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,'1'
+				,MODULE_TYPE
+				,#{NEW_SCREEN_URL}
+				,DATA_AUTH_FLAG
+				,SCREEN_TYPE
+				,DEVELOPER_CD
+				,GRID_TYPE
+				,SSL_FLAG
+				,EXCEL_OPTION
+				,PANEL_USE_FLAG
+		    FROM STOCSCRN
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND SCREEN_ID = #{ORI_SCREEN_ID}
+		     AND DEL_FLAG = '0'
+		)
+
+    </insert>
+
+	<insert id="doCopyScreenManagementSCAC" parameterType="hashMap">
+
+        INSERT INTO STOCSCAC (
+        	 GATE_CD
+			,SCREEN_ID
+			,ACTION_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,FP_EQ_FLAG
+			,FP_EO_FLAG
+			,FP_EI_FLAG
+			,FP_ETC_TEXT
+			,BUTTON_ICON_NM
+			,INVISIBLE_FLAG
+			,PACKAGE_NM
+			,BUTTON_AUTH
+		)(SELECT
+				 GATE_CD
+				,#{NEW_SCREEN_ID}
+				,ACTION_CD
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,FP_EQ_FLAG
+				,FP_EO_FLAG
+				,FP_EI_FLAG
+				,FP_ETC_TEXT
+				,BUTTON_ICON_NM
+				,INVISIBLE_FLAG
+				,PACKAGE_NM
+				,BUTTON_AUTH
+		    FROM STOCSCAC
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND SCREEN_ID = #{ORI_SCREEN_ID}
+		     AND DEL_FLAG = '0'
+		)
+
+    </insert>
+
+	<insert id="doCopyScreenManagementMULG" parameterType="hashMap">
+
+        INSERT INTO STOCMULG (
+			 GATE_CD
+			,MULTI_SQ
+			,LANG_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,MULTI_NM
+			,MULTI_DESC
+			,MULTI_CD
+			,SCREEN_ID
+			,ACTION_CD
+			,TMPL_MENU_CD
+			,AUTH_CD
+			,ACTION_PROFILE_CD
+			,TMPL_MENU_GROUP_CD
+			,MENU_GROUP_CD
+			,COMMON_ID
+			,OTHER_CD
+		)(SELECT
+				 GATE_CD
+				,(SELECT <include refid="com.sql.nvl"/>(MAX(CONVERT(NUMERIC(22), MULTI_SQ)), 0) + 1 FROM STOCMULG) + ROWNUM
+				,#{ses.langCd}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,MULTI_NM
+				,MULTI_DESC
+				,MULTI_CD
+				,#{NEW_SCREEN_ID}
+				,ACTION_CD
+				,TMPL_MENU_CD
+				,AUTH_CD
+				,ACTION_PROFILE_CD
+				,TMPL_MENU_GROUP_CD
+				,MENU_GROUP_CD
+				,COMMON_ID
+				,OTHER_CD
+			FROM STOCMULG
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND SCREEN_ID = #{ORI_SCREEN_ID}
+		     AND MULTI_CD IN ('SC','SA')
+		     AND DEL_FLAG = '0'
+		)
+
+    </insert>
+
+	<insert id="doCopyScreenManagementLANG" parameterType="hashMap">
+
+        INSERT INTO STOCLANG (
+        	 GATE_CD
+			,SCREEN_ID
+			,MULTI_CD
+			,FORM_GRID_ID
+			,LANG_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,USE_FLAG
+			,MULTI_TYPE
+			,MULTI_CONTENTS
+			,COLUMN_ID
+			,PRE_DEFINED_FLAG
+			,COLUMN_TYPE
+			,SORT_SQ
+			,MAX_LENGTH
+			,COLUMN_WIDTH
+			,EDIT_FLAG
+			,DATA_TYPE
+			,ALIGNMENT_TYPE
+			,FONT_COLOR_TEXT
+			,BACK_COLOR_TEXT
+			,COMMON_ID
+			,IMAGE_NM
+			,FORMAT
+			,DOMAIN_TYPE
+			,DOMAIN_NM
+			,DISABLE_FLAG
+			,INVISIBLE_FLAG
+			,SEARCH_CONDITION_FLAG
+			,DYNAMIC_COLUMN_FLAG
+			,WIDTH_UNIT
+			,TEXT_WRAP
+			,MASK_TYPE
+			,DECIMAL_YN
+		)(SELECT
+				 GATE_CD
+				,#{NEW_SCREEN_ID}
+				,MULTI_CD
+				,FORM_GRID_ID
+				,LANG_CD
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,USE_FLAG
+				,MULTI_TYPE
+				,MULTI_CONTENTS
+				,COLUMN_ID
+				,PRE_DEFINED_FLAG
+				,COLUMN_TYPE
+				,SORT_SQ
+				,MAX_LENGTH
+				,COLUMN_WIDTH
+				,EDIT_FLAG
+				,DATA_TYPE
+				,ALIGNMENT_TYPE
+				,FONT_COLOR_TEXT
+				,BACK_COLOR_TEXT
+				,COMMON_ID
+				,IMAGE_NM
+				,FORMAT
+				,DOMAIN_TYPE
+				,DOMAIN_NM
+				,DISABLE_FLAG
+				,INVISIBLE_FLAG
+				,SEARCH_CONDITION_FLAG
+				,DYNAMIC_COLUMN_FLAG
+				,WIDTH_UNIT
+				,TEXT_WRAP
+				,MASK_TYPE
+				,DECIMAL_YN
+		    FROM STOCLANG
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND SCREEN_ID = #{ORI_SCREEN_ID}
+		     AND DEL_FLAG = '0'
+		)
+
+    </insert>
+
+    <select id="doSearchScreenActionManagement" parameterType="hashMap" resultType="hashMap">
+
+        SELECT SCAC.SCREEN_ID
+        , SCAC.SCREEN_ID AS SCREEN_ID_ORI
+        , SCAC.GATE_CD
+        <if test="_databaseId == 'oracle'">
+            , TO_CHAR(SCAC.REG_DATE, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+        </if>
+        <if test="_databaseId == 'mssql'">
+            , CONVERT(VARCHAR(8), SCAC.REG_DATE, 112) AS REG_DATE
+        </if>
+        , SCAC.REG_USER_ID
+        , SCAC.ACTION_CD
+        , SCAC.ACTION_CD AS ACTION_CD_ORI
+        , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) AS ACTION_NM
+        , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID) AS SCREEN_NM
+        , SCRN.MODULE_TYPE
+        , 'U' AS INSERT_FLAG
+        , (SELECT UR.USER_NM FROM STOCUSER UR WHERE UR.GATE_CD = SCAC.GATE_CD AND UR.USER_ID = SCAC.REG_USER_ID) AS REG_USER_NM
+        , SCAC.FP_EQ_FLAG
+        , SCAC.FP_EO_FLAG
+        , SCAC.FP_EI_FLAG
+        , SCAC.FP_ETC_TEXT
+        ,('') AS SCREEN_NM_IMG
+        , BUTTON_ICON_NM
+        , BUTTON_AUTH
+
+        <if test="_databaseId == 'oracle'">
+            , <include refid="com.sql.nvl"/>(INVISIBLE_FLAG, '0') AS INVISIBLE_FLAG
+        </if>
+        <if test="_databaseId == 'mssql'">
+            ,<include refid="com.sql.nvl"/>(INVISIBLE_FLAG, '0') AS INVISIBLE_FLAG
+        </if>
+
+        <!--,(CASE WHEN BUTTON_ICON_NM IS NULL THEN -1 ELSE 0 END) AS BUTTON_ICON_NM_IMAGE -->
+        , SCAC.PACKAGE_NM
+        FROM STOCSCRN SCRN
+        INNER JOIN STOCSCAC SCAC ON SCRN.SCREEN_ID = SCAC.SCREEN_ID AND SCRN.GATE_CD = SCAC.GATE_CD
+        <!--LEFT JOIN STOCUSER USERS ON SCAC.REG_USER_ID = USERS.USER_ID AND SCAC.GATE_CD = USERS.GATE_CD -->
+        WHERE SCRN.GATE_CD = #{ses.gateCd}
+        AND SCRN.DEL_FLAG = '0'
+        AND SCAC.DEL_FLAG = '0'
+        <!--AND USERS.DEL_FLAG = '0' -->
+        <if test="MODULE_TYPE !='' and MODULE_TYPE != null">
+            AND MODULE_TYPE = #{MODULE_TYPE}
+        </if>
+        <if test="SCREEN_ID !='' and SCREEN_ID != null">
+            AND SCAC.SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_NM !='' and SCREEN_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID) <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_CD !='' and ACTION_CD != null">
+            AND SCAC.ACTION_CD <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_NM !='' and ACTION_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) <include refid="com.sql.likeL"/> #{ACTION_NM} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+    <select id="checkScreenActionManagement" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(ACTION_CD) AS CNT
+          FROM ${TABLE_NM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND ACTION_CD = <include refid="com.sql.trim"/>(#{ACTION_CD})
+           AND SCREEN_ID = #{SCREEN_ID}
+    </select>
+
+    <insert id="doInsertScreenActionManagement" parameterType="hashMap">
+        INSERT INTO ${TABLE_NM} (
+        GATE_CD
+        , SCREEN_ID
+        , ACTION_CD
+        , REG_DATE
+        , REG_USER_ID
+        , DEL_FLAG
+        , FP_EQ_FLAG
+        , FP_EO_FLAG
+        , FP_EI_FLAG
+        , FP_ETC_TEXT
+        , BUTTON_ICON_NM
+        , BUTTON_AUTH
+        , INVISIBLE_FLAG
+        , PACKAGE_NM
+        ) VALUES (
+        #{ses.gateCd}
+        , #{SCREEN_ID}
+        , <include refid="com.sql.trim"/>(#{ACTION_CD})
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , '0'
+        , #{FP_EQ_FLAG}
+        , #{FP_EO_FLAG}
+        , #{FP_EI_FLAG}
+        , #{FP_ETC_TEXT}
+        , #{BUTTON_ICON_NM}
+        , #{BUTTON_AUTH}
+        , #{INVISIBLE_FLAG}
+        , #{PACKAGE_NM}
+        )
+    </insert>
+
+
+    <update id="doUpdateScreenActionManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM} SET
+        ACTION_CD = <include refid="com.sql.trim"/>(#{ACTION_CD})
+        , SCREEN_ID = #{SCREEN_ID}
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        , FP_EQ_FLAG = #{FP_EQ_FLAG}
+        , FP_EO_FLAG = #{FP_EO_FLAG}
+        , FP_EI_FLAG = #{FP_EI_FLAG}
+        , FP_ETC_TEXT = #{FP_ETC_TEXT}
+        , BUTTON_ICON_NM = #{BUTTON_ICON_NM}
+        , BUTTON_AUTH = #{BUTTON_AUTH}
+        , INVISIBLE_FLAG = #{INVISIBLE_FLAG}
+        , PACKAGE_NM = #{PACKAGE_NM}
+        , DEL_FLAG = '0'
+        WHERE GATE_CD = #{GATE_CD}
+        AND ACTION_CD = #{ACTION_CD}
+        AND SCREEN_ID = #{SCREEN_ID}
+    </update>
+
+    <update id="doDeleteScreenActionManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM} SET
+        DEL_FLAG = '1'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+        AND ACTION_CD = #{ACTION_CD_ORI}
+        AND SCREEN_ID = #{SCREEN_ID_ORI}
+    </update>
+
+    <select id="doSearchScreenIdPopup" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        MODULE_TYPE, SCREEN_ID, SCREEN_NM, SCREEN_URL, USE_FLAG, DATA_AUTH_FLAG, REG_USER_NM, REG_DATE
+        FROM
+        (SELECT SCRN.SCREEN_ID
+        , SCRN.GATE_CD
+        <if test="_databaseId == 'oracle'"> , TO_CHAR(SCRN.REG_DATE, <include refid="com.sql.dateFormat"/>) AS REG_DATE </if>
+        <if test="_databaseId == 'mssql'"> , CONVERT(VARCHAR, SCRN.REG_DATE, 112) AS REG_DATE </if>
+        , SCRN.REG_USER_ID
+        , <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) AS SCREEN_NM
+        , SCRN.MODULE_TYPE
+        , SCRN.USE_FLAG
+        , SCRN.SCREEN_URL
+        , SCRN.DATA_AUTH_FLAG
+        , (SELECT UR.USER_NM FROM STOCUSER UR WHERE UR.GATE_CD = SCRN.GATE_CD AND UR.USER_ID = SCRN.REG_USER_ID) AS REG_USER_NM
+        FROM STOCSCRN SCRN
+        WHERE SCRN.GATE_CD = #{ses.gateCd}
+        AND SCRN.DEL_FLAG = '0'
+        <if test="MODULE_TYPE != '' and MODULE_TYPE != null">
+            AND SCRN.MODULE_TYPE = #{MODULE_TYPE}
+        </if>
+        ) SC
+        WHERE 1=1
+        <if test="SCREEN_NM != '' and SCREEN_NM != null">
+            AND SCREEN_NM <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_URL != '' and SCREEN_URL != null">
+            AND SCREEN_URL <include refid="com.sql.likeL"/> #{SCREEN_URL} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY MODULE_TYPE, SCREEN_ID
+
+    </select>
+
+
+
+    <!--      authorization commission   -->
+
+    <select id="doSearchLAuthorizationCommission" parameterType="hashMap" resultType="hashMap">
+        SELECT USAP.USER_ID
+        , USAP.GATE_CD
+        , USAP.AUTH_CD
+        , <include refid="com.sql.dbo"/>GETGMTDATE(USAP.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+        , <include refid="com.sql.dbo"/>GETGMTDATE(USAP.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+        , <include refid="com.sql.dbo"/>GETMULTINAME(USAP.GATE_CD, 'AU', #{ses.langCd}, USAP.AUTH_CD, '') AS AUTH_NM
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USAP.GATE_CD, USAP.USER_ID , #{ses.langCd}) AS USER_NM
+        , 'U' AS INSERT_FLAG
+        FROM STOCUSAP USAP, STOCAUPF AUPF
+        WHERE  USAP.GATE_CD = #{ses.gateCd}
+        AND USAP.AUTH_CD = AUPF.AUTH_CD AND USAP.GATE_CD = AUPF.GATE_CD
+        AND USAP.DEL_FLAG = '0'
+        <if test="USER_ID_L !='' and USER_ID_L != null">
+            AND USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="AUTH_CD !='' and AUTH_CD != null">
+            AND USAP.AUTH_CD <include refid="com.sql.likeL"/> #{AUTH_CD} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="USER_NM_L !='' and USER_NM_L != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(USAP.GATE_CD, USAP.USER_ID , #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM_L} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+    <select id="doSearchRAuthorizationCommission" parameterType="hashMap" resultType="hashMap">
+        SELECT USAP.USER_ID
+        , USAP.GATE_CD
+        , USAP.AUTH_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(USAP.GATE_CD, 'AU', #{ses.langCd}, USAP.AUTH_CD, '') AS AUTH_NM
+        , USERS.USER_NM AS USER_NM
+        , OGDP.DEPT_NM
+        FROM STOCUSAP USAP JOIN STOCUSER USERS
+        ON
+        USAP.GATE_CD = USERS.GATE_CD AND
+        USAP.USER_ID = USERS.USER_ID AND
+        USAP.DEL_FLAG = '0' AND
+        USERS.DEL_FLAG = '0'
+        JOIN STOCAUPF AUPF
+        ON
+        AUPF.GATE_CD = USAP.GATE_CD AND
+        AUPF.AUTH_CD = USAP.AUTH_CD AND
+        AUPF.DEL_FLAG = '0'
+        LEFT OUTER JOIN STOCOGDP OGDP
+        ON
+        OGDP.GATE_CD = USERS.GATE_CD AND
+        OGDP.BUYER_CD = USERS.COMPANY_CD AND
+        OGDP.DEPT_CD = USERS.DEPT_CD AND
+        OGDP.DEL_FLAG = '0'
+        WHERE 1 = 1
+        AND USAP.GATE_CD = #{ses.gateCd}
+
+        <if test="USER_ID_R !='' and USER_ID_R != null">
+            AND USAP.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="USER_NM_R !='' and USER_NM_R != null">
+            AND USERS.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+    <select id="checkAuthorizationCommission" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(USER_ID) AS CNT
+        FROM STOCUSAP
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND USER_ID = #{USER_ID}
+        AND AUTH_CD = #{AUTH_CD}
+    </select>
+
+    <insert id="doInsertAuthorizationCommission" parameterType="hashMap">
+        INSERT
+        INTO   STOCUSAP ( GATE_CD
+        , USER_ID
+        , AUTH_CD
+        , REG_DATE
+        , REG_USER_ID
+        , MOD_DATE
+        , MOD_USER_ID
+        , DEL_FLAG
+        , VALID_FROM_DATE
+        , VALID_TO_DATE)
+        VALUES  (#{ses.gateCd}
+        , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        , #{AUTH_CD}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , '0'
+        , <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        , <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        )
+    </insert>
+
+
+    <update id="doUpdateAuthorizationCommission" parameterType="hashMap">
+        UPDATE STOCUSAP
+        SET  VALID_FROM_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        , VALID_TO_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        , DEL_FLAG = '0'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        AND AUTH_CD = #{AUTH_CD}
+    </update>
+
+    <update id="doDeleteAuthorizationCommission" parameterType="hashMap">
+        UPDATE STOCUSAP
+        SET  DEL_FLAG = '1'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        AND AUTH_CD = #{AUTH_CD}
+    </update>
+
+    <!--      action profile management   -->
+
+    <select id="doSearchTActionProfileManagement"  parameterType="hashMap" resultType="hashMap">
+
+        SELECT GATE_CD
+        , ACPH.ACTION_PROFILE_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'AP',  #{ses.langCd}, ACPH.ACTION_PROFILE_CD, '') AS ACTION_PROFILE_NM
+        , <include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+        , REG_USER_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+        , 'U' AS INSERT_FLAG
+        , ACPH.USER_TYPE
+        ,('') AS SCREEN_NM_IMG
+        , (SELECT COUNT(*)
+        FROM STOCACPF ACPF
+        WHERE 1 = 1
+        AND ACPF.GATE_CD = ACPH.GATE_CD
+        AND ACPF.ACTION_PROFILE_CD = ACPH.ACTION_PROFILE_CD
+        AND ACPF.DEL_FLAG = '0') AS ACTION_COUNT
+        FROM STOCACPH ACPH
+        WHERE GATE_CD = #{ses.gateCd}
+        AND DEL_FLAG = '0'
+        <choose>
+            <when test="T_ACTION_PROFILE_CD != '' and T_ACTION_PROFILE_CD != null">
+                AND ACPH.ACTION_PROFILE_CD = #{T_ACTION_PROFILE_CD}
+            </when>
+            <otherwise>
+                <if test="ACTION_PROFILE_CD_SEARCH != '' and ACTION_PROFILE_CD_SEARCH != null">
+                    AND <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'AP',  #{ses.langCd}, ACPH.ACTION_PROFILE_CD, '') <include refid="com.sql.likeL"/> #{ACTION_PROFILE_CD_SEARCH} <include refid="com.sql.likeR"/>
+                </if>
+            </otherwise>
+        </choose>
+        <if test="ACTION_PROFILE_NM !='' and ACTION_PROFILE_NM != null">
+            AND <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'AP',  #{ses.langCd}, ACPH.ACTION_PROFILE_CD, '') <include refid="com.sql.likeL"/> #{ACTION_PROFILE_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+    </select>
+
+    <select id="doSearchLActionProfileManagement"  parameterType="hashMap" resultType="hashMap">
+
+        SELECT ACPF.GATE_CD
+        , ACPF.SCREEN_ID
+        , ACPF.ACTION_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) AS ACTION_NM
+        , <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID) AS SCREEN_NM
+        , ACPF.ACTION_PROFILE_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'AP',  #{ses.langCd}, ACPF.ACTION_PROFILE_CD, '') AS ACTION_PROFILE_NM
+        , 'U' AS INSERT_FLAG
+        FROM STOCACPF ACPF LEFT JOIN STOCSCAC SCAC
+        ON (ACPF.GATE_CD = SCAC.GATE_CD
+        AND ACPF.SCREEN_ID = SCAC.SCREEN_ID
+        AND ACPF.ACTION_CD = SCAC.ACTION_CD)
+        LEFT JOIN STOCMULG MULG
+        ON (SCAC.GATE_CD = MULG.GATE_CD
+        AND SCAC.SCREEN_ID = MULG.SCREEN_ID
+        AND SCAC.ACTION_CD = MULG.ACTION_CD)
+        WHERE ACPF.GATE_CD = #{ses.gateCd}
+        AND ACPF.DEL_FLAG = '0'
+        AND SCAC.DEL_FLAG = '0'
+        AND MULG.DEL_FLAG = '0'
+        AND MULG.MULTI_CD = 'SA'
+        AND MULG.LANG_CD = #{ses.langCd}
+        <if test="ACTION_PROFILE_CD !='' and ACTION_PROFILE_CD != null">
+            AND ACPF.ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+        </if>
+        <if test="actionValueL !='' and actionValueL != null">
+            <if test="actionTypeL !='' and actionTypeL != null">
+                <if test="actionTypeL ==1">
+                    AND <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID) <include refid="com.sql.likeL"/> #{actionValueL} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionTypeL ==2">
+                    AND ACPF.SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionTypeL ==3">
+                    AND <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) <include refid="com.sql.likeL"/> #{actionValueL} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionTypeL ==4">
+                    AND ACPF.ACTION_CD <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+                </if>
+            </if>
+        </if>
+        ORDER BY ACPF.SCREEN_ID
+
+    </select>
+
+    <select id="doSearchRActionProfileManagement" parameterType="hashMap" resultType="hashMap">
+
+        SELECT * FROM (
+        SELECT SCAC.SCREEN_ID
+        , SCAC.ACTION_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) AS ACTION_NM
+        , <include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID) AS SCREEN_NM
+        FROM STOCSCAC SCAC
+        WHERE SCAC.GATE_CD = #{ses.gateCd}
+        AND SCAC.DEL_FLAG = '0') SC
+        WHERE 1 = 1
+        <if test="actionValue !='' and actionValue != null">
+            <if test="actionType !='' and actionType != null">
+                <if test="actionType ==1">
+                    AND SCREEN_NM <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionType ==2">
+                    AND SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionType ==3">
+                    AND ACTION_NM <include refid="com.sql.likeL"/> #{ACTION_NM} <include refid="com.sql.likeR"/>
+                </if>
+                <if test="actionType ==4">
+                    AND ACTION_CD <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+                </if>
+            </if>
+        </if>
+    </select>
+
+    <select id="checkTActionProfileManagement" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(ACTION_PROFILE_CD) AS CNT
+        FROM STOCACPH
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </select>
+
+    <insert id="doInsertTActionProfileManagement" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM} ( GATE_CD
+        , ACTION_PROFILE_CD
+        , USER_TYPE
+        , REG_DATE
+        , REG_USER_ID
+        , DEL_FLAG)
+        VALUES  (#{ses.gateCd}
+        , #{ACTION_PROFILE_CD}
+        , #{USER_TYPE}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , '0')
+    </insert>
+
+    <update id="doUpdateTActionProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET  DEL_FLAG = '0'
+        , USER_TYPE = #{USER_TYPE}
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </update>
+
+    <update id="doDeleteTActionProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET  DEL_FLAG = '1'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </update>
+
+    <select id="checkLActionProfileManagement" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(ACTION_PROFILE_CD) AS CNT
+        FROM ${TABLE_NM}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+        AND   SCREEN_ID = #{SCREEN_ID}
+        AND   ACTION_CD = #{ACTION_CD}
+    </select>
+
+    <insert id="doInsertLActionProfileManagement" parameterType="hashMap">
+
+        INSERT
+        INTO   ${TABLE_NM}( GATE_CD
+        , SCREEN_ID
+        , ACTION_PROFILE_CD
+        , ACTION_CD
+        , REG_DATE
+        , REG_USER_ID
+        , DEL_FLAG)
+        VALUES  (#{ses.gateCd}
+        , #{SCREEN_ID}
+        , #{ACTION_PROFILE_CD}
+        , #{ACTION_CD}
+        , <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+        , '0')
+    </insert>
+
+    <update id="doUpdateLActionProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET  DEL_FLAG = '0'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+        AND   SCREEN_ID = #{SCREEN_ID}
+        AND   ACTION_CD = #{ACTION_CD}
+    </update>
+
+    <update id="doDeleteLActionProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM}
+        SET  DEL_FLAG = '1'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+        AND   SCREEN_ID = #{SCREEN_ID}
+        AND   ACTION_CD = #{ACTION_CD}
+    </update>
+
+    <select id="getAvailableButtonCodeList" parameterType="hashmap" resultType="hashmap">
+        SELECT CTRL_CD, CTRL_NM
+        FROM STOCBACO
+        WHERE GATE_CD = #{ses.gateCd}
+        AND DEL_FLAG = '0'
+        AND USE_FLAG = '1'
+    </select>
+
+	<select id="selectHelpInfo" resultType="hashmap">
+
+        SELECT HELP_TEXT_NUM
+             , HELP_ATT_FILE_NUM
+             , SCREEN_ID
+          FROM STOCSCRN
+         WHERE GATE_CD = #{ses.gateCd}
+           AND SCREEN_ID = #{paramScreenId}
+           AND DEL_FLAG = '0'
+
+    </select>
+
+	<update id="updateHelpInfo" parameterType="hashmap">
+
+        UPDATE STOCSCRN SET
+        	 MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,HELP_TEXT_NUM = #{HELP_TEXT_NUM}
+            ,HELP_ATT_FILE_NUM = #{HELP_ATT_FILE_NUM}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND SCREEN_ID = #{SCREEN_ID}
+
+    </update>
+
+	<update id="deleteHelpInfo" parameterType="hashmap">
+
+        UPDATE STOCSCRN SET
+        	 MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,HELP_TEXT_NUM = NULL
+            ,HELP_ATT_FILE_NUM = NULL
+         WHERE GATE_CD = #{ses.gateCd}
+           AND SCREEN_ID = #{SCREEN_ID}
+
+    </update>
+
+</mapper>

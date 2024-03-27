@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1550_Mapper">
+
+    <select id="doSearchHD" parameterType="hashmap" resultType="hashmap">
+
+		SELECT HD.MAT_GROUP AS HD_MAT_GROUP
+			  ,HD.PLANT_CD  AS HD_PLANT_CD
+			  ,HD.ITEM_CLS1 AS HD_ITEM_CLS1
+			  ,HD.ITEM_CLS2 AS HD_ITEM_CLS2
+			  ,HD.ITEM_CLS3 AS HD_ITEM_CLS3
+			  ,HD.ITEM_CD   AS HD_ITEM_CD
+			  ,HD.EQUIP_REV AS HD_EQUIP_REV
+			  ,HD.OUTPUT_QT
+			  ,HD.WORK_HOURS
+			  ,HD.OUTPUT_RATE
+			  ,HD.WORK_DAYS
+			  ,HD.WORK_PERSONS
+		  FROM STOCIEHD HD
+		  JOIN STOCIEDT DT
+		    ON (DT.GATE_CD   = HD.GATE_CD
+		   AND DT.MAT_GROUP = HD.MAT_GROUP
+		   AND DT.PLANT_CD  = HD.PLANT_CD
+		   AND DT.ITEM_CLS1 = HD.ITEM_CLS1
+		   AND DT.ITEM_CLS2 = HD.ITEM_CLS2
+		   AND DT.ITEM_CLS3 = HD.ITEM_CLS3
+		   AND DT.ITEM_CD   = HD.ITEM_CD
+		   AND DT.EQUIP_REV = (SELECT MAX(EQUIP_REV)
+		   						  FROM STOCIEDT
+		   						 WHERE GATE_CD          = HD.GATE_CD
+		   						   AND MAT_GROUP        = HD.MAT_GROUP
+		   						   AND PLANT_CD         = HD.PLANT_CD
+		   						   AND ITEM_CLS1        = HD.ITEM_CLS1
+		   						   AND ITEM_CLS2        = HD.ITEM_CLS2
+		   						   AND ITEM_CLS3        = HD.ITEM_CLS3
+		   						   AND ITEM_CD          = HD.ITEM_CD
+								<if test="EQUIP_REV != '' and EQUIP_REV != null">
+ 								<![CDATA[
+ 		   						   AND EQUIP_REV <= #{EQUIP_REV}
+								]]>
+								</if>
+								   AND CHANGE_REASON_CD = DT.CHANGE_REASON_CD
+		   						   AND EQUIP_DIV1       = DT.EQUIP_DIV1
+		   						   AND EQUIP_DIV1_SQ    = DT.EQUIP_DIV1_SQ
+		   						   AND EQUIP_DIV2       = DT.EQUIP_DIV2
+		   						   AND EQUIP_DIV2_SQ    = DT.EQUIP_DIV2_SQ
+		   						   AND DEL_FLAG         = '0')
+		   AND DT.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		<if test="MAT_GROUP != '' and MAT_GROUP != null">
+		   AND HD.MAT_GROUP = #{MAT_GROUP}
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+		   AND HD.PLANT_CD = #{PLANT_CD}
+		</if>
+		<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+		   AND HD.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+		   AND HD.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+		   AND HD.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		   AND HD.ITEM_CD = #{ITEM_CD}
+		</if>
+		   AND HD.EQUIP_REV = (SELECT MAX(EQUIP_REV)
+		   						  FROM STOCIEHD
+		   						 WHERE GATE_CD          = HD.GATE_CD
+		   						   AND MAT_GROUP        = HD.MAT_GROUP
+		   						   AND PLANT_CD         = HD.PLANT_CD
+		   						   AND ITEM_CLS1        = HD.ITEM_CLS1
+		   						   AND ITEM_CLS2        = HD.ITEM_CLS2
+		   						   AND ITEM_CLS3        = HD.ITEM_CLS3
+		   						   AND ITEM_CD          = HD.ITEM_CD
+								<if test="EQUIP_REV != '' and EQUIP_REV != null">
+ 								<![CDATA[
+ 		   						   AND EQUIP_REV <= #{EQUIP_REV}
+								]]>
+								</if>
+		   						   AND DEL_FLAG         = '0')
+		
+		<if test="EQUIP_DIV1 != '' and EQUIP_DIV1 != null">
+ 		   AND DT.EQUIP_DIV1 = #{EQUIP_DIV1}
+		</if>
+		<if test="EQUIP_DIV2 != '' and EQUIP_DIV2 != null">
+ 		   AND DT.EQUIP_DIV2 = #{EQUIP_DIV2}
+		</if>
+		<if test="CHANGE_REASON_CD != '' and CHANGE_REASON_CD != null">
+ 		   AND DT.CHANGE_REASON_CD = #{CHANGE_REASON_CD}
+		</if>
+		<if test="EQUIP_CD != '' and EQUIP_CD != null">
+ 		   AND DT.EQUIP_CD = #{EQUIP_CD}
+		</if>
+		<if test="PRODUCTION_DIV != '' and PRODUCTION_DIV != null">
+		   AND DT.PRODUCTION_DIV = #{PRODUCTION_DIV}
+		</if>
+		   AND HD.DEL_FLAG = '0'
+		 ORDER BY HD.MAT_GROUP, HD.PLANT_CD, HD.ITEM_CLS1, HD.ITEM_CLS2, HD.ITEM_CLS3, HD.ITEM_CD, HD.EQUIP_REV
+
+    </select>
+
+
+	<insert id="doSaveHD" parameterType="hashmap">
+	
+		 MERGE STOCIEHD AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{HD_MAT_GROUP} AS MAT_GROUP, #{HD_PLANT_CD} AS PLANT_CD, #{HD_ITEM_CLS1} AS ITEM_CLS1, #{HD_ITEM_CLS2} AS ITEM_CLS2,
+		 			   #{HD_ITEM_CLS3} AS ITEM_CLS3, #{HD_ITEM_CD} AS ITEM_CD, #{HD_EQUIP_REV} AS EQUIP_REV) AS B
+			ON (A.GATE_CD   = B.GATE_CD
+		   AND A.MAT_GROUP = B.MAT_GROUP
+		   AND A.PLANT_CD  = B.PLANT_CD
+		   AND A.ITEM_CLS1 = B.ITEM_CLS1
+		   AND A.ITEM_CLS2 = B.ITEM_CLS2
+		   AND A.ITEM_CLS3 = B.ITEM_CLS3
+		   AND A.ITEM_CD   = B.ITEM_CD
+		   AND A.EQUIP_REV = B.EQUIP_REV)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '0'
+			 , OUTPUT_QT = #{OUTPUT_QT}
+			 , WORK_HOURS = #{WORK_HOURS}
+			 , OUTPUT_RATE = #{OUTPUT_RATE}
+			 , WORK_DAYS = #{WORK_DAYS}
+			 , WORK_PERSONS = #{WORK_PERSONS}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , MAT_GROUP
+			 , PLANT_CD
+			 , ITEM_CLS1
+			 , ITEM_CLS2
+			 , ITEM_CLS3
+			 , ITEM_CD
+			 , EQUIP_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , OUTPUT_QT
+			 , WORK_HOURS
+			 , OUTPUT_RATE
+			 , WORK_DAYS
+			 , WORK_PERSONS
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{HD_MAT_GROUP}
+			 , #{HD_PLANT_CD}
+			 , #{HD_ITEM_CLS1}
+			 , #{HD_ITEM_CLS2}
+			 , #{HD_ITEM_CLS3}
+			 , #{HD_ITEM_CD}
+			 , #{HD_EQUIP_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{OUTPUT_QT}
+			 , #{WORK_HOURS}
+			 , #{OUTPUT_RATE}
+			 , #{WORK_DAYS}
+			 , #{WORK_PERSONS}
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<delete id="doDeleteHD" parameterType="hashmap">
+
+		UPDATE STOCIEHD
+		   SET DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND MAT_GROUP = #{MAT_GROUP}
+		   AND PLANT_CD  = #{PLANT_CD}
+		   AND ITEM_CLS1 = #{ITEM_CLS1}
+		   AND ITEM_CLS2 = #{ITEM_CLS2}
+		   AND ITEM_CLS3 = #{ITEM_CLS3}
+		   AND ITEM_CD   = #{ITEM_CD}
+		   AND EQUIP_REV = #{EQUIP_REV}
+
+	</delete>
+
+    <select id="doSearchDT" parameterType="hashmap" resultType="hashmap">
+
+		SELECT DT.MAT_GROUP
+			  ,DT.PLANT_CD
+			  ,DT.ITEM_CLS1
+			  ,DT.ITEM_CLS2
+			  ,<include refid="com.sql.dbo"/>GETITEMCLASS(DT.GATE_CD, DT.ITEM_CLS2, '2') AS ITEM_CLS2_IMG
+			  ,DT.ITEM_CLS3
+			  ,<include refid="com.sql.dbo"/>GETITEMCLASS(DT.GATE_CD, DT.ITEM_CLS3, '3') AS ITEM_CLS3_IMG
+			  ,DT.ITEM_CD
+			  ,DT.EQUIP_REV
+			  ,DT.CHANGE_REASON_CD
+			  ,DT.EQUIP_DIV1
+			  ,DT.EQUIP_DIV1_SQ
+			  ,DT.EQUIP_DIV2
+			  ,DD.CODE_DESC AS EQUIP_DIV2_NM
+			  ,DT.EQUIP_DIV2_SQ
+			  ,DT.EQUIP_CD
+			  <!-- ,DT.EQUIP_YEAR -->
+			  ,(CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.EQUIP_DESC ELSE MT.EQUIP_DESC END) AS EQUIP_DESC
+			  ,DT.BID_QT
+			  ,DT.BID_PRC
+			  ,DT.BID_EXCLUSIVE_PRC
+			  ,DT.BID_COMMON_PRC
+			  ,DT.EST_QT
+			  ,DT.EST_PRC
+			  ,DT.EST_EXCLUSIVE_PRC
+			  ,DT.EST_COMMON_PRC
+			  ,(CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.MAKER ELSE MT.MAKER END) AS MAKER
+			  ,(CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.EXE_QT ELSE <include refid="com.sql.nvl"/>(MT.EQUIP_QT, 0) END) AS EXE_QT
+			  ,(CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.EXE_PRC ELSE <include refid="com.sql.nvl"/>(MT.EQUIP_PRC, 0) END) AS EXE_PRC
+			  ,DT.EXE_EXCLUSIVE_PRC
+			  ,(CASE WHEN DT.EQUIP_CD IS NULL OR DT.EQUIP_CD = '' THEN DT.EXE_COMMON_PRC ELSE <include refid="com.sql.nvl"/>(MT.EQUIP_AMT, 0) END) AS EXE_COMMON_PRC
+			  ,DT.RMK
+			  ,DT.PRODUCTION_DIV
+		  FROM STOCIEHD HD
+		  JOIN STOCIEDT DT
+		    ON (DT.GATE_CD   = HD.GATE_CD
+		   AND DT.MAT_GROUP = HD.MAT_GROUP
+		   AND DT.PLANT_CD  = HD.PLANT_CD
+		   AND DT.ITEM_CLS1 = HD.ITEM_CLS1
+		   AND DT.ITEM_CLS2 = HD.ITEM_CLS2
+		   AND DT.ITEM_CLS3 = HD.ITEM_CLS3
+		   AND DT.ITEM_CD   = HD.ITEM_CD
+		   AND DT.EQUIP_REV = (SELECT MAX(EQUIP_REV)
+		   						  FROM STOCIEDT
+		   						 WHERE GATE_CD          = HD.GATE_CD
+		   						   AND MAT_GROUP        = HD.MAT_GROUP
+		   						   AND PLANT_CD         = HD.PLANT_CD
+		   						   AND ITEM_CLS1        = HD.ITEM_CLS1
+		   						   AND ITEM_CLS2        = HD.ITEM_CLS2
+		   						   AND ITEM_CLS3        = HD.ITEM_CLS3
+		   						   AND ITEM_CD          = HD.ITEM_CD
+								<if test="EQUIP_REV != '' and EQUIP_REV != null">
+ 								<![CDATA[
+ 		   						   AND EQUIP_REV <= #{EQUIP_REV}
+								]]>
+								</if>
+								   AND CHANGE_REASON_CD = DT.CHANGE_REASON_CD
+		   						   AND EQUIP_DIV1       = DT.EQUIP_DIV1
+		   						   AND EQUIP_DIV1_SQ    = DT.EQUIP_DIV1_SQ
+		   						   AND EQUIP_DIV2       = DT.EQUIP_DIV2
+		   						   AND EQUIP_DIV2_SQ    = DT.EQUIP_DIV2_SQ
+		   						   AND DEL_FLAG         = '0')
+		   AND DT.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCCODD DD
+		    ON (DD.GATE_CD = DT.GATE_CD
+		   AND DD.CODE_TYPE = 'M209'
+		   AND DD.LANG_CD = #{ses.langCd}
+		   AND DD.TEXT1 = DT.EQUIP_DIV1
+		   AND DD.CODE = DT.EQUIP_DIV2
+		   AND DD.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCIEMT MT
+		    ON (MT.GATE_CD    = DT.GATE_CD
+		   <!-- AND MT.EQUIP_YEAR = DT.EQUIP_YEAR -->
+		   AND MT.EQUIP_CD   = DT.EQUIP_CD
+		   AND MT.DEL_FLAG = '0')
+		 WHERE HD.GATE_CD = #{ses.gateCd}
+		<if test="MAT_GROUP != '' and MAT_GROUP != null">
+		   AND HD.MAT_GROUP = #{MAT_GROUP}
+		</if>
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+		   AND HD.PLANT_CD = #{PLANT_CD}
+		</if>
+		<if test="ITEM_CLS1 != '' and ITEM_CLS1 != null">
+		   AND HD.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != '' and ITEM_CLS2 != null">
+		   AND HD.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3 != '' and ITEM_CLS3 != null">
+		   AND HD.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		   AND HD.ITEM_CD = #{ITEM_CD}
+		</if>
+		<if test="EQUIP_DIV1 != '' and EQUIP_DIV1 != null">
+ 		   AND DT.EQUIP_DIV1 = #{EQUIP_DIV1}
+		</if>
+		<if test="EQUIP_DIV2 != '' and EQUIP_DIV2 != null">
+ 		   AND DT.EQUIP_DIV2 = #{EQUIP_DIV2}
+		</if>
+		<if test="CHANGE_REASON_CD != '' and CHANGE_REASON_CD != null">
+ 		   AND DT.CHANGE_REASON_CD = #{CHANGE_REASON_CD}
+		</if>
+		<if test="EQUIP_CD != '' and EQUIP_CD != null">
+ 		   AND DT.EQUIP_CD = #{EQUIP_CD}
+		</if>
+		<if test="PRODUCTION_DIV != '' and PRODUCTION_DIV != null">
+		   AND DT.PRODUCTION_DIV = #{PRODUCTION_DIV}
+		</if>
+		   AND HD.DEL_FLAG = '0'
+		   AND HD.EQUIP_REV = (SELECT MAX(EQUIP_REV)
+		   						  FROM STOCIEHD
+		   						 WHERE GATE_CD          = HD.GATE_CD
+		   						   AND MAT_GROUP        = HD.MAT_GROUP
+		   						   AND PLANT_CD         = HD.PLANT_CD
+		   						   AND ITEM_CLS1        = HD.ITEM_CLS1
+		   						   AND ITEM_CLS2        = HD.ITEM_CLS2
+		   						   AND ITEM_CLS3        = HD.ITEM_CLS3
+		   						   AND ITEM_CD          = HD.ITEM_CD
+								<if test="EQUIP_REV != '' and EQUIP_REV != null">
+ 								<![CDATA[
+ 		   						   AND EQUIP_REV <= #{EQUIP_REV}
+								]]>
+								</if>
+		   						   AND DEL_FLAG         = '0')
+		 ORDER BY DT.MAT_GROUP, DT.PLANT_CD, DT.ITEM_CLS1, DT.ITEM_CLS2, DT.ITEM_CLS3, DT.ITEM_CD, DT.EQUIP_DIV1, DT.EQUIP_DIV1_SQ, DT.EQUIP_DIV2, DT.EQUIP_DIV2_SQ, DT.EQUIP_REV
+
+    </select>
+
+	<insert id="doSaveDT" parameterType="hashmap">
+			 
+		 MERGE STOCIEDT AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{MAT_GROUP} AS MAT_GROUP, #{PLANT_CD} AS PLANT_CD, #{ITEM_CLS1} AS ITEM_CLS1, #{ITEM_CLS2} AS ITEM_CLS2,
+		 			   #{ITEM_CLS3} AS ITEM_CLS3, #{ITEM_CD} AS ITEM_CD, #{EQUIP_REV} AS EQUIP_REV, #{CHANGE_REASON_CD} AS CHANGE_REASON_CD, #{EQUIP_DIV1} AS EQUIP_DIV1,
+		 			   #{EQUIP_DIV1_SQ} AS EQUIP_DIV1_SQ, #{EQUIP_DIV2} AS EQUIP_DIV2, #{EQUIP_DIV2_SQ} AS EQUIP_DIV2_SQ) AS B
+			ON (A.GATE_CD          = B.GATE_CD
+		   AND A.MAT_GROUP        = B.MAT_GROUP
+		   AND A.PLANT_CD         = B.PLANT_CD
+		   AND A.ITEM_CLS1        = B.ITEM_CLS1
+		   AND A.ITEM_CLS2        = B.ITEM_CLS2
+		   AND A.ITEM_CLS3        = B.ITEM_CLS3
+		   AND A.ITEM_CD          = B.ITEM_CD
+		   AND A.EQUIP_REV        = B.EQUIP_REV
+		   AND A.CHANGE_REASON_CD = B.CHANGE_REASON_CD
+		   AND A.EQUIP_DIV1       = B.EQUIP_DIV1
+		   AND A.EQUIP_DIV1_SQ    = B.EQUIP_DIV1_SQ
+		   AND A.EQUIP_DIV2       = B.EQUIP_DIV2
+		   AND A.EQUIP_DIV2_SQ    = B.EQUIP_DIV2_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , DEL_FLAG = '0'
+			 , EQUIP_CD = #{EQUIP_CD}
+			 <!-- , EQUIP_YEAR = #{EQUIP_YEAR} -->
+			 , EQUIP_DESC = #{EQUIP_DESC}
+			 , BID_QT = CAST(#{BID_QT} AS NUMERIC(18,2))
+			 , BID_PRC = CAST(#{BID_PRC} AS NUMERIC(18,2))
+			 , BID_EXCLUSIVE_PRC = CAST(#{BID_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , BID_COMMON_PRC = CAST(#{BID_COMMON_PRC} AS NUMERIC(18,2))
+			 , EST_QT = CAST(#{EST_QT} AS NUMERIC(18,2))
+			 , EST_PRC = CAST(#{EST_PRC} AS NUMERIC(18,2))
+			 , EST_EXCLUSIVE_PRC = CAST(#{EST_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , EST_COMMON_PRC = CAST(#{EST_COMMON_PRC} AS NUMERIC(18,2))
+			 , MAKER = #{MAKER}
+			 , EXE_QT = CAST(#{EXE_QT} AS NUMERIC(18,2))
+			 , EXE_PRC = CAST(#{EXE_PRC} AS NUMERIC(18,2))
+			 , EXE_EXCLUSIVE_PRC = CAST(#{EXE_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , EXE_COMMON_PRC = CAST(#{EXE_COMMON_PRC} AS NUMERIC(18,2))
+			 , RMK = #{RMK}
+			 , PRODUCTION_DIV = #{PRODUCTION_DIV}
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , MAT_GROUP
+			 , PLANT_CD
+			 , ITEM_CLS1
+			 , ITEM_CLS2
+			 , ITEM_CLS3
+			 , ITEM_CD
+			 , EQUIP_REV
+			 , CHANGE_REASON_CD
+			 , EQUIP_DIV1
+			 , EQUIP_DIV1_SQ
+			 , EQUIP_DIV2
+			 , EQUIP_DIV2_SQ
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , EQUIP_CD
+			 <!-- , EQUIP_YEAR -->
+			 , EQUIP_DESC
+			 , BID_QT
+			 , BID_PRC
+			 , BID_EXCLUSIVE_PRC
+			 , BID_COMMON_PRC
+			 , EST_QT
+			 , EST_PRC
+			 , EST_EXCLUSIVE_PRC
+			 , EST_COMMON_PRC
+			 , MAKER
+			 , EXE_QT
+			 , EXE_PRC
+			 , EXE_EXCLUSIVE_PRC
+			 , EXE_COMMON_PRC
+			 , RMK
+			 , PRODUCTION_DIV
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{MAT_GROUP}
+			 , #{PLANT_CD}
+			 , #{ITEM_CLS1}
+			 , #{ITEM_CLS2}
+			 , #{ITEM_CLS3}
+			 , #{ITEM_CD}
+			 , #{EQUIP_REV}
+			 , #{CHANGE_REASON_CD}
+			 , #{EQUIP_DIV1}
+			 , #{EQUIP_DIV1_SQ}
+			 , #{EQUIP_DIV2}
+			 , #{EQUIP_DIV2_SQ}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{EQUIP_CD}
+			 <!-- , #{EQUIP_YEAR} -->
+			 , #{EQUIP_DESC}
+			 , CAST(#{BID_QT} AS NUMERIC(18,2))
+			 , CAST(#{BID_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , CAST(#{BID_COMMON_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EST_QT} AS NUMERIC(18,2))
+			 , CAST(#{EST_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EST_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EST_COMMON_PRC} AS NUMERIC(18,2))
+			 , #{MAKER}
+			 , CAST(#{EXE_QT} AS NUMERIC(18,2))
+			 , CAST(#{EXE_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_EXCLUSIVE_PRC} AS NUMERIC(18,2))
+			 , CAST(#{EXE_COMMON_PRC} AS NUMERIC(18,2))
+			 , #{RMK}
+			 , #{PRODUCTION_DIV}
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<delete id="doDeleteDT" parameterType="hashmap">
+
+		UPDATE STOCIEDT
+		   SET DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD          = #{ses.gateCd}
+		   AND MAT_GROUP        = #{MAT_GROUP}
+		   AND PLANT_CD         = #{PLANT_CD}
+		   AND ITEM_CLS1        = #{ITEM_CLS1}
+		   AND ITEM_CLS2        = #{ITEM_CLS2}
+		   AND ITEM_CLS3        = #{ITEM_CLS3}
+		   AND ITEM_CD          = #{ITEM_CD}
+		   AND EQUIP_REV        = #{EQUIP_REV}
+		   AND CHANGE_REASON_CD = #{CHANGE_REASON_CD}
+		   AND EQUIP_DIV1       = #{EQUIP_DIV1}
+		   AND EQUIP_DIV1_SQ    = #{EQUIP_DIV1_SQ}
+		   AND EQUIP_DIV2       = #{EQUIP_DIV2}
+		   AND EQUIP_DIV2_SQ    = #{EQUIP_DIV2_SQ}
+
+	</delete>
+
+	<select id="getEquipDiv2" parameterType="hashmap" resultType="hashMap">
+	
+		SELECT CODE      as value
+			  ,CODE_DESC as text
+		  FROM STOCCODD
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND CODE_TYPE = 'M209'
+		   AND LANG_CD   = #{ses.langCd}
+		   AND TEXT1     = #{EQUIP_DIV1}
+		   AND DEL_FLAG  = '0'
+		ORDER BY SORT_SQ
+
+	</select>
+	
+</mapper>

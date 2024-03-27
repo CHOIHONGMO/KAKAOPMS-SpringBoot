@@ -1,0 +1,1484 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BOD1.BOD104_Mapper">
+	<select id="bod1040_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT*FROM(
+			SELECT UPOHD.CUST_CD
+				, CUST.CUST_NM
+				, UPODT.IF_CPO_NO
+				, UPODT.IF_CPO_SEQ
+				<if test="_databaseId == 'mssql'">
+				, UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) AS IF_CPO_NO_SEQ --고객사주문번호
+				</if>
+				<if test="_databaseId == 'oracle'">
+				, UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) AS IF_CPO_NO_SEQ --고객사주문번호
+				</if>
+				, UPODT.CPO_NO  -- 주문번호
+				, UPODT.CPO_SEQ -- 주문항번
+				, (SELECT COUNT(*) FROM STOUPODT S WHERE S.CUST_CD = UPOHD.CUST_CD AND S.CPO_NO = UPODT.CPO_NO AND S.DEL_FLAG = '0') AS CPO_CNT
+				, UPODT.PRIOR_GR_FLAG
+				, YPODT.PO_NO   -- 발주번호
+				, YPODT.PO_SEQ  -- 발주항번
+				, (SELECT COUNT(*) FROM STOYPODT S WHERE S.PO_NO = YPODT.PO_NO AND S.DEL_FLAG = '0') AS PO_CNT
+				, <include refid="com.sql.toDateChar"/>(UPODT.REG_DATE, 'yyyyMMdd') AS REG_DATE -- YYYY-MM-DD
+				, UPOHD.CPO_USER_ID -- 주문자ID
+				, CVUR.USER_NM AS CPO_USER_NM -- 주문자명
+				, UPOHD.CPO_USER_DEPT_CD AS DEPT_CD -- 주문자부서코드
+				, <include refid="com.sql.dbo"/>getCpoDeptInfo(UPOHD.GATE_CD, UPODT.CPO_NO, #{ses.langCd}) AS DEPT_NM -- 주문자부서명
+				, UPOHD.CPO_USER_TEL_NUM  -- 주문자전화번호
+				, UPOHD.CPO_USER_CELL_NUM -- 주문자휴대전화번호
+				, UPOHD.PR_SUBJECT -- 주문자주문명
+				, UPODT.CUST_ITEM_CD
+				, UPODT.ITEM_CD
+				, UPODT.ITEM_DESC
+				, UPODT.ITEM_SPEC
+				, UPODT.MAKER_CD
+				, UPODT.MAKER_NM
+				, UPODT.MAKER_PART_NO
+				, UPODT.BRAND_CD
+				, UPODT.BRAND_NM
+				, UPODT.ORIGIN_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(UPODT.GATE_CD,'M004',UPODT.ORIGIN_CD,#{ses.langCd}) AS ORIGIN_NM
+				, UPODT.UNIT_CD
+				, UPODT.VENDOR_CD
+				, VNGL.VENDOR_NM
+				, <include refid="com.sql.nvl"/>(UPODT.MOQ_QTY, 1) AS MOQ_QTY
+				, <include refid="com.sql.nvl"/>(UPODT.RV_QTY, 1)  AS RV_QTY
+				, <include refid="com.sql.nvl"/>(UPODT.CPO_QTY, 0) AS CPO_QTY
+				, <include refid="com.sql.nvl"/>(UPODT.CPO_QTY, 0) AS O_CPO_QTY
+				, <include refid="com.sql.nvl"/>(UPODT.CPO_ITEM_AMT, 0) AS O_CPO_ITEM_AMT
+				, UPODT.CUR
+				, <include refid="com.sql.nvl"/>(UPODT.CPO_UNIT_PRICE, 0) AS CPO_UNIT_PRICE -- 주문단가
+				, <include refid="com.sql.nvl"/>(UPODT.CPO_ITEM_AMT, 0)   AS CPO_ITEM_AMT   -- 주문금액
+				, <include refid="com.sql.nvl"/>(YPODT.PO_UNIT_PRICE, 0)  AS PO_UNIT_PRICE  -- 매입단가
+				, <include refid="com.sql.nvl"/>(YPODT.PO_ITEM_AMT, 0)    AS PO_ITEM_AMT    -- 매입금액
+				, UPODT.BD_DEPT_CD -- 예산부서코드
+				, <include refid="com.sql.nvl"/>(OGDP.DEPT_NM, OGDP.DEPT_NM_ENG) AS BD_DEPT_NM
+				, UPODT.ACCOUNT_CD -- 예산계정코드
+				, CUAC.ACCOUNT_NM  -- 예산계정명
+				, <include refid="com.sql.toDateChar"/>(UPOHD.CPO_DATE, 'yyyyMMdd') AS CPO_DATE -- 주문일자
+				, <include refid="com.sql.nvl"/>(UPODT.LEAD_TIME, 0) AS LEAD_TIME -- 납기일자
+				, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(UPOHD.CPO_DATE, <include refid="com.sql.nvl"/>(UPODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+				, <include refid="com.sql.toDateChar"/>(UPODT.HOPE_DUE_DATE, 'yyyyMMdd') AS HOPE_DUE_DATE -- 희망납기일자
+				, UPODT.RECIPIENT_NM       -- 인수자명
+				, UPODT.RECIPIENT_DEPT_NM  -- 인수자부서명
+				, UPODT.RECIPIENT_TEL_NUM  -- 인수자전화번호
+				, UPODT.RECIPIENT_CELL_NUM -- 인수자휴대전화번호
+				, UPODT.DELY_ZIP_CD  -- 납품장소 우편번호
+				, UPODT.DELY_ADDR_1  -- 납품장소 기본주소
+				, UPODT.DELY_ADDR_2  -- 납품장소 상세주소
+				, UPODT.REQ_TEXT
+				, CASE WHEN UPODT.REQ_TEXT IS NOT NULL OR UPODT.REQ_TEXT != '' THEN 'Y' ELSE 'N' END AS REQ_TEXT_YN
+				, UPODT.ATTACH_FILE_NO
+				, <include refid="com.sql.dbo"/>GETFILECOUNT(UPODT.GATE_CD,UPODT.ATTACH_FILE_NO) AS ATTACH_FILE_NO_IMG
+				, UPODT.DEAL_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(UPODT.GATE_CD,'MP021',UPODT.DEAL_CD,#{ses.langCd}) AS DEAL_NM
+				,(SELECT CODE
+					FROM STOCCODD
+				   WHERE GATE_CD   = #{ses.gateCd}
+					 AND DEL_FLAG  = '0'
+					 AND CODE_TYPE = 'MP056'
+					 AND UPPER( TEXT3 ) <include refid="com.sql.likeL"/> UPPER((CASE WHEN UPODT.PROGRESS_CD != '6200' THEN UPODT.PROGRESS_CD ELSE CASE WHEN APAR.C_GR_QTY = UPODT.CPO_QTY THEN '8300' ELSE UPODT.PROGRESS_CD END END)) <include refid="com.sql.likeR"/>
+				  ) AS PROGRESS_CD
+				, APAR.C_GR_QTY
+				, GETCOMCODE(UPODT.GATE_CD,'M062',CASE WHEN UPODT.PROGRESS_CD != '6200' THEN UPODT.PROGRESS_CD ELSE CASE WHEN APAR.C_GR_QTY = UPODT.CPO_QTY THEN '8300' ELSE UPODT.PROGRESS_CD END END,3,#{ses.langCd}) AS SIGN_PROGRESS_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(UPODT.GATE_CD,'MP056',CASE WHEN UPODT.PROGRESS_CD != '6200' THEN UPODT.PROGRESS_CD ELSE CASE WHEN APAR.C_GR_QTY = UPODT.CPO_QTY THEN '8300' ELSE UPODT.PROGRESS_CD END END ,#{ses.langCd}) AS PROGRESS_NM
+				, <include refid="com.sql.toDateChar"/>(UPODT.CPO_CANCLE_DATE, 'YYYY-MM-DD HH24:MI') AS CPO_CANCLE_DATE --주문취소일자
+				, UPODT.CPO_CANCLE_USER_ID				 -- 주문취소자ID
+				, <include refid="com.sql.dbo"/>GETUSERNAME(UPODT.GATE_CD,UPODT.CPO_CANCLE_USER_ID,#{ses.langCd}) AS CPO_CANCLE_USER_NM	   -- 주문취소자명
+				, UPODT.SG_CTRL_USER_ID -- 품목담당자
+				, USR.USER_NM AS SG_CTRL_USER_NM -- 품목담당자
+				, UPODT.DOC_TYPE
+				, UPODT.TAX_CD
+				, <include refid="com.sql.dbo"/>GETCODENAME(UPODT.GATE_CD,'M036',UPODT.TAX_CD,#{ses.langCd}) AS TAX_NM
+				, UPODT.REF_MNG_NO -- 관H리번호
+				, <include refid="com.sql.nvl"/>(UPODT.GR_COMPLETE_FLAG, '0') AS CUST_GR_COMPLETE_FLAG -- 고객사 입고완료여부
+				, <include refid="com.sql.nvl"/>(UPODT.INV_QTY, 0) AS CUST_INV_QTY -- 고객사 납품 완료수량
+				, <include refid="com.sql.nvl"/>(UPODT.GR_QTY, 0)  AS CUST_GR_QTY  -- 고객사 입고 완료수량
+				, <include refid="com.sql.nvl"/>(YPODT.GR_COMPLETE_FLAG, '0') AS SUP_GR_COMPLETE_FLAG -- 공급사 입고완료여부
+				, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) AS SUP_INV_QTY  -- 공급사 납품 완료수량
+				, CASE WHEN <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, '') != '' OR YPODT.PROGRESS_CD >= '50' THEN 0
+					   ELSE <include refid="com.sql.nvl"/>(YPODT.CPO_QTY, 0) - <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0)
+					   END AS SUP_NOT_INV_QTY -- 공급사별 미납품수량(발주종결 OR 납품완료상태이면 0)
+				, <include refid="com.sql.nvl"/>(YPODT.GR_QTY, 0)  AS SUP_GR_QTY   -- 공급사 입고 완료수량
+				, <include refid="com.sql.nvl"/>(YPODT.INV_QTY, 0) - <include refid="com.sql.nvl"/>(YPODT.GR_QTY, 0) AS SUP_NOT_GR_QTY -- 공급사별 미입고수량(=납품완료수량-입고완료수량)
+				, <include refid="com.sql.nvl"/>(UIVDT.INV_QTY, 0) AS INV_QTY      -- 납품건별 납품수량
+				, <include refid="com.sql.nvl"/>(UIVDT.GR_QTY, 0)  AS GR_QTY       -- 납품건별 입고수량 합계
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_DATE, UPODT.FORCE_CLOSE_DATE) AS FORCE_CLOSE_DATE -- 주문종결일자
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_USER_ID, UPODT.FORCE_CLOSE_USER_ID) AS FORCE_CLOSE_USER_ID -- 주문종결자ID
+				, <include refid="com.sql.nvl"/>(YPODT.FORCE_CLOSE_REASON, UPODT.FORCE_CLOSE_REASON) AS FORCE_CLOSE_REASON  -- 주문종결사유
+				, <include refid="com.sql.nvl"/>(UPODT.AUTO_PO_FLAG, '0') AS AUTO_PO_FLAG
+				, <include refid="com.sql.nvl"/>(YPODT.RETURN_REMARK, UPODT.RETURN_REMARK) AS RETURN_REMARK -- 반품사유
+				, YPODT.DELY_REJECT_CD    -- 납품거부사유
+				, <include refid="com.sql.dbo"/>GETCODENAME(YPODT.GATE_CD,'MP057',YPODT.DELY_REJECT_CD,#{ses.langCd}) AS DELY_REJECT_NM -- 납품거부사유명
+				, YPODT.DELY_REJECT_REASON-- 납품거부상세사유
+				, <include refid="com.sql.toDateChar"/>(YPODT.DELY_REJECT_DATE, 'yyyyMMdd') AS DELY_REJECT_DATE -- 납품거부일자
+				, UPODT.APPLY_COM -- 공통계약고객사코드(1000:공통, 이외:개별)
+				, UPODT.CONT_NO   -- 계약번호
+				, UPODT.CONT_SEQ  -- 계약항번
+				, UPODT.DELY_TYPE
+				, UPODT.DELY_NM
+				, UPODT.CSDM_SEQ
+				, UPODT.CUBL_SQ
+				, UPODT.ACC_CD
+				, UPODT.CUBL_NM
+				, UPODT.CUBL_ZIP_CD
+				, UPODT.CUBL_ADDR1
+				, UPODT.CUBL_ADDR2
+				, UPODT.CUBL_COMPANY_NM
+				, UPODT.CUBL_IRS_NUM
+				, UPODT.CUBL_CEO_USER_NM
+				, UPODT.CUBL_BUSINESS_TYPE
+				, UPODT.CUBL_INDUSTRY_TYPE
+				, UPODT.CUBL_IRS_SUB_NUM
+				, UPODT.CUBL_IRS_SUB_ADDR
+				, UPODT.CUBL_BANK_NM
+				, UPODT.CUBL_ACCOUNT_NUM
+				, UPODT.CUBL_ACCOUNT_NM
+				, UPODT.CUBL_USER_NM
+				, UPODT.CUBL_USER_TEL_NUM
+				, UPODT.CUBL_USER_FAX_NUM
+				, UPODT.CUBL_USER_CELL_NUM
+				, UPODT.CUBL_USER_EMAIL
+				, UPODT.CUBL_IRS_SUB_ZIP_CD
+				, UPODT.RECIPIENT_FAX_NUM
+				, UPODT.RECIPIENT_EMAIL
+				, UPODT.PLANT_CD
+				, <include refid="com.sql.dbo"/>GETPLANTNAME(UPODT.GATE_CD, UPODT.CUST_CD, UPODT.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+				, UPODT.COST_CENTER_CD
+				, UPODT.COST_CENTER_NM_KOR AS COST_CENTER_NM
+				, UPODT.NAP_FLAG
+				<if test="_databaseId == 'mssql'">
+				, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) AS CPO_NO_SEQ --주문키
+				</if>
+				<if test="_databaseId == 'oracle'">
+				, UPODT.CPO_NO <include refid="com.sql.stringMerge"/> TO_CHAR(UPODT.CPO_SEQ) AS CPO_NO_SEQ --주문키
+				</if>
+
+				,UPOHD.SIGN_STATUS
+				,UPODT.PO_CONFIRM_REJECT_RMK -- 발주승인반려사유
+			FROM STOUPODT UPODT
+			JOIN STOUPOHD UPOHD
+				ON (UPODT.GATE_CD  = UPOHD.GATE_CD
+				AND UPODT.CUST_CD  = UPOHD.CUST_CD
+				AND UPODT.CPO_NO   = UPOHD.CPO_NO
+				AND UPOHD.SIGN_STATUS IN ('P', 'E', 'R') -- 결재중, 결재승인
+				AND UPOHD.DEL_FLAG = '0')
+			LEFT JOIN STOYPODT YPODT
+				ON (UPODT.GATE_CD  = YPODT.GATE_CD
+				AND UPODT.CUST_CD  = YPODT.CUST_CD
+				AND UPODT.CPO_NO   = YPODT.CPO_NO
+				AND UPODT.CPO_SEQ  = YPODT.CPO_SEQ
+				AND YPODT.PROGRESS_CD <![CDATA[>=]]> '30' -- 주문생성
+				AND YPODT.DEL_FLAG = '0')
+			LEFT JOIN STOYPOHD YPOHD
+				ON (YPODT.GATE_CD  = YPOHD.GATE_CD
+				AND YPODT.PO_NO    = YPOHD.PO_NO
+				AND YPOHD.SIGN_STATUS = 'E' -- 결재완료
+				AND YPOHD.DEL_FLAG = '0')
+			OUTER APPLY (SELECT SUM(D.INV_QTY) AS INV_QTY
+							, SUM(D.GR_QTY)  AS GR_QTY
+						 FROM STOUIVDT D
+						 JOIN STOUIVHD H
+							  ON  D.GATE_CD  = H.GATE_CD
+							  AND D.INV_NO   = H.INV_NO
+							  AND H.DEL_FLAG = '0'
+						WHERE D.GATE_CD  = YPODT.GATE_CD
+						  AND D.PO_NO    = YPODT.PO_NO
+						  AND D.PO_SEQ   = YPODT.PO_SEQ
+						  AND D.DEL_FLAG = '0'
+			   ) UIVDT
+			OUTER APPLY (   SELECT SUM(GRDT.GR_QTY) AS C_GR_QTY
+							FROM STOCAPAR APAR
+							JOIN STOCGRDT GRDT
+								ON (GRDT.GATE_CD = APAR.GATE_CD
+								AND GRDT.CLOSING_NO = APAR.CLOSING_NO
+								AND GRDT.CLOSING_SEQ = APAR.CLOSING_SEQ)
+							WHERE APAR.GATE_CD = UPODT.GATE_CD
+							AND APAR.CPO_NO = UPODT.CPO_NO
+							AND APAR.CPO_SEQ = UPODT.CPO_SEQ
+							AND APAR.CLOSING_TYPE = 'AR'
+							AND APAR.DEL_FLAG = '0'
+				) APAR
+			JOIN STOCCUST CUST
+				ON (UPOHD.GATE_CD = CUST.GATE_CD
+				AND UPOHD.CUST_CD = CUST.CUST_CD
+				AND CUST.DEL_FLAG = '0')
+			JOIN STOCVNGL VNGL -- 공급사
+				ON (UPODT.GATE_CD  = VNGL.GATE_CD
+				AND UPODT.VENDOR_CD = VNGL.VENDOR_CD
+				AND VNGL.DEL_FLAG  = '0')
+			LEFT JOIN STOCCVUR CVUR -- 고객사 주문자
+				ON (UPOHD.GATE_CD = CVUR.GATE_CD
+				AND UPOHD.CUST_CD = CVUR.COMPANY_CD
+				AND UPOHD.CPO_USER_ID = CVUR.USER_ID
+				AND CVUR.USER_TYPE = 'B')
+			LEFT JOIN STOCUSER USR -- 운영사 품목담당자
+				ON (UPODT.GATE_CD = USR.GATE_CD
+				AND UPODT.SG_CTRL_USER_ID = USR.USER_ID
+				AND USR.USER_TYPE  = 'C')
+			LEFT JOIN STOCOGDP OGDP -- 예산부서명
+				ON (UPODT.GATE_CD = OGDP.GATE_CD
+				AND UPODT.CUST_CD = OGDP.BUYER_CD
+				AND REGEXP_SUBSTR(UPODT.BD_DEPT_CD,'[^-]+', 1, 2) = OGDP.PLANT_CD
+			    AND REGEXP_SUBSTR(UPODT.BD_DEPT_CD,'[^-]+', 1, 3) = OGDP.DIVISION_CD
+	     	    AND REGEXP_SUBSTR(UPODT.BD_DEPT_CD,'[^-]+', 1, 4) = OGDP.DEPT_CD
+				AND OGDP.PART_CD ='*')
+			LEFT JOIN STOCCUAC CUAC -- 고객사별 계정명
+				ON (UPODT.GATE_CD = CUAC.GATE_CD
+				AND UPODT.CUST_CD = CUAC.CUST_CD
+				AND UPODT.ACCOUNT_CD = CUAC.ACCOUNT_CD)
+			WHERE UPODT.GATE_CD = #{ses.gateCd}
+			AND UPOHD.CUST_CD = #{ses.companyCd}
+			AND UPODT.DEL_FLAG = '0'
+
+
+
+		   <if test="PLANT_CD != '' and PLANT_CD != null">
+			    AND UPODT.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		   </if>
+		   <if test="PLANT_NM != '' and PLANT_NM != null">
+				AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, UPOHD.CUST_CD, UPODT.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		   </if>
+		   <if test="DDP_CD != '' and DDP_CD != null">
+				AND <include refid="com.sql.dbo"/>getCpoDeptInfo(UPOHD.GATE_CD, UPODT.CPO_NO, #{ses.langCd}) <include refid="com.sql.likeL"/> UPPER(#{DDP_CD}) <include refid="com.sql.likeR"/>
+		   </if>
+	       <if test="DIVISION_CD != '' and DIVISION_CD != null">
+				AND CVUR.DIVISION_CD = #{DIVISION_CD}
+		   </if>
+	       <if test="DEPT_CD != '' and DEPT_CD != null">
+				AND CVUR.DEPT_CD = #{DEPT_CD}
+		   </if>
+	       <if test="PART_CD != '' and PART_CD != null">
+				AND CVUR.PART_CD = #{PART_CD}
+		   </if>
+	        <if test="CPO_NO != '' and CPO_NO != null">
+	           AND (UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/>
+	           OR UPOHD.PR_SUBJECT <include refid="com.sql.likeL"/> #{PR_SUBJECT} <include refid="com.sql.likeR"/>)
+	        </if>
+				<if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+				   AND UPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+				   AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="START_DATE != '' and START_DATE != null">
+					<choose>
+						<when test="START_DATE_COMBO != '' and START_DATE_COMBO != null and START_DATE_COMBO eq 'CPO_DATE'.toString()">
+				   			AND UPOHD.CPO_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+						</when>
+						<otherwise>
+				   			AND UPODT.HOPE_DUE_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{END_DATE}<include refid="com.sql.dateTo"/>
+						</otherwise>
+					</choose>
+				</if>
+				<if test="DOC_NUM != '' and DOC_NUM != null">
+					<choose>
+						<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO'.toString()">
+						<if test="DOC_CNT == 1">
+							<choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+									<if test="_databaseId == 'mssql'">
+				                    AND ((UPOHD.CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+									</if>
+									<if test="_databaseId == 'oracle'">
+				                    AND ((UPOHD.CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) NOT IN ${DOC_NUM}) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IS NULL)
+									</if>
+	                            </when>
+	                            <otherwise>
+									<if test="_databaseId == 'mssql'">
+	                                AND (UPOHD.CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM})
+									</if>
+									<if test="_databaseId == 'oracle'">
+	                                AND (UPOHD.CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IN ${DOC_NUM})
+									</if>
+	                            </otherwise>
+	                        </choose>
+						</if>
+						<if test="DOC_CNT == 0">
+							<choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+									<if test="_databaseId == 'mssql'">
+				                    AND ((UPOHD.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+									</if>
+									<if test="_databaseId == 'oracle'">
+				                    AND ((UPOHD.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IS NULL)
+									</if>
+	                            </when>
+	                            <otherwise>
+									<if test="_databaseId == 'mssql'">
+	                                AND (UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR UPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R})
+									</if>
+									<if test="_databaseId == 'oracle'">
+	                                AND (UPOHD.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR UPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ ) ${DOC_NUM_ORG_R})
+									</if>
+	                            </otherwise>
+	                        </choose>
+						</if>
+					</when>
+					<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO_SEQ'.toString()">
+						<if test="DOC_CNT == 1">
+						    <choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+									<if test="_databaseId == 'mssql'">
+				                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+									</if>
+									<if test="_databaseId == 'oracle'">
+				                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) NOT IN ${DOC_NUM}
+									</if>
+	                            </when>
+	                            <otherwise>
+									<if test="_databaseId == 'mssql'">
+	                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+									</if>
+									<if test="_databaseId == 'oracle'">
+	                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) IN ${DOC_NUM}
+									</if>
+	                            </otherwise>
+	                        </choose>
+						</if>
+						<if test="DOC_CNT == 0">
+						    <choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+									<if test="_databaseId == 'mssql'">
+				                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+									</if>
+									<if test="_databaseId == 'oracle'">
+				                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+									</if>
+	                            </when>
+	                            <otherwise>
+									<if test="_databaseId == 'mssql'">
+	                                AND ${DOC_NUM_ORG_L} UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+									</if>
+									<if test="_databaseId == 'oracle'">
+	                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+									</if>
+	                            </otherwise>
+	                        </choose>
+						</if>
+					</when>
+						<otherwise>
+							<if test="DOC_CNT == 1">
+						    <choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+				                    AND (UPODT.REF_MNG_NO NOT IN ${DOC_NUM} OR UPODT.REF_MNG_NO IS NULL)
+	                            </when>
+	                            <otherwise>
+	                                AND UPODT.REF_MNG_NO IN ${DOC_NUM}
+	                            </otherwise>
+	                        </choose>
+						</if>
+						<if test="DOC_CNT == 0">
+						    <choose>
+					            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+				                    AND (UPODT.REF_MNG_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR UPODT.REF_MNG_NO IS NULL)
+	                            </when>
+	                            <otherwise>
+	                                AND UPODT.REF_MNG_NO <include refid="com.sql.likeL"/> #{REF_MNG_NO} <include refid="com.sql.likeR"/>
+	                            </otherwise>
+	                        </choose>
+						</if>
+						</otherwise>
+					</choose>
+				</if>
+
+				<if test="VENDOR_CD != '' and VENDOR_CD != null">
+				   AND UPODT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="VENDOR_NM != '' and VENDOR_NM != null">
+				   AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+				</if>
+	 			<if test="ITEM_CD != '' and ITEM_CD != null">
+					<if test="ITEM_CNT == 1">
+						AND (UPODT.ITEM_CD IN ${ITEM_CD} OR UPODT.CUST_ITEM_CD IN ${ITEM_CD})
+					</if>
+					<if test="ITEM_CNT == 0">
+						AND (UPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR UPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+					</if>
+				</if>
+				<if test="ITEM_DESC != '' and ITEM_DESC != null">
+				   AND (${ITEM_DESC_01}
+				    OR  ${ITEM_DESC_02})
+				</if>
+				<if test="MAKER_CD != '' and MAKER_CD != null">
+				   AND ${MAKER_CD_01}
+				</if>
+				<if test="MAKER_NM != '' and MAKER_NM != null">
+				   AND ${MAKER_NM_01}
+				</if>
+				<if test="FIRST_GR_FLAG != '' and FIRST_GR_FLAG != null">
+					AND UPODT.PRIOR_GR_FLAG = #{FIRST_GR_FLAG}
+				</if>
+		       <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+					AND UPOHD.SIGN_STATUS = #{SIGN_STATUS}
+			   </if>
+			 ORDER BY UPODT.CPO_NO, YPODT.PO_NO
+		 )AA
+		 WHERE 1=1
+		 <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+	      AND ((CASE WHEN PROGRESS_CD != '60' THEN PROGRESS_CD ELSE CASE WHEN C_GR_QTY = CPO_QTY THEN '70' ELSE PROGRESS_CD END END) IN
+	        <foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+	          #{item}
+	        </foreach>
+	      OR (CASE WHEN PROGRESS_CD != '60' THEN PROGRESS_CD ELSE CASE WHEN C_GR_QTY = CPO_QTY THEN '70' ELSE PROGRESS_CD END END) IN
+	        <foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+	          #{item}
+	        </foreach>
+	      )
+	    </if>
+			ORDER BY CPO_DATE DESC, CPO_NO ASC, CPO_SEQ ASC
+
+
+	</select>
+
+	<update id="bod1040_doSaveUPODT" parameterType="hashMap">
+		UPDATE STOUPODT
+		SET CPO_QTY = #{CPO_QTY}
+			, CPO_ITEM_AMT = #{CPO_ITEM_AMT}
+			, HOPE_DUE_DATE = #{HOPE_DUE_DATE}
+			, RECIPIENT_NM = #{RECIPIENT_NM}
+			, RECIPIENT_DEPT_NM = #{RECIPIENT_DEPT_NM}
+			, RECIPIENT_TEL_NUM = #{RECIPIENT_TEL_NUM}
+			, RECIPIENT_CELL_NUM = #{RECIPIENT_CELL_NUM}
+
+
+
+			, DELY_ZIP_CD = #{DELY_ZIP_CD}
+			, DELY_ADDR_1 = #{DELY_ADDR_1}
+			, DELY_ADDR_2 = #{DELY_ADDR_2}
+			, REQ_TEXT = #{REQ_TEXT}
+			, ATTACH_FILE_NO = #{ATTACH_FILE_NO}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, CSDM_SEQ = #{CSDM_SEQ}
+			, DELY_NM = #{DELY_NM}
+			, RECIPIENT_FAX_NUM = #{RECIPIENT_TEL_NUM}
+			, RECIPIENT_EMAIL = #{RECIPIENT_EMAIL}
+			, PLANT_CD = #{PLANT_CD}
+			, PLANT_NM = (SELECT CUPL.PLANT_NM FROM STOCCUPL CUPL WHERE CUPL.GATE_CD = #{ses.gateCd} AND CUPL.CUST_CD =
+				<choose>
+					<when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+					<otherwise>#{ses.companyCd}</otherwise>
+				</choose>
+			  AND CUPL.PLANT_CD = #{PLANT_CD})
+			, COST_CENTER_CD = #{COST_CENTER_CD}
+			, COST_CENTER_NM_KOR = #{COST_CENTER_NM}
+
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  CUST_CD = #{CUST_CD}
+		AND  CPO_NO = #{CPO_NO}
+		AND  CPO_SEQ = #{CPO_SEQ}
+	</update>
+
+	<update id="bod1040_doSaveYPODT" parameterType="hashMap">
+		UPDATE STOYPODT
+		  SET CPO_QTY = #{CPO_QTY}
+			, CPO_ITEM_AMT = #{CPO_ITEM_AMT}
+
+			, PO_ITEM_AMT = ROUND(${CPO_QTY} * PO_UNIT_PRICE, 2)
+			, STD_ITEM_AMT = ROUND(${CPO_QTY} * STD_UNIT_PRICE, 2)
+
+			, HOPE_DUE_DATE = #{HOPE_DUE_DATE}
+			, RECIPIENT_NM = #{RECIPIENT_NM}
+			, RECIPIENT_DEPT_NM = #{RECIPIENT_DEPT_NM}
+			, RECIPIENT_TEL_NUM = #{RECIPIENT_TEL_NUM}
+			, RECIPIENT_CELL_NUM = #{RECIPIENT_CELL_NUM}
+			, DELY_ZIP_CD = #{DELY_ZIP_CD}
+			, DELY_ADDR_1 = #{DELY_ADDR_1}
+			, DELY_ADDR_2 = #{DELY_ADDR_2}
+			, REQ_TEXT = #{REQ_TEXT}
+			, ATTACH_FILE_NO = #{ATTACH_FILE_NO}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, CSDM_SEQ = #{CSDM_SEQ}
+			, DELY_NM = #{DELY_NM}
+			, RECIPIENT_FAX_NUM = #{RECIPIENT_TEL_NUM}
+			, RECIPIENT_EMAIL = #{RECIPIENT_EMAIL}
+			, PLANT_CD = #{PLANT_CD}
+			, PLANT_NM = (SELECT CUPL.PLANT_NM FROM STOCCUPL CUPL WHERE CUPL.GATE_CD = #{ses.gateCd} AND CUPL.CUST_CD =
+		<choose>
+			<when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+			<otherwise>#{ses.companyCd}</otherwise>
+		</choose>
+			  AND CUPL.PLANT_CD = #{PLANT_CD})
+			, COST_CENTER_CD = #{COST_CENTER_CD}
+			, COST_CENTER_NM_KOR = #{COST_CENTER_NM}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  CUST_CD = #{CUST_CD}
+		AND  CPO_NO = #{CPO_NO}
+		AND  CPO_SEQ = #{CPO_SEQ}
+	</update>
+
+	<select id="bod1040_getAccountCd" parameterType="hashMap" resultType="java.lang.String">
+
+		SELECT
+			<include refid="com.sql.nvl"/>(MAX(A.CUST_ACCOUNT_CD), MAX(A.P_ACCOUNT_CD)) AS N_ACCOUNT_CD
+		  FROM (
+			SELECT TOP 1
+				 CD.TEXT1 AS CUST_ACCOUNT_CD
+				,NULL AS P_ACCOUNT_CD
+			  FROM STOCCODD CD
+			 WHERE CD.GATE_CD = #{ses.gateCd}
+			   AND CD.CODE_TYPE = 'MP102'
+			   AND CD.CODE =
+			<choose>
+				<when test="CUST_CD != null and CUST_CD != ''">#{CUST_CD}</when>
+				<otherwise>#{ses.companyCd}</otherwise>
+			</choose>
+			   AND CD.USE_FLAG = '1'
+			   AND CD.DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT
+				 NULL AS CUST_ACCOUNT_CD
+				,#{P_ACCOUNT_CD} AS P_ACCOUNT_CD
+		  ) A
+
+	</select>
+
+	<update id="bod1040_doSaveCCUBD" parameterType="hashMap">
+
+		UPDATE STOCCUBD SET
+			 EXHAUST_AMT = EXHAUST_AMT - (${O_CPO_ITEM_AMT} + ${CPO_ITEM_AMT})
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD 		= #{ses.gateCd}
+		   AND CUST_CD 		= #{CUST_CD}
+		   AND PLANT_CD   	= REGEXP_SUBSTR(#{BD_DEPT_CD},'[^-]+', 1, 2)
+		   AND DIVISION_CD  = REGEXP_SUBSTR(#{BD_DEPT_CD},'[^-]+', 1, 3)
+     	   AND DEPT_CD    	= REGEXP_SUBSTR(#{BD_DEPT_CD},'[^-]+', 1, 4)
+		   AND ACCOUNT_CD 	= #{ACCOUNT_CD}
+		   AND YEAR_MONTH = <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd'), 1, 6)
+
+	</update>
+
+	<update id="bod1040_doCancelUPOHD" parameterType="hashMap">
+		UPDATE STOUPOHD
+		SET DEL_FLAG = '1'
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  CUST_CD = #{CUST_CD}
+		AND  CPO_NO = #{CPO_NO}
+	</update>
+
+	<update id="bod1040_doCancelUPODT" parameterType="hashMap">
+		UPDATE STOUPODT
+		  SET PROGRESS_CD = '1150'
+		    , CPO_CANCLE_DATE =  <include refid="com.sql.sysdate"/>
+		    , CPO_CANCLE_USER_ID = #{ses.userId}
+		<!-- SET DEL_FLAG = '1'
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		-->
+		WHERE GATE_CD = #{ses.gateCd}
+		AND  CUST_CD = #{CUST_CD}
+		AND  CPO_NO = #{CPO_NO}
+        AND  CPO_SEQ = #{CPO_SEQ}
+	</update>
+
+	<update id="bod1040_doCancelYPOHD" parameterType="hashMap">
+        UPDATE STOYPOHD SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PO_NO = #{PO_NO}
+	</update>
+
+    <update id="bod1040_doCancelYPODT" parameterType="hashMap">
+        UPDATE STOYPODT SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND PO_NO = #{PO_NO}
+        AND PO_SEQ = #{PO_SEQ}
+    </update>
+
+	<select id="bod1041_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  B.CPO_SEQ
+			, B.ITEM_CD
+			, B.CUST_ITEM_CD
+			, B.MAKER_NM
+			, B.ITEM_DESC
+			, B.MAKER_PART_NO
+			, B.ITEM_SPEC
+			, B.BRAND_NM
+			, <include refid="com.sql.dbo"/>getCodeName(A.GATE_CD, 'M004', B.ORIGIN_CD, #{ses.langCd}) AS ORIGIN_NM
+			, B.SG_CTRL_USER_ID
+			, D.USER_NM AS SG_CTRL_USER_NM
+			, B.CPO_NO
+            , B.PROGRESS_CD
+			, <include refid="com.sql.dbo"/>getCodeName(A.GATE_CD, 'M062', B.PROGRESS_CD, #{ses.langCd}) AS PROGRESS_NM
+			, getCpoDeptInfo(B.GATE_CD, B.CPO_NO, 'KO') DEPT_NM
+			, A.CPO_USER_ID
+			, E.USER_NM AS CPO_USER_NM
+			, <include refid="com.sql.dbo"/>getCodeName(A.GATE_CD, 'M044', A.BUDGET_FLAG, #{ses.langCd}) AS BUDGET_FLAG
+			, <include refid="com.sql.nvl"/>(F.DEPT_NM, F.DEPT_NM_ENG) AS BD_DEPT_NM
+			, <include refid="com.sql.dbo"/>getCodeName(A.GATE_CD, 'M044', A.APPROVE_FLAG, #{ses.langCd}) AS APPROVE_FLAG
+			, B.ACCOUNT_CD
+			, G.ACCOUNT_NM
+			, <include refid="com.sql.dbo"/>getCodeName(B.GATE_CD, 'M044', <include refid="com.sql.nvl"/>(B.PRIOR_GR_FLAG, '0'), #{ses.langCd}) AS PRIOR_GR_FLAG
+			, B.REF_MNG_NO
+			, <include refid="com.sql.dbo"/>getCodeName(A.GATE_CD, 'M037', B.UNIT_CD, #{ses.langCd}) AS UNIT_CD
+			, B.CPO_QTY
+			, B.CPO_UNIT_PRICE
+			, <include refid="com.sql.toDateChar"/>(A.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+			, B.VENDOR_CD
+			, H.VENDOR_NM
+			, B.CPO_ITEM_AMT
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(A.CPO_DATE, <include refid="com.sql.nvl"/>(B.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+			, B.RECIPIENT_NM
+			, B.RECIPIENT_DEPT_NM
+			, <include refid="com.sql.toDateChar"/>(B.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, B.RECIPIENT_TEL_NUM
+			, B.RECIPIENT_CELL_NUM
+			, B.DELY_ZIP_CD
+			, B.DELY_ADDR_1
+			, B.DELY_ADDR_2
+			, B.REQ_TEXT
+			, B.ATTACH_FILE_NO
+			, B.COST_CENTER_CD
+			, B.COST_CENTER_NM_KOR
+			, '['<include refid="com.sql.stringMerge"/>B.PLANT_CD<include refid="com.sql.stringMerge"/>']' <include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETPLANTNAME(B.GATE_CD, B.CUST_CD, B.PLANT_CD,#{ses.langCd}) AS PLANT_CD
+			, B.CSDM_SEQ
+			, B.DELY_NM
+			, B.RECIPIENT_FAX_NUM
+			, B.RECIPIENT_EMAIL
+			, H.TEL_NO
+			, J.REG_USER_ID AS IV_REG_USER_ID
+			, CASE WHEN J.AGENT_YN = '1' THEN 'C' ELSE 'S' END  AS USER_TYPE
+ 			, <include refid="com.sql.nvl"/>(DD.USER_NM, EE.USER_NM) AS IV_REG_USER_NM
+			, <include refid="com.sql.nvl"/>(DD.TEL_NUM, EE.TEL_NUM) AS IV_TEL_NUM
+			, <include refid="com.sql.nvl"/>(DD.CELL_NUM, EE.CELL_NUM) AS IV_CELL_NUM
+			, <include refid="com.sql.nvl"/>(DD.EMAIL, EE.EMAIL) AS IV_EMAIL
+			, <include refid="com.sql.nvl"/>((SELECT ITEM_STATUS FROM STOCMTGL
+											   WHERE GATE_CD  = B.GATE_CD
+											     AND ITEM_CD  = B.ITEM_CD), '10') AS ITEM_STATUS
+		FROM STOUPOHD A
+		JOIN STOUPODT B
+			ON  A.GATE_CD = B.GATE_CD
+			AND A.CUST_CD = B.CUST_CD
+			AND A.CPO_NO = B.CPO_NO
+		LEFT OUTER JOIN STOCUSER D
+			ON  B.GATE_CD = D.GATE_CD
+			AND B.SG_CTRL_USER_ID = D.USER_ID
+			AND D.USER_TYPE  = 'C'
+		LEFT OUTER JOIN STOCCVUR E
+			ON  A.GATE_CD = E.GATE_CD
+			AND A.CUST_CD = E.COMPANY_CD
+			AND A.CPO_USER_ID = E.USER_ID
+			AND E.USER_TYPE = 'B'
+		LEFT OUTER JOIN STOCOGDP F	-- 예산부서명
+		    ON (B.GATE_CD = F.GATE_CD
+		    AND REGEXP_SUBSTR(B.BD_DEPT_CD,'[^-]+', 1, 1) = F.BUYER_CD
+		    AND REGEXP_SUBSTR(B.BD_DEPT_CD,'[^-]+', 1, 2) = F.PLANT_CD
+		    AND REGEXP_SUBSTR(B.BD_DEPT_CD,'[^-]+', 1, 3) = F.DIVISION_CD
+		    AND REGEXP_SUBSTR(B.BD_DEPT_CD,'[^-]+', 1, 4) = F.DEPT_CD
+		    AND F.PART_CD = '*')
+		LEFT OUTER JOIN STOCCUAC G
+			ON  A.GATE_CD = G.GATE_CD
+			AND B.CUST_CD = G.CUST_CD
+			AND B.ACCOUNT_CD = G.ACCOUNT_CD
+		LEFT OUTER JOIN STOCVNGL H
+			ON  A.GATE_CD = H.GATE_CD
+			AND B.VENDOR_CD = H.VENDOR_CD
+		LEFT OUTER JOIN STOYPODT II
+			ON  A.GATE_CD = II.GATE_CD
+			AND B.CUST_CD = II.CUST_CD
+			AND B.CPO_NO = II.CPO_NO
+			AND B.CPO_SEQ = II.CPO_SEQ
+			AND II.PROGRESS_CD >= '30'
+			AND II.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOYPOHD I
+			ON  A.GATE_CD = I.GATE_CD
+			AND II.CPO_NO = I.CPO_NO
+			AND I.SIGN_STATUS = 'E'
+			AND I.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUIVDT JJ
+			ON  A.GATE_CD = JJ.GATE_CD
+			AND II.PO_NO = JJ.PO_NO
+			AND II.PO_SEQ = JJ.PO_SEQ
+			AND JJ.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOUIVHD J
+			ON  A.GATE_CD = J.GATE_CD
+			AND JJ.INV_NO = J.INV_NO
+			AND J.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOCCVUR EE
+			ON  A.GATE_CD = EE.GATE_CD
+			AND J.VENDOR_CD = EE.COMPANY_CD
+			AND J.REG_USER_ID = EE.USER_ID
+			AND EE.USER_TYPE = 'S'
+		LEFT OUTER JOIN STOCUSER DD
+			ON  A.GATE_CD = DD.GATE_CD
+			AND J.REG_USER_ID = DD.USER_ID
+			AND DD.USER_TYPE  = 'C'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND  A.CPO_NO = #{CPO_NO}
+		AND  B.CPO_SEQ = #{CPO_SEQ}
+		AND  A.DEL_FLAG = '0'
+		AND  B.DEL_FLAG = '0'
+	</select>
+
+	<select id="bod1041_doSearchINV" parameterType="hashMap" resultType="hashMap">
+		SELECT A.INV_NO
+			, B.INV_SEQ
+			, B.CPO_NO
+			, B.CPO_SEQ
+			, <include refid="com.sql.toDateChar"/>(A.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+			, <include refid="com.sql.toDateChar"/>(A.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			, B.INV_QTY
+			, <include refid="com.sql.toDateChar"/>(C.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, <include refid="com.sql.toDateChar"/>(A.DELY_APP_DATE, 'YYYY-MM-DD') AS DELY_APP_DATE
+			, <include refid="com.sql.toDateChar"/>(B.DELY_COMPLETE_DATE, 'YYYY-MM-DD') AS DELY_COMPLETE_DATE
+			, B.DELY_DELAY_REASON
+			, B.DELY_COMPANY_NM
+			, B.WAYBILL_NO
+
+			, D.GR_NO
+			, <include refid="com.sql.toDateChar"/>(D.GR_DATE, 'YYYY-MM-DD') AS GR_DATE
+			, D.GR_QTY
+			, D.GR_UNIT_PRICE
+			, D.GR_ITEM_AMT
+			, D.GR_USER_ID
+			, E.USER_NM AS GR_USER_NM
+
+		FROM STOUIVHD A
+		LEFT OUTER JOIN STOUIVDT B
+		ON  A.GATE_CD = B.GATE_CD
+		AND A.INV_NO = B.INV_NO
+		LEFT OUTER JOIN STOUPODT C
+		ON  A.GATE_CD = C.GATE_CD
+		AND B.CPO_NO = C.CPO_NO
+		AND B.CPO_SEQ = C.CPO_SEQ
+		AND C.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOCGRDT D
+		ON  A.GATE_CD = D.GATE_CD
+		AND B.INV_NO = D.INV_NO
+		AND B.INV_SEQ = D.INV_SEQ
+		AND D.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOCCVUR E
+		ON  A.GATE_CD = E.GATE_CD
+		AND C.CUST_CD = E.COMPANY_CD
+		AND D.GR_USER_ID = E.USER_ID
+		AND E.USER_TYPE  = 'B'
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND  A.DEL_FLAG = '0'
+		AND  B.DEL_FLAG = '0'
+		AND  B.CPO_NO = #{CPO_NO}
+		AND  B.CPO_SEQ = #{CPO_SEQ}
+
+	</select>
+
+		<select id="bod1041_doSearchINV2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.INV_NO
+			, B.INV_SEQ
+			, B.CPO_NO
+			, B.CPO_SEQ
+			, <include refid="com.sql.toDateChar"/>(A.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+			, <include refid="com.sql.toDateChar"/>(A.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			, B.INV_QTY
+			, <include refid="com.sql.toDateChar"/>(C.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, <include refid="com.sql.toDateChar"/>(A.DELY_APP_DATE, 'YYYY-MM-DD') AS DELY_APP_DATE
+			, <include refid="com.sql.toDateChar"/>(B.DELY_COMPLETE_DATE, 'YYYY-MM-DD') AS DELY_COMPLETE_DATE
+			, B.DELY_DELAY_REASON
+			, B.DELY_COMPANY_NM
+			, B.WAYBILL_NO
+
+		FROM STOUIVHD A
+		LEFT OUTER JOIN STOUIVDT B
+		ON  A.GATE_CD = B.GATE_CD
+		AND A.INV_NO = B.INV_NO
+		LEFT OUTER JOIN STOUPODT C
+		ON  A.GATE_CD = C.GATE_CD
+		AND B.CPO_NO = C.CPO_NO
+		AND B.CPO_SEQ = C.CPO_SEQ
+		AND C.DEL_FLAG = '0'
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND  A.DEL_FLAG = '0'
+		AND  B.DEL_FLAG = '0'
+		AND  B.CPO_NO = #{CPO_NO}
+		AND  B.CPO_SEQ = #{CPO_SEQ}
+
+	</select>
+
+	<!-- BOD1_042 -->
+	<!-- 고객사 주문헤더(UPOHD) 가져오기 -->
+    <select id="bod1042_doSearchHD" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  UPOH.CPO_NO
+			, UPOH.CUST_CD
+			, CUST.CUST_NM
+			, <include refid="com.sql.toDateChar"/>(UPOH.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+			, UPOH.CPO_USER_ID AS CUST_USER_ID
+			, CVUR.USER_NM     AS CUST_USER_NM
+			, UPOH.CPO_USER_DEPT_CD  AS CUST_DEPT_CD
+			, <include refid="com.sql.dbo"/>getCpoDeptInfo(UPOH.GATE_CD, UPOH.CPO_NO, #{ses.langCd}) AS CUST_DEPT_NM
+			, UPOH.CPO_USER_TEL_NUM  AS CUST_TEL_NUM
+			, UPOH.CPO_USER_CELL_NUM AS CUST_HP_NUM
+			, (SELECT CV.EMAIL FROM STOCCVUR CV WHERE CV.GATE_CD = UPOH.GATE_CD AND CV.USER_ID = UPOH.CPO_USER_ID) AS CUST_EMAIL
+			, CASE WHEN (SELECT MAX(UPOD.PRIOR_GR_FLAG) FROM STOUPODT UPOD WHERE UPOD.GATE_CD = UPOH.GATE_CD AND UPOD.CUST_CD = UPOH.CUST_CD AND UPOD.CPO_NO = UPOH.CPO_NO) = '1' THEN 'Y' ELSE 'N' END AS PRIOR_GR_FLAG
+			, UPOH.SIGN_STATUS
+			, UPOH.SIGN_DATE
+			, UPOH.APP_DOC_NO
+			, UPOH.APP_DOC_CNT
+			, CASE WHEN UPOH.BUDGET_FLAG  = '1' THEN 'Y' ELSE 'N' END AS BUDGET_FLAG
+			, CASE WHEN UPOH.APPROVE_FLAG = '1' THEN 'Y' ELSE 'N' END AS APPROVE_FLAG
+			, UPOH.CUST_CPO_DATE
+			, UPOH.PR_SUBJECT
+			, getPlantName(UPOH.GATE_CD,UPOH.CUST_CD,UPOH.PLANT_CD,#{ses.langCd}) PLANT_NM
+
+
+		 FROM STOUPOHD UPOH
+		 JOIN STOCCUST CUST
+		      ON (UPOH.GATE_CD  = CUST.GATE_CD
+		      AND UPOH.CUST_CD  = CUST.CUST_CD)
+		 JOIN STOCCVUR CVUR -- 고객사 주문자
+			  ON (UPOH.GATE_CD = CVUR.GATE_CD
+			  AND UPOH.CUST_CD = CVUR.COMPANY_CD
+			  AND UPOH.CPO_USER_ID = CVUR.USER_ID)
+		 LEFT OUTER JOIN STOCOGDP OGDP -- 고객사 주문자부서
+			  ON (OGDP.GATE_CD = CVUR.GATE_CD
+			  AND OGDP.BUYER_CD = CVUR.COMPANY_CD
+			  AND OGDP.PLANT_CD = CVUR.PLANT_CD
+			  AND OGDP.DIVISION_CD = CVUR.DIVISION_CD
+			  AND OGDP.DEPT_CD = CVUR.DEPT_CD
+			  AND OGDP.PART_CD = CVUR.PART_CD
+
+
+			  )
+		WHERE UPOH.GATE_CD = #{ses.gateCd}
+		<choose>
+			<when test="APP_DOC_NUM != null and APP_DOC_NUM != ''">
+			  AND UPOH.APP_DOC_NO  = #{APP_DOC_NUM}
+			  AND UPOH.APP_DOC_CNT = #{APP_DOC_CNT}
+			</when>
+			<otherwise>
+			  AND UPOH.CPO_NO  = #{CPO_NO}
+			</otherwise>
+		</choose>
+	</select>
+
+	<!-- BOD1_042 -->
+	<!-- 고객사 주문상세(UPODT) 가져오기 -->
+    <select id="bod1042_doSearchDT" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  PODT.REF_MNG_NO
+			, PODT.CUST_ITEM_CD
+			, PODT.ITEM_CD
+			, PODT.ITEM_DESC
+			, PODT.ITEM_SPEC
+			, PODT.MAKER_CD
+			, PODT.MAKER_NM
+			, PODT.MAKER_PART_NO
+			, PODT.BRAND_CD
+			, PODT.BRAND_NM
+			, PODT.ORIGIN_CD
+			, PODT.UNIT_CD
+			, PODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, PODT.MOQ_QTY
+			, PODT.RV_QTY
+			, PODT.CPO_QTY
+			, PODT.CUR
+			, PODT.CPO_UNIT_PRICE AS UNIT_PRC
+			, PODT.CPO_ITEM_AMT AS ITEM_AMT
+			, <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0) AS CONT_UNIT_PRC
+			, (PODT.CPO_QTY * <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)) AS CONT_UNIT_AMT
+			, ROUND(((PODT.CPO_UNIT_PRICE - <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)) / (CASE WHEN <include refid="com.sql.nvl"/>(PODT.CPO_UNIT_PRICE, 0) = 0 THEN 1 ELSE PODT.CPO_UNIT_PRICE END)) * 100, 1) AS PROFIT_RATE
+			, PODT.TAX_CD
+			, PODT.BD_DEPT_CD
+			, OGDP.DEPT_NM AS BD_DEPT_NM
+			, PODT.ACCOUNT_CD
+			, CUAC.ACCOUNT_NM
+			, PODT.LEAD_TIME
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, PODT.RECIPIENT_NM
+			, PODT.RECIPIENT_DEPT_NM
+			, PODT.RECIPIENT_TEL_NUM
+			, PODT.RECIPIENT_CELL_NUM
+			, PODT.DELY_ZIP_CD
+			, PODT.DELY_ADDR_1
+			, PODT.DELY_ADDR_2
+			, PODT.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(PODT.GATE_CD,PODT.ATTACH_FILE_NO) AS ATTACH_FILE_NO_IMG
+			, PODT.REQ_TEXT AS DELY_RMK
+			, PODT.DEAL_CD
+			, PODT.SG_CTRL_USER_ID
+			, PODT.APPLY_COM
+			, PODT.CONT_NO
+			, PODT.CONT_SEQ
+			, PODT.AUTO_PO_FLAG
+			, PODT.PROGRESS_CD
+			, PODT.NAP_FLAG
+
+			, PODT.DELY_NM
+
+
+			, <include refid="com.sql.nvl"/>(PODT.PRIOR_GR_FLAG, '0') AS PRIOR_GR_FLAG
+		  FROM STOUPODT PODT <include refid="com.sql.noLock"/>
+		  JOIN STOUPOHD POHD <include refid="com.sql.noLock"/>
+			   ON (PODT.GATE_CD  = POHD.GATE_CD
+			   AND PODT.CPO_NO   = POHD.CPO_NO)
+		  LEFT OUTER JOIN STOCVNGL VNGL
+			   ON (PODT.GATE_CD   = VNGL.GATE_CD
+			   AND PODT.VENDOR_CD = VNGL.VENDOR_CD)
+		  LEFT OUTER JOIN STOCCUAC CUAC
+			   ON (PODT.GATE_CD   = CUAC.GATE_CD
+			   AND PODT.CUST_CD   = CUAC.CUST_CD
+			   AND PODT.ACCOUNT_CD= CUAC.ACCOUNT_CD)
+		  LEFT OUTER JOIN STOCOGDP OGDP	-- 예산부서명
+			   ON (PODT.GATE_CD = OGDP.GATE_CD
+			   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 1) = OGDP.BUYER_CD
+			   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 2) = OGDP.PLANT_CD
+			   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 3) = OGDP.DIVISION_CD
+			   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 4) = OGDP.DEPT_CD
+			   AND OGDP.PART_CD = '*')
+		  LEFT OUTER JOIN STOYINFO INFO
+		  	   ON (PODT.GATE_CD   = INFO.GATE_CD
+		  	   AND PODT.APPLY_COM = INFO.APPLY_COM
+		  	   AND PODT.CONT_NO   = INFO.CONT_NO
+		  	   AND PODT.CONT_SEQ  = INFO.CONT_SEQ
+		  	   AND INFO.DEL_FLAG  = '0')
+		 WHERE PODT.GATE_CD  = #{ses.gateCd}
+		   AND PODT.CPO_NO   = #{CPO_NO}
+		   AND PODT.DEL_FLAG = '0'
+
+	</select>
+
+    <select id="bod1042_doSearchImgDT" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			A.*, IMGI.FILE_EXTENSION, IMGI.FILE_PATH,
+		    CASE WHEN IMGI.FILE_PATH = '' OR IMGI.FILE_PATH IS NULL THEN '/images/noimage.jpg'
+		         ELSE IMGI.FILE_PATH <include refid="com.sql.stringMerge"/> '/' <include refid="com.sql.stringMerge"/>  IMGI.FILE_NM <include refid="com.sql.stringMerge"/> '.' <include refid="com.sql.stringMerge"/> IMGI.FILE_EXTENSION
+		         END AS MAIN_IMG,
+			<if test="_databaseId == 'mssql'">
+			REPLACE(CONVERT(VARCHAR, CAST(<include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0) AS MONEY), 1), '.00', '') AS CONT_UNIT_PRC,
+			</if>
+			<if test="_databaseId == 'oracle'">
+			REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)), '.00', '') AS CONT_UNIT_PRC,
+			</if>
+			(A.ORI_CPO_QTY * <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)) AS CONT_UNIT_AMT,
+			ROUND(((A.ORI_UNIT_PRC - <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)) / A.ORI_UNIT_PRC) * 100, 1) AS PROFIT_RATE
+		  FROM (
+			SELECT
+				  PODT.GATE_CD
+				, PODT.REF_MNG_NO
+				, PODT.CUST_ITEM_CD
+				, PODT.ITEM_CD
+				, PODT.ITEM_DESC
+				, PODT.ITEM_SPEC
+				, PODT.MAKER_CD
+				, PODT.MAKER_NM
+				, PODT.MAKER_PART_NO
+				, PODT.BRAND_CD
+				, PODT.BRAND_NM
+				, PODT.ORIGIN_CD
+				, <include refid="com.sql.dbo"/>GETCOMCODE(PODT.GATE_CD, 'M004', PODT.ORIGIN_CD, 0, #{ses.langCd}) AS ORIGIN_NM
+				, PODT.UNIT_CD
+				, PODT.VENDOR_CD
+				, VNGL.VENDOR_NM
+				, PODT.MOQ_QTY
+				, PODT.RV_QTY
+			<if test="_databaseId == 'mssql'">
+				, REPLACE(CONVERT(VARCHAR, CAST(<include refid="com.sql.nvl"/>(PODT.CPO_QTY, 0) AS MONEY), 1), '.00', '') AS CPO_QTY
+				, REPLACE(CONVERT(VARCHAR, CAST(<include refid="com.sql.nvl"/>(PODT.CPO_UNIT_PRICE, 0) AS MONEY), 1), '.00', '') AS UNIT_PRC
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_QTY, 0)), '.00', '') AS CPO_QTY
+				, REPLACE(TO_CHAR(<include refid="com.sql.nvl"/>(PODT.CPO_UNIT_PRICE, 0)), '.00', '') AS UNIT_PRC
+			</if>
+				, <include refid="com.sql.nvl"/>(PODT.CPO_QTY, 0) AS ORI_CPO_QTY
+				, PODT.CUR
+				, <include refid="com.sql.nvl"/>(PODT.CPO_UNIT_PRICE, 0) AS ORI_UNIT_PRC
+				, <include refid="com.sql.nvl"/>(PODT.CPO_ITEM_AMT, 0) AS ITEM_AMT
+				, <include refid="com.sql.nvl"/>(PODT.CPO_ITEM_AMT, 0) AS ORI_ITEM_AMT
+				, PODT.TAX_CD
+				, PODT.BD_DEPT_CD
+				, OGDP.DEPT_NM AS BD_DEPT_NM
+				, PODT.ACCOUNT_CD
+				, CUAC.ACCOUNT_NM
+				, PODT.LEAD_TIME
+			<if test="_databaseId == 'mssql'">
+				, CONVERT(CHAR(10), <include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), 20) AS LEAD_TIME_DATE -- 표준납기일자
+				, CONVERT(CHAR(10), PODT.HOPE_DUE_DATE, 20) AS HOPE_DUE_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, TO_CHAR(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+				, TO_CHAR(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			</if>
+				, PODT.RECIPIENT_NM
+				, PODT.RECIPIENT_DEPT_NM
+				, PODT.RECIPIENT_TEL_NUM
+				, PODT.RECIPIENT_CELL_NUM
+				, PODT.RECIPIENT_FAX_NUM
+				, PODT.RECIPIENT_EMAIL
+				, PODT.DELY_ZIP_CD
+				, PODT.DELY_ADDR_1
+				, PODT.DELY_ADDR_2
+				, PODT.ATTACH_FILE_NO
+				, <include refid="com.sql.dbo"/>GETFILECOUNT(PODT.GATE_CD,PODT.ATTACH_FILE_NO) AS ATTACH_FILE_NO_IMG
+				, PODT.REQ_TEXT AS DELY_RMK
+				, PODT.DEAL_CD
+				, PODT.SG_CTRL_USER_ID
+				, PODT.APPLY_COM
+				, PODT.CONT_NO
+				, PODT.CONT_SEQ
+				, PODT.AUTO_PO_FLAG
+				, PODT.PROGRESS_CD
+				, <include refid="com.sql.dbo"/>GETCOMCODE(PODT.GATE_CD, 'MP056', PODT.PROGRESS_CD, 0, #{ses.langCd}) AS PROGRESS_NM
+				, (CASE WHEN <include refid="com.sql.nvl"/>(PODT.NAP_FLAG, '0') = '1' THEN 'Y' ELSE 'N' END) AS NAP_FLAG
+				, (CASE WHEN <include refid="com.sql.nvl"/>(PODT.PRIOR_GR_FLAG, '0') = '1' THEN 'Y' ELSE 'N' END) AS PRIOR_GR_FLAG
+			<if test="_databaseId == 'mssql'">
+				, CONVERT(CHAR(10), PODT.REG_DATE, 20) AS REG_DATE
+			</if>
+			<if test="_databaseId == 'oracle'">
+				, TO_CHAR(PODT.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+			</if>
+				,(SELECT MAX(UUID) AS UUID FROM STOCMTIM
+				   WHERE GATE_CD = PODT.GATE_CD
+				     AND ITEM_CD = PODT.ITEM_CD
+				     AND DEL_FLAG = '0') AS IMG_ATT_FILE_NUM
+				,(SELECT MAX(UUID_SQ) AS UUID FROM STOCMTIM MTIM
+				   WHERE MTIM.GATE_CD = PODT.GATE_CD
+				     AND MTIM.ITEM_CD = PODT.ITEM_CD
+				     AND MTIM.MAIN_IMAGE_FLAG = '1'
+				     AND MTIM.DEL_FLAG = '0') AS MAIN_IMG_SQ
+				,PODT.CSDM_SEQ
+				,PODT.DELY_NM
+			  FROM STOUPODT PODT <include refid="com.sql.noLock"/>
+			  JOIN STOUPOHD POHD <include refid="com.sql.noLock"/>
+				   ON (PODT.GATE_CD  = POHD.GATE_CD
+				   AND PODT.CPO_NO   = POHD.CPO_NO)
+			  JOIN STOCVNGL VNGL
+				   ON (PODT.GATE_CD   = VNGL.GATE_CD
+				   AND PODT.VENDOR_CD = VNGL.VENDOR_CD)
+			  LEFT JOIN STOCCUAC CUAC
+				   ON (PODT.GATE_CD   = CUAC.GATE_CD
+				   AND PODT.CUST_CD   = CUAC.CUST_CD
+				   AND PODT.ACCOUNT_CD= CUAC.ACCOUNT_CD)
+			  LEFT JOIN STOCOGDP OGDP	-- 예산부서명
+				   ON (PODT.GATE_CD = OGDP.GATE_CD
+				   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 1) = OGDP.BUYER_CD
+				   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 2) = OGDP.PLANT_CD
+				   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 3) = OGDP.DIVISION_CD
+				   AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 4) = OGDP.DEPT_CD
+				   AND OGDP.PART_CD = '*')
+			 WHERE PODT.GATE_CD  = #{ses.gateCd}
+			   AND PODT.CPO_NO   = #{CPO_NO}
+			   AND PODT.DEL_FLAG = '0'
+		  ) A
+		  LEFT OUTER JOIN STOCATCH IMGI
+			   ON (IMGI.GATE_CD = A.GATE_CD
+			   AND IMGI.UUID = A.IMG_ATT_FILE_NUM
+			   AND IMGI.UUID_SQ = A.MAIN_IMG_SQ
+			   AND IMGI.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOYINFO INFO
+			   ON (A.GATE_CD = INFO.GATE_CD
+			   AND A.APPLY_COM = INFO.APPLY_COM
+			   AND A.CONT_NO = INFO.CONT_NO
+			   AND A.CONT_SEQ = INFO.CONT_SEQ
+			   AND INFO.DEL_FLAG = '0')
+	</select>
+
+    <select id="bod1042_getAddList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	 PODT.ITEM_CD
+            ,PODT.APPLY_COM
+            ,PODT.CONT_NO
+        	,PODT.CONT_SEQ
+            ,PODT.CPO_QTY AS CART_QT
+            ,PODT.HOPE_DUE_DATE
+            ,PODT.BD_DEPT_CD
+            ,PODT.RECIPIENT_NM
+            ,PODT.RECIPIENT_DEPT_NM
+            ,PODT.RECIPIENT_TEL_NUM
+            ,PODT.RECIPIENT_CELL_NUM
+            ,PODT.RECIPIENT_FAX_NUM
+            ,PODT.RECIPIENT_EMAIL
+            ,PODT.DELY_ZIP_CD
+            ,PODT.DELY_ADDR_1
+            ,PODT.DELY_ADDR_2
+            ,PODT.REQ_TEXT AS DELY_RMK
+            ,PODT.REF_MNG_NO
+            ,PODT.ACCOUNT_CD
+            ,PODT.CSDM_SEQ
+            ,PODT.DELY_NM
+            ,PODT.COST_CENTER_CD
+            ,PODT.PLANT_CD
+            ,PODT.NAP_FLAG
+            ,PODT.SHIPPER_TYPE
+            ,PODT.PRIOR_GR_FLAG
+          FROM STOUPODT PODT
+         WHERE PODT.GATE_CD = #{ses.gateCd}
+           AND PODT.CPO_NO = #{CPO_NO}
+           AND PODT.DEL_FLAG = '0'
+           AND PODT.ITEM_CD IN (${ITEM_CD_STR})
+         ORDER BY PODT.CPO_SEQ
+
+	</select>
+
+    <insert id="bod1042_doCart" parameterType="hashMap">
+
+		INSERT INTO STOUCART (
+			  GATE_CD
+			, DEL_FLAG
+			, USER_ID
+			, ITEM_CD
+			, APPLY_COM
+			, CONT_NO
+			, CONT_SEQ
+		<if test="CART_QT != '' and CART_QT != null">
+			, CART_QT
+		</if>
+			, HOPE_DUE_DATE
+			, BD_DEPT_CD
+			, RECIPIENT_NM
+			, RECIPIENT_DEPT_NM
+			, RECIPIENT_TEL_NUM
+			, RECIPIENT_CELL_NUM
+			, RECIPIENT_FAX_NUM
+			, RECIPIENT_EMAIL
+			, DELY_ZIP_CD
+			, DELY_ADDR_1
+			, DELY_ADDR_2
+			, DELY_RMK
+			, REF_MNG_NO
+			, ACCOUNT_CD
+			, CSDM_SEQ
+			, DELY_NM
+			, COST_CENTER_CD
+			, PLANT_CD
+			, NAP_FLAG
+			, SHIPPER_TYPE
+			, PRIOR_GR_FLAG
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+		) VALUES (
+			  #{ses.gateCd}
+			, '0'
+			, #{USER_ID}
+			, #{ITEM_CD}
+			, #{APPLY_COM}
+			, #{CONT_NO}
+			, #{CONT_SEQ}
+		<if test="CART_QT != '' and CART_QT != null">
+			, #{CART_QT}
+		</if>
+			, #{HOPE_DUE_DATE}
+			, #{BD_DEPT_CD}
+			, #{RECIPIENT_NM}
+			, #{RECIPIENT_DEPT_NM}
+			, #{RECIPIENT_TEL_NUM}
+			, #{RECIPIENT_CELL_NUM}
+			, #{RECIPIENT_FAX_NUM}
+			, #{RECIPIENT_EMAIL}
+			, #{DELY_ZIP_CD}
+			, #{DELY_ADDR_1}
+			, #{DELY_ADDR_2}
+			, #{DELY_RMK}
+			, #{REF_MNG_NO}
+			, #{ACCOUNT_CD}
+			, #{CSDM_SEQ}
+			, #{DELY_NM}
+			, #{COST_CENTER_CD}
+			, #{PLANT_CD}
+			, #{NAP_FLAG}
+			, #{SHIPPER_TYPE}
+			, #{PRIOR_GR_FLAG}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+		)
+
+    </insert>
+
+	<!-- 주문완료 후 email, sms 보내기 -->
+	<!-- 공급사별 고객사 주문헤더(UPOHD) 가져오기 -->
+    <select id="getCpoHeaderInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT CPO_NO
+		     , CUST_CD
+		     , CUST_NM
+		     , VENDOR_CD
+		     , VENDOR_NM
+		     , CPO_DATE
+		     , CUST_USER_ID
+		     , CUST_USER_NM
+		     , CUST_TEL_NUM
+		     , CUST_HP_NUM
+		     , CUST_EMAIL
+		     , CASE WHEN PRIOR_GR_FLAG = '1' THEN '-선입고' ELSE '' END AS PRIOR_GR_FLAG
+		  FROM (
+			SELECT
+				  UPOH.CPO_NO
+				, <include refid="com.sql.nvl"/>(UPOD.PRIOR_GR_FLAG, '0') AS PRIOR_GR_FLAG
+				, UPOH.CUST_CD
+				, CUST.CUST_NM
+				, UPOD.VENDOR_CD
+				, VNGL.VENDOR_NM
+				, <include refid="com.sql.toDateChar"/>(UPOH.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+				, UPOH.CPO_USER_ID AS CUST_USER_ID
+				, CVUR.USER_NM AS CUST_USER_NM
+				, UPOH.CPO_USER_TEL_NUM AS CUST_TEL_NUM
+				, UPOH.CPO_USER_CELL_NUM AS CUST_HP_NUM
+				, CVUR.EMAIL AS CUST_EMAIL
+			 FROM STOUPOHD UPOH <include refid="com.sql.noLock"/>
+			 JOIN STOUPODT UPOD <include refid="com.sql.noLock"/>
+			      ON (UPOH.GATE_CD  = UPOD.GATE_CD
+			      AND UPOH.CUST_CD  = UPOD.CUST_CD
+			      AND UPOH.CPO_NO   = UPOD.CPO_NO
+			      AND UPOD.DEL_FLAG = '0')
+			 JOIN STOCCUST CUST <include refid="com.sql.noLock"/>
+			      ON (UPOH.GATE_CD  = CUST.GATE_CD
+			      AND UPOH.CUST_CD  = CUST.CUST_CD)
+			 JOIN STOCCVUR CVUR <include refid="com.sql.noLock"/> -- 고객사 주문자
+				  ON (UPOH.GATE_CD  = CVUR.GATE_CD
+				  AND UPOH.CUST_CD  = CVUR.COMPANY_CD
+				  AND UPOH.CPO_USER_ID = CVUR.USER_ID)
+			 JOIN STOCVNGL VNGL
+		          ON (UPOD.GATE_CD  = VNGL.GATE_CD
+		          AND UPOD.VENDOR_CD= VNGL.VENDOR_CD)
+			WHERE UPOH.GATE_CD = #{ses.gateCd}
+			  AND UPOH.CPO_NO  = #{CPO_NO}
+			<if test="CPO_SEQ != '' and CPO_SEQ != null">
+	      	  AND UPOD.CPO_SEQ IN (SELECT regexp_substr(a.datas,'[^,]+', 1, rownum)
+												  FROM (SELECT #{CPO_SEQ} as datas
+        	   					                              FROM DUAL) A connect by rownum <![CDATA[<=]]> length(regexp_replace(datas,'[^,]+')) + 1
+        						   				)
+			</if>
+		  ) X
+		 WHERE 1 = 1
+		 GROUP BY CPO_NO
+		        , CUST_CD
+		        , CUST_NM
+		        , VENDOR_CD
+		        , VENDOR_NM
+		        , CPO_DATE
+		        , CUST_USER_ID
+		        , CUST_USER_NM
+		        , CUST_TEL_NUM
+		        , CUST_HP_NUM
+		        , CUST_EMAIL
+		        , PRIOR_GR_FLAG
+	</select>
+
+	<!-- BOD1_042 -->
+	<!-- 고객사 주문상세(UPODT) 가져오기 -->
+    <select id="getCpoDetailInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  PODT.REF_MNG_NO
+			, PODT.CUST_ITEM_CD
+			, PODT.ITEM_CD
+			, PODT.ITEM_DESC
+			, PODT.ITEM_SPEC
+			, PODT.MAKER_CD
+			, PODT.MAKER_NM
+			, PODT.MAKER_PART_NO
+			, PODT.BRAND_CD
+			, PODT.BRAND_NM
+			, PODT.ORIGIN_CD
+			, PODT.UNIT_CD
+			, PODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			, PODT.MOQ_QTY
+			, PODT.RV_QTY
+			<if test="_databaseId == 'mssql'">
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_QTY) AS MONEY), 1),'.00','') AS CPO_QTY
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_UNIT_PRICE) AS MONEY), 1),'.00','') AS UNIT_PRC
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_ITEM_AMT) AS MONEY), 1),'.00','') AS ITEM_AMT
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, REPLACE(TO_CHAR(PODT.CPO_QTY),'.00','') AS CPO_QTY
+			, REPLACE(TO_CHAR(PODT.CPO_UNIT_PRICE),'.00','') AS UNIT_PRC
+			, REPLACE(TO_CHAR(PODT.CPO_ITEM_AMT),'.00','') AS ITEM_AMT
+			</if>
+			, PODT.CUR
+			, PODT.TAX_CD
+			, PODT.BD_DEPT_CD
+			, OGDP.DEPT_NM AS BD_DEPT_NM
+			, PODT.ACCOUNT_CD
+			, CUAC.ACCOUNT_NM
+			, PODT.LEAD_TIME
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, PODT.RECIPIENT_NM
+			, PODT.RECIPIENT_DEPT_NM
+			, PODT.RECIPIENT_TEL_NUM
+			, PODT.RECIPIENT_CELL_NUM
+			, PODT.DELY_ZIP_CD
+			, PODT.DELY_ADDR_1
+			, PODT.DELY_ADDR_2
+			, PODT.ATTACH_FILE_NO
+			, <include refid="com.sql.dbo"/>GETFILECOUNT(PODT.GATE_CD,PODT.ATTACH_FILE_NO) AS ATTACH_FILE_NO_IMG
+			, PODT.REQ_TEXT
+			, PODT.DEAL_CD
+			, PODT.SG_CTRL_USER_ID
+			, PODT.APPLY_COM
+			, PODT.CONT_NO
+			, PODT.CONT_SEQ
+			, PODT.AUTO_PO_FLAG
+		  FROM STOUPODT PODT <include refid="com.sql.noLock"/>
+		  JOIN STOUPOHD POHD <include refid="com.sql.noLock"/>
+		       ON (PODT.GATE_CD = POHD.GATE_CD
+		       AND PODT.CPO_NO  = POHD.CPO_NO)
+		  JOIN STOCVNGL VNGL
+		       ON (PODT.GATE_CD   = VNGL.GATE_CD
+		       AND PODT.VENDOR_CD = VNGL.VENDOR_CD)
+		  LEFT JOIN STOCCUAC CUAC
+			   ON (PODT.GATE_CD    = CUAC.GATE_CD
+			   AND PODT.CUST_CD    = CUAC.CUST_CD
+			   AND PODT.ACCOUNT_CD = CUAC.ACCOUNT_CD)
+		  LEFT JOIN STOCOGDP OGDP	-- 예산부서명
+		       ON (PODT.GATE_CD = OGDP.GATE_CD
+		       AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 1) = OGDP.BUYER_CD
+		       AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 2) = OGDP.PLANT_CD
+		       AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 3) = OGDP.DIVISION_CD
+		       AND REGEXP_SUBSTR(PODT.BD_DEPT_CD,'[^-]+', 1, 4) = OGDP.DEPT_CD
+		       AND OGDP.PART_CD = '*')
+		 WHERE PODT.GATE_CD   = #{ses.gateCd}
+		   AND PODT.CPO_NO    = #{CPO_NO}
+		   AND PODT.VENDOR_CD = #{VENDOR_CD}
+		<if test="CPO_SEQ != '' and CPO_SEQ != null">
+    	   AND PODT.CPO_SEQ IN (SELECT regexp_substr(a.datas,'[^,]+', 1, rownum)
+												  FROM (SELECT #{CPO_SEQ} as datas
+           						                              FROM DUAL) A connect by rownum <![CDATA[<=]]> length(regexp_replace(datas,'[^,]+')) + 1
+        						   				)
+		</if>
+		   AND PODT.DEL_FLAG  = '0'
+	</select>
+
+	<!-- 주문완료 후 공급사에게 email, sms 보내기 -->
+    <select id="getCpoVendorList" parameterType="hashMap" resultType="hashMap">
+
+		SELECT CVUR.USER_ID
+			 , CVUR.USER_NM
+			 , (CASE WHEN <include refid="com.sql.nvl"/>(MAX(CVUR.SMS_FLAG), '0') = '1' THEN CVUR.CELL_NUM ELSE '' END) AS CELL_NUM
+			 , (CASE WHEN <include refid="com.sql.nvl"/>(MAX(CVUR.MAIL_FLAG), '0') = '1' THEN CVUR.EMAIL ELSE '' END) AS EMAIL
+		  FROM STOUPODT PODT <include refid="com.sql.noLock"/>
+		  JOIN STOCVNGL VNGL
+		       ON (PODT.GATE_CD   = VNGL.GATE_CD
+		       AND PODT.VENDOR_CD = VNGL.VENDOR_CD)
+		  JOIN STOCCVUR CVUR
+		       ON (VNGL.GATE_CD   = CVUR.GATE_CD
+		       AND VNGL.VENDOR_CD = CVUR.COMPANY_CD
+		       AND CVUR.DEL_FLAG  = '0')
+		 WHERE PODT.GATE_CD   = #{ses.gateCd}
+		   AND PODT.CPO_NO    = #{CPO_NO}
+		<if test="CPO_SEQ != '' and CPO_SEQ != null">
+    	   AND PODT.CPO_SEQ IN (SELECT regexp_substr(a.datas,'[^,]+', 1, rownum)
+												  FROM (SELECT #{CPO_SEQ} as datas
+           						                              FROM DUAL) A connect by rownum <![CDATA[<=]]> length(regexp_replace(datas,'[^,]+')) + 1
+        						   				)
+		</if>
+		   AND PODT.VENDOR_CD = #{VENDOR_CD}
+		   AND PODT.DEL_FLAG  = '0'
+		 GROUP BY CVUR.USER_ID
+			    , CVUR.USER_NM
+			    , CVUR.CELL_NUM
+			    , CVUR.EMAIL
+	</select>
+
+	<!-- 주문변경 후 운영사 품목담당자에게 알리기 -->
+    <select id="getCpoChangeHeaderInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT POHD.CPO_NO
+		     , <include refid="com.sql.toDateChar"/>(POHD.CPO_DATE, 'YYYY-MM-DD') AS CPO_DATE
+		     , POHD.CUST_CD
+		     , CUST.CUST_NM
+		     , POHD.CPO_USER_ID
+		     , CVUR.USER_NM AS CPO_USER_NM
+		     , CVUR.EMAIL AS CPO_EMAIL
+		     , USR.USER_ID
+			 , USR.USER_NM
+			 , (CASE WHEN <include refid="com.sql.nvl"/>(USR.SMS_FLAG, '0') = '1' THEN USR.CELL_NUM ELSE '' END) AS CELL_NUM
+			 , (CASE WHEN <include refid="com.sql.nvl"/>(USR.MAIL_FLAG, '0') = '1' THEN USR.EMAIL ELSE '' END) AS EMAIL
+		  FROM STOUPOHD POHD <include refid="com.sql.noLock"/>
+		  JOIN STOCCUST CUST
+		       ON (POHD.GATE_CD  = CUST.GATE_CD
+		       AND POHD.CUST_CD  = CUST.CUST_CD)
+		  JOIN STOCCVUR CVUR
+		       ON (POHD.GATE_CD  = CVUR.GATE_CD
+		       AND POHD.CPO_USER_ID = CVUR.USER_ID
+		       AND POHD.CUST_CD  = CVUR.COMPANY_CD)
+		  JOIN STOCUSER USR
+		       ON (CUST.GATE_CD  = USR.GATE_CD
+		       AND CUST.MANAGE_ID= USR.USER_ID)
+		 WHERE POHD.GATE_CD  = #{ses.gateCd}
+		   AND POHD.CPO_NO   = #{CPO_NO}
+	</select>
+
+	<select id="getCpoChangeDetailInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  PODT.ITEM_CD
+			, PODT.ITEM_DESC
+			, PODT.ITEM_SPEC
+			, PODT.MAKER_CD
+			, PODT.MAKER_NM
+			, PODT.MAKER_PART_NO
+			, PODT.BRAND_CD
+			, PODT.BRAND_NM
+			, PODT.ORIGIN_CD
+			, PODT.UNIT_CD
+			, PODT.VENDOR_CD
+			, VNGL.VENDOR_NM
+			<if test="_databaseId == 'mssql'">
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_QTY) AS MONEY), 1),'.00','') AS CPO_QTY
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_UNIT_PRICE) AS MONEY), 1),'.00','') AS UNIT_PRC
+			, REPLACE(CONVERT(VARCHAR(50), CAST(CONVERT(DECIMAL(25,2), PODT.CPO_ITEM_AMT) AS MONEY), 1),'.00','') AS ITEM_AMT
+			</if>
+			<if test="_databaseId == 'oracle'">
+			, REPLACE(TO_CHAR(PODT.CPO_QTY),'.00','') AS CPO_QTY
+			, REPLACE(TO_CHAR(PODT.CPO_UNIT_PRICE),'.00','') AS UNIT_PRC
+			, REPLACE(TO_CHAR(PODT.CPO_ITEM_AMT),'.00','') AS ITEM_AMT
+			</if>
+			, PODT.CUR
+			, PODT.TAX_CD
+			, PODT.LEAD_TIME
+			, <include refid="com.sql.toDateChar"/>(<include refid="com.sql.dbo"/>fn_GetTotalWorkingDaysFromParamDate(POHD.CPO_DATE, <include refid="com.sql.nvl"/>(PODT.LEAD_TIME, 0)), 'YYYY-MM-DD') AS LEAD_TIME_DATE -- 표준납기일자
+			, <include refid="com.sql.toDateChar"/>(PODT.HOPE_DUE_DATE, 'YYYY-MM-DD') AS HOPE_DUE_DATE
+			, PODT.RECIPIENT_NM
+			, PODT.RECIPIENT_DEPT_NM
+			, PODT.RECIPIENT_TEL_NUM
+			, PODT.RECIPIENT_CELL_NUM
+			, PODT.DELY_ZIP_CD
+			, PODT.DELY_ADDR_1
+			, PODT.DELY_ADDR_2
+			, PODT.REQ_TEXT
+			, PODT.DEAL_CD
+			, PODT.SG_CTRL_USER_ID
+			, PODT.APPLY_COM
+			, PODT.CONT_NO
+			, PODT.CONT_SEQ
+			, PODT.AUTO_PO_FLAG
+		  FROM STOUPODT PODT
+		  JOIN STOUPOHD POHD
+		       ON (PODT.GATE_CD  = POHD.GATE_CD
+		       AND PODT.CPO_NO   = POHD.CPO_NO)
+		  JOIN STOCVNGL VNGL
+		       ON (PODT.GATE_CD  = VNGL.GATE_CD
+		       AND PODT.VENDOR_CD= VNGL.VENDOR_CD)
+		 WHERE PODT.GATE_CD   = #{ses.gateCd}
+		   AND PODT.CPO_NO    = #{CPO_NO}
+		   AND PODT.CPO_SEQ   IN
+		<foreach item="cpoSeqMap" collection="cpoSeqList" open="(" separator="," close=")">
+			  #{cpoSeqMap.CPO_SEQ}
+       	</foreach>
+	</select>
+
+</mapper>

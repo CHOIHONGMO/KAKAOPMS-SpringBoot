@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.eversrm.system.unitTest.BSYU_Mapper">
+
+	<select id="unitScenarioDoSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+            SCRN.HOUSE_CODE
+            ,<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) AS SCREEN_NM
+            ,SCRN.SCREEN_ID
+            ,UTSC.PACKAGE_NM
+            ,UTSC.JSP_NM
+            ,UTSC.CONTROLLER_NM
+            ,UTSC.SERVICE_NM
+            ,UTSC.XML_NM
+            ,UTSC.TEST_TEXT_NO
+            ,UTSC.SPEC_TEXT_NO
+            ,UTSC.ATTACH_FILE_NO
+            ,UTSC.DEL_FLAG
+            ,SCRN.DEVELOPER_CODE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTSC.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})  AS ADD_DATE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTSC.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})  AS MOD_DATE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(UTSC.HOUSE_CODE, UTSC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(UTSC.HOUSE_CODE, UTSC.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+        FROM
+            ICOMSCRN SCRN LEFT OUTER JOIN ICOMUTSC UTSC
+            ON ( SCRN.SCREEN_ID = UTSC.SCREEN_ID
+              AND SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+              AND SCRN.DEL_FLAG = UTSC.DEL_FLAG)
+        WHERE
+            SCRN.HOUSE_CODE= #{ses.gateCd}
+            AND SCRN.SCREEN_ID = #{SCREEN_ID}
+            AND SCRN.DEL_FLAG = '0'
+        ORDER BY SCRN.SCREEN_ID ASC
+	</select>
+
+	<select id="doSearchTable" parameterType="hashMap" resultType="hashMap">
+		SELECT
+            UTST.HOUSE_CODE
+            ,UTST.SCREEN_ID
+            ,UTST.TABLE_NM
+            ,UTST.CREATE_FLAG
+            ,UTST.READ_FLAG
+            ,UTST.UPDATE_FLAG
+            ,UTST.DELETE_FLAG
+            ,UTST.DEL_FLAG
+            <if test="_databaseId == 'oracle'">
+            ,CASE
+                WHEN X.COMMENTS IS NULL THEN  BA.TABLE_DESC
+                ELSE X.COMMENTS
+             END AS TABLE_DESC
+             </if>
+        FROM
+            ICOMSCRN SCRN LEFT OUTER JOIN ICOMUTST UTST
+            ON ( SCRN.HOUSE_CODE = UTST.HOUSE_CODE
+              AND SCRN.SCREEN_ID = UTST.SCREEN_ID )
+              LEFT JOIN (  SELECT B.TABLE_DESC, B.TABLE_NM
+                           FROM ICOMUTST B,(SELECT TABLE_NM, MAX(MOD_DATE) MOD_DATE
+                                           FROM ICOMUTST
+                                            GROUP BY TABLE_NM) A
+                           WHERE A.TABLE_NM = B.TABLE_NM
+                           AND (B.MOD_DATE) = A.MOD_DATE ) BA
+             ON (BA.TABLE_NM = UTST.TABLE_NM)
+             LEFT OUTER JOIN
+             <if test="_databaseId == 'oracle'">
+             USER_TAB_COMMENTS X
+             </if>
+             <if test="_databaseId == 'mssql'">
+             (SELECT T.NAME AS TABLE_NM, TD.VALUE AS COMMENTS
+              FROM SYS.SYSOBJECTS T INNER JOIN SYS.EXTENDED_PROPERTIES TD
+                                   ON TD.MAJOR_ID = T.ID
+                                  AND TD.MINOR_ID = 0
+                                  AND TD.NAME = 'MS_Description'
+			  ) X
+             </if>
+              ON  UPPER(<include refid="com.sql.trim"/>(UTST.TABLE_NM)) = X.TABLE_NM
+        WHERE SCRN.HOUSE_CODE = #{ses.gateCd}
+        AND SCRN.SCREEN_ID = #{SCREEN_ID}
+        AND SCRN.DEL_FLAG = '0'
+        AND UTST.DEL_FLAG = '0'
+        ORDER BY SCRN.SCREEN_ID ASC
+
+	</select>
+
+	<select id="doSearchFunction" parameterType="hashMap" resultType="hashMap">
+		/*Function Point 조회*/
+		SELECT SCAC.HOUSE_CODE
+                ,SCAC.ACTION_CODE
+                ,SCRN.SCREEN_ID
+                ,<include refid="com.sql.dbo"/>GETMULTINAME(SCAC.HOUSE_CODE, 'SA', #{ses.langCd}, SCAC.ACTION_CODE, SCAC.SCREEN_ID) AS ACTION_NM
+                ,SCAC.FP_EQ_FLAG
+                ,SCAC.FP_EI_FLAG
+                ,SCAC.FP_EO_FLAG
+                ,SCAC.FP_ETC_TEXT
+        FROM ICOMSCRN SCRN LEFT OUTER JOIN ICOMSCAC SCAC
+          ON( SCRN.HOUSE_CODE = SCAC.HOUSE_CODE
+          AND SCRN.SCREEN_ID = SCAC.SCREEN_ID
+          AND SCRN.DEL_FLAG = SCAC.DEL_FLAG)
+        WHERE SCAC.HOUSE_CODE = #{ses.gateCd}
+          AND SCAC.SCREEN_ID = #{SCREEN_ID}
+          AND SCAC.DEL_FLAG = '0'
+        ORDER BY SCRN.SCREEN_ID ASC, SCAC.ACTION_CODE ASC
+	</select>
+
+	<select id="doSearchResult" parameterType="hashMap" resultType="hashMap">
+		SELECT
+             UTRT.TEST_ID_NO
+            ,UTRT.HOUSE_CODE
+            ,SCRN.SCREEN_ID
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.TEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS TEST_DATE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M047', UTRT.TESTER_CODE, 0, #{ses.langCd}) AS TESTER_CODE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M049', UTRT.SUITABILITY_CODE, 0, #{ses.langCd}) AS SUITABILITY_CODE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.PLAN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PLAN_DATE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.PROCESSING_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PROCESSING_DATE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M047', UTRT.PROCESSOR_CODE, 0, #{ses.langCd}) AS PROCESSOR_CODE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.PLAN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PLAN_DATE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.CONFIRM_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CONFIRM_DATE
+            ,UTRT.DEL_FLAG
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M049', UTRT.CONFIRM_SUITABILITY_CODE, 0, #{ses.langCd}) AS CONFIRM_SUITABILITY_CODE
+            ,UTRT.REQUEST_TEXT_NO
+        FROM ICOMSCRN SCRN LEFT OUTER JOIN ICOMUTRT UTRT
+              ON ( SCRN.HOUSE_CODE = UTRT.HOUSE_CODE
+                AND SCRN.SCREEN_ID = UTRT.SCREEN_ID)
+        WHERE SCRN.HOUSE_CODE = #{ses.gateCd}
+        AND SCRN.SCREEN_ID = #{SCREEN_ID}
+        AND SCRN.DEL_FLAG = '0'
+        AND UTRT.DEL_FLAG = '0'
+	</select>
+
+	<select id="selectICOMUTSCCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT (*)
+          FROM ICOMUTSC
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+	</select>
+
+	<update id="doUpdateScenario" parameterType="hashMap">
+		UPDATE ICOMUTSC
+        SET SCREEN_ID = #{SCREEN_ID},
+            MOD_DATE = <include refid="com.sql.sysdate"/>,
+            MOD_USER_ID = #{ses.userId},
+            PACKAGE_NM = #{PACKAGE_NM},
+            JSP_NM = #{JSP_NM},
+            DEL_FLAG = '0',
+            CONTROLLER_NM = #{CONTROLLER_NM},
+            SERVICE_NM = #{SERVICE_NM},
+            XML_NM = #{XML_NM},
+            DEVELOPER_CODE = #{DEVELOPER_CODE},
+            SPEC_TEXT_NO = #{SPEC_TEXT_NO},
+            ATTACH_FILE_NO = #{ATTACH_FILE_NO},
+            TEST_TEXT_NO = #{TEST_TEXT_NO}
+        WHERE HOUSE_CODE = #{ses.gateCd}
+            AND SCREEN_ID = #{SCREEN_ID}
+	</update>
+
+	<insert id="doInsertScenario" parameterType="hashMap">
+		INSERT INTO ICOMUTSC(
+            HOUSE_CODE
+            ,SCREEN_ID
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,PACKAGE_NM
+            ,JSP_NM
+            ,CONTROLLER_NM
+            ,SERVICE_NM
+            ,XML_NM
+            ,DEVELOPER_CODE
+            ,SPEC_TEXT_NO
+            ,ATTACH_FILE_NO
+            ,TEST_TEXT_NO
+       ) VALUES (
+            #{ses.gateCd}
+            ,#{SCREEN_ID}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{PACKAGE_NM}
+            ,#{JSP_NM}
+            ,#{CONTROLLER_NM}
+            ,#{SERVICE_NM}
+            ,#{XML_NM}
+            ,#{DEVELOPER_CODE}
+            ,#{SPEC_TEXT_NO}
+            ,#{ATTACH_FILE_NO,jdbcType=VARCHAR}
+            ,#{TEST_TEXT_NO}
+            )
+	</insert>
+
+	<update id="doDelete" parameterType="hashMap">
+		UPDATE ICOMUTSC
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '1'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+	</update>
+
+	<update id="doDeleteTableAll" parameterType="hashMap">
+        UPDATE ICOMUTST
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+    </update>
+
+    <update id="doResultDeleteAll" parameterType="hashMap">
+        UPDATE ICOMUTRT
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+    </update>
+
+	<select id="getTableCnt" parameterType="hashMap" resultType="int">
+		SELECT COUNT(TABLE_NM)
+          FROM ICOMUTST
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+          AND TABLE_NM = UPPER(<include refid="com.sql.trim"/>(#{TABLE_NM}))
+	</select>
+
+	<insert id="doTableInsert" parameterType="hashMap">
+		INSERT INTO ICOMUTST(
+            HOUSE_CODE
+            ,SCREEN_ID
+            ,TABLE_NM
+            ,TABLE_DESC
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,CREATE_FLAG
+            ,READ_FLAG
+            ,UPDATE_FLAG
+            ,DELETE_FLAG
+            ,DEL_FLAG
+        )VALUES (
+             #{ses.gateCd}
+            ,#{SCREEN_ID}
+            ,UPPER(<include refid="com.sql.trim"/>(#{TABLE_NM}))
+            ,#{TABLE_DESC}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,#{CREATE_FLAG}
+            ,#{READ_FLAG}
+            ,#{UPDATE_FLAG}
+            ,#{DELETE_FLAG}
+            ,'0'
+        )
+
+	</insert>
+
+	<update id="doTableUpdate" parameterType="hashMap">
+		UPDATE ICOMUTST
+        SET  TABLE_NM = UPPER(<include refid="com.sql.trim"/>(#{TABLE_NM}))
+            ,TABLE_DESC = #{TABLE_DESC}
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,CREATE_FLAG = #{CREATE_FLAG}
+            ,READ_FLAG = #{READ_FLAG}
+            ,UPDATE_FLAG = #{UPDATE_FLAG}
+            ,DELETE_FLAG = #{DELETE_FLAG}
+            ,DEL_FLAG = '0'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+          AND TABLE_NM = UPPER(<include refid="com.sql.trim"/>(#{TABLE_NM}))
+
+	</update>
+
+
+
+	<update id="doTableDelete" parameterType="hashMap">
+		UPDATE ICOMUTST
+		SET MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,DEL_FLAG = '1'
+		WHERE HOUSE_CODE = #{ses.gateCd}
+		AND SCREEN_ID = #{SCREEN_ID}
+		AND TABLE_NM = #{TABLE_NM}
+
+	</update>
+
+	<update id="doTestDelete" parameterType="hashMap">
+	UPDATE ICOMUTRT
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND TEST_ID_NO = #{TEST_ID_NO}
+
+	</update>
+
+	<update id="doFPSave" parameterType="hashMap">
+	/*Function Point Update*/
+		UPDATE ${TABLE_NM}
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,FP_EQ_FLAG = #{FP_EQ_FLAG}
+            ,FP_EI_FLAG = #{FP_EI_FLAG}
+            ,FP_EO_FLAG = #{FP_EO_FLAG}
+            ,FP_ETC_TEXT = #{FP_ETC_TEXT}
+            ,DEL_FLAG = '0'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+          AND ACTION_CODE = #{ACTION_CODE}
+
+	</update>
+
+	<select id="doPopupSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT   HOUSE_CODE
+                ,TEST_ID_NO
+                ,<include refid="com.sql.dbo"/>GETMULTINAME(HOUSE_CODE, 'SC', #{ses.langCd}, '', SCREEN_ID) AS SCREEN_NM
+                ,SCREEN_ID
+                ,<include refid="com.sql.dbo"/>getGmtDate(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})  AS ADD_DATE
+                ,<include refid="com.sql.dbo"/>GETUSERNAME(HOUSE_CODE, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+                ,<include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})  AS MOD_DATE
+                ,<include refid="com.sql.dbo"/>GETUSERNAME(HOUSE_CODE, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+                ,<include refid="com.sql.dbo"/>getGmtDate(TEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS TEST_DATE
+                ,TESTER_CODE
+                ,REQUEST_TEXT_NO
+                ,SUITABILITY_CODE
+                ,<include refid="com.sql.dbo"/>getGmtDate(PLAN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PLAN_DATE
+                ,<include refid="com.sql.dbo"/>getGmtDate(PROCESSING_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PROCESSING_DATE
+                ,PROCESSOR_CODE
+                ,CONTENTS_TEXT_NO
+                ,<include refid="com.sql.dbo"/>getGmtDate(CONFIRM_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CONFIRM_DATE
+                ,CONFIRM_SUITABILITY_CODE
+                ,CONFIRM_TEXT_NO
+        FROM ICOMUTRT
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND TEST_ID_NO = #{TEST_ID_NO}
+          AND DEL_FLAG = '0'
+
+	</select>
+
+	<select id="selectICOMUTRTCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+          FROM ICOMUTRT
+        WHERE  HOUSE_CODE = #{ses.gateCd}
+          AND SCREEN_ID = #{SCREEN_ID}
+          AND TEST_ID_NO = #{TEST_ID_NO}
+
+	</select>
+
+	<update id="doPopupUpdate" parameterType="hashMap">
+
+		UPDATE ICOMUTRT
+        SET  MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,TEST_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{TEST_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,TESTER_CODE = #{TESTER_CODE}
+            ,REQUEST_TEXT_NO = #{REQUEST_TEXT_NO}
+            ,CONFIRM_TEXT_NO = #{CONFIRM_TEXT_NO}
+            ,CONTENTS_TEXT_NO = #{CONTENTS_TEXT_NO}
+            ,SUITABILITY_CODE = #{SUITABILITY_CODE}
+            ,PLAN_DATE =<include refid="com.sql.dbo"/>setGmtDate(#{PLAN_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,PROCESSING_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{PROCESSING_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,PROCESSOR_CODE = #{PROCESSOR_CODE}
+            ,CONFIRM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{CONFIRM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,CONFIRM_SUITABILITY_CODE = #{CONFIRM_SUITABILITY_CODE}
+            ,DEL_FLAG = '0'
+        WHERE HOUSE_CODE = #{ses.gateCd}
+          AND TEST_ID_NO = #{TEST_ID_NO}
+
+	</update>
+
+	<insert id="doPopupInsert" parameterType="hashMap">
+		<selectKey keyProperty="selectKey" resultType="string" order="BEFORE">
+             SELECT <include refid="com.sql.lpad"/>(
+                       ( SELECT COUNT(*)+1 FROM ICOMUTRT), 7, '0') selectKey
+                         <include refid="com.sql.dual"/>
+        </selectKey>
+
+        INSERT INTO ICOMUTRT (
+            HOUSE_CODE
+            ,TEST_ID_NO
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,SCREEN_ID
+            ,TEST_DATE
+            ,TESTER_CODE
+            ,REQUEST_TEXT_NO
+            ,CONFIRM_TEXT_NO
+            ,CONTENTS_TEXT_NO
+            ,SUITABILITY_CODE
+            ,PLAN_DATE
+            ,PROCESSING_DATE
+            ,PROCESSOR_CODE
+            ,CONFIRM_DATE
+            ,CONFIRM_SUITABILITY_CODE
+        )VALUES (
+            #{ses.gateCd}
+            ,#{selectKey}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{SCREEN_ID}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{TEST_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,#{TESTER_CODE}
+            ,#{REQUEST_TEXT_NO}
+            ,#{CONFIRM_TEXT_NO}
+            ,#{CONTENTS_TEXT_NO}
+            ,#{SUITABILITY_CODE}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{PLAN_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{PROCESSING_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,#{PROCESSOR_CODE}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{CONFIRM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,#{CONFIRM_SUITABILITY_CODE}
+        )
+
+	</insert>
+
+    <update id="doPopupDelete" parameterType="hashMap">
+        UPDATE ICOMUTRT
+        SET MOD_DATE = <include refid="com.sql.sysdate"/>
+	        ,MOD_USER_ID = #{ses.userId}
+	        ,DEL_FLAG = '1'
+	    WHERE HOUSE_CODE = #{ses.gateCd}
+	      AND TEST_ID_NO = #{TEST_ID_NO}
+    </update>
+
+	<select id="doSelect" parameterType="hashMap" resultType="hashMap">
+
+		SELECT UTRT.HOUSE_CODE AS HOUSE_CODE
+		,<include refid="com.sql.dbo"/>GETCOMCODE(SCRN.HOUSE_CODE, 'M009', SCRN.MODULE_TYPE, 0,#{ses.langCd}) AS MODULE_TYPE
+		,SCRN.SCREEN_ID
+		,<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE, 'SC', #{ses.langCd}, '',SCRN.SCREEN_ID) AS SCREEN_NM
+		,<include refid="com.sql.dbo"/>GETCOMCODE(UTSC.HOUSE_CODE, 'M047',UTSC.DEVELOPER_CODE,0,#{ses.langCd}) AS DEVELOPER_NM
+		,UTSC.PACKAGE_NM AS PACKAGE_NM
+		,UTSC.JSP_NM AS JSP_NM
+		,UTSC.CONTROLLER_NM AS CONTROLLER_NM
+		,UTSC.SERVICE_NM AS SERVICE_NM
+		,UTSC.XML_NM AS XML_NM
+		,<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID)
+		,<include refid="com.sql.dbo"/>GETUNITTESTTABLE(<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID)) AS TABLE_NM
+		,<include refid="com.sql.dbo"/>getGmtDate(UTSC.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SCENARIO_CREATION_DATE
+		,CASE
+                WHEN NOT EXISTS( SELECT *
+                                   FROM ICOMUTSC UTSC
+                                  WHERE SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+                                    AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+                                    AND SCRN.DEL_FLAG = '0'
+                                    AND UTSC.DEL_FLAG = '0' )
+                THEN  'PREPARATION'
+                WHEN (EXISTS ( SELECT *
+                                 FROM ICOMUTSC UTSC
+                                WHERE UTSC.HOUSE_CODE = UTSC.HOUSE_CODE
+                                  AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+                              	  AND SCRN.DEL_FLAG = '0'
+                              	  AND UTSC.DEL_FLAG = '0' ))
+                AND (NOT EXISTS ( SELECT *
+                                    FROM ICOMUTRT UTRT
+                                   WHERE SCRN.HOUSE_CODE = UTRT.HOUSE_CODE
+                                 	 AND SCRN.SCREEN_ID = UTRT.SCREEN_ID
+                                 	 AND SCRN.DEL_FLAG = '0'
+                                 	 AND UTRT.DEL_FLAG = '0' ))
+               THEN 'DEVELOPMENTED'
+               WHEN ( UTRT.TEST_DATE IS NOT NULL
+                        AND UTRT.PROCESSING_DATE IS NULL
+                        AND UTRT.DEL_FLAG = '0')
+               THEN 'TESTED'
+               WHEN (( UTRT.TEST_DATE IS NOT NULL
+                       AND UTRT.PLAN_DATE IS NOT NULL
+                       AND UTRT.PROCESSING_DATE IS NULL
+                       AND UTRT.DEL_FLAG = '0')
+                  OR ( UTRT.TEST_DATE IS NOT NULL
+                       AND UTRT.PLAN_DATE IS NOT NULL
+                       AND UTRT.PROCESSING_DATE IS NOT NULL
+                       AND UTRT.CONFIRM_SUITABILITY_CODE = 'FAIL'
+                       AND UTRT.DEL_FLAG = '0'))
+               THEN 'BUG_FIXING'
+               WHEN (( UTRT.SUITABILITY_CODE = 'PASS'
+                       AND UTRT.DEL_FLAG = '0')
+                  OR ( UTRT.CONFIRM_SUITABILITY_CODE = 'PASS'
+                       AND UTRT.DEL_FLAG = '0'))
+               THEN  'COMPLETED'
+             END AS PROGRESS_STATUS
+            ,UTRT.TEST_ID_NO AS TEST_ID_NO
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.TEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS TEST_DATE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M047', UTRT.TESTER_CODE, 0, #{ses.langCd}) AS TESTER_CODE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M049', UTRT.SUITABILITY_CODE, 0,#{ses.langCd}) AS SUITABILITY_CODE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.PLAN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS PLAN_DATE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.PROCESSING_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS PROCESSING_DATE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M047', UTRT.PROCESSOR_CODE, 0, #{ses.langCd}) AS PROCESSOR_CODE
+            ,<include refid="com.sql.dbo"/>getGmtDate(UTRT.CONFIRM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONFIRM_DATE
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE, 'M049', UTRT.CONFIRM_SUITABILITY_CODE, 0, #{ses.langCd}) AS CONFIRM_SUITABILITY_CODE
+       FROM ICOMSCRN SCRN
+           LEFT OUTER JOIN ICOMUTSC UTSC
+               ON ( SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+               AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+               AND SCRN.DEL_FLAG = UTSC.DEL_FLAG)
+           LEFT OUTER JOIN ICOMUTRT UTRT
+               ON ( UTSC.HOUSE_CODE = UTRT.HOUSE_CODE
+               AND UTSC.SCREEN_ID = UTRT.SCREEN_ID
+               AND UTSC.DEL_FLAG = UTRT.DEL_FLAG)
+      WHERE SCRN.HOUSE_CODE = #{ses.gateCd}
+        AND SCRN.DEL_FLAG = '0'
+		<if test="MODULE_TYPE !='' and MODULE_TYPE !=null">
+			AND MODULE_TYPE=#{MODULE_TYPE}
+		</if>
+
+		<if test="FROM_DATE !='' and FROM_DATE !=null and TO_DATE !='' and TO_DATE != null">
+			<if test="DATE == 'SCENARIO_DATE' and DATE != null">
+				AND UTSC.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+			<if test="DATE == 'TEST_DATE' and DATE != null">
+				AND UTSC.TEST_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+			<if test="DATE == 'PLAN_DATE' and DATE != null">
+				AND UTSC.PLAN_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+			<if test="DATE == 'PROCESSING_DATE' and DATE != null">
+				AND UTSC.PROCESSING_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+			<if test="DATE == 'FINAL_CONFIRM_DATE' and DATE != null">
+				AND UTSC.CONFIRM_DATE BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+			</if>
+		</if>
+		<if test="SCREEN_ID !='' and SCREEN_ID !=null">
+			AND SCRN.SCREEN_ID = #{SCREEN_ID}
+		</if>
+		<if test="SCREEN_NM !='' and SCREEN_NM !=null">
+				AND <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="FILE_NM !='' and FILE_NM !=null">
+			<if test="FILE_NM == 'PACKAGE_NM' and FILE_NM != null" >
+				AND UTSC.PACKAGE_NM = #{FILE_NM_DESC}
+			</if>
+			<if test="FILE_NM == 'JSP_NM' and FILE_NM != null">
+				AND UTSC.JSP_NM = #{FILE_NM_DESC}
+			</if>
+			<if test="FILE_NM == 'CONTROLLER_NM' and FILE_NM != null" >
+				AND UTSC.CONTROLLER_NM = #{FILE_NM_DESC}
+			</if>
+			<if test="FILE_NM == 'SERVICE_NM' and FILE_NM != null">
+				AND UTSC.SERVICE_NM = #{FILE_NM_DESC}
+			</if>
+			<if test="FILE_NM == 'XML_NM' and FILE_NM != null">
+				AND UTSC.XML_NM = #{FILE_NM_DESC}
+			</if>
+		</if>
+
+		<if test="TABLE_NM !='' and TABLE_NM != null">
+			AND <include refid="com.sql.dbo"/>GETUNITTESTTABLE(<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.HOUSE_CODE,'SC', #{ses.langCd}, '', SCRN.SCREEN_ID)) <include refid="com.sql.likeL"/> #{TABLE_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PIC_NM !='' and PIC_NM !=null">
+			<if test="PIC_NM == 'DEVEPER_NM' and PIC_NM !=null">
+				AND <include refid="com.sql.dbo"/>GETCOMCODE(UTSC.HOUSE_CODE,'M047',UTSC.DEVELOPER_CODE,0,#{ses.langCd})=#{PIC_NM_DESC}
+			</if>
+			<if test="PIC_NM == 'TESTER_NM' and PIC_NM !=null">
+				AND	<include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE,'M047',UTRT.TESTER_CODE,0,#{ses.langCd})=#{PIC_NM_DESC}
+			</if>
+			<if test="PIC_NM == 'PROCESSOR_NM' and PIC_NM !=null">
+				AND <include refid="com.sql.dbo"/>GETCOMCODE(UTRT.HOUSE_CODE,'M047',UTRT.PROCESSOR_CODE,0,#{ses.langCd}) = #{PIC_NM_DESC}
+			</if>
+		</if>
+		<if test="SCENARIO !='' and SCENARIO !=null">
+			<if test="SCENARIO == 'EXISTS' and SCENARIO !=null">
+				AND EXISTS ( SELECT *
+							 FROM ICOMUTSC UTSC
+							 WHERE SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+		 					 AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+		 					 AND SCRN.DEL_FLAG = '0'
+		 					 AND UTSC.DEL_FLAG = '0' )
+			</if>
+			<if test="SCENARIO == 'NOT_EXISTS' and SCENARIO !=null">
+				AND NOT EXISTS ( SELECT *
+								 FROM ICOMUTSC UTSC
+								 WHERE SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+								 AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+								 AND SCRN.DEL_FLAG = '0'
+								 AND UTSC.DEL_FLAG = '0' )
+			</if>
+		</if>
+		<if test="RESULT_OF_UNITTEST !='' and RESULT_OF_UNITTEST !=null">
+			<if test="RESULT_OF_UNITTEST == 'EXISTS' and RESULT_OF_UNITTEST != null">
+				AND EXISTS( SELECT *
+							FROM ICOMUTRT UTRT
+							WHERE SCRN.HOUSE_CODE = UTRT.HOUSE_CODE
+							AND SCRN.SCREEN_ID = UTRT.SCREEN_ID
+							AND SCRN.DEL_FLAG = '0'
+							AND UTRT.DEL_FLAG = '0' )
+			</if>
+			<if test="RESULT_OF_UNITEST == 'NOT_EXISTS' and RESULT_OF_UNITTEST != null">
+				AND NOT EXISTS( SELECT *
+								FROM ICOMUTRT UTRT
+								WHERE SCRN.HOUSE_CODE = UTRT.HOUSE_CODE
+								AND SCRN.SCREEN_ID = UTRT.SCREEN_ID
+								AND SCRN.DEL_FLAG = '0'
+								AND UTRT.DEL_FLAG = '0' )
+			</if>
+		</if>
+		<if test="SUITABILITY_CODE !='' and SUITABILITY_CODE !=null">
+			<if test="SUITABILITY_CODE == 'PASS' and SUITABILITY_CODE != null">
+				AND ( UTRT.SUITABILITY_CODE = 'PASS'
+				    OR UTRT.CONFIRM_SUITABILITY_CODE = 'PASS')
+			</if>
+			<if test="SUITABILITY_CODE == 'FAIL' and SUITABILITY_CODE != null">
+				AND ( UTRT.SUITABILITY_CODE = 'FAIL'
+				    AND	UTRT.CONFIRM_SUITABILITY_CODE = 'FAIL')
+			</if>
+
+		</if>
+		<if test="PROGRESS_STATUS !='' and PROGRESS_STATUS !=null">
+			<if test="PROGRESS_STATUS == 'PREPARATION' and PROGRESS_STATUS != null">
+				AND NOT EXISTS( SELECT *
+								FROM ICOMUTSC UTSC
+								WHERE SCRN.HOUSE_CODE = UTSC.HOUSE_CODE
+								AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+								AND SCRN.DEL_FLAG = '0'
+								AND UTSC.DEL_FLAG = '0' )
+			</if>
+			<if test="PROGRESS_STATUS == 'DEVELOPMENTED' and PROGRESS_STATUS != null" >
+				AND (EXISTS ( SELECT *
+						  	  FROM ICOMUTSC UTSC
+							  WHERE UTSC.HOUSE_CODE = UTSC.HOUSE_CODE
+							  AND SCRN.SCREEN_ID = UTSC.SCREEN_ID
+							  AND SCRN.DEL_FLAG = '0'
+							  AND UTSC.DEL_FLAG = '0' ))
+				AND ( NOT EXISTS ( SELECT *
+									FROM ICOMUTRT UTRT
+									WHERE SCRN.HOUSE_CODE = UTRT.HOUSE_CODE
+									AND SCRN.SCREEN_ID = UTRT.SCREEN_ID
+									AND SCRN.DEL_FLAG = '0'
+									AND	UTRT.DEL_FLAG = '0' ))
+			</if>
+			<if test="PROGRESS_STATUS == 'TESTED' and PROGRESS_STATUS != null">
+				AND ( UTRT.TEST_DATE IS NOT NULL
+					  AND UTRT.PROCESSING_DATE IS NULL
+					  AND UTRT.DEL_FLAG = '0')
+			</if>
+			<if test="PROGRESS_STATUS == 'BUG_FIXING' and PROGRESS_STATUS != null">
+				AND (( UTRT.TEST_DATE IS NOT NULL
+						AND UTRT.PLAN_DATE IS NOT NULL
+						AND UTRT.PROCESSING_DATE IS NULL
+						AND UTRT.DEL_FLAG = '0')
+			      OR ( UTRT.TEST_DATE IS NOT NULL
+				       AND UTRT.PLAN_DATE IS NOT NULL
+					   AND	UTRT.PROCESSING_DATE IS NOT NULL
+					   AND UTRT.CONFIRM_SUITABILITY_CODE = 'FAIL'
+					   AND UTRT.DEL_FLAG = '0'))
+			</if>
+			<if test="PROGRESS_STATUS == 'COMPLETED'  and PROGRESS_STATUS != null">
+				(( UTRT.SUITABILITY_CODE = 'PASS'
+				    AND UTRT.DEL_FLAG = '0')
+			  OR ( UTRT.CONFIRM_SUITABILITY_CODE = 'PASS'
+				    AND UTRT.DEL_FLAG = '0'))
+			</if>
+		</if>
+		ORDER BY MODULE_TYPE ASC
+
+	</select>
+
+	<update id="doUpdateDeveloper" parameterType="hashmap">
+        UPDATE ${TABLE_NM}
+           SET DEVELOPER_CODE = #{DEVELOPER_CODE}
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE HOUSE_CODE = #{ses.gateCd}
+           AND SCREEN_ID = #{SCREEN_ID}
+	</update>
+</mapper>

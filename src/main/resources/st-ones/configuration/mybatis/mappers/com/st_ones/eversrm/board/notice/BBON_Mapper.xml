@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:39 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.eversrm.board.notice.BBON_Mapper">
+
+     <select id="selectNoticeList" parameterType="hashmap" resultType="hashMap">
+        SELECT DISTINCT NOTC.GATE_CD
+             , NOTC.NOTICE_NUM
+             , NOTC.SUBJECT
+             , NOTC.SUBJECT_OUT
+             , <include refid="com.sql.dbo"/>getGmtDate(NOTC.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+             , <include refid="com.sql.dbo"/>getGmtDate(NOTC.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd') ||' ~ '|| <include refid="com.sql.dbo"/>getGmtDate(NOTC.END_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd') AS VIEWDATE --게시기간
+             , NOTC.NOTICE_TYPE
+             , NOTC.USER_TYPE
+             , NOTC.VIEW_CNT
+             , NOTC.NOTICE_TEXT_NUM
+             , NOTC.SCREEN_ID
+             ,  NOTC.REG_USER_ID AS REG_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, NOTC.REG_USER_ID,#{ses.langCd}) AS REG_USER_NM
+             , <include refid="com.sql.nvl"/>(NOTC.FIXED_TOP_FLAG, '0') AS FIXED_TOP_FLAG
+             , <include refid="com.sql.dbo"/>getGmtDate(NOTC.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-mm-dd hh24:mi') AS MOD_DATE
+             , NOTC.ATT_FILE_NUM
+             ,CASE WHEN (SELECT COUNT(*)
+                 FROM STOCATCH
+                 WHERE GATE_CD = #{ses.gateCd}
+                 AND UUID = NOTC.ATT_FILE_NUM
+                 AND DEL_FLAG = '0')  <![CDATA[<]]> 1 THEN '' else '1' end ATT_FILE_CNT
+        FROM STOCNOTC NOTC
+       WHERE  NOTC.GATE_CD = #{ses.gateCd}
+           AND NOTC.DEL_FLAG = '0'
+
+           <if test="NOTICE_TYPE !='' and NOTICE_TYPE != null">
+	            AND NOTC.NOTICE_TYPE = UPPER(<include refid="com.sql.trim"/>(#{NOTICE_TYPE}))
+           </if>
+
+           <if test="SUBJECT !='' and SUBJECT != Null">
+    	        AND NOTC.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+           </if>
+
+           <if test="SCREEN_ID !='' and SCREEN_ID != null">
+        	    AND NOTC.SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+           </if>
+
+           <if test="USER_TYPE !='' and USER_TYPE != null">
+            	AND NOTC.USER_TYPE = UPPER(<include refid="com.sql.trim"/>(#{USER_TYPE}))
+           </if>
+
+         <if test="USER_TYPE !='' and USER_TYPE != null">
+             AND NOTC.USER_TYPE = UPPER(<include refid="com.sql.trim"/>(#{USER_TYPE}))
+         </if>
+         <if test="USER_TYPE !='' and USER_TYPE != null">
+             AND NOTC.USER_TYPE = UPPER(<include refid="com.sql.trim"/>(#{USER_TYPE}))
+         </if>
+         <if test="START_DATE != '' and START_DATE != null">
+             AND <![CDATA[ NOTC.START_DATE >= <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+         </if>
+         <if test="END_DATE != '' and END_DATE != null">
+             AND <![CDATA[ NOTC.END_DATE <= <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+         </if>
+         <if test="REG_USER_ID != '' and REG_USER_ID != null">
+             AND UPPER(NOTC.REG_USER_ID) <include refid="com.sql.likeL"/> UPPER(#{REG_USER_ID}) <include refid="com.sql.likeR"/>
+         </if>
+         <if test="REG_USER_NM != '' and REG_USER_NM != null">
+             AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME_ORI(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}))  LIKE  UPPER(#{REG_USER_NM})  || '%'
+         </if>
+
+
+
+
+		   <if test="FROM_LOGIN_NOTICE_TYPE == 'NOTICE' and FROM_LOGIN_NOTICE_TYPE !='' and FROM_LOGIN_NOTICE_TYPE != null">
+	           	AND NOTC.NOTICE_TYPE IN ('PCN', 'PCP')
+	           	AND NOTC.USER_TYPE IN ('USNA', 'USNE', 'USXX')
+		       <![CDATA[
+		         AND NOTC.START_DATE <= <include refid="com.sql.sysdate"/>
+		         AND NOTC.END_DATE >= <include refid="com.sql.sysdate"/>
+		       ]]>
+           </if>
+
+           <if test="FROM_LOGIN_NOTICE_TYPE == 'FAQ' and FROM_LOGIN_NOTICE_TYPE !='' and FROM_LOGIN_NOTICE_TYPE != null">
+	           	AND NOTC.NOTICE_TYPE IN ('PCF')
+	           	AND NOTC.USER_TYPE IN ('USNA', 'USNE', 'USXX')
+		       <![CDATA[
+		         AND NOTC.START_DATE <= <include refid="com.sql.sysdate"/>
+		         AND NOTC.END_DATE >= <include refid="com.sql.sysdate"/>
+		       ]]>
+           </if>
+
+           <if test="FROM_LOGIN_NOTICE_TYPE == null or FROM_LOGIN_NOTICE_TYPE == ''">
+           		<if test='ses.userType == "S"'>
+	           		AND NOTC.USER_TYPE IN ('USNA', 'USNE')
+			      <!-- <![CDATA[
+			         AND NOTC.START_DATE <= <include refid="com.sql.sysdate"/>
+			         AND NOTC.END_DATE >= <include refid="com.sql.sysdate"/>
+			       ]]>
+	           		AND CASE
+	           				WHEN NOTC.USER_TYPE IN ('USNE', 'USXX') THEN
+	           					CASE
+	           						WHEN (SELECT COUNT(*) FROM STOCVNGL VNGL
+	           							  WHERE VNGL.GATE_CD = NOTC.GATE_CD
+	           							    AND VNGL.DEL_FLAG = '0'
+	           							    AND VNGL.VENDOR_CD = #{ses.companyCd}
+	           							    AND VNGL.VENDOR_TYPE IN ('P', 'R')) = 1 THEN 0
+	           					    ELSE 1
+	           					END
+	           				ELSE 1
+	           		    END = 1
+	           		    -->
+           		</if>
+                 <if test='ses.userType == "B"'>
+                     AND NOTC.USER_TYPE IN ('USNA', 'USNC')
+                 </if>
+           </if>
+
+           <if test="TEXT_CONTENTS != null and TEXT_CONTENTS !=''">
+	           AND EXISTS (SELECT TXTD.TEXT_NUM, TXTD.TEXT_CONTENTS FROM STOCTXTD TXTD <include refid="com.sql.noLock"/>
+	                                  WHERE TXTD.GATE_CD = NOTC.GATE_CD
+	                                    AND TXTD.TEXT_NUM = NOTC.NOTICE_TEXT_NUM
+	                                    AND TEXT_CONTENTS <include refid="com.sql.likeL"/> #{TEXT_CONTENTS} <include refid="com.sql.likeR"/>)
+            </if>
+        ORDER BY <include refid="com.sql.nvl"/>(FIXED_TOP_FLAG, '0') DESC, MOD_DATE DESC, NOTICE_NUM DESC, SUBJECT
+    </select>
+
+     <update id="deleteNoticeList" parameterType="hashmap">
+        UPDATE STOCNOTC
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+          AND NOTICE_NUM = #{NOTICE_NUM}
+    </update>
+
+    <select id="selectNotice" resultType="hashmap">
+        SELECT NOTICE_NUM
+             , NOTICE_NUM AS NOTICE_NUM_ORI
+             , SUBJECT
+             , SUBJECT_OUT
+             , NOTICE_TYPE
+             , <include refid="com.sql.dbo"/>getGmtDate(START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})  AS START_DATE
+             , <include refid="com.sql.dbo"/>getGmtDate(END_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})  AS END_DATE
+             , USER_TYPE
+             , VIEW_CNT
+             , <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, REG_USER_ID,#{ses.langCd}) || ' / ' ||  <include refid="com.sql.dbo"/>getGmtDate(MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-mm-dd hh24:mi') AS REG_INFO
+             , ATT_FILE_NUM
+             , NOTICE_TEXT_NUM
+             , SCREEN_ID
+             , GATE_CD
+             ,  REG_USER_ID AS REG_USER_ID
+             , FIXED_TOP_FLAG
+        FROM STOCNOTC
+        WHERE GATE_CD = #{ses.gateCd}
+          AND NOTICE_NUM = #{noticeNo}
+          AND DEL_FLAG = '0'
+    </select>
+
+    <select id="checkNoticeList" parameterType="hashmap" resultType="java.lang.Integer">
+        SELECT COUNT(NOTICE_NUM)
+        FROM STOCNOTC
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = UPPER(<include refid="com.sql.trim"/>(#{NOTICE_NUM}))
+    </select>
+
+    <insert id="createNotice" parameterType="hashmap">
+        INSERT
+        INTO   STOCNOTC ( GATE_CD
+             , NOTICE_NUM
+             , SUBJECT
+             , SUBJECT_OUT
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , NOTICE_TYPE
+             , START_DATE
+             , END_DATE
+             , USER_TYPE
+             , VIEW_CNT
+             , ATT_FILE_NUM
+             , SCREEN_ID
+             , FIXED_TOP_FLAG
+             , NOTICE_TEXT_NUM)
+        VALUES  (
+               #{ses.gateCd}
+             , UPPER(<include refid="com.sql.trim"/>(#{NOTICE_NUM}))
+             , #{SUBJECT}
+             , #{SUBJECT_OUT}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{NOTICE_TYPE}
+             , <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , #{USER_TYPE}
+             , 0
+             , #{fileAttach}
+             , #{SCREEN_ID}
+             , #{FIXED_TOP_FLAG}
+             , #{NOTICE_TEXT_NUM})
+    </insert>
+
+    <update id="updateNotice" parameterType="hashmap">
+        UPDATE STOCNOTC
+        SET  MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,SUBJECT = #{SUBJECT}
+            ,SUBJECT_OUT = #{SUBJECT_OUT}
+            ,NOTICE_TYPE = #{NOTICE_TYPE}
+            ,USER_TYPE = #{USER_TYPE}
+            ,START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,END_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+            ,NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+            ,SCREEN_ID = #{SCREEN_ID}
+            ,ATT_FILE_NUM = #{fileAttach}
+            ,FIXED_TOP_FLAG = #{FIXED_TOP_FLAG}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   NOTICE_NUM = #{NOTICE_NUM}
+    </update>
+
+    <update id="updateNoticeView" parameterType="hashmap">
+        UPDATE STOCNOTC
+        SET  VIEW_CNT = VIEW_CNT + 1
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   NOTICE_NUM = #{noticeNo}
+    </update>
+
+    <update id="deleteNotice" parameterType="hashmap">
+        UPDATE STOCNOTC
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+          AND NOTICE_NUM = #{NOTICE_NUM}
+    </update>
+
+    <select id="checkTextNo" parameterType="hashmap" resultType="java.lang.Integer">
+        SELECT COUNT(TEXT_NUM)
+          FROM STOCTXTH <include refid="com.sql.noLock"/>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TEXT_NUM = UPPER(<include refid="com.sql.trim"/>(#{NOTICE_TEXT_NUM}))
+    </select>
+
+    <select id="getTextNo" parameterType="hashmap" resultType="java.lang.String">
+        SELECT 'TN' <include refid="com.sql.stringMerge"/> <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd'), 0, 6) <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>(MAX(<include refid="com.sql.subStr"/>(SUBSTR(TEXT_NUM,9,4)))+1,4,'0'),'0001')
+          FROM STOCTXTH <include refid="com.sql.noLock"/>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND <include refid="com.sql.subStr"/>(TEXT_NUM, 3, 6) = <include refid="com.sql.subStr"/>(<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd'), 0, 6)
+    </select>
+
+    <update id="resetTextNo" parameterType="hashMap">
+        UPDATE STOCNOTC
+           SET NOTICE_TEXT_NUM = null
+         WHERE GATE_CD = #{GATE_CD}
+          AND NOTICE_NUM = #{NOTICE_NUM}
+    </update>
+
+</mapper>

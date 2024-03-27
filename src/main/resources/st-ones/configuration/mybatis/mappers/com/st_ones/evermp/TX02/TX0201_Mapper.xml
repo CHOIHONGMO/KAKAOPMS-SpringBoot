@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.TX02.TX0201_Mapper">
+    <select id="tx02010_doSearch" parameterType="hashmap" resultType="hashMap">
+        SELECT
+          TX.COM_CODE
+          , <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(TX.GATE_CD, TX.COM_CODE, 'CUST_NM'),<include refid="com.sql.dbo"/>GETVENDORNAME(TX.GATE_CD, TX.COM_CODE, #{ses.langCd})) AS COMPANY_NM
+          ,TX.TX_SEQ
+          ,TX.TX_USER_NM
+          ,TX.TX_USER_DEPT_NM
+          ,TX.TX_USER_TEL_NO
+          ,TX.TX_USER_CELL_NO
+          ,TX.TX_USER_FAX_NO
+          ,TX.TX_USER_EMAIL
+          ,TX.TX_ASP_ID
+        FROM STOCCUTX TX
+        WHERE TX.GATE_CD  = #{ses.gateCd}
+          AND TX.DEL_FLAG = '0'
+    </select>
+
+    <select id="tx02020_doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT TTIH.TAX_NUM
+            , '' AS TAX_SEQ
+            , MAX(APAR.AP_TAX_NUM) AS AP_TAX_NUM
+            , MAX(APAR.AR_TAX_NUM) AS AR_TAX_NUM
+
+            , '0' AS SEL_CHK_YN
+
+            , CASE WHEN (MAX(TTIH.TRANS_YN) != '' AND MAX(TTIH.TRANS_YN) IS NOT NULL AND (MAX(TTIH.TRANS_YN) = 'Y' OR MAX(TTIH.TRANS_YN) = 'N')) THEN
+                    CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'A' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'B' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'F' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'E' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '5' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '0' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '3' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '1' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '2' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '4' THEN 'N'
+                    ELSE 'Y' END
+              ELSE
+                    CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'A' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'B' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'F' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'E' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '5' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '0' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '3' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '1' THEN 'Y'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '2' THEN 'N'
+                        WHEN MAX(E_BILL_ASP_STAT_TYPE) = '4' THEN 'N'
+                    ELSE 'N' END
+              END AS TAX_BILLSEQ_YN_BAK
+
+            , CASE  WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'NN' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'YY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DR' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'W' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'N'
+              ELSE 'N'
+              END AS TAX_BILLSEQ_YN
+
+            , MAX(TAX_EXD_ID) AS TAX_EXD_ID
+            , MAX(E_BILL_ASP_STAT_TYPE) AS BILL_STAT_TYPE
+            , MAX(E_BILL_ASP_STAT_DESC) AS BILL_STAT_DESC
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN '전송대기' --'미신고'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'A' THEN '접수대기'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'B' THEN '접수완료'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN '신고완료'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'F' THEN '신고실패'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'E' THEN '전송오류'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN '전송'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '5' THEN '미전송'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '0' THEN '미개봉'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '3' THEN '개봉'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '1' THEN '승인'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '2' THEN '반려'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '4' THEN '승인취소'
+              ELSE
+                   ''
+              END AS BILL_STAT_NM_BAK
+
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'NN' THEN '미승인'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'YY' THEN '승인'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DY' THEN '역발행취소'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DR' THEN '발행취소요청'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN '반려'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN '미전송'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'W' THEN '전송대기'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN '전송완료'
+              ELSE
+                   ''
+              END AS BILL_STAT_NM
+
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'A' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'B' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'F' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'E' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '5' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '0' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '3' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '1' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '2' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '4' THEN 'Y'
+              ELSE 'N'
+              END AS BILL_DEL_YN_BAK
+
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'NN' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'YY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DR' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'W' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'Y'
+              ELSE 'N'
+              END AS BILL_DEL_YN
+
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'A' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'B' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'F' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'E' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '5' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '0' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '3' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '1' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '2' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = '4' THEN 'Y'
+              ELSE 'N'
+              END AS BILL_RE_SEND_YN_BAK
+
+            , CASE WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'NN' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'YY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DY' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'DR' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'R' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'N' THEN 'N'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'W' THEN 'Y'
+                    WHEN MAX(E_BILL_ASP_STAT_TYPE) = 'Y' THEN 'N'
+              ELSE 'N'
+              END AS BILL_RE_SEND_YN
+
+            , MAX(TTIH.TRANS_YN) AS TRANS_YN
+            , CASE WHEN MAX(TTIH.TRANS_YN) = 'Y' THEN '전표생성'
+                   WHEN MAX(TTIH.TRANS_YN) = 'N' THEN '전표이관'
+                   WHEN MAX(TTIH.TRANS_YN) = 'C' THEN '전표취소'
+              ELSE
+                   ''
+              END AS TRANS_NM
+
+            , MAX(TTIH.SCOM_CODE) AS SCOM_CODE
+            , MAX(TTIH.SIRS_NUM) AS SIRS_NUM
+            , MAX(TTIH.SCOM_NM) AS SCOM_NM
+            , MAX(TTIH.SCEO_NM) AS SCEO_NM
+            , MAX(TTIH.SBUSINESS_TYPE) AS SBUSINESS_TYPE
+            , MAX(TTIH.SINDUSTRY_TYPE) AS SINDUSTRY_TYPE
+            , MAX(TTIH.SADDR1) AS SADDR1
+            , MAX(TTIH.SADDR2) AS SADDR2
+            , MAX(TTIH.SUSER_ID) AS SUSER_ID
+
+            , CASE WHEN MAX(TTIH.SUSER_ID_ASP) = '' OR MAX(TTIH.SUSER_ID_ASP) IS NULL THEN
+                   CASE WHEN MAX(TTIH.SALES_TYPE) = 'S' AND MAX(TTIH.E_BILL_ASP_TYPE) = '0' THEN 'ymro'
+                   ELSE ''
+                   END
+              ELSE MAX(TTIH.SUSER_ID_ASP)
+              END AS SUSER_ID_ASP
+
+            , MAX(TTIH.SSUB_IRS_NUM) AS SSUB_IRS_NUM
+
+
+            , MAX(TTIH.RCOM_CODE) AS RCOM_CODE
+            , MAX(TTIH.RIRS_NUM) AS RIRS_NUM
+            , MAX(TTIH.RCOM_NM) AS RCOM_NM
+            , MAX(TTIH.RCEO_NM) AS RCEO_NM
+            , MAX(TTIH.RBUSINESS_TYPE) AS RBUSINESS_TYPE
+            , MAX(TTIH.RINDUSTRY_TYPE) AS RINDUSTRY_TYPE
+            , MAX(TTIH.RADDR1) AS RADDR1
+            , MAX(TTIH.RADDR2) AS RADDR2
+            , MAX(TTIH.RUSER_ID) AS RUSER_ID
+
+            , CASE WHEN MAX(TTIH.RUSER_ID_ASP) = '' OR MAX(TTIH.RUSER_ID_ASP) IS NULL THEN
+                   CASE WHEN MAX(TTIH.SALES_TYPE) = 'P' AND MAX(TTIH.E_BILL_ASP_TYPE) = '0' THEN 'ymro'
+                   ELSE ''
+                   END
+              ELSE MAX(TTIH.RUSER_ID_ASP)
+              END AS RUSER_ID_ASP
+
+            , MAX(TTIH.RUSER_NM) AS RUSER_NM
+            , MAX(TTIH.RUSER_DEPT_NM) AS RUSER_DEPT_NM
+            , MAX(TTIH.RUSER_TEL_NO) AS RUSER_TEL_NO
+            , MAX(TTIH.RUSER_EMAIL) AS RUSER_EMAIL
+            , MAX(TTIH.RSUB_IRS_NUM) AS RSUB_IRS_NUM
+
+            , MAX(TTIH.SUP_AMT) AS SUP_AMT
+            , MAX(TTIH.TAX_AMT) AS TAX_AMT
+            , SUM(APAR.GR_ITEM_AMT) AS GR_ITEM_AMT
+            , MAX(TTIH.SALES_TYPE) AS SALES_TYPE
+            , <include refid="com.sql.dbo"/>GETCODENAME(TTIH.GATE_CD, 'MP074', MAX(TTIH.SALES_TYPE), #{ses.langCd}) AS SALES_TYPE_NM
+            , MAX(TTIH.RQ_RE_TYPE) AS RQ_RE_TYPE
+            , <include refid="com.sql.dbo"/>GETCODENAME(TTIH.GATE_CD, 'MP073', MAX(TTIH.RQ_RE_TYPE), #{ses.langCd}) AS RQ_RE_TYPE_NM
+
+            , CASE WHEN MAX(TTIH.TAX_SEND_TYPE) = '' AND MAX(TTIH.SALES_TYPE) = 'P' THEN '200' ELSE MAX(TTIH.TAX_SEND_TYPE) END AS TAX_SEND_TYPE
+            , <include refid="com.sql.dbo"/>GETCODENAME(TTIH.GATE_CD, 'MP064', CASE WHEN MAX(TTIH.TAX_SEND_TYPE) = '' AND MAX(TTIH.SALES_TYPE) = 'P' THEN '200' ELSE MAX(TTIH.TAX_SEND_TYPE) END, #{ses.langCd}) AS TAX_SEND_TYPE_NM
+
+            , MAX(TTIH.VAT_CD) AS VAT_CD
+            , <include refid="com.sql.dbo"/>GETCODENAME(TTIH.GATE_CD, 'M036', MAX(TTIH.VAT_CD), #{ses.langCd}) AS VAT_NM
+            , MAX(TTIH.ISSUE_DATE) AS ISSUE_DATE
+            , MAX(TTIH.REMAKR) AS REMAKR
+            , MAX(TTIH.E_BILL_ASP_TYPE) AS E_BILL_ASP_TYPE
+            , <include refid="com.sql.dbo"/>GETCODENAME(TTIH.GATE_CD, 'MP075', MAX(TTIH.E_BILL_ASP_TYPE), #{ses.langCd}) AS E_BILL_ASP_TYPE_NM
+
+            , MAX(TTIH.TAX_BILLSEQ) AS TAX_BILLSEQ
+            , MAX(TTIH.TAX_ASP_NM) AS TAX_ASP_NM
+            , MAX(TTIH.TAX_ASP_BILLSEQ) AS TAX_ASP_BILLSEQ
+
+            , '' AS CSTCO
+            , MAX(TTIH.PAYMENT_YN) AS PAYMENT_YN
+            , <include refid="com.sql.toDateChar"/>(MAX(TTIH.PAYMENT_DATE), 'YYYYMMDD') AS PAYMENT_DATE
+			<if test="_databaseId == 'mssql'">
+            , CASE WHEN MAX(TTIH.SUBJECT_ITEM_NM) IS NOT NULL THEN MAX(TTIH.SUBJECT_ITEM_NM)
+                ELSE CASE WHEN COUNT(TTID.TAX_NUM) = 1 THEN MAX(TTID.ITEM_DESC) ELSE MAX(TTID.ITEM_DESC) <include refid="com.sql.stringMerge"/> ' 외 ' <include refid="com.sql.stringMerge"/> CONVERT(VARCHAR, COUNT(TTID.TAX_NUM) - 1) <include refid="com.sql.stringMerge"/> '건' END
+                END AS SUBJECT_ITEM_NM
+			</if>
+			<if test="_databaseId == 'oracle'">
+            , CASE WHEN MAX(TTIH.SUBJECT_ITEM_NM) IS NOT NULL THEN MAX(TTIH.SUBJECT_ITEM_NM)
+                ELSE CASE WHEN COUNT(TTID.TAX_NUM) = 1 THEN MAX(TTID.ITEM_DESC) ELSE MAX(TTID.ITEM_DESC) <include refid="com.sql.stringMerge"/> ' 외 ' <include refid="com.sql.stringMerge"/> TO_CHAR(COUNT(TTID.TAX_NUM) - 1) <include refid="com.sql.stringMerge"/> '건' END
+                END AS SUBJECT_ITEM_NM
+			</if>
+			<if test="_databaseId == 'mssql'">
+            , MAX(APAR.CPO_NO) <include refid="com.sql.stringMerge"/> CAST(MAX(APAR.CPO_SEQ) AS NVARCHAR(20)) AS CPO_NO_SEQ --주문키
+			, MAX(APAR.GR_NO) <include refid="com.sql.stringMerge"/> CAST(MAX(APAR.GR_SEQ) AS NVARCHAR(20)) AS GR_NO_SEQ
+			</if>
+			<if test="_databaseId == 'oracle'">
+            , MAX(APAR.CPO_NO) <include refid="com.sql.stringMerge"/> TO_CHAR(MAX(APAR.CPO_SEQ)) AS CPO_NO_SEQ --주문키
+			, MAX(APAR.GR_NO) <include refid="com.sql.stringMerge"/> TO_CHAR(MAX(APAR.GR_SEQ)) AS GR_NO_SEQ
+			</if>
+            , MAX(TTIH.ACCOUNT_CHECK_YN) AS ACCOUNT_CHECK_YN
+            , MAX(TTIH.CLOSING_NO) AS CLOSING_NO
+            , MAX(TTIH.CLOSING_SEQ) AS CLOSING_SEQ
+            , MAX(TTIH.TAX_ISSUE_ID) AS TAX_ISSUE_ID
+
+            , MAX(TTIH.SLIP_NM) AS SLIP_NM
+            , MAX(TTIH.SLIP_NM_H) AS SLIP_NM_H
+
+			,(SELECT CASE WHEN COUNT(*) = 0 THEN 'N' ELSE 'Y' END FROM STOCSLHD WHERE MGRNO = TTIH.TAX_NUM AND STATUS = 'S') SLHD_YN
+
+
+            , MAX(TTIH.EXEC_REQS_YMD) AS EXEC_REQS_YMD
+            , MAX(TTIH.WW050) AS WW050
+
+
+            , <include refid="com.sql.nvl"/>(MAX(TTIH.SUSER_NM)      , MAX(CVUR.USER_NM)   )      AS SUSER_NM
+            , <include refid="com.sql.nvl"/>(MAX(TTIH.SUSER_DEPT_NM) , MAX(CVUR.DEPT_NM)   )      AS SUSER_DEPT_NM
+            , <include refid="com.sql.nvl"/>(MAX(TTIH.SUSER_TEL_NO)  , MAX(CVUR.TEL_NUM)   )       AS SUSER_TEL_NO
+            , <include refid="com.sql.nvl"/>(MAX(TTIH.SUSER_EMAIL)   , MAX(CVUR.EMAIL)   )        AS SUSER_EMAIL
+            ,MAX(APAR.REG_USER_ID) AS AM_USER_ID
+            ,MAX(<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, APAR.REG_USER_ID, #{ses.langCd})) AS AM_USER_NM
+
+        FROM STOCTTIH TTIH
+        JOIN STOCTTID TTID
+            ON  TTIH.GATE_CD = TTID.GATE_CD
+            AND TTIH.TAX_NUM = TTID.TAX_NUM
+            AND TTID.DEL_FLAG = '0'
+        JOIN STOCAPAR APAR
+            ON  APAR.GATE_CD = TTID.GATE_CD
+            AND APAR.CLOSING_NO = TTID.CLOSING_NO
+            AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+            AND APAR.DEL_FLAG = '0'
+		LEFT OUTER JOIN STOCCVUR CVUR
+		    ON CVUR.GATE_CD     = TTIH.GATE_CD
+		    AND CVUR.COMPANY_CD = TTIH.SCOM_CODE
+		    AND CVUR.MNG_YN = '1'
+
+        WHERE TTIH.GATE_CD  = #{ses.gateCd}
+
+		<if test="ses.userType == 'S'.toString()">
+			AND TTIH.SCOM_CODE = #{ses.companyCd}
+		</if>
+
+
+
+        AND TTIH.DEL_FLAG = '0'
+        AND TTIH.SALES_TYPE = 'P'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND UPOHD.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.dbo"/>getCustName(UPOHD.GATE_CD, UPOHD.CUST_CD) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+
+
+
+
+        <if test="DEPT_CD != '' and DEPT_CD != null">
+            AND UPOHD.CPO_USER_DEPT_CD <include refid="com.sql.likeL"/> #{CPO_USER_DEPT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND CVUR.DEPT_NM <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CPO_USER_ID != '' and CPO_USER_ID != null">
+            AND UPOHD.CPO_USER_ID <include refid="com.sql.likeL"/> #{CPO_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CPO_USER_NM != '' and CPO_USER_NM != null">
+            AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CLOSE_YEAR != '' and CLOSE_YEAR != null">
+            AND <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) = #{CLOSE_YEAR}
+        </if>
+        <if test="CLOSE_MONTH != '' and CLOSE_MONTH != null">
+            AND <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) = #{CLOSE_MONTH}
+        </if>
+        <if test="DOC_NUM != '' and DOC_NUM != null">
+            <choose>
+                <when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((UPODT.CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((UPODT.CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO NOT IN ${DOC_NUM} AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) NOT IN ${DOC_NUM}) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (UPODT.CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (UPODT.CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO IN ${DOC_NUM} OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IN ${DOC_NUM})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND ((UPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) IS NULL)
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND ((UPODT.CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> AND UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>) OR UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) IS NULL)
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND (UPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR UPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>CAST(UPODT.IF_CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R})
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND (UPODT.CPO_NO <include refid="com.sql.likeL"/> #{CPO_NO} <include refid="com.sql.likeR"/> OR UPODT.IF_CPO_NO <include refid="com.sql.likeL"/> #{IF_CPO_NO} <include refid="com.sql.likeR"/> OR ${DOC_NUM_ORG_L} UPODT.IF_CPO_NO<include refid="com.sql.stringMerge"/>'-'<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.IF_CPO_SEQ) ${DOC_NUM_ORG_R})
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+				<when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'CPO_NO_SEQ'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) NOT IN ${DOC_NUM}
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) IN ${DOC_NUM}
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND ${DOC_NUM_ORG_L} UPODT.CPO_NO<include refid="com.sql.stringMerge"/>CAST(UPODT.CPO_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND UPODT.CPO_NO<include refid="com.sql.stringMerge"/>TO_CHAR(UPODT.CPO_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+                <when test="DOC_NUM_COMBO != '' and DOC_NUM_COMBO != null and DOC_NUM_COMBO eq 'GR_NO_SEQ'.toString()">
+					<if test="DOC_CNT == 1">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND APAR.GR_NO<include refid="com.sql.stringMerge"/>CAST(APAR.GR_SEQ AS NVARCHAR(20)) NOT IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND APAR.GR_NO<include refid="com.sql.stringMerge"/>TO_CHAR(APAR.GR_SEQ) NOT IN ${DOC_NUM}
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND APAR.GR_NO<include refid="com.sql.stringMerge"/>CAST(APAR.GR_SEQ AS NVARCHAR(20)) IN ${DOC_NUM}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND APAR.GR_NO<include refid="com.sql.stringMerge"/>TO_CHAR(APAR.GR_SEQ) IN ${DOC_NUM}
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+					<if test="DOC_CNT == 0">
+					    <choose>
+				            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+								<if test="_databaseId == 'mssql'">
+			                    AND APAR.GR_NO<include refid="com.sql.stringMerge"/>CAST(APAR.GR_SEQ AS NVARCHAR(20)) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="_databaseId == 'oracle'">
+			                    AND APAR.GR_NO<include refid="com.sql.stringMerge"/>TO_CHAR(APAR.GR_SEQ) NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </when>
+                            <otherwise>
+								<if test="_databaseId == 'mssql'">
+                                AND ${DOC_NUM_ORG_L} APAR.GR_NO<include refid="com.sql.stringMerge"/>CAST(APAR.GR_SEQ AS NVARCHAR(20)) ${DOC_NUM_ORG_R}
+								</if>
+								<if test="_databaseId == 'oracle'">
+                                AND APAR.GR_NO<include refid="com.sql.stringMerge"/>TO_CHAR(APAR.GR_SEQ) <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/>
+								</if>
+                            </otherwise>
+                        </choose>
+					</if>
+				</when>
+                <otherwise>
+                    <if test="DOC_CNT == 1">
+                        <choose>
+                            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+                                AND (UPODT.REF_MNG_NO NOT IN ${DOC_NUM} OR UPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UPODT.REF_MNG_NO IN ${DOC_NUM}
+                            </otherwise>
+                        </choose>
+                    </if>
+                    <if test="DOC_CNT == 0">
+                        <choose>
+                            <when test="EXCLUDE != '' and EXCLUDE != null and EXCLUDE eq '1'.toString()">
+                                AND (UPODT.REF_MNG_NO NOT <include refid="com.sql.likeL"/> #{DOC_NUM_ORG} <include refid="com.sql.likeR"/> OR UPODT.REF_MNG_NO IS NULL)
+                            </when>
+                            <otherwise>
+                                AND UPODT.REF_MNG_NO <include refid="com.sql.likeL"/> #{REF_MNG_NO} <include refid="com.sql.likeR"/>
+                            </otherwise>
+                        </choose>
+                    </if>
+                </otherwise>
+            </choose>
+        </if>
+        <if test="ITEM_CD != '' and ITEM_CD != null">
+            <if test="ITEM_CNT == 1">
+                AND (UPODT.ITEM_CD IN ${ITEM_CD} OR UPODT.CUST_ITEM_CD IN ${ITEM_CD})
+            </if>
+            <if test="ITEM_CNT == 0">
+                AND (UPODT.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/> OR UPODT.CUST_ITEM_CD <include refid="com.sql.likeL"/> #{CUST_ITEM_CD} <include refid="com.sql.likeR"/>)
+            </if>
+        </if>
+        <if test="TAX_SEND_TYPE != '' and TAX_SEND_TYPE != null">
+            AND TTIH.TAX_SEND_TYPE = #{TAX_SEND_TYPE}
+        </if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+            AND (${ITEM_DESC_01} OR  ${ITEM_DESC_02})
+        </if>
+        <if test="AM_USER_ID != '' and AM_USER_ID != null">
+            AND APAR.REG_USER_ID = #{AM_USER_ID}
+        </if>
+        <if test="MAKER_CD != '' and MAKER_CD != null">
+            AND ${MAKER_CD_01}
+        </if>
+        <if test="MAKER_NM != '' and MAKER_NM != null">
+            AND ${MAKER_NM_01}
+        </if>
+        <if test="ACCOUNT_CD != '' and ACCOUNT_CD != null">
+            AND UPODT.ACCOUNT_CD <include refid="com.sql.likeL"/> #{ACCOUNT_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACCOUNT_NM != '' and ACCOUNT_NM != null">
+            AND CUAC.ACCOUNT_NM <include refid="com.sql.likeL"/> #{ACCOUNT_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BILL_STAT_TYPE_CD != '' and BILL_STAT_TYPE_CD != null">
+            <if test='BILL_STAT_TYPE_CD != "" and BILL_STAT_TYPE_CD != null and BILL_STAT_TYPE_CD == "-"'>
+                AND <include refid="com.sql.nvl"/>(TTIH.E_BILL_ASP_STAT_TYPE, '') IN ('', 'DY', 'DR', 'R')
+                AND TTIH.E_BILL_ASP_TYPE = '0'
+            </if>
+            <if test='BILL_STAT_TYPE_CD != "" and BILL_STAT_TYPE_CD != null and BILL_STAT_TYPE_CD != "-"'>
+                AND TTIH.E_BILL_ASP_STAT_TYPE = #{BILL_STAT_TYPE_CD}
+            </if>
+            AND TTIH.TRANS_YN NOT IN ('Y', 'N')
+        </if>
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND TTIH.SCOM_CODE <include refid="com.sql.likeL"/> #{SCOM_CODE} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND TTIH.SCOM_NM <include refid="com.sql.likeL"/> #{SCOM_NM} <include refid="com.sql.likeR"/>
+        </if>
+        GROUP BY TTIH.GATE_CD, TTIH.TAX_NUM
+        ORDER BY TTIH.TAX_NUM DESC
+    </select>
+
+    <select id="tx02020_doSearchTTID" parameterType="hashMap" resultType="hashMap">
+        SELECT APAR.AR_TAX_NUM AS TAX_NUM
+            , TTID.TAX_SEQ
+            , APAR.AP_TAX_NUM
+            , TTIH.SALES_TYPE
+            , CASE WHEN TTIH.TRANS_YN = 'Y' OR TRANS_YN = 'N' OR E_BILL_ASP_STAT_TYPE NOT IN ('', 'E', '5', '0', '2', '4')
+                   THEN 'N'
+              ELSE 'Y' END AS TAX_EDIT_YN
+            , APAR.VENDOR_CD
+            , <include refid="com.sql.dbo"/>GETVENDORNAME(APAR.GATE_CD, APAR.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+            , APAR.CUST_CD
+            , <include refid="com.sql.dbo"/>getCustName(APAR.GATE_CD, APAR.CUST_CD) AS CUST_NM
+            , APAR.ITEM_CD
+            , APAR.CUST_ITEM_CD
+            , APAR.ITEM_DESC
+            , APAR.ITEM_SPEC
+            , TTID.UNIT_AMT
+            , TTID.QTY
+            , TTID.SUP_AMT
+            , TTID.TAX_AMT
+            , TTID.TAX_AMT AS ORG_TAX_AMT
+            , TTID.SUP_AMT + TTID.TAX_AMT AS TOT_AMT
+            , <include refid="com.sql.toDateChar"/>(TTID.ITEM_TRADE_DATE, 'YYYY-MM-DD') AS ITEM_TRADE_DATE
+            , TTID.REMARK
+            , TTID.CLOSING_NO
+            , TTID.CLOSING_SEQ
+        FROM STOCTTIH TTIH
+        JOIN STOCTTID TTID
+            ON  TTIH.GATE_CD = TTID.GATE_CD
+            AND TTIH.TAX_NUM = TTID.TAX_NUM
+            AND TTID.DEL_FLAG = '0'
+        JOIN STOCAPAR APAR
+            ON  APAR.GATE_CD = TTID.GATE_CD
+            AND APAR.CLOSING_NO = TTID.CLOSING_NO
+            AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+            AND APAR.DEL_FLAG = '0'
+        WHERE TTIH.GATE_CD  = #{ses.gateCd}
+          AND TTIH.DEL_FLAG = '0'
+          AND TTID.TAX_NUM = #{TAX_NUM}
+        ORDER BY TTIH.TAX_NUM, TTID.TAX_SEQ
+    </select>
+
+    <update id="tx02020_doUpdateTTID" parameterType="hashMap">
+        UPDATE STOCTTID SET
+            TAX_AMT = ${TAX_AMT}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND TAX_NUM = #{TAX_NUM}
+        AND TAX_SEQ = #{TAX_SEQ}
+    </update>
+
+    <update id="tx02020_doUpdateTTID_TTIH" parameterType="hashMap">
+        UPDATE STOCTTIH SET
+            TAX_AMT = TAX_AMT + ${TAX_AMT} - ${ORG_TAX_AMT}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND TAX_NUM = #{TAX_NUM}
+    </update>
+
+    <update id="tx02020_doSaveTTIH" parameterType="hashMap">
+        UPDATE STOCTTIH SET
+            SUSER_ID_ASP = #{SUSER_ID_ASP}
+            , SUSER_NM = #{SUSER_NM}
+            , SUSER_DEPT_NM = #{SUSER_DEPT_NM}
+            , SUSER_TEL_NO = #{SUSER_TEL_NO}
+            , SUSER_EMAIL = #{SUSER_EMAIL}
+
+            , RUSER_ID_ASP = #{RUSER_ID_ASP}
+            , RUSER_NM = #{RUSER_NM}
+            , RUSER_DEPT_NM = #{RUSER_DEPT_NM}
+            , RUSER_TEL_NO = #{RUSER_TEL_NO}
+            , RUSER_EMAIL = #{RUSER_EMAIL}
+
+            , TAX_SEND_TYPE = #{TAX_SEND_TYPE}
+            , ISSUE_DATE = #{ISSUE_DATE}
+            , TAX_AMT = ${TAX_AMT}
+            , REMAKR = #{REMAKR}
+            , E_BILL_ASP_TYPE = #{E_BILL_ASP_TYPE}
+            , TAX_ASP_NM = #{TAX_ASP_NM}
+
+            , E_BILL_ASP_STAT_TYPE = CASE WHEN #{E_BILL_ASP_TYPE} = '1' THEN '' ELSE CASE WHEN #{SAVE_YN} = 'Y' THEN '' ELSE 'N' END END
+            , SUBJECT_ITEM_NM = #{SUBJECT_ITEM_NM}
+
+			, SLIP_NM   = #{SLIP_NM}
+			, SLIP_NM_H = #{SLIP_NM_H}
+			, VAT_CD = #{VAT_CD}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+
+            ,TAX_ASP_BILLSEQ = #{TAX_ASP_BILLSEQ}
+
+            ,EXEC_REQS_YMD   = #{EXEC_REQS_YMD}
+            ,WW050           = #{WW050}
+			,RQ_RE_TYPE = #{RQ_RE_TYPE}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND TAX_NUM = #{TAX_NUM}
+    </update>
+
+        <update id="tx02020_doTaxCancelAPAR" parameterType="hashMap">
+        UPDATE STOCAPAR SET
+            AR_TAX_NUM = ''
+            , AR_TAX_SEQ = NULL
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND AR_TAX_NUM = #{TAX_NUM}
+    </update>
+
+    <update id="tx02020_doTaxCancelTTIH_AR" parameterType="hashMap">
+        UPDATE STOCTTIH SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND TAX_NUM = #{TAX_NUM}
+    </update>
+
+    <update id="tx02020_doTaxCancelTTID_AR" parameterType="hashMap">
+    UPDATE STOCTTID SET
+        DEL_FLAG = '1'
+        , MOD_DATE = <include refid="com.sql.sysdate"/>
+        , MOD_USER_ID = #{ses.userId}
+    WHERE GATE_CD = #{ses.gateCd}
+    AND TAX_NUM = #{TAX_NUM}
+    </update>
+
+    <update id="tx02020_doSavePaymentTTIH" parameterType="hashMap">
+        UPDATE STOCTTIH SET
+            PAYMENT_YN = #{PAYMENT_YN}
+            , PAYMENT_DATE = #{PAYMENT_DATE}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND TAX_NUM = #{TAX_NUM}
+    </update>
+
+    <select id="tx02030_doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT TTIH.TAX_NUM  MGRNO                             --ISN전송번호
+			, MAX(APAR.PLANT_CD) AGENT_CODE                        --AGENT_CODE
+			, <include refid="com.sql.dbo"/>GETPLANTNAME(#{ses.gateCd}, MAX(TTIH.RCOM_CODE)  , MAX(APAR.PLANT_CD) ,#{ses.langCd}) AGENT_NAME                        --사업장명
+			, MAX(TTIH.ISSUE_DATE)  RECIEPT_DATE                             --전기일
+			, MAX(TTIH.SUP_AMT)  PRICE_TOTAL                       --공급가액
+			, MAX(TTIH.SLIP_NM)  SLIP_NM                           --적요명
+			, MAX(TTIH.SLIP_NM_H)  SLIP_NM_H                         --전표제목
+			, MAX(TTIH.SUSER_EMAIL)  CUST_EMAIL_ADDR                   --거래처담당자 EMAIL
+			, MAX(TTIH.SUSER_TEL_NO)  CUST_TEL_NO                       --거래처담당자 전화번호
+			, '매입'  TYPE_NM                           --유형
+			, MAX(<include refid="com.sql.nvl"/>(SLHD.ISN_SLIP_YN,'N'))  ISN_SLIP_YN                       --ISN전표생성여부
+			, DECODE(<include refid="com.sql.nvl"/>(MAX(SLHD.ISN_SLIP_YN),'N'),'Y' ,'생성','미생성')  ISN_SLIP_YN_NM                    --ISN전표생성여부
+			, <include refid="com.sql.nvl"/>(MAX(SLHD.BELNR), '' )  SAP_NO                            --DGNS전표번호
+			, <include refid="com.sql.nvl"/>(MAX(SLHD.FISCAL_YEAR),'')  SAP_YEAR                          --DGNS회계년도
+			, <include refid="com.sql.nvl"/>(MAX(SLHD.MSGTY), '')  MSGTY                             --DGNS처리결과
+			, DECODE(<include refid="com.sql.nvl"/>(MAX(SLHD.MSGTY), ''), 'S', '성공', 'E', '실패', '')  MSGTY_NM                          --DGNS처리결과
+			, MAX(TTIH.CLOSING_NO)  AP_NO                             --매입 확정 번호
+			, MAX(APAR.PO_NO)  PO_NO                          --주문번호
+			, MAX(TTIH.TAX_AMT)  VAT_AMT                          --부가세금액
+			, MAX(TTIH.SUP_AMT)+MAX(TTIH.TAX_AMT)  TAX_TOTAL      --합계금액
+			, null  SAP_SEND_STATUS                   --SAP_SEND_STATUS
+			, null  SAP_SEND_STATUS_NAME              --DGNS전송상태
+			, MAX(SLHD.ADD_USER_ID)  ADD_USER_ID                       --ADD_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME('100', MAX(SLHD.ADD_USER_ID), #{ses.langCd})  ADD_USER_NAME                     --전표작성자
+			, null  EMPLOYEE_NO                       --전표작성자사번
+			, <include refid="com.sql.nvl"/>(MAX(SLHD.MESSAGE), '')  MESSAGE                           --SAP MESSAGE
+			, MAX(APAR.CLOSE_DATE)  AR_DT            --마감일
+			, MAX(TTIH.SIRS_NUM)    AGENT_IRS_NO                      --사업자등록번호
+			, MAX(DECODE(SLHD.HDSEQ,NULL,'0001',SLHD.HDSEQ))  HDSEQ                             --전표헤더 순번
+			, MAX(SLHD.STATUS)   STATUS                            --상태
+			, MAX(SLHD.DOCSEQ)   DOCSEQ                            --DOCSEQ
+			, MAX(SLHD.DOCSTAT)  DOCSTAT                           --DOCSTAT
+
+			, MAX(TTIH.SCOM_CODE)     VENDOR_CODE
+			, MAX(TTIH.SCOM_NM)  VENDOR_NAME
+			, MAX(TTIH.RCOM_CODE)  CUST_ID
+			, MAX(TTIH.RCOM_NM)  CUST_NM
+			, TTIH.TAX_NUM  RECIEPT_NO
+
+			, null  BANK_ACCOUNT_NO                   --BANK_ACCOUNT_NO(안씀)
+			, null  BANK_CODE                         --BANK_CODE(안씀)
+			, MAX(WW050) WW050
+			, MAX(VAT_CD) TAX_TYPE
+			, MAX(TTIH.DEL_FLAG) DEL_FLAG
+			, MAX(TAX_ASP_BILLSEQ) TAX_ASP_BILLSEQ
+
+			, MAX(EXEC_REQS_YMD) EXEC_REQS_YMD
+			, MAX(APAR.REG_USER_ID) AS AM_USER_ID
+			, MAX(<include refid="com.sql.dbo"/>GETUSERNAME(TTIH.GATE_CD,APAR.REG_USER_ID,#{ses.langCd})) AS AM_USER_NM
+
+		FROM STOCTTIH TTIH
+        JOIN STOCTTID TTID
+            ON (TTIH.GATE_CD = TTID.GATE_CD
+           AND TTIH.CLOSING_NO = TTID.CLOSING_NO
+             AND TTIH.TAX_NUM = TTID.TAX_NUM
+             --AND TTID.DEL_FLAG = '0'
+                )
+        JOIN STOCAPAR APAR
+            ON (APAR.GATE_CD = TTID.GATE_CD
+            AND APAR.CLOSING_NO = TTID.CLOSING_NO
+            AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+             AND APAR.DEL_FLAG = '0'
+                )
+        LEFT OUTER JOIN STOCUSER CUSER
+            ON (CUSER.GATE_CD = APAR.GATE_CD
+            AND CUSER.USER_ID = APAR.REG_USER_ID
+            AND CUSER.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCVNGL VNGL
+            ON (TTIH.GATE_CD = VNGL.GATE_CD
+            AND TTIH.SCOM_CODE = VNGL.VENDOR_CD
+            AND VNGL.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCSLHD SLHD
+			ON SLHD.AP_NO = TTIH.CLOSING_NO
+			AND SLHD.MGRNO = TTIH.TAX_NUM
+			AND SLHD.ORDER_NO = APAR.PO_NO
+
+        WHERE TTIH.GATE_CD = #{ses.gateCd}
+        AND TTIH.SALES_TYPE = 'P'
+
+        AND  TTIH.SLIP_NM IS NOT NULL
+
+        AND CASE WHEN SLHD.STATUS = 'S' AND TTIH.DEL_FLAG='1' THEN 'Y'
+                 WHEN TTIH.DEL_FLAG = '0' THEN 'Y'
+		    ELSE 'N' END = 'Y'
+
+
+
+
+
+        <if test="CLOSE_YEAR != '' and CLOSE_YEAR != null">
+            AND <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 1, 4) = #{CLOSE_YEAR}
+            AND <include refid="com.sql.subStr"/>(TTIH.ISSUE_DATE, 1, 4) = #{CLOSE_YEAR}
+        </if>
+        <if test="CLOSE_MONTH != '' and CLOSE_MONTH != null">
+            AND <include refid="com.sql.subStr"/>(APAR.CLOSING_YEAR_MONTH, 5, 2) = #{CLOSE_MONTH}
+            AND <include refid="com.sql.subStr"/>(TTIH.ISSUE_DATE, 5, 2) = #{CLOSE_MONTH}
+        </if>
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND VNGL.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="AM_USER_ID != '' and AM_USER_ID != null">
+            AND APAR.REG_USER_ID = #{AM_USER_ID}
+        </if>
+        GROUP BY TTIH.GATE_CD, TTIH.TAX_NUM, TTIH.RIRS_NUM
+        ORDER BY TTIH.RIRS_NUM, TTIH.TAX_NUM ASC
+	</select>
+
+    <select id="getInvoiceDelayItemList" resultType="hashMap" parameterType="hashMap">
+        SELECT DISTINCT
+              VNUR.USER_ID AS VENDOR_USER_ID
+            , VNUR.USER_NM AS VENDOR_USER_NM
+            , VNUR.EMAIL   AS VENDOR_USER_EMAIL
+            , VNUR.TEL_NUM AS VENDOR_TEL_NUM
+        FROM STOCCVUR VNUR
+        WHERE VNUR.GATE_CD  = '100'
+          AND VNUR.DEL_FLAG = '0'
+          AND VNUR.COMPANY_CD = #{VENDOR_CD}
+    </select>
+</mapper>

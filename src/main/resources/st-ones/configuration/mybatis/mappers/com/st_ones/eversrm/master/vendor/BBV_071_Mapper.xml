@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.vendor.BBV_071_Mapper">
+
+	<select id="doSearchOfficialDocList" resultType="hashMap">
+
+		SELECT
+			  CD.VENDOR_CD
+			 ,VN.VENDOR_NM
+			 ,CH.SUBJECT
+			 ,CH.SIGN_STATUS
+			 ,CD.PROGRESS_CD
+			 ,<include refid="com.sql.dbo"/>GETGMTDATE(CD.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYY/MM/DD HH24:MI') as SIGN_DATE_TEXT
+			 ,<include refid="com.sql.dbo"/>GETGMTDATE(CH.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) as REG_DATE
+			 ,US.USER_NM     as REG_USER_NM
+			 ,CH.DOC_NUM
+			 ,CH.REG_USER_ID
+		  FROM STOCOFCH CH
+		  JOIN STOCOFCD CD
+		    ON (CD.GATE_CD  = CH.GATE_CD
+		    AND CD.DOC_NUM  = CH.DOC_NUM
+		    AND CD.DEL_FLAG = '0')
+		  JOIN STOCVNGL VN
+		    ON (VN.GATE_CD   = CD.GATE_CD
+		    AND VN.VENDOR_CD = CD.VENDOR_CD)
+		  JOIN STOCUSER US
+		    ON (US.GATE_CD   = CH.GATE_CD
+		    AND US.USER_ID   = CH.REG_USER_ID)
+		 WHERE CH.GATE_CD  = #{ses.gateCd}
+		   AND CH.DEL_FLAG = '0'
+		<if test="REG_DATE_FROM != '' and REG_DATE_FROM != null">
+			<if test="REG_DATE_TO !='' and REG_DATE_TO != null">
+				AND CH.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}<include refid="com.sql.dateTo"/> AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}<include refid="com.sql.dateTo"/>
+			</if>
+		</if>
+		<if test="DOC_TYPE != '' and DOC_TYPE != null">
+			AND CH.DOC_TYPE = #{DOC_TYPE}
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND CD.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND VN.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="SUBJECT != '' and SUBJECT != null">
+			AND CH.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+
+		ORDER BY CH.REG_DATE DESC, VN.VENDOR_NM
+	</select>
+
+    <update id="doDeleteOfficialDocDetail">
+
+		UPDATE STOCOFCD
+           SET DEL_FLAG         = '1'
+              ,MOD_DATE         = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID      = #{ses.userId}
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND DOC_NUM   = #{DOC_NUM}
+		   AND VENDOR_CD = #{VENDOR_CD}
+
+    </update>
+
+</mapper>

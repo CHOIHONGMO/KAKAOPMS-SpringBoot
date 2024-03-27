@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.regEval.eval.SRM_510_Mapper">
+
+<select id="doSearch" resultType="hashmap" parameterType="hashmap">
+	SELECT A.* FROM (
+		SELECT 	 EM.EV_NUM
+				,EM.EV_NM
+				,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M197',EM.PURCHASE_TYPE,#{ses.langCd}) AS PURCHASE_TYPE
+				,EM.EV_TYPE AS EV_TYPE_CD
+				,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M212',EM.EV_TYPE,#{ses.langCd}) AS EV_TYPE
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+				,ES.EV_SCORE
+				,ES.EVAL_GRADE_CLS
+				,<include refid="com.sql.toDateChar"/>(EM.REG_DATE, 'yyyyMMdd') AS REG_DATE
+				,<include refid="com.sql.toDateChar"/>(EM.START_DATE, 'yyyyMMdd') AS START_DATE
+				,<include refid="com.sql.toDateChar"/>(EM.CLOSE_DATE, 'yyyyMMdd') AS CLOSE_DATE
+		FROM	STOCEVEM EM
+		LEFT OUTER JOIN STOCEVES ES ON (
+				EM.GATE_CD = ES.GATE_CD
+		AND		EM.EV_NUM = ES.EV_NUM)
+		WHERE	EM.GATE_CD = #{ses.gateCd}
+		AND		EM.DEL_FLAG = '0'
+		AND		ES.VENDOR_CD = #{ses.companyCd}
+		AND		EM.PROGRESS_CD = '300'
+		<if test="REG_DATE_FROM != '' and REG_DATE_FROM != null and REG_DATE_TO != '' and REG_DATE_TO != null">
+			AND EM.REG_DATE  BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		</if>	
+		<if test="EV_TYPE != '' and EV_TYPE != null">
+			AND EM.EV_TYPE = #{EV_TYPE}
+		</if>
+	) A
+	WHERE A.EV_TYPE_CD != 'RFX' <!-- 입찰평가표는 조회하지 않음 -->
+	ORDER BY A.EV_NUM DESC
+</select>
+
+
+
+</mapper>

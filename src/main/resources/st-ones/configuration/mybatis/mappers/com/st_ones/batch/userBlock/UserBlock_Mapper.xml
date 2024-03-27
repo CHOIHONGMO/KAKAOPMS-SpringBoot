@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.userBlock.UserBlock_Mapper">
+
+    <select id="doSelectBlockList" resultType="hashMap">
+
+        SELECT
+        	A.USER_ID, A.USER_TYPE
+          FROM (
+        	SELECT
+            	 USER_ID
+                ,'U' AS USER_TYPE
+              FROM STOCUSER
+             WHERE GATE_CD = #{ses.gateCd}
+            <if test="_databaseId == 'mssql'">
+               AND (CASE WHEN DATEADD(Year, 1, <include refid="com.sql.nvl"/>(LAST_LOGIN_DATE, <include refid="com.sql.sysdate"/>)) <![CDATA[<]]> <include refid="com.sql.sysdate"/> THEN '1' ELSE '0' END) = '1'
+            </if>
+			<if test="_databaseId == 'oracle'">
+               AND (CASE WHEN ADD_MONTHS(<include refid="com.sql.nvl"/>(LAST_LOGIN_DATE, <include refid="com.sql.sysdate"/>), 12) <![CDATA[<]]> <include refid="com.sql.sysdate"/> THEN '1' ELSE '0' END) = '1'
+			</if>
+
+        	UNION ALL
+
+            SELECT
+            	 USER_ID
+                ,'C' AS USER_TYPE
+              FROM STOCCVUR
+             WHERE GATE_CD = #{ses.gateCd}
+			<if test="_databaseId == 'mssql'">
+               AND (CASE WHEN DATEADD(Year, 1, <include refid="com.sql.nvl"/>(LAST_LOGIN_DATE, <include refid="com.sql.sysdate"/>)) <![CDATA[<]]> <include refid="com.sql.sysdate"/> THEN '1' ELSE '0' END) = '1'
+            </if>
+			<if test="_databaseId == 'oracle'">
+               AND (CASE WHEN ADD_MONTHS(<include refid="com.sql.nvl"/>(LAST_LOGIN_DATE, <include refid="com.sql.sysdate"/>), 12) <![CDATA[<]]> <include refid="com.sql.sysdate"/> THEN '1' ELSE '0' END) = '1'
+			</if>
+          ) A
+    </select>
+
+    <update id="setUserBlockU" parameterType="hashMap">
+
+        UPDATE STOCUSER SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = 'SYSTEM'
+            ,USE_FLAG = '0'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{USER_ID}
+    </update>
+
+    <update id="setUserBlockC" parameterType="hashMap">
+
+        UPDATE STOCCVUR SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = 'SYSTEM'
+            ,BLOCK_FLAG = '1'
+            ,BLOCK_REASON = #{BLOCK_REASON}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{USER_ID}
+    </update>
+
+</mapper>

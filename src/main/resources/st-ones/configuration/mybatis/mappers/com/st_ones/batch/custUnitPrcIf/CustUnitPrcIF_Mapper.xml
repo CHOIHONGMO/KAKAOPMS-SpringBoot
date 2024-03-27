@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.custUnitPrcIF.CustUnitPrcIF_Mapper">
+
+	<!-- 매입 유효단가 들고오기 -->
+    <select id="getIfSendList" resultType="hashmap">
+		SELECT
+			  MTGL.CUST_ITEM_CD
+			, YINFO.APPLY_COM 	AS COMPANY_CODE
+			, YINFO.APPLY_PLANT AS DIVISION_CODE
+			, UINFO.SALES_UNIT_PRICE AS UNIT_PRICE
+			, YINFO.APPLY_COM
+			, YINFO.CONT_NO
+			, YINFO.CONT_SEQ
+			, CUST.ERP_IF_FLAG
+		 FROM STOYINFO YINFO
+		 JOIN STOCCUST CUST
+			  ON (YINFO.GATE_CD   = CUST.GATE_CD
+			  AND YINFO.APPLY_COM = CUST.CUST_CD
+			  AND CUST.PROGRESS_CD= 'E'
+			  AND <include refid="com.sql.nvl"/>(CUST.STOP_FLAG,'0') = '0'	-- 거래중지 제외
+			  AND CUST.ERP_IF_FLAG= '1')
+		 JOIN STOUINFO UINFO
+			  ON (YINFO.GATE_CD  = UINFO.GATE_CD
+			  AND YINFO.CONT_NO  = UINFO.CONT_NO
+			  AND YINFO.CONT_SEQ = UINFO.CONT_SEQ
+			  AND UINFO.DEL_FLAG = '0')
+		 JOIN STOCMTGL MTGL
+			  ON (MTGL.GATE_CD  = YINFO.GATE_CD
+			  AND MTGL.ITEM_CD  = YINFO.ITEM_CD
+			  AND MTGL.PROGRESS_CD = 'E'
+			  AND <include refid="com.sql.nvl"/>(MTGL.TEMP_CD_FLAG, '0') = '0'	--임시코드 제외
+			  AND MTGL.DEL_FLAG = '0')
+		WHERE YINFO.GATE_CD	 = #{ses.gateCd}
+		  AND <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') BETWEEN YINFO.VALID_FROM_DATE AND YINFO.VALID_TO_DATE	--유효한 매입가 존재
+		  AND <include refid="com.sql.nvl"/>(YINFO.ERP_IF_SEND_FLAG, '0') = '0'
+		  AND YINFO.DEL_FLAG = '0'
+    </select>
+	
+	<!-- ICOYITEM_IF : 고객사 품목의 판매단가 등록 및 변경 -->
+	<insert id="insCustUinfo" parameterType="hashmap">
+
+		INSERT INTO ICOYITEM_IF (
+			  HOUSE_CODE
+			, ITEM_NO
+			, COMPANY_CODE
+			, DIVISION_CODE
+			, UNIT_PRICE
+			, IF_FLAG
+			, IF_DATE
+			, IF_TIME
+			, IF_USER
+			, ITEM_FLAG
+			, PRICE_CHANGE_REMARK
+			, PRICE_CHANGE_DATE
+			, PRICE_CHANGE_TIME
+			, PRICE_USER_ID
+		)
+		VALUES (
+			  #{ses.gateCd}				--HOUSE_CODE
+			, #{CUST_ITEM_CD}			--ITEM_NO (고객사 품목코드)
+			, #{COMPANY_CODE}			--COMPANY_CODE (고객사 회사코드)
+			,(CASE WHEN <include refid="com.sql.nvl"/>(#{DIVISION_CODE}, '*') = '*' THEN 'ALL' ELSE #{DIVISION_CODE} END)	--DIVISION_CODE (고객사 사업장코드 : ALL or 사업장코드)
+			, #{UNIT_PRICE}				--UNIT_PRICE (고객사 판매단가)
+			, '2'						--IF_FLAG
+			,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'YYYYMMDD')		--IF_DATE
+			,<include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'HH24:MI:SS') 	--IF_TIME
+			, #{ses.userId} 			--IF_USER
+			, #{ITEM_FLAG}				--ITEM_FLAG (?? => 검토 필요 : ICOMBYIT의 ALL_FLAG)
+			, #{PRICE_CHANGE_REMARK} 	--PRICE_CHANGE_REMARK (판가 변경사유)
+			, #{PRICE_CHANGE_DATE}		--PRICE_CHANGE_DATE (판가 변경일자)
+			, #{PRICE_CHANGE_TIME}		--PRICE_CHANGE_TIME (판가 변경시간)
+			, #{PRICE_USER_ID}			--PRICE_USER_ID (판가 변경자ID)
+		)
+	</insert>
+	
+	<!-- 매출단가 dgns i/f 여부 저장 -->
+    <update id="updateDgnsIfFlag" parameterType="hashMap">
+		UPDATE STOYINFO
+		   SET ERP_IF_SEND_FLAG = '1'
+		 WHERE GATE_CD	 = #{ses.gateCd}
+		   AND APPLY_COM = #{APPLY_COM}
+		   AND CONT_NO   = #{CONT_NO}
+		   AND CONT_SEQ  = #{CONT_SEQ}
+	</update>
+
+</mapper>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.common.util.UtilMapper">
+
+    <select id="getCheckCnt" parameterType="hashMap" resultType="hashMap">
+
+    	SELECT <include refid="com.sql.mtop1"/>
+				SCAC.SCREEN_ID,
+	    		SCAC.ACTION_CD,
+	    		SCRN.SCREEN_URL,
+	    		SCAC.PACKAGE_NM,
+	            <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID) AS ACTION_NM
+		  FROM STOCSCAC SCAC
+		  LEFT OUTER JOIN STOCACPF ACPF
+			   ON (SCAC.GATE_CD = ACPF.GATE_CD
+			   AND SCAC.SCREEN_ID = ACPF.SCREEN_ID
+			   AND SCAC.ACTION_CD = ACPF.ACTION_CD
+			   AND ACPF.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCACPH ACPH
+			   ON (ACPF.GATE_CD = ACPH.GATE_CD
+			   AND ACPF.ACTION_PROFILE_CD = ACPH.ACTION_PROFILE_CD
+			   AND ACPH.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCUSAC USAC
+			   ON (ACPH.GATE_CD = USAC.GATE_CD
+			   AND ACPH.ACTION_PROFILE_CD = USAC.ACTION_PROFILE_CD
+			   AND USAC.USER_ID =  <include refid="com.sql.nvl"/>(#{ses.userId}, 'SYSTEM')
+			   AND USAC.DEL_FLAG = '0')
+		  LEFT JOIN STOCSCRN SCRN
+			   ON (SCAC.GATE_CD = SCRN.GATE_CD
+			   AND SCAC.SCREEN_ID = SCRN.SCREEN_ID)
+		WHERE SCAC.GATE_CD   = <include refid="com.sql.nvl"/>(#{ses.gateCd}, <include refid="com.sql.gateCd"/>)
+		  AND SCAC.SCREEN_ID = #{_screenId}
+		  AND SCAC.ACTION_CD = #{_actionCd}
+		  AND SCAC.DEL_FLAG  = '0'
+		  <include refid="com.sql.otop1"/>
+
+    </select>
+	
+    <insert id="setLogForJob" parameterType="hashMap">
+        INSERT INTO STOCULOG(
+             GATE_CD
+        <if test="_databaseId == 'oracle' or _databaseId == 'postgresql'">
+            ,JOB_SQ
+        </if>
+            ,JOB_DATE
+            ,JOB_TYPE
+            ,MODULE_NM
+            ,METHOD_NM
+            ,JOB_DESC
+            ,USER_TYPE
+            ,IP_ADDR
+            ,USER_ID
+            ,SCREEN_ID
+            ,ACTION_CD
+            ,FAIL_TYPE
+	        ,USER_STATUS
+        )
+        VALUES (
+        <choose>
+            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+            <otherwise>#{ses.gateCd}</otherwise>
+        </choose>
+        <if test="_databaseId == 'oracle'">
+            ,<include refid="com.sql.dbo"/>SEQ_STOCULOG.NEXTVAL
+        </if>
+		<if test="_databaseId == 'postgresql'">
+            ,<include refid="com.sql.dbo"/>NEXTVAL('SEQ_STOCBLOG')
+		</if>
+            ,<include refid="com.sql.sysdate"/>
+            ,CASE WHEN #{jobType} is null THEN 'G' ELSE #{jobType} END
+            ,#{moduleName}
+            ,#{methodName}
+            ,#{jobDesc}
+        <choose>
+            <when test="ses.userType == null or ses.gateCd == ''">,'N'</when>
+            <otherwise>,#{ses.userType}</otherwise>
+        </choose>
+        <choose>
+            <when test="ses.ipAddress == null or ses.ipAddress == ''">,#{IP_ADDRESS}</when>
+            <otherwise>,#{ses.ipAddress}</otherwise>
+        </choose>
+        <choose>
+            <when test="ses.userId == null or ses.userId == ''">,'SYSTEM'</when>
+            <otherwise>,#{ses.userId}</otherwise>
+        </choose>
+            ,#{screenId}
+            ,#{actionCode}
+            ,#{failType}
+            ,(SELECT <include refid="com.sql.nvl"/>(STATUS,'') FROM STOCUSER WHERE gate_cd=<include refid="com.sql.gateCd"/> AND user_id =#{userId})
+        )
+
+    </insert>
+
+    <select id="getItemSearchByCode" parameterType="hashMap" resultType="hashMap">
+        SELECT
+			  ITEM_CD
+			, ITEM_DESC
+			, ITEM_DESC_ENG
+			, ITEM_KIND_CD
+			, UNIT_CD
+		    , <include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M037', UNIT_CD, '0', #{ses.langCd}) AS UNIT_CD_LOC
+			, ITEM_SPEC
+			, PROGRESS_CD
+			, MAKER
+			, ORDER_HALT_FLAG
+			, ITEM_CLS1
+		    , <include refid="com.sql.dbo"/>GETITEMCLASS(GATE_CD, ITEM_CLS1, '1') AS ITEM_CLS1_LOC
+			, ITEM_CLS2
+		    , <include refid="com.sql.dbo"/>GETITEMCLASS(GATE_CD, ITEM_CLS2, '2') AS ITEM_CLS2_LOC
+			, ITEM_CLS3
+		    , <include refid="com.sql.dbo"/>GETITEMCLASS(GATE_CD, ITEM_CLS3, '3') AS ITEM_CLS3_LOC
+			, ITEM_CLS4
+		    , <include refid="com.sql.dbo"/>GETITEMCLASS(GATE_CD, ITEM_CLS4, '4') AS ITEM_CLS4_LOC
+		FROM STOCMTGL
+		WHERE GATE_CD  = #{ses.gateCd}
+		  AND ITEM_CD  = #{ITEM_CD}
+		  AND DEL_FLAG = '0'
+		  AND PROGRESS_CD = 'E'
+    </select>
+
+    <insert id="menuClickSave" parameterType="hashMap">
+        INSERT INTO STOCULOG(
+             GATE_CD
+        <if test="_databaseId == 'oracle' or _databaseId == 'postgresql'">
+            ,JOB_SQ
+        </if>		
+            ,JOB_DATE
+            ,JOB_TYPE
+            ,MODULE_NM
+            ,METHOD_NM
+            ,JOB_DESC
+            ,USER_TYPE
+            ,IP_ADDR
+            ,USER_ID
+            ,SCREEN_ID
+            ,ACTION_CD
+            ,TMPL_MENU_CD
+        )
+        VALUES (
+             #{ses.gateCd}
+        <if test="_databaseId == 'oracle'">
+            ,<include refid="com.sql.dbo"/>SEQ_STOCULOG.NEXTVAL
+        </if>
+		<if test="_databaseId == 'postgresql'">
+            ,<include refid="com.sql.dbo"/>NEXTVAL('SEQ_STOCBLOG')
+		</if>
+            ,<include refid="com.sql.sysdate"/>
+            ,CASE WHEN #{jobType} is null THEN 'G' ELSE #{jobType} END
+            ,#{moduleName}
+            ,#{methodName}
+            ,#{jobDesc}
+            ,#{ses.userType}
+            ,#{ses.ipAddress}
+            ,#{ses.userId}
+            ,(SELECT <include refid="com.sql.mtop1"/>
+            		 SCREEN_ID
+            	FROM STOCMUTM
+               WHERE GATE_CD  = #{ses.gateCd}
+                 AND TMPL_MENU_CD = #{tmpl_menu_cd}
+                 <include refid="com.sql.otop1"/>
+             )
+            ,#{actionCode}
+            ,#{tmpl_menu_cd}
+        )
+    </insert>
+
+    <insert id="setLogForPJob" parameterType="hashMap">
+        INSERT INTO STOCPLOG(
+              GATE_CD
+		<if test="_databaseId == 'oracle' or _databaseId == 'postgresql'">
+            , JOB_SQ
+        </if>
+            , DOC_NUM
+            , DOC_CNT
+            , USER_ID
+            , USER_TYPE
+            , JOB_DATE
+            , SCREEN_ID
+            , ACTION_CD
+            , ACTION_NAME
+            , IP_ADDR
+        ) VALUES (
+            <choose>
+                <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                <otherwise>#{ses.gateCd}</otherwise>
+            </choose>
+        <if test="_databaseId == 'oracle'">
+            ,<include refid="com.sql.dbo"/>SEQ_STOCULOG.NEXTVAL
+        </if>
+		<if test="_databaseId == 'postgresql'">
+            ,<include refid="com.sql.dbo"/>NEXTVAL('SEQ_STOCBLOG')
+		</if>
+            ,#{DOC_NUM}
+            ,#{DOC_CNT}
+            <choose>
+                <when test="ses.userId == null or ses.userId == ''">,'SYSTEM'</when>
+                <otherwise>,#{ses.userId}</otherwise>
+            </choose>
+            <choose>
+                <when test="ses.userType == null or ses.gateCd == ''">,'N'</when>
+                <otherwise>,#{ses.userType}</otherwise>
+            </choose>
+            <include refid="com.sql.sysdate"/>
+            ,#{SCREEN_ID}
+            ,#{ACTION_CD}
+            ,#{ACTION_NAME}
+            <choose>
+                <when test="ses.ipAddress == null or ses.ipAddress == ''">,#{IP_ADDRESS}</when>
+                <otherwise>,#{ses.ipAddress}</otherwise>
+            </choose>
+        )
+    </insert>
+
+</mapper>

@@ -1,0 +1,2291 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.BS01.BS0102_Mapper">
+
+    <select id="bs01010_doSearch" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+            DMLR.CUST_CD
+            ,<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(DMLR.GATE_CD, DMLR.CUST_CD, 'CUST_NM'),<include refid="com.sql.dbo"/>getBuyerName(DMLR.GATE_CD, DMLR.CUST_CD,#{ses.langCd})) AS CUST_NM
+            ,DMLR.BIZ_CLS1
+            ,DMLR.BIZ_CLS2
+            ,DMLR.BIZ_CLS3
+            ,<include refid="com.sql.toDateChar"/>(DMLR.APP_DATE, 'yyyyMMdd') AS APP_DATE
+            ,DMLR.BIZ_SEQ
+            ,DMLR.FROM_AMT
+            ,DMLR.TO_AMT
+            ,DMLR.APP_LINE
+            ,DMLR.AGR_LINE
+            ,(CASE WHEN (SELECT COUNT(*) FROM STOCDMUR UR
+                          WHERE UR.GATE_CD  = DMLR.GATE_CD
+                            AND UR.CUST_CD  = DMLR.CUST_CD
+                            AND UR.DML_TYPE = 'REF'
+                            AND UR.LINE_CD  = DMLR.BIZ_CLS1 <include refid="com.sql.stringMerge"/> DMLR.BIZ_CLS2 <include refid="com.sql.stringMerge"/> DMLR.BIZ_CLS3 <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(DMLR.BIZ_SEQ)
+                            AND UR.USE_FLAG = '1'
+                            AND UR.DEL_FLAG = '0') <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) AS REF_LINE
+            ,DMLR.RMK
+            ,DMLR.USE_FLAG
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(DMLR.GATE_CD, DMLR.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+            ,DMLR.REG_USER_ID
+            ,<include refid="com.sql.toDateChar"/>(DMLR.REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(DMLR.GATE_CD, DMLR.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            ,DMLR.MOD_USER_ID
+            ,<include refid="com.sql.toDateChar"/>(DMLR.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+        FROM STOCDMLR DMLR
+        WHERE DMLR.GATE_CD = #{ses.gateCd}
+        AND DMLR.DEL_FLAG = '0'
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND DMLR.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(DMLR.GATE_CD, DMLR.CUST_CD, 'CUST_NM'),<include refid="com.sql.dbo"/>getBuyerName(DMLR.GATE_CD, DMLR.CUST_CD,#{ses.langCd})) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BIZ_CLS1 != '' and BIZ_CLS1 != null">
+            AND DMLR.BIZ_CLS1 = #{BIZ_CLS1}
+        </if>
+        <if test="BIZ_CLS2 != '' and BIZ_CLS2 != null">
+            AND DMLR.BIZ_CLS2 = #{BIZ_CLS2}
+        </if>
+        <if test="BIZ_CLS3 != '' and BIZ_CLS3 != null">
+            AND DMLR.BIZ_CLS3 = #{BIZ_CLS3}
+        </if>
+        <if test="USE_FLAG != '' and USE_FLAG != null">
+            AND DMLR.USE_FLAG = #{USE_FLAG}
+        </if>
+        ORDER BY DMLR.BIZ_CLS1 ,DMLR.BIZ_CLS2 ,DMLR.BIZ_CLS3, DMLR.FROM_AMT, DMLR.APP_DATE
+    </select>
+
+    <insert id="bs01010_doSave" parameterType="hashMap">
+
+        MERGE INTO STOCDMLR A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                   , #{CUST_CD} AS CUST_CD
+                   , #{BIZ_CLS1} AS BIZ_CLS1
+                   , #{BIZ_CLS2} AS BIZ_CLS2
+                   , #{BIZ_CLS3} AS BIZ_CLS3
+                   , #{APP_DATE} AS APP_DATE
+                   , (CASE WHEN #{BIZ_SEQ}='' THEN NULL ELSE #{BIZ_SEQ} END) AS BIZ_SEQ) B
+        ON (A.GATE_CD = B.GATE_CD
+            AND A.CUST_CD = B.CUST_CD
+            AND A.BIZ_CLS1 = B.BIZ_CLS1
+            AND A.BIZ_CLS2 = B.BIZ_CLS2
+            AND A.BIZ_CLS3 = B.BIZ_CLS3
+            AND A.APP_DATE = B.APP_DATE
+            AND A.BIZ_SEQ = B.BIZ_SEQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+            MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,USE_FLAG = #{USE_FLAG}
+            ,FROM_AMT = #{FROM_AMT}
+            ,TO_AMT= #{TO_AMT}
+            ,APP_LINE = #{APP_LINE}
+            ,AGR_LINE = #{AGR_LINE}
+            ,RMK = #{RMK}
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,BIZ_CLS1
+            ,BIZ_CLS2
+            ,BIZ_CLS3
+            ,APP_DATE
+            ,BIZ_SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,FROM_AMT
+            ,TO_AMT
+            ,APP_LINE
+            ,AGR_LINE
+            ,RMK
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{BIZ_CLS1}
+            ,#{BIZ_CLS2}
+            ,#{BIZ_CLS3}
+            ,#{APP_DATE}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(LR.BIZ_SEQ), 0)+1
+                FROM STOCDMLR LR
+               WHERE LR.GATE_CD = #{ses.gateCd}
+                 AND LR.CUST_CD = #{CUST_CD}
+                 AND LR.BIZ_CLS1 = #{BIZ_CLS1}
+                 AND LR.BIZ_CLS2 = #{BIZ_CLS2}
+                 AND LR.BIZ_CLS3 = #{BIZ_CLS3})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{USE_FLAG}
+            ,#{FROM_AMT}
+            ,#{TO_AMT}
+            ,#{APP_LINE}
+            ,#{AGR_LINE}
+            ,#{RMK}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <select id="bs01010_doSearchLineCd" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             LC.DML_TYPE
+            ,LC.LINE_CD
+            ,LC.LINE_NM
+            ,LC.USE_FLAG
+            ,LC.CUST_CD
+            ,LC.CHIEF_INCLUDE_FLAG
+          FROM STOCDMLC LC
+         WHERE LC.GATE_CD = #{ses.gateCd}
+           AND LC.CUST_CD = #{CUST_CD}
+           AND LC.DML_TYPE = #{DML_TYPE}
+           AND LC.DEL_FLAG = '0'
+
+    </select>
+
+    <insert id="bs01010_doSaveLine" parameterType="hashMap">
+
+        MERGE INTO STOCDMLC A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS CUST_CD
+                    , #{DML_TYPE} AS DML_TYPE
+                    , #{LINE_CD} AS LINE_CD) B
+         ON (A.GATE_CD = B.GATE_CD
+         AND A.CUST_CD = B.CUST_CD
+         AND A.DML_TYPE = B.DML_TYPE
+         AND A.LINE_CD = B.LINE_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,USE_FLAG = #{USE_FLAG}
+            ,LINE_NM = #{LINE_NM}
+            ,CHIEF_INCLUDE_FLAG = #{CHIEF_INCLUDE_FLAG}
+            ,DEL_FLAG = '0'
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,DML_TYPE
+            ,LINE_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,LINE_NM
+            ,CHIEF_INCLUDE_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{DML_TYPE}
+            ,#{LINE_CD}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{USE_FLAG}
+            ,#{LINE_NM}
+            ,#{CHIEF_INCLUDE_FLAG}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <update id="bs01010_doDelLine" parameterType="hashMap">
+
+        UPDATE STOCDMLC SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CUST_CD = #{CUST_CD}
+           AND DML_TYPE = #{DML_TYPE}
+           AND LINE_CD = #{LINE_CD}
+
+    </update>
+
+    <select id="bs01010_doSearchAppAgr" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+             UR.REF_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(UR.GATE_CD, UR.REF_USER_ID, #{ses.langCd}) AS REF_USER_NM
+            ,UR.USE_FLAG
+            ,UR.SORT_SQ
+            ,UR.DML_TYPE
+            ,UR.CUST_CD
+            ,UR.LINE_CD
+          FROM STOCDMUR UR
+         WHERE UR.GATE_CD = #{ses.gateCd}
+           AND UR.CUST_CD = #{CUST_CD}
+           AND UR.DML_TYPE = #{DML_TYPE}
+           AND UR.LINE_CD = #{LINE_CD}
+           AND UR.DEL_FLAG = '0'
+         ORDER BY UR.SORT_SQ
+
+    </select>
+
+    <insert id="doSaveAppAgr" parameterType="hashMap">
+
+        MERGE INTO STOCDMUR A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS CUST_CD
+                    , #{DML_TYPE} AS DML_TYPE
+                    , #{LINE_CD} AS LINE_CD
+                    , #{REF_USER_ID} AS REF_USER_ID) B
+         ON (A.GATE_CD = B.GATE_CD
+         AND A.CUST_CD = B.CUST_CD
+         AND A.DML_TYPE = B.DML_TYPE
+         AND A.LINE_CD = B.LINE_CD
+         AND A.REF_USER_ID = B.REF_USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+            ,USE_FLAG = #{USE_FLAG}
+            ,SORT_SQ = #{SORT_SQ}
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,DML_TYPE
+            ,LINE_CD
+            ,REF_USER_ID
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,SORT_SQ
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{DML_TYPE}
+            ,#{LINE_CD}
+            ,#{REF_USER_ID}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{USE_FLAG}
+            ,#{SORT_SQ}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <update id="bs01010_doDelAppAgr" parameterType="hashMap">
+
+        UPDATE STOCDMUR SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CUST_CD = #{CUST_CD}
+           AND DML_TYPE = #{DML_TYPE}
+           AND LINE_CD = #{LINE_CD}
+           AND REF_USER_ID = #{REF_USER_ID}
+
+    </update>
+
+    <select id="bs01010_doSearchUR3" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+             UR.REF_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(UR.GATE_CD, UR.REF_USER_ID, #{ses.langCd}) AS REF_USER_NM
+            ,UR.USE_FLAG
+            ,UR.SORT_SQ
+            ,UR.DML_TYPE
+            ,UR.LINE_CD
+            ,UR.CUST_CD
+          FROM STOCDMUR UR
+         WHERE UR.GATE_CD = #{ses.gateCd}
+           AND UR.CUST_CD = #{CUST_CD}
+           AND UR.DML_TYPE = #{DML_TYPE}
+           AND UR.LINE_CD = #{LINE_CD}
+           AND UR.DEL_FLAG = '0'
+         ORDER BY UR.SORT_SQ
+
+    </select>
+
+    <insert id="bs01010_doSaveREF" parameterType="hashMap">
+
+        MERGE INTO STOCDMUR A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                    , #{CUST_CD} AS CUST_CD
+                    , #{DML_TYPE} AS DML_TYPE
+                    , #{LINE_CD} AS LINE_CD
+                    , #{REF_USER_ID} AS REF_USER_ID) B
+         ON (A.GATE_CD = B.GATE_CD
+         AND A.CUST_CD = B.CUST_CD
+         AND A.DML_TYPE = B.DML_TYPE
+         AND A.LINE_CD = B.LINE_CD
+         AND A.REF_USER_ID = B.REF_USER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,USE_FLAG = #{USE_FLAG}
+            ,SORT_SQ = #{SORT_SQ}
+            ,DEL_FLAG = '0'
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,DML_TYPE
+            ,LINE_CD
+            ,REF_USER_ID
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+            ,BIZ_CLS1
+            ,BIZ_CLS2
+            ,BIZ_CLS3
+            ,BIZ_SEQ
+            ,SORT_SQ
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{DML_TYPE}
+            ,#{LINE_CD}
+            ,#{REF_USER_ID}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{USE_FLAG}
+            ,#{BIZ_CLS1}
+            ,#{BIZ_CLS2}
+            ,#{BIZ_CLS3}
+            ,#{BIZ_SEQ}
+            ,#{SORT_SQ}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <update id="bs01010_doDelRef" parameterType="hashMap">
+
+        UPDATE STOCDMUR SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CUST_CD = #{CUST_CD}
+           AND DML_TYPE = #{DML_TYPE}
+           AND LINE_CD = #{LINE_CD}
+           AND REF_USER_ID = #{REF_USER_ID}
+
+    </update>
+
+    <select id="bs01011_doSearch" parameterType="hashmap" resultType="hashmap">
+
+        SELECT DMLD.DML_TYPE
+            ,DMLD.REF_CD
+            ,DMLD.REF_USER_ID AS REF_USER_ID
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(DMLD.GATE_CD, DMLD.REF_USER_ID, #{ses.langCd}) AS REF_USER_NM
+            ,DMLD.FROM_AMT
+            ,DMLD.TO_AMT
+            ,SUSR.DUTY_NM
+            ,SUSR.DEPT_NM
+            ,DMLD.USE_FLAG
+            ,<include refid="com.sql.toDateChar"/>(DMLD.MOD_DATE, 'yyyyMMdd') AS MOD_DATE
+            ,DMLD.CUST_CD
+            ,<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(DMLD.GATE_CD, DMLD.CUST_CD, 'CUST_NM'),<include refid="com.sql.dbo"/>getBuyerName(DMLD.GATE_CD, DMLD.CUST_CD,#{ses.langCd})) AS CUST_NM
+            ,DMLD.BIZ_SEQ
+         FROM STOCDMLD DMLD
+        <choose>
+          <when test='custCd == "1000"'>
+            JOIN STOCUSER SUSR
+          </when>
+          <otherwise>
+            JOIN STOCCVUR SUSR
+          </otherwise>
+        </choose>
+          ON (DMLD.GATE_CD = SUSR.GATE_CD
+          AND DMLD.REF_USER_ID = SUSR.USER_ID
+          AND SUSR.DEL_FLAG = '0')
+        WHERE DMLD.GATE_CD = #{ses.gateCd}
+          AND DMLD.CUST_CD = #{SET_CUST_CD}
+        <if test="gridType == 'L'.toString()">
+          AND DMLD.DML_TYPE = 'AGR'
+        </if>
+        <if test="gridType == 'R'.toString()">
+          AND DMLD.DML_TYPE = 'REF'
+        </if>
+        <if test="REF_CD_L != null and REF_CD_L != ''">
+          AND DMLD.REF_CD = #{REF_CD_L}
+        </if>
+        <if test="REF_CD_R != null and REF_CD_R != ''">
+          AND DMLD.REF_CD = #{REF_CD_R}
+        </if>
+          AND DMLD.DEL_FLAG = '0'
+        ORDER BY DMLD.REF_CD, DMLD.FROM_AMT, DMLD.REF_USER_ID
+
+    </select>
+
+    <update id="bs01011_doSave" parameterType="hashmap">
+
+        MERGE INTO STOCDMLD A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                   , #{CUST_CD} AS CUST_CD
+                   , #{DML_TYPE} AS DML_TYPE
+                   , #{REF_CD} AS REF_CD
+                   , <include refid="com.sql.nvl"/>(#{REF_USER_ID_$TP}, #{REF_USER_ID}) AS REF_USER_ID
+                   , (CASE WHEN #{BIZ_SEQ} = '' THEN NULL ELSE #{BIZ_SEQ} END) AS BIZ_SEQ) B
+         ON (A.GATE_CD = B.GATE_CD
+         AND A.CUST_CD = B.CUST_CD
+         AND A.DML_TYPE = B.DML_TYPE
+         AND A.REF_CD = B.REF_CD
+         AND A.REF_USER_ID = B.REF_USER_ID
+         AND A.BIZ_SEQ = B.BIZ_SEQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+             USE_FLAG = #{USE_FLAG}
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+        WHEN NOT MATCHED
+        THEN INSERT (
+             GATE_CD
+            ,CUST_CD
+            ,DML_TYPE
+            ,REF_CD
+            ,REF_USER_ID
+            ,BIZ_SEQ
+            ,FROM_AMT
+            ,TO_AMT
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,USE_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{CUST_CD}
+            ,#{DML_TYPE}
+            ,#{REF_CD}
+            ,<include refid="com.sql.nvl"/>(#{REF_USER_ID_$TP}, #{REF_USER_ID})
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(LD.BIZ_SEQ), 0)+1 FROM STOCDMLD LD
+               WHERE LD.GATE_CD = #{ses.gateCd}
+                 AND LD.CUST_CD = #{CUST_CD}
+                 AND LD.REF_CD = #{REF_CD}
+                 AND LD.REF_USER_ID = <include refid="com.sql.nvl"/>(#{REF_USER_ID_$TP}, #{REF_USER_ID}))
+            ,#{FROM_AMT}
+            ,#{TO_AMT}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{USE_FLAG}
+        <include refid="com.sql.mergeEnd"/>
+    </update>
+
+    <delete id="bs01011_doDelete" parameterType="hashmap">
+
+        DELETE FROM STOCDMLD
+        WHERE GATE_CD = #{ses.gateCd}
+          AND CUST_CD = #{CUST_CD}
+          AND DML_TYPE = #{DML_TYPE}
+          AND REF_CD = #{REF_CD}
+          AND REF_USER_ID = <include refid="com.sql.nvl"/>(#{REF_USER_ID_$TP}, #{REF_USER_ID})
+          AND BIZ_SEQ = #{BIZ_SEQ}
+          AND DEL_FLAG = '0'
+
+    </delete>
+
+    <select id="bs01020_doSearch" parameterType="hashMap" resultType="hashMap">
+	    SELECT
+		         A.MG_CD
+		       , MAX(A.MG_NM) AS MG_NM
+		       , COUNT(B.CUST_CD) AS CUST_CNT
+		       , MAX(A.MG_RMK) AS MG_RMK
+		  FROM STOCMNGH A
+		  LEFT OUTER JOIN STOCMNGD B
+		    ON  A.GATE_CD = B.GATE_CD
+		    AND A.MG_CD = B.MG_CD
+		    AND B.DEL_FLAG = '0'
+		    AND B.USE_FLAG = '1'
+		 WHERE A.GATE_CD =#{ses.gateCd}
+		   AND A.DEL_FLAG = '0'
+		   AND A.USE_FLAG = '1'
+		<if test="MG_NM_L != '' and MG_NM_L != null">
+          AND  ${MG_NM_L_L }A.MG_NM ${MG_NM_L_R}
+        </if>
+		GROUP BY A.MG_CD
+		ORDER BY MG_NM
+    </select>
+
+    <select id="bs01020_doSearchD" parameterType="hashMap" resultType="hashMap">
+
+        SELECT   A.MG_CD
+		       , A.MG_NM
+		       , B.CUST_CD
+		       , C.CUST_NM
+		       , C.IRS_NUM
+		       , C.CEO_USER_NM AS CEO_NM
+		       , C.BUSINESS_TYPE
+		       , C.INDUSTRY_TYPE
+		       , C.RELAT_YN
+		  FROM STOCMNGH A
+		  JOIN STOCMNGD B
+		    ON  A.GATE_CD = B.GATE_CD
+		    AND A.MG_CD   = B.MG_CD
+		  LEFT OUTER JOIN STOCCUST C
+		    ON  B.GATE_CD = C.GATE_CD
+		    AND B.CUST_CD = C.CUST_CD
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.MG_CD = #{MG_CD}
+		ORDER BY C.CUST_NM
+    </select>
+
+    <insert id="bs01020_doSave" parameterType="hashMap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCMNGH<include refid="com.sql.mergeAs"/>A
+        USING (
+            SELECT #{ses.gateCd} AS GATE_CD
+                , #{MG_CD} AS MG_CD
+                , #{MG_NM} AS MG_NM
+                , #{MG_RMK} AS MG_RMK
+                <include refid="com.sql.dual"/>
+            )<include refid="com.sql.mergeAs"/>B
+        ON  A.GATE_CD = B.GATE_CD
+        AND A.MG_CD = B.MG_CD
+        WHEN MATCHED THEN
+            UPDATE SET
+                  MG_NM = B.MG_NM
+                , MG_RMK = B.MG_RMK
+
+                , MOD_DATE= <include refid="com.sql.sysdate"/>
+                , MOD_USER_ID = #{ses.userId}
+        WHEN NOT MATCHED THEN
+            INSERT (
+                  GATE_CD
+                , MG_CD
+                , REG_DATE
+                , REG_USER_ID
+                , MOD_DATE
+                , MOD_USER_ID
+                , DEL_FLAG
+                , USE_FLAG
+                , MG_RMK
+                , MG_NM
+            ) VALUES (
+                  B.GATE_CD
+                , B.MG_CD
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+                , '1'
+                , B.MG_RMK
+                , B.MG_NM
+            <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs01020_doDelete" parameterType="hashMap">
+        UPDATE STOCMNGH
+        SET    DEL_FLAG = '1'
+            , MOD_DATE= <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   MG_CD = #{MG_CD}
+    </update>
+
+    <select id="existsMNGD" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(A.CUST_CD) AS CNT
+		  FROM STOCMNGD A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+    </select>
+
+    <insert id="bs01020_doSaveCust" parameterType="hashMap">
+        INSERT INTO STOCMNGD (
+              GATE_CD
+            , MG_CD
+            , CUST_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , MGD_RMK
+
+        ) VALUES (
+            #{ses.gateCd}
+            , #{MG_CD}
+            , #{CUST_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , '1'
+            , ''
+        )
+
+    </insert>
+
+    <delete id="bs01020_doDeleteCust" parameterType="hashMap">
+        DELETE FROM STOCMNGD
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   MG_CD = #{MG_CD}
+        AND   CUST_CD = #{CUST_CD}
+    </delete>
+
+    <select id="bs01021_doSearch" parameterType="hashMap" resultType="hashMap">
+	    SELECT
+		         A.APG_CD
+		       , MAX(A.APG_NM) AS APG_NM
+		       , COUNT(B.CUST_CD) AS CUST_CNT
+		       , MAX(A.APG_RMK) AS APG_RMK
+		  FROM STOCAPGH A
+		  LEFT OUTER JOIN STOCAPGD B
+		    ON  A.GATE_CD = B.GATE_CD
+		    AND A.APG_CD = B.APG_CD
+		    AND B.DEL_FLAG = '0'
+		    AND B.USE_FLAG = '1'
+		 WHERE A.GATE_CD =#{ses.gateCd}
+		   AND A.DEL_FLAG = '0'
+		   AND A.USE_FLAG = '1'
+		<if test="APG_NM_L != '' and APG_NM_L != null">
+          AND  ${APG_NM_L_L }A.APG_NM ${APG_NM_L_R}
+        </if>
+		GROUP BY A.APG_CD
+		ORDER BY APG_NM
+    </select>
+
+    <select id="bs01021_doSearchD" parameterType="hashMap" resultType="hashMap">
+
+        SELECT   A.APG_CD
+		       , A.APG_NM
+		       , B.CUST_CD
+		       , C.CUST_NM
+		       , C.IRS_NUM
+		       , C.CEO_USER_NM AS CEO_NM
+		       , C.BUSINESS_TYPE
+		       , C.INDUSTRY_TYPE
+		       , C.RELAT_YN
+		  FROM STOCAPGH A
+		  JOIN STOCAPGD B
+		    ON  A.GATE_CD = B.GATE_CD
+		    AND A.APG_CD   = B.APG_CD
+		  LEFT OUTER JOIN STOCCUST C
+		    ON  B.GATE_CD = C.GATE_CD
+		    AND B.CUST_CD = C.CUST_CD
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.APG_CD = #{APG_CD}
+		ORDER BY C.CUST_NM
+    </select>
+
+    <insert id="bs01021_doSave" parameterType="hashMap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCAPGH<include refid="com.sql.mergeAs"/>A
+        USING (
+            SELECT #{ses.gateCd} AS GATE_CD
+                , #{APG_CD} AS APG_CD
+                , #{APG_NM} AS APG_NM
+                , #{APG_RMK} AS APG_RMK
+                <include refid="com.sql.dual"/>
+            )<include refid="com.sql.mergeAs"/>B
+        ON  A.GATE_CD = B.GATE_CD
+        AND A.APG_CD = B.APG_CD
+        WHEN MATCHED THEN
+            UPDATE SET
+                  APG_NM = B.APG_NM
+                , APG_RMK = B.APG_RMK
+
+                , MOD_DATE= <include refid="com.sql.sysdate"/>
+                , MOD_USER_ID = #{ses.userId}
+        WHEN NOT MATCHED THEN
+            INSERT (
+                  GATE_CD
+                , APG_CD
+                , REG_DATE
+                , REG_USER_ID
+                , MOD_DATE
+                , MOD_USER_ID
+                , DEL_FLAG
+                , USE_FLAG
+                , APG_RMK
+                , APG_NM
+            ) VALUES (
+                  B.GATE_CD
+                , B.APG_CD
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , <include refid="com.sql.sysdate"/>
+                , #{ses.userId}
+                , '0'
+                , '1'
+                , B.APG_RMK
+                , B.APG_NM
+            <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs01021_doDelete" parameterType="hashMap">
+        UPDATE STOCAPGH
+        SET    DEL_FLAG = '1'
+            , MOD_DATE= <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   APG_CD = #{APG_CD}
+    </update>
+
+    <select id="existsAPGD" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(A.CUST_CD) AS CNT
+		  FROM STOCAPGD A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+    </select>
+
+    <insert id="bs01021_doSaveCust" parameterType="hashMap">
+        INSERT INTO STOCAPGD (
+              GATE_CD
+            , APG_CD
+            , CUST_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+
+        ) VALUES (
+            #{ses.gateCd}
+            , #{APG_CD}
+            , #{CUST_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , '1'
+        )
+
+    </insert>
+
+    <delete id="bs01021_doDeleteCust" parameterType="hashMap">
+        DELETE FROM STOCAPGD
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   APG_CD = #{APG_CD}
+        AND   CUST_CD = #{CUST_CD}
+    </delete>
+
+
+    <select id="bs01030_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		         A.CUST_CD
+		       , A.CUST_NM
+		       , A.IRS_NUM
+		       , A.CEO_USER_NM AS CEO_NM
+		       , A.ACC_NUM
+		       , A.BUSINESS_TYPE
+		       , A.INDUSTRY_TYPE
+		  FROM STOCCUST A
+		 WHERE A.GATE_CD  = #{ses.gateCd}
+		   AND A.DEL_FLAG = '0'
+		   AND A.PROGRESS_CD = 'E'
+		   AND <include refid="com.sql.nvl"/>(A.STOP_FLAG, '0') = '0'
+
+		<if test="CUST_CD_L != '' and CUST_CD_L != null">
+		   AND A.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD_L} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM_L != '' and CUST_NM_L != null">
+		   AND A.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM_L} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY A.CUST_CD, A.CUST_NM
+	</select>
+
+    <select id="bs01030_doSearchD" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		         A.CUST_CD
+		       , <include refid="com.sql.dbo"/>getCustName(A.GATE_CD, A.CUST_CD) AS CUST_NM
+		       , (SELECT B.ACC_NUM FROM STOCCUST B WHERE B.GATE_CD = A.GATE_CD AND B.CUST_CD = A.CUST_CD ) AS ACC_NUM
+		       , A.COST_CENTER_SEQ
+		       , A.COST_CENTER_CATEG
+		       , A.COST_CENTER_CD
+		       , A.COST_CENTER_NM_KOR
+		       , A.COST_CENTER_NMG_ID
+		       , A.USE_FLAG
+		       , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+		       , <include refid="com.sql.toDateChar"/>(A.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+		  FROM STOUCOST A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+		<if test="COST_CENTER_NMG_ID != '' and COST_CENTER_NMG_ID != null">
+		   AND A.COST_CENTER_NMG_ID = #{COST_CENTER_NMG_ID}
+		</if>
+		ORDER BY A.COST_CENTER_CATEG, A.COST_CENTER_CD
+    </select>
+
+    <select id="existsCOST" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(A.COST_CENTER_CD) AS CNT
+		  FROM STOUCOST A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+		   AND A.COST_CENTER_CD = #{COST_CENTER_CD}
+    </select>
+
+    <insert id="insertStouCost" parameterType="hashmap">
+
+		INSERT INTO STOUCOST (
+		  GATE_CD
+		, CUST_CD
+		, COST_CENTER_CD
+		, COST_CENTER_SEQ
+		, REG_DATE
+		, REG_USER_ID
+		, MOD_DATE
+		, MOD_USER_ID
+		, DEL_FLAG
+		, USE_FLAG
+		, COST_CENTER_NM_KOR
+		, COST_CENTER_NM_ENG
+		, COST_CENTER_CATEG
+		, COST_CENTER_NMG_ID
+		, COST_RMK
+		)
+		VALUES (
+		  #{ses.gateCd}
+		, #{CUST_CD}
+		, #{COST_CENTER_CD}
+		, <include refid="com.sql.nvl"/>((SELECT MAX(A.COST_CENTER_SEQ) FROM STOUCOST A WHERE A.GATE_CD = #{ses.gateCd} AND A.CUST_CD = #{CUST_CD}),0) +1
+		, <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+		, <include refid="com.sql.sysdate"/>
+        , #{ses.userId}
+		, '0'
+		, #{USE_FLAG}
+		, #{COST_CENTER_NM_KOR}
+		, #{COST_CENTER_NM_KOR}
+		, #{COST_CENTER_CATEG}
+		, #{COST_CENTER_NMG_ID}
+		, ''
+		)
+
+	</insert>
+
+	<update id="updateStouCost" parameterType="hashmap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOUCOST<include refid="com.sql.mergeAs"/>A
+        USING (
+            SELECT #{ses.gateCd} AS GATE_CD
+                , #{CUST_CD} AS CUST_CD
+                , #{COST_CENTER_CD} AS COST_CENTER_CD
+                <include refid="com.sql.dual"/>
+            )<include refid="com.sql.mergeAs"/>B
+        ON
+        (A.GATE_CD = B.GATE_CD
+        AND A.CUST_CD = B.CUST_CD
+        AND A.COST_CENTER_CD = B.COST_CENTER_CD)
+        WHEN MATCHED THEN
+            UPDATE SET
+                  MOD_USER_ID = #{ses.userId}
+                , MOD_DATE = <include refid="com.sql.sysdate"/>
+                , DEL_FLAG = '0'
+                , COST_CENTER_CATEG = #{COST_CENTER_CATEG}
+                , COST_CENTER_NM_KOR = #{COST_CENTER_NM_KOR}
+                , COST_CENTER_NM_ENG = #{COST_CENTER_NM_KOR}
+                , COST_CENTER_NMG_ID = #{COST_CENTER_NMG_ID}
+                , USE_FLAG = #{USE_FLAG}
+        WHEN NOT MATCHED THEN
+            INSERT (
+                       GATE_CD
+                     , CUST_CD
+                     , COST_CENTER_CD
+                     , COST_CENTER_SEQ
+                     , REG_DATE
+                     , REG_USER_ID
+                     , MOD_DATE
+                     , MOD_USER_ID
+                     , DEL_FLAG
+                     , USE_FLAG
+                     , COST_CENTER_NM_KOR
+                     , COST_CENTER_NM_ENG
+                     , COST_CENTER_CATEG
+                     , COST_CENTER_NMG_ID
+                     , COST_RMK
+                   )
+                    VALUES (
+                              #{ses.gateCd}
+                            , #{CUST_CD}
+                            , #{COST_CENTER_CD}
+                            , <include refid="com.sql.nvl"/>((SELECT MAX(A.COST_CENTER_SEQ) FROM STOUCOST A WHERE A.GATE_CD = #{ses.gateCd} AND A.CUST_CD = #{CUST_CD}),0) +1
+                            , <include refid="com.sql.sysdate"/>
+                            , #{ses.userId}
+                            , <include refid="com.sql.sysdate"/>
+                            , #{ses.userId}
+                            , '0'
+                            , #{USE_FLAG}
+                            , #{COST_CENTER_NM_KOR}
+                            , #{COST_CENTER_NM_KOR}
+                            , #{COST_CENTER_CATEG}
+                            , #{COST_CENTER_NMG_ID}
+                            , ''
+                           <include refid="com.sql.mergeEnd"/>
+	</update>
+
+    <delete id="bs01030_doDeleteDT" parameterType="hashMap">
+        DELETE FROM STOUCOST
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   CUST_CD = #{CUST_CD}
+        AND   COST_CENTER_SEQ = #{COST_CENTER_SEQ}
+    </delete>
+
+    <select id="bs01040_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		         A.CUST_CD
+		       , A.CUST_NM
+		       , B.IRS_NUM
+		       , B.CEO_USER_NM AS CEO_NM
+		       , A.ACC_NUM
+		       , B.BUSINESS_TYPE
+		       , B.INDUSTRY_TYPE
+               , B.PLANT_CD
+               , B.PLANT_NM
+		       , A.MANAGE_ID
+        FROM STOCCUST A JOIN STOCCUPL B ON A.GATE_CD = B.GATE_CD
+                                         AND A.CUST_CD = B.CUST_CD
+                                         AND B.DEL_FLAG	= '0'
+        WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.DEL_FLAG = '0'
+		   AND A.CUST_CD = #{CUST_CD}
+
+
+		<if test="CUST_NM != '' and CUST_NM != null">
+		   AND A.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY A.CUST_CD, A.CUST_NM
+	</select>
+
+	<select id="bs01040_doSearchD" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		         A.CUST_CD
+		       , <include refid="com.sql.dbo"/>getCustName(A.GATE_CD, A.CUST_CD) AS CUST_NM
+		       , (SELECT B.ACC_NUM FROM STOCCUST B WHERE B.GATE_CD = A.GATE_CD AND B.CUST_CD = A.CUST_CD ) AS ACC_NUM
+		       , A.PLANT_CD
+		       , A.PLANT_NM
+		       , A.SORT_SQ
+		       , A.MNG_ID
+		       , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+		       , <include refid="com.sql.toDateChar"/>(A.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+		  FROM STOCCUPL A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+		<if test="MNG_ID != '' and MNG_ID != null">
+		   AND A.MNG_ID = #{MNG_ID}
+		</if>
+		ORDER BY A.SORT_SQ, A.PLANT_CD
+    </select>
+
+    <select id="bs01040_doSearchPlant" parameterType="hashmap" resultType="hashmap">
+        SELECT    A.GATE_CD
+                , A.CUST_CD
+                , <include refid="com.sql.dbo"/>getCustName(A.GATE_CD, A.CUST_CD) AS CUST_NM
+                , A.PLANT_CD
+                , A.REG_DATE
+                , A.REG_USER_ID
+                , <include refid="com.sql.toDateChar"/>(A.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+                , A.MOD_USER_ID
+                , <include refid="com.sql.dbo"/>getUserName(A.GATE_CD, A.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+                , A.DEL_FLAG
+                , A.PLANT_NM
+                , A.COM_NM
+                , A.IRS_NUM
+                , A.COMPANY_REG_NUM
+                , A.CEO_USER_NM
+                , <include refid="com.sql.toDateChar"/>(A.FOUNDATION_DATE, 'YYYYMMDD') AS FOUNDATION_DATE
+                , A.ZIP_CD
+                , A.ADDR1
+                , A.ADDR2
+                , A.BUSINESS_TYPE
+                , A.INDUSTRY_TYPE
+                , A.IRS_SUB_NUM
+                , A.IRS_SUB_NM
+                , A.MNG_ID
+                , A.SORT_SQ
+                , A.TEL_NUM
+                , A.FAX_NUM
+                , A.EMAIL
+                , A.PAY_CONDITION
+                , A.PAY_DAY
+                , A.ATTACH_FILE_NUM
+                , A.GR_PERSON
+                , A.GR_PERSON_TEL_NUM
+                , A.ACC_PERSON
+                , A.ACC_PERSON_TEL_NUM
+                , <include refid="com.sql.dbo"/>getCustName(B.GATE_CD, B.CUST_CD) AS CUBL_CUST_NM
+                , B.CEO_USER_NM AS CUBL_CEO_USER_NM
+                , B.IRS_NUM AS CUBL_IRS_NUM
+                , B.BUSINESS_TYPE AS CUBL_BUSINESS_TYPE
+                , B.INDUSTRY_TYPE AS CUBL_INDUSTRY_TYPE
+                , B.CUBL_ZIP_CD
+                , B.CUBL_ADDR1
+                , B.CUBL_ADDR2
+                , B.CUBL_SQ
+        FROM STOCCUPL A
+        LEFT JOIN STOCCUBL B
+        	 ON (A.GATE_CD  = B.GATE_CD
+             AND A.CUST_CD  = B.CUST_CD
+             AND A.PLANT_CD = B.PLANT_CD
+             AND B.CUBL_SQ  = (SELECT MIN(CUBL_SQ) FROM STOCCUBL --사업장의 기본청구지
+             					WHERE GATE_CD  = B.GATE_CD
+             					  AND CUST_CD  = B.CUST_CD
+             					  AND PLANT_CD = B.PLANT_CD
+             					  AND USE_FLAG = '1'
+             					  AND DEL_FLAG = '0')
+             AND B.DEL_FLAG = '0')
+        WHERE A.GATE_CD  = #{ses.gateCd}
+          AND A.CUST_CD  = #{CUST_CD}
+          AND A.PLANT_CD = #{PLANT_CD}
+          AND A.DEL_FLAG = '0'
+    </select>
+
+
+    <update id="bs01040_doSaveCUPL">
+        MERGE INTO STOCCUPL A
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                     ,#{CUST_CD} AS CUST_CD
+                     ,#{PLANT_CD} AS PLANT_CD
+                    <include refid="com.sql.dual"/>) B
+        ON (A.GATE_CD = B.GATE_CD
+        AND A.CUST_CD = B.CUST_CD
+        AND A.PLANT_CD = B.PLANT_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '0'
+            , PLANT_NM = #{PLANT_NM}
+            , COM_NM = #{CUST_NM}
+            , IRS_NUM = #{IRS_NUM}
+            , COMPANY_REG_NUM = #{COMPANY_REG_NUM}
+            , CEO_USER_NM = #{CEO_USER_NM}
+            , FOUNDATION_DATE = #{FOUNDATION_DATE}
+            , ZIP_CD = #{ZIP_CD}
+            , ADDR1 = #{ADDR1}
+            , ADDR2 = #{ADDR2}
+            , BUSINESS_TYPE = #{BUSINESS_TYPE}
+            , INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+            , IRS_SUB_NUM = #{IRS_SUB_NUM}
+            , IRS_SUB_NM = #{IRS_SUB_NM}
+            , MNG_ID = #{MANAGE_ID}
+            , SORT_SQ = #{SORT_SQ}
+            , TEL_NUM = #{TEL_NUM}
+            , FAX_NUM = #{FAX_NUM}
+            , EMAIL = #{EMAIL}
+            , PAY_CONDITION = #{PAY_CONDITION}
+            , PAY_DAY = #{PAY_DAY}
+            , ATTACH_FILE_NUM = #{ATTACH_FILE_NUM}
+            , GR_PERSON = #{GR_PERSON}
+            , GR_PERSON_TEL_NUM = #{GR_PERSON_TEL_NUM}
+            , ACC_PERSON = #{ACC_PERSON}
+            , ACC_PERSON_TEL_NUM = #{ACC_PERSON_TEL_NUM}
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , CUST_CD
+            , PLANT_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , PLANT_NM
+            , COM_NM
+            , IRS_NUM
+            , COMPANY_REG_NUM
+            , CEO_USER_NM
+            , FOUNDATION_DATE
+            , ZIP_CD
+            , ADDR1
+            , ADDR2
+            , BUSINESS_TYPE
+            , INDUSTRY_TYPE
+            , IRS_SUB_NUM
+            , IRS_SUB_NM
+            , MNG_ID
+            , SORT_SQ
+            , TEL_NUM
+            , FAX_NUM
+            , EMAIL
+            , PAY_CONDITION
+            , PAY_DAY
+            , ATTACH_FILE_NUM
+            , GR_PERSON
+            , GR_PERSON_TEL_NUM
+            , ACC_PERSON
+            , ACC_PERSON_TEL_NUM
+        ) VALUES (
+              #{ses.gateCd}
+            , #{CUST_CD}
+            , #{PLANT_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{PLANT_NM}
+            , #{CUST_NM}
+            , #{IRS_NUM}
+            , #{COMPANY_REG_NUM}
+            , #{CEO_USER_NM}
+            , #{FOUNDATION_DATE}
+            , #{ZIP_CD}
+            , #{ADDR1}
+            , #{ADDR2}
+            , #{BUSINESS_TYPE}
+            , #{INDUSTRY_TYPE}
+            , #{IRS_SUB_NUM}
+            , #{IRS_SUB_NM}
+            , #{MANAGE_ID}
+            , #{SORT_SQ}
+            , #{TEL_NUM}
+            , #{FAX_NUM}
+            , #{EMAIL}
+            , #{PAY_CONDITION}
+            , #{PAY_DAY}
+            , #{ATTACH_FILE_NUM}
+            , #{GR_PERSON}
+            , #{GR_PERSON_TEL_NUM}
+            , #{ACC_PERSON}
+            , #{ACC_PERSON_TEL_NUM}
+        )
+
+    </update>
+
+    <select id="bs01040_getPrevPlantCd" resultType="string">
+        SELECT MAX(A.PLANT_CD) AS PLANT_CD
+        FROM STOCCUPL A
+        WHERE A.GATE_CD = #{ses.gateCd}
+          AND A.CUST_CD = #{CUST_CD}
+    </select>
+
+    <update id="bs01040_doSaveCUBL">
+        MERGE INTO STOCCUBL A
+            USING (SELECT #{ses.gateCd} AS GATE_CD
+                         ,#{CUST_CD}    AS CUST_CD
+                         ,#{PLANT_CD}   AS PLANT_CD
+                         ,#{CUBL_SQ}    AS CUBL_SQ
+            		<include refid="com.sql.dual"/>) B
+	        ON (A.GATE_CD  = B.GATE_CD
+	        AND A.CUST_CD  = B.CUST_CD
+	        AND A.PLANT_CD = B.PLANT_CD
+	        AND A.CUBL_SQ  = B.CUBL_SQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , DEL_FLAG = '0'
+            , USE_FLAG = '1'
+            , ACC_CD = #{ACC_CD}
+            , CUBL_NM = #{CUBL_CUST_NM}
+            , CUBL_ZIP_CD = #{CUBL_ZIP_CD}
+            , CUBL_ADDR1 = #{CUBL_ADDR1}
+            , CUBL_ADDR2 = #{CUBL_ADDR2}
+            , COMPANY_NM = #{CUST_NM}
+            , IRS_NUM = #{CUBL_IRS_NUM}
+            , CEO_USER_NM = #{CUBL_CEO_USER_NM}
+            , BUSINESS_TYPE = #{CUBL_BUSINESS_TYPE}
+            , INDUSTRY_TYPE = #{CUBL_INDUSTRY_TYPE}
+            , IRS_SUB_NUM = #{IRS_SUB_NUM}
+            , IRS_SUB_ADDR = #{IRS_SUB_ADDR}
+            , CUBL_BANK_NM = #{CUBL_BANK_NM}
+            , CUBL_ACCOUNT_NUM = #{CUBL_ACCOUNT_NUM}
+            , CUBL_ACCOUNT_NM = #{CUBL_ACCOUNT_NM}
+            , CUBL_USER_NM = #{CUBL_USER_NM}
+            , CUBL_USER_TEL_NUM = #{CUBL_USER_TEL_NUM}
+            , CUBL_USER_FAX_NUM = #{CUBL_USER_FAX_NUM}
+            , CUBL_USER_CELL_NUM = #{CUBL_USER_CELL_NUM}
+            , MNG_ID = #{MANAGE_ID}
+            , IRS_SUB_ZIP_CD = #{IRS_SUB_ZIP_CD}
+        WHEN NOT MATCHED THEN
+        INSERT (
+              GATE_CD
+            , CUST_CD
+            , PLANT_CD
+            , CUBL_SQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , ACC_CD
+            , CUBL_NM
+            , CUBL_ZIP_CD
+            , CUBL_ADDR1
+            , CUBL_ADDR2
+            , COMPANY_NM
+            , IRS_NUM
+            , CEO_USER_NM
+            , BUSINESS_TYPE
+            , INDUSTRY_TYPE
+            , IRS_SUB_NUM
+            , IRS_SUB_ADDR
+            , CUBL_BANK_NM
+            , CUBL_ACCOUNT_NUM
+            , CUBL_ACCOUNT_NM
+            , CUBL_USER_NM
+            , CUBL_USER_TEL_NUM
+            , CUBL_USER_FAX_NUM
+            , CUBL_USER_CELL_NUM
+            , MNG_ID
+            , IRS_SUB_ZIP_CD
+            , CUBL_USER_EMAIL
+        ) VALUES (
+              #{ses.gateCd}
+            , #{CUST_CD}
+            , #{PLANT_CD}
+            <if test="CUBL_SQ != null and CUBL_SQ != ''">
+            , #{CUBL_SQ}
+            </if>
+            <if test="CUBL_SQ == null or CUBL_SQ == ''">
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(CUBL_SQ)+1, 1) FROM STOCCUBL WHERE GATE_CD = #{ses.gateCd})
+            </if>
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , '1'
+            , #{ACC_CD}
+            , #{CUBL_CUST_NM}
+            , #{CUBL_ZIP_CD}
+            , #{CUBL_ADDR1}
+            , #{CUBL_ADDR2}
+            , #{CUST_NM}
+            , #{CUBL_IRS_NUM}
+            , #{CUBL_CEO_USER_NM}
+            , #{CUBL_BUSINESS_TYPE}
+            , #{CUBL_INDUSTRY_TYPE}
+            , #{IRS_SUB_NUM}
+            , #{IRS_SUB_ADDR}
+            , #{CUBL_BANK_NM}
+            , #{CUBL_ACCOUNT_NUM}
+            , #{CUBL_ACCOUNT_NM}
+            , #{CUBL_USER_NM}
+            , #{CUBL_USER_TEL_NUM}
+            , #{CUBL_USER_FAX_NUM}
+            , #{CUBL_USER_CELL_NUM}
+            , #{MANAGE_ID}
+            , #{IRS_SUB_ZIP_CD}
+            , #{CUBL_USER_EMAIL}
+        )
+    </update>
+
+    <update id="bs01040_doDeleteCUPL">
+        UPDATE STOCCUPL
+            SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              , MOD_USER_ID = #{ses.userId}
+              , DEL_FLAG = '1'
+        WHERE GATE_CD = #{ses.gateCd}
+          AND CUST_CD = #{CUST_CD}
+          AND PLANT_CD = #{PLANT_CD}
+
+    </update>
+
+    <update id="bs01040_doDeleteCUBL">
+        UPDATE STOCCUBL
+            SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              , MOD_USER_ID = #{ses.userId}
+              , DEL_FLAG = '1'
+        WHERE GATE_CD = #{ses.gateCd}
+          AND CUST_CD = #{CUST_CD}
+          AND CUBL_SQ = #{CUBL_SQ}
+
+    </update>
+
+
+    <select id="existsCUPL" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(A.PLANT_CD) AS CNT
+		  FROM STOCCUPL A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CUST_CD = #{CUST_CD}
+		   AND A.PLANT_CD = #{PLANT_CD}
+    </select>
+
+    <insert id="insertStocCupl" parameterType="hashmap">
+		INSERT INTO STOCCUPL (
+								  GATE_CD
+								, CUST_CD
+								, PLANT_CD
+								, REG_DATE
+								, REG_USER_ID
+								, MOD_DATE
+								, MOD_USER_ID
+								, DEL_FLAG
+								, PLANT_NM
+								, COM_NM
+								, IRS_NUM
+								, COMPANY_REG_NUM
+								, CEO_USER_NM
+								, FOUNDATION_DATE
+								, ZIP_CD
+								, ADDR1
+								, ADDR2
+								, BUSINESS_TYPE
+								, INDUSTRY_TYPE
+								, IRS_SUB_NUM
+								, IRS_SUB_NM
+								, MNG_ID
+								, SORT_SQ
+								)
+						VALUES (
+								  #{ses.gateCd}
+								, #{CUST_CD}
+								, #{PLANT_CD}
+								, <include refid="com.sql.sysdate"/>
+								, #{ses.userId}
+								, <include refid="com.sql.sysdate"/>
+								, #{ses.userId}
+								, '0'
+								, #{PLANT_NM}
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, ''
+								, #{MNG_ID}
+								, #{SORT_SQ}
+								)
+	</insert>
+
+	<update id="updateStocCupl" parameterType="hashmap">
+
+		UPDATE STOCCUPL
+		SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '0'
+			, PLANT_CD = #{PLANT_CD}
+			, PLANT_NM = #{PLANT_NM}
+			, COM_NM = ''
+			, IRS_NUM = ''
+			, COMPANY_REG_NUM = ''
+			, CEO_USER_NM = ''
+			, FOUNDATION_DATE = ''
+			, ZIP_CD = ''
+			, ADDR1 = ''
+			, ADDR2 = ''
+			, BUSINESS_TYPE = ''
+			, INDUSTRY_TYPE = ''
+			, IRS_SUB_NUM = ''
+			, IRS_SUB_NM = ''
+			, MNG_ID = #{MNG_ID}
+			, SORT_SQ = #{SORT_SQ}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND CUST_CD = #{CUST_CD}
+		AND PLANT_CD = #{PLANT_CD}
+	</update>
+
+    <delete id="bs01040_doDeleteDT" parameterType="hashMap">
+        DELETE FROM STOCCUPL
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   CUST_CD = #{CUST_CD}
+        AND   PLANT_CD = #{PLANT_CD}
+    </delete>
+
+    <select id="bs01050_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+				A.CUST_CD
+			   ,A.CUST_NM
+			   ,A.IRS_NUM
+			   ,A.CEO_NM
+			   ,A.ACC_NUM
+			   ,A.BUSINESS_TYPE
+			   ,A.INDUSTRY_TYPE
+			   ,A.COMPANY_TYPE
+		  FROM(
+				SELECT
+						OGCM.BUYER_CD AS CUST_CD
+					   ,OGCM.BUYER_NM AS CUST_NM
+					   ,OGCM.IRS_NUM AS IRS_NUM
+					   ,OGCM.CEO_USER_NM AS CEO_NM
+					   ,'운영사' AS ACC_NUM
+					   ,OGCM.BUSINESS_TYPE AS BUSINESS_TYPE
+					   ,OGCM.INDUSTRY_TYPE AS INDUSTRY_TYPE
+					   ,<include refid="com.sql.dbo"/>getCodeName(OGCM.GATE_CD, 'M006', 'C', #{ses.langCd}) AS COMPANY_TYPE
+				  FROM STOCOGCM OGCM
+				 WHERE OGCM.GATE_CD = '100'
+				   AND OGCM.DEL_FLAG = '0'
+				   AND OGCM.USE_FLAG = '1'
+
+				UNION ALL
+
+				SELECT
+						CUST.CUST_CD
+					   ,CUST.CUST_NM
+					   ,CUST.IRS_NUM
+					   ,CUST.CEO_USER_NM AS CEO_NM
+					   ,CUST.ACC_NUM
+					   ,CUST.BUSINESS_TYPE
+					   ,CUST.INDUSTRY_TYPE
+					   ,<include refid="com.sql.dbo"/>getCodeName(CUST.GATE_CD, 'M006', 'B', #{ses.langCd}) AS COMPANY_TYPE
+				  FROM STOCCUST CUST
+				 WHERE CUST.GATE_CD  = '100'
+				   AND CUST.DEL_FLAG = '0'
+				   AND CUST.PROGRESS_CD = 'E'
+				   AND <include refid="com.sql.nvl"/>(CUST.STOP_FLAG, '0') = '0'
+			  ) A
+		 WHERE 1=1
+		<if test="CUST_CD_L != '' and CUST_CD_L != null">
+		   AND A.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD_L} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM_L != '' and CUST_NM_L != null">
+		   AND A.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM_L} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY A.COMPANY_TYPE DESC, A.CUST_CD, A.CUST_NM
+	</select>
+
+    <select id="bs01050_doSearchD" parameterType="hashMap" resultType="hashMap">
+        SELECT
+              CSDM.CUST_CD
+            , <include refid="com.sql.dbo"/>getCustName(CSDM.GATE_CD, CSDM.CUST_CD) AS CUST_NM
+            , (SELECT B.ACC_NUM FROM STOCCUST B WHERE B.GATE_CD = CSDM.GATE_CD AND B.CUST_CD = CSDM.CUST_CD ) AS ACC_NUM
+            , CSDM.SEQ
+            , CSDM.DELY_NM
+            , CSDM.DELY_ZIP_CD
+            , CSDM.DELY_ADDR_1
+            , CSDM.DELY_ADDR_2
+            , CSDM.RECIPIENT_NM
+            , CSDM.RECIPIENT_DEPT_NM
+            , CSDM.RECIPIENT_TEL_NUM
+            , CSDM.RECIPIENT_FAX_NUM
+            , CSDM.RECIPIENT_CELL_NUM
+            , CSDM.RECIPIENT_EMAIL
+            , CSDM.USE_FLAG
+            , CSDM.DELY_RMK
+            , <include refid="com.sql.dbo"/>getUserName(CSDM.GATE_CD, CSDM.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            , <include refid="com.sql.toDateChar"/>(CSDM.MOD_DATE, 'YYYYMMDD HH24:MI') AS MOD_DATE
+			, CSDM.PLANT_CD
+			, <include refid="com.sql.dbo"/>GETPLANTNAME(CSDM.GATE_CD, CSDM.CUST_CD, CSDM.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+			, CSDM.CUST_DELY_CD
+        FROM STOCCSDM CSDM
+        WHERE CSDM.GATE_CD = #{ses.gateCd}
+        AND CSDM.DEL_FLAG = '0'
+        AND CSDM.CUST_CD = #{CUST_CD}
+        <if test="USE_FLAG != '' and USE_FLAG != null">
+        AND CSDM.USE_FLAG = #{USE_FLAG}
+        </if>
+        <if test="DELY_NM != '' and DELY_NM != null">
+            AND CSDM.DELY_NM <include refid="com.sql.likeL"/> #{DELY_NM} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY CSDM.SEQ, CSDM.DELY_NM
+    </select>
+
+	<insert id="insertStocCsdm" parameterType="hashmap">
+        INSERT INTO STOCCSDM (
+            GATE_CD
+            , CUST_CD
+            , SEQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , DELY_NM
+            , RECIPIENT_NM
+            , RECIPIENT_DEPT_NM
+            , RECIPIENT_TEL_NUM
+            , RECIPIENT_FAX_NUM
+            , RECIPIENT_CELL_NUM
+            , RECIPIENT_EMAIL
+            , DELY_ZIP_CD
+            , DELY_ADDR_1
+            , DELY_ADDR_2
+            , DELY_RMK
+            , CUST_DELY_CD
+            , PLANT_CD
+            , CSDM_SEQ
+        )
+        VALUES (
+              #{ses.gateCd}
+            , #{CUST_CD}
+            , CASE WHEN #{SEQ} is null THEN (SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1, 1) FROM STOCCSDM WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{CUST_CD}) ELSE TO_NUMBER(#{SEQ}) END
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{USE_FLAG}
+            , #{DELY_NM}
+            , #{RECIPIENT_NM}
+            , #{RECIPIENT_DEPT_NM}
+            , #{RECIPIENT_TEL_NUM}
+            , #{RECIPIENT_FAX_NUM}
+            , #{RECIPIENT_CELL_NUM}
+            , #{RECIPIENT_EMAIL}
+            , #{DELY_ZIP_CD}
+            , #{DELY_ADDR_1}
+            , #{DELY_ADDR_2}
+            , #{DELY_RMK}
+            , #{CUST_DELY_CD}
+            , CASE WHEN #{PLANT_CD} IS NULL THEN '*' ELSE #{PLANT_CD} END
+			, (SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1, 1) FROM STOCCSDM WHERE GATE_CD = #{ses.gateCd})
+        )
+    </insert>
+
+    <update id="updateStocCsdm" parameterType="hashmap">
+        UPDATE STOCCSDM SET
+            MOD_USER_ID = #{ses.userId}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , DEL_FLAG = '0'
+            , USE_FLAG = #{USE_FLAG}
+            , DELY_NM = #{DELY_NM}
+            , RECIPIENT_NM = #{RECIPIENT_NM}
+            , RECIPIENT_DEPT_NM = #{RECIPIENT_DEPT_NM}
+            , RECIPIENT_TEL_NUM = #{RECIPIENT_TEL_NUM}
+            , RECIPIENT_FAX_NUM = #{RECIPIENT_FAX_NUM}
+            , RECIPIENT_CELL_NUM = #{RECIPIENT_CELL_NUM}
+            , RECIPIENT_EMAIL = #{RECIPIENT_EMAIL}
+            , DELY_ZIP_CD = #{DELY_ZIP_CD}
+            , DELY_ADDR_1 = #{DELY_ADDR_1}
+            , DELY_ADDR_2 = #{DELY_ADDR_2}
+            , DELY_RMK = #{DELY_RMK}
+
+            , CUST_DELY_CD = #{CUST_DELY_CD}
+            , PLANT_CD = CASE WHEN #{PLANT_CD} IS NULL THEN '*' ELSE #{PLANT_CD} END
+
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND SEQ = #{SEQ}
+    </update>
+
+    <delete id="bs01050_doDeleteDT" parameterType="hashMap">
+        UPDATE STOCCSDM
+		SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '1'
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   CUST_CD = #{CUST_CD}
+        AND   SEQ = #{SEQ}
+    </delete>
+
+    <delete id="bs01050_doDeleteCSDM" parameterType="hashMap">
+        DELETE STOCCSDM
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CUST_CD = #{CUST_CD}
+        AND SEQ = #{SEQ}
+    </delete>
+
+    <select id="bs01060_doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		         A.CUST_CD
+		       , A.CUST_NM
+		       , B.IRS_NUM
+		       , B.CEO_USER_NM AS CEO_NM
+		       , A.ACC_NUM
+		       , A.BUSINESS_TYPE
+		       , A.INDUSTRY_TYPE
+		       , B.PLANT_CD
+		       , B.PLANT_NM
+		  FROM STOCCUST A JOIN STOCCUPL B ON A.GATE_CD = B.GATE_CD
+									 AND A.CUST_CD = B.CUST_CD
+									 AND B.DEL_FLAG	= '0'
+		 WHERE A.GATE_CD  = #{ses.gateCd}
+		   AND A.DEL_FLAG = '0'
+		   AND A.PROGRESS_CD = 'E'
+		   AND <include refid="com.sql.nvl"/>(A.STOP_FLAG, '0') = '0'
+		<if test="CUST_CD_L != '' and CUST_CD_L != null">
+		   AND A.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD_L} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM_L != '' and CUST_NM_L != null">
+		   AND A.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM_L} <include refid="com.sql.likeR"/>
+		</if>
+
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+			AND B.PLANT_CD = #{PLANT_CD}
+		</if>
+		ORDER BY A.CUST_CD, A.CUST_NM
+	</select>
+
+    <select id="bs01060_doSearchD" parameterType="hashMap" resultType="hashMap">
+        SELECT
+            CUBL.CUST_CD
+            , <include refid="com.sql.dbo"/>getCustName(CUBL.GATE_CD, CUBL.CUST_CD) AS CUST_NM
+            , (SELECT B.ACC_NUM FROM STOCCUST B WHERE B.GATE_CD = CUBL.GATE_CD AND B.CUST_CD = CUBL.CUST_CD ) AS ACC_NUM
+            , CUBL.CUBL_SQ
+            , CUBL.ACC_CD
+            , CUBL.CUBL_NM
+            , CUBL.CUBL_ZIP_CD
+            , CUBL.CUBL_ADDR1
+            , CUBL.CUBL_ADDR2
+            , CUBL.COMPANY_NM
+            , CUBL.IRS_NUM
+            , CUBL.CEO_USER_NM
+            , CUBL.BUSINESS_TYPE
+            , CUBL.INDUSTRY_TYPE
+            , CUBL.CUBL_BANK_NM
+            , CUBL.CUBL_ACCOUNT_NUM
+            , CUBL.CUBL_ACCOUNT_NM
+            , CUBL.CUBL_USER_NM
+            , CUBL.CUBL_USER_TEL_NUM
+            , CUBL.CUBL_USER_FAX_NUM
+            , CUBL.CUBL_USER_CELL_NUM
+            , CUBL.CUBL_USER_EMAIL
+            , CUBL.MNG_ID
+            , CUBL.USE_FLAG
+            , CUBL.IRS_SUB_NUM
+            , CUBL.IRS_SUB_ZIP_CD
+            , CUBL.IRS_SUB_ADDR
+            , <include refid="com.sql.dbo"/>getUserName(CUBL.GATE_CD, CUBL.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            , <include refid="com.sql.toDateChar"/>(CUBL.MOD_DATE, 'YYYYMMDD HH24:MI:SS') AS MOD_DATE
+            , CUBL.PLANT_CD
+
+        FROM STOCCUBL CUBL
+        WHERE CUBL.GATE_CD = #{ses.gateCd}
+        AND CUBL.DEL_FLAG = '0'
+        AND CUBL.CUST_CD = #{CUST_CD}
+       	AND CUBL.PLANT_CD = #{PLANT_CD}
+
+		<if test="CUBL_NM != '' and CUBL_NM != null">
+		   AND CUBL.CUBL_NM <include refid="com.sql.likeL"/> #{CUBL_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+        <if test="USE_FLAG != '' and USE_FLAG != null">
+           AND CUBL.USE_FLAG = #{USE_FLAG}
+        </if>
+
+
+        <if test="MNG_ID != '' and MNG_ID != null">
+           AND CUBL.MNG_ID = #{MNG_ID}
+        </if>
+      ORDER BY CUBL.CUBL_SQ, CUBL.CUBL_NM
+    </select>
+
+    <insert id="insertStocCubl" parameterType="hashmap">
+        INSERT INTO STOCCUBL (
+            GATE_CD
+            , CUST_CD
+            , PLANT_CD
+            , CUBL_SQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , ACC_CD
+            , CUBL_NM
+            , CUBL_ZIP_CD
+            , CUBL_ADDR1
+            , CUBL_ADDR2
+            , COMPANY_NM
+            , IRS_NUM
+            , CEO_USER_NM
+            , BUSINESS_TYPE
+            , INDUSTRY_TYPE
+            , IRS_SUB_NUM
+            , IRS_SUB_ADDR
+            , CUBL_BANK_NM
+            , CUBL_ACCOUNT_NUM
+            , CUBL_ACCOUNT_NM
+            , CUBL_USER_NM
+            , CUBL_USER_TEL_NUM
+            , CUBL_USER_FAX_NUM
+            , CUBL_USER_CELL_NUM
+            , CUBL_USER_EMAIL
+            , MNG_ID
+            , IRS_SUB_ZIP_CD
+        )
+        VALUES (
+            #{ses.gateCd}
+            , #{CUST_CD}
+            , #{PLANT_CD}
+            ,(CASE WHEN #{CUBL_SQ} is null
+            	        THEN (SELECT <include refid="com.sql.nvl"/>(MAX(CUBL_SQ)+1, 1) FROM STOCCUBL WHERE GATE_CD = #{ses.gateCd})
+            	   ELSE TO_NUMBER(#{CUBL_SQ})
+              END)
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{USE_FLAG}
+            , #{ACC_CD}
+            , #{CUBL_NM}
+            , #{CUBL_ZIP_CD}
+            , #{CUBL_ADDR1}
+            , #{CUBL_ADDR2}
+            , #{COMPANY_NM}
+            , #{IRS_NUM}
+            , #{CEO_USER_NM}
+            , #{BUSINESS_TYPE}
+            , #{INDUSTRY_TYPE}
+            , #{IRS_SUB_NUM}
+            , #{IRS_SUB_ADDR}
+            , #{CUBL_BANK_NM}
+            , #{CUBL_ACCOUNT_NUM}
+            , #{CUBL_ACCOUNT_NM}
+            , #{CUBL_USER_NM}
+            , #{CUBL_USER_TEL_NUM}
+            , #{CUBL_USER_FAX_NUM}
+            , #{CUBL_USER_CELL_NUM}
+            , #{CUBL_USER_EMAIL}
+            , #{MNG_ID}
+            , #{IRS_SUB_ZIP_CD}
+        )
+    </insert>
+
+	<update id="updateStocCubl" parameterType="hashmap">
+
+		UPDATE STOCCUBL
+		SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '0'
+			, USE_FLAG = #{USE_FLAG}
+			, ACC_CD = #{ACC_CD}
+			, CUBL_NM = #{CUBL_NM}
+			, CUBL_ZIP_CD = #{CUBL_ZIP_CD}
+			, CUBL_ADDR1 = #{CUBL_ADDR1}
+			, CUBL_ADDR2 = #{CUBL_ADDR2}
+			, COMPANY_NM = #{COMPANY_NM}
+			, IRS_NUM = #{IRS_NUM}
+			, CEO_USER_NM = #{CEO_USER_NM}
+			, BUSINESS_TYPE = #{BUSINESS_TYPE}
+			, INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+			, IRS_SUB_NUM = #{IRS_SUB_NUM}
+			, IRS_SUB_ADDR = #{IRS_SUB_ADDR}
+			, CUBL_BANK_NM = #{CUBL_BANK_NM}
+			, CUBL_ACCOUNT_NUM = #{CUBL_ACCOUNT_NUM}
+			, CUBL_ACCOUNT_NM = #{CUBL_ACCOUNT_NM}
+			, CUBL_USER_NM = #{CUBL_USER_NM}
+			, CUBL_USER_TEL_NUM = #{CUBL_USER_TEL_NUM}
+			, CUBL_USER_FAX_NUM = #{CUBL_USER_FAX_NUM}
+			, CUBL_USER_CELL_NUM = #{CUBL_USER_CELL_NUM}
+			, CUBL_USER_EMAIL = #{CUBL_USER_EMAIL}
+			, MNG_ID = #{MNG_ID}
+			, IRS_SUB_ZIP_CD = #{IRS_SUB_ZIP_CD}
+		WHERE GATE_CD  = #{ses.gateCd}
+		  AND CUST_CD  = #{CUST_CD}
+		  AND PLANT_CD = #{PLANT_CD}
+		  AND CUBL_SQ  = #{CUBL_SQ}
+	</update>
+
+    <delete id="bs01060_doDeleteDT" parameterType="hashMap">
+        UPDATE STOCCUBL
+		SET MOD_USER_ID = #{ses.userId}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, DEL_FLAG = '1'
+        WHERE GATE_CD  = #{ses.gateCd}
+        AND  CUST_CD  = #{CUST_CD}
+        AND  PLANT_CD = #{PLANT_CD}
+        AND  CUBL_SQ  = #{CUBL_SQ}
+    </delete>
+
+    <delete id="bs01060_doDeleteCUBL" parameterType="hashMap">
+        DELETE STOCCUBL
+        WHERE GATE_CD  = #{ses.gateCd}
+        AND  CUST_CD  = #{CUST_CD}
+        AND  PLANT_CD = #{PLANT_CD}
+        AND  CUBL_SQ  = #{CUBL_SQ}
+    </delete>
+
+    <select id="bs01022_doSearch" resultType="java.util.Map">
+        SELECT MUCH.M_CUST_CD
+             , CUST.CUST_NM AS M_CUST_NM
+             , MUCH.M_USER_ID
+             , CVUR.USER_NM AS M_USER_NM
+             , CVUR.DEPT_CD AS M_DEPT_CD
+             , <include refid="com.sql.dbo"/>GETDEPTNAME(CVUR.GATE_CD, CUST.CUST_CD, CVUR.DEPT_CD, #{ses.langCd}) AS M_DEPT_NM
+          FROM STOCMUCH MUCH
+          JOIN STOCCUST CUST
+           ON (MUCH.GATE_CD = CUST.GATE_CD
+           AND MUCH.M_CUST_CD = CUST.CUST_CD
+           AND CUST.DEL_FLAG = '0')
+          JOIN STOCCVUR CVUR
+           ON (MUCH.GATE_CD = CVUR.GATE_CD
+           AND MUCH.M_USER_ID = CVUR.USER_ID
+           AND CVUR.DEL_FLAG = '0')
+         WHERE MUCH.GATE_CD = #{ses.gateCd}
+        <if test="M_CUST_NM != null and M_CUST_NM !=''">
+           AND CUST.CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="M_USER_NM != null and M_USER_NM !=''">
+           AND CVUR.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+           AND MUCH.DEL_FLAG = '0'
+    </select>
+
+    <select id="bs01022_doSearchD" parameterType="hashMap" resultType="hashMap">
+
+    SELECT * FROM (
+        SELECT
+                <include refid="com.sql.dbo"/>GETCOMPANYNAME(MUCD.GATE_CD,MUCD.M_CUST_CD,#{ses.langCd}) AS M_CUST_NM
+               ,MUCD.M_CUST_CD
+               ,CVUR1.USER_NM AS M_USER_NM
+               ,MUCD.M_USER_ID
+               ,<include refid="com.sql.dbo"/>GETDEPTNAME(MUCD.GATE_CD, MUCD.M_CUST_CD, CVUR1.DEPT_CD, #{ses.langCd}) AS M_DEPT_NM
+               ,CVUR1.DEPT_CD AS M_DEPT_CD
+               ,<include refid="com.sql.dbo"/>GETCOMPANYNAME(MUCD.GATE_CD,MUCD.CUST_CD,#{ses.langCd}) AS CUST_NM
+               ,MUCD.CUST_CD
+               ,CVUR2.USER_NM AS USER_NM
+               ,MUCD.USER_ID
+               ,<include refid="com.sql.dbo"/>GETDEPTNAME(MUCD.GATE_CD, MUCD.CUST_CD, CVUR2.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+               ,CVUR2.DEPT_CD AS DEPT_CD
+          FROM STOCMUCD MUCD
+          JOIN STOCCVUR CVUR1
+            ON (MUCD.GATE_CD = CVUR1.GATE_CD
+           AND MUCD.M_CUST_CD = CVUR1.COMPANY_CD
+           AND MUCD.M_USER_ID = CVUR1.USER_ID
+           AND CVUR1.DEL_FLAG = '0')
+           JOIN STOCCVUR CVUR2
+            ON (MUCD.GATE_CD = CVUR2.GATE_CD
+           AND MUCD.CUST_CD = CVUR2.COMPANY_CD
+           AND MUCD.USER_ID = CVUR2.USER_ID
+           AND CVUR2.DEL_FLAG = '0')
+         WHERE MUCD.GATE_CD = #{ses.gateCd}
+        ) A
+        WHERE 1=1
+        <if test="M_USER_ID != null and M_USER_ID !=''">
+           AND A.M_USER_ID = #{M_USER_ID}
+        </if>
+        ORDER BY A.M_CUST_NM, A.M_USER_NM, A.CUST_NM, A.USER_NM
+    </select>
+
+    <insert id="bs01022_doSave">
+        MERGE INTO STOCMUCH A
+        USING (SELECT #{ses.gateCd}  AS GATE_CD
+                    , #{M_CUST_CD} AS M_CUST_CD
+                    , #{M_USER_ID} AS M_USER_ID) B
+          ON (A.GATE_CD = B.GATE_CD
+          AND A.M_CUST_CD = B.M_CUST_CD
+          AND A.M_USER_ID = B.M_USER_ID)
+         WHEN MATCHED THEN UPDATE SET
+              MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+         WHEN NOT MATCHED THEN INSERT (
+              GATE_CD
+            , M_CUST_CD
+            , M_USER_ID
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+        ) VALUES (
+              #{ses.gateCd}
+            , #{M_CUST_CD}
+            , #{M_USER_ID}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <update id="bs01022_doDeleteH" parameterType="hashMap">
+        DELETE FROM STOCMUCH
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   M_CUST_CD = #{M_CUST_CD}
+        AND   M_USER_ID = #{M_USER_ID}
+    </update>
+
+    <update id="bs01022_doDeleteD" parameterType="hashMap">
+        DELETE FROM STOCMUCD
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   M_CUST_CD = #{M_CUST_CD}
+        AND   M_USER_ID = #{M_USER_ID}
+    </update>
+
+    <select id="existsMUCD" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(A.USER_ID) AS CNT
+		  FROM STOCMUCD A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.M_CUST_CD = #{M_CUST_CD}
+		   AND A.M_USER_ID = #{M_USER_ID}
+		   AND A.CUST_CD = #{CUST_CD}
+		   AND A.USER_ID = #{USER_ID}
+    </select>
+
+    <insert id="bs01022_doSaveUser" parameterType="hashMap">
+        INSERT INTO STOCMUCD (
+                                GATE_CD
+                               ,M_CUST_CD
+                               ,M_USER_ID
+                               ,CUST_CD
+                               ,USER_ID
+                               ,REG_DATE
+                               ,REG_USER_ID
+                               ,MOD_DATE
+                               ,MOD_USER_ID
+                               ,DEL_FLAG
+        ) VALUES (
+              #{ses.gateCd}
+            , #{M_CUST_CD}
+            , #{M_USER_ID}
+            , #{CUST_CD}
+            , #{USER_ID}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+        )
+    </insert>
+
+    <delete id="bs01022_doDeleteUser" parameterType="hashMap">
+        DELETE FROM STOCMUCD
+         WHERE GATE_CD = #{ses.gateCd}
+           AND M_CUST_CD = #{M_CUST_CD}
+           AND M_USER_ID = #{M_USER_ID}
+           AND CUST_CD = #{CUST_CD}
+           AND USER_ID = #{USER_ID}
+    </delete>
+
+    <select id="bs01080_doSearchUser" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+            A.*
+          FROM (
+            SELECT
+                  RULM.BUYER_CD AS COMPANY_CD
+        <choose>
+            <when test='USER_TYPE_SEARCH == "C"'>
+                , COM.BUYER_NM AS COMPANY_NM
+            </when>
+            <otherwise>
+                , COM.CUST_NM AS COMPANY_NM
+            </otherwise>
+        </choose>
+                , UR.DEPT_CD
+                ,<include refid="com.sql.dbo"/>getUserDeptName(#{ses.gateCd}, UR.USER_ID, #{ses.langCd}) AS DEPT_NM
+                , RULM.PATH_USER_ID AS USER_ID
+                , UR.USER_NM
+                ,(CASE WHEN (SELECT COUNT(B.CUST_CD)
+                               FROM STOCAPGH A
+                               LEFT OUTER JOIN STOCAPGD B
+                                ON (A.GATE_CD = B.GATE_CD
+                                AND A.APG_CD = B.APG_CD
+                                AND B.DEL_FLAG = '0'
+                                AND B.USE_FLAG = '1')
+                              WHERE A.GATE_CD = RULM.GATE_CD
+                                AND B.CUST_CD = RULM.BUYER_CD
+                                AND A.DEL_FLAG = '0'
+                                AND A.USE_FLAG = '1') <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) AS APG_FLAG
+                , RULM.MAIN_PATH_FLAG
+                ,<include refid="com.sql.dbo"/>GETCOMCODE(RULM.GATE_CD, 'M044', RULM.MAIN_PATH_FLAG, 0, #{ses.langCd}) AS MAIN_PATH_FLAG_LOC
+                , RULM.SIGN_PATH_NM
+                ,(SELECT COUNT(LULP.PATH_SQ)
+                    FROM STOCLULP LULP <include refid="com.sql.noLock"/>
+                    JOIN USERCVUR_VW USERTB <include refid="com.sql.noLock"/>
+	                     ON (LULP.GATE_CD = USERTB.GATE_CD
+	                     AND LULP.SIGN_USER_ID = USERTB.USER_ID)
+                   WHERE LULP.GATE_CD = RULM.GATE_CD
+                     AND LULP.PATH_NUM = RULM.PATH_NUM
+                     AND LULP.DEL_FLAG = '0') AS PATH_CNT
+                , RULM.SIGN_RMK
+                ,<include refid="com.sql.toDateChar"/>(RULM.REG_DATE, 'yyyyMMdd') AS REG_DATE
+                ,<include refid="com.sql.toDateChar"/>(RULM.MOD_DATE, 'yyyyMMdd') AS MOD_DATE
+                , RULM.PATH_NUM
+              FROM STOCRULM RULM <include refid="com.sql.noLock"/>
+        <choose>
+            <when test='USER_TYPE_SEARCH == "C"'>
+              LEFT JOIN STOCUSER UR
+               ON (RULM.GATE_CD = UR.GATE_CD
+               AND RULM.BUYER_CD = UR.COMPANY_CD
+               AND RULM.PATH_USER_ID = UR.USER_ID)
+              LEFT JOIN STOCOGCM COM
+               ON (RULM.GATE_CD = COM.GATE_CD
+               AND RULM.BUYER_CD = COM.BUYER_CD)
+            </when>
+            <otherwise>
+              LEFT JOIN STOCCVUR UR
+               ON (RULM.GATE_CD = UR.GATE_CD
+               AND RULM.BUYER_CD = UR.COMPANY_CD
+               AND RULM.PATH_USER_ID = UR.USER_ID)
+              LEFT JOIN STOCCUST COM
+               ON (RULM.GATE_CD = COM.GATE_CD
+               AND RULM.BUYER_CD = COM.CUST_CD)
+            </otherwise>
+        </choose>
+             WHERE RULM.GATE_CD = #{ses.gateCd}
+               AND RULM.DEL_FLAG = '0'
+               AND UR.DEL_FLAG = '0'
+               AND COM.DEL_FLAG = '0'
+               AND DP.DEL_FLAG = '0'
+          ) A
+         WHERE 1 = 1
+        <if test="COMPANY_CD_SEARCH != '' and COMPANY_CD_SEARCH != null">
+            AND A.COMPANY_CD <include refid="com.sql.likeL"/> #{COMPANY_CD_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="COMPANY_NM_SEARCH != '' and COMPANY_NM_SEARCH != null">
+            AND A.COMPANY_NM <include refid="com.sql.likeL"/> #{COMPANY_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_CD_SEARCH != '' and DEPT_CD_SEARCH != null">
+            AND A.DEPT_CD <include refid="com.sql.likeL"/> #{DEPT_CD_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM_SEARCH != '' and DEPT_NM_SEARCH != null">
+            AND A.DEPT_NM <include refid="com.sql.likeL"/> #{DEPT_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID_NM_SEARCH != '' and USER_ID_NM_SEARCH != null">
+            AND (A.USER_ID <include refid="com.sql.likeL"/> #{USER_ID_NM_SEARCH} <include refid="com.sql.likeR"/>
+              OR A.USER_NM <include refid="com.sql.likeL"/> #{USER_ID_NM_SEARCH} <include refid="com.sql.likeR"/>)
+        </if>
+        <choose>
+            <when test='ALL_FLAG == "Y"'>
+                AND 1 = 1
+            </when>
+            <otherwise>
+                <choose>
+                    <when test='APG_FLAG == "Y"'>
+                        AND A.APG_FLAG = 'Y'
+                    </when>
+                    <otherwise>
+                        AND A.APG_FLAG = 'N'
+                    </otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+
+         ORDER BY A.COMPANY_CD, A.DEPT_CD, A.REG_DATE DESC
+
+    </select>
+
+    <select id="bs01080_doSearchPathInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             <include refid="com.sql.nvl"/>(RULM.MAIN_PATH_FLAG, '0') AS MAIN_PATH_FLAG
+            ,RULM.SIGN_PATH_NM
+            ,(SELECT COUNT(LULP.PATH_SQ)
+                FROM STOCLULP LULP <include refid="com.sql.noLock"/>
+                JOIN USERCVUR_VW USERTB <include refid="com.sql.noLock"/>
+                 ON (LULP.GATE_CD = USERTB.GATE_CD
+                 AND LULP.SIGN_USER_ID = USERTB.USER_ID)
+               WHERE LULP.GATE_CD = RULM.GATE_CD
+                 AND LULP.PATH_NUM = RULM.PATH_NUM
+                 AND LULP.DEL_FLAG = '0') AS PATH_CNT
+            ,RULM.SIGN_RMK
+            ,<include refid="com.sql.toDateChar"/>(RULM.REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+            ,<include refid="com.sql.dbo"/>getUserName(RULM.GATE_CD, RULM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+            ,<include refid="com.sql.toDateChar"/>(RULM.MOD_DATE, 'YYYY-MM-DD') AS MOD_DATE
+            ,<include refid="com.sql.dbo"/>getUserName(RULM.GATE_CD, RULM.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            ,RULM.PATH_NUM
+          FROM STOCRULM RULM <include refid="com.sql.noLock"/>
+         WHERE RULM.GATE_CD = #{ses.gateCd}
+           AND RULM.PATH_NUM = #{PATH_NUM}
+           AND RULM.DEL_FLAG = '0'
+
+    </select>
+
+    <select id="bs01080_doSearchPathList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             LULP.PATH_SQ
+            ,USERTB.COMPANY_CD, <include refid="com.sql.dbo"/>GETCOMPANYNAME(USERTB.GATE_CD, USERTB.COMPANY_CD, #{ses.langCd}) AS COMPANY_NM
+            ,USERTB.DEPT_CD, OGDP.DEPT_NM
+            ,LULP.SIGN_USER_ID, <include refid="com.sql.dbo"/>getUserName(LULP.GATE_CD, LULP.SIGN_USER_ID, #{ses.langCd}) AS SIGN_USER_NM
+            ,USERTB.POSITION_NM
+            ,USERTB.DUTY_NM
+            ,LULP.SIGN_REQ_STATUS
+            ,LULP.PATH_NUM
+            ,'R' AS INSERT_FLAG
+          FROM STOCLULP LULP <include refid="com.sql.noLock"/>
+          JOIN USERCVUR_VW USERTB <include refid="com.sql.noLock"/>
+           ON (LULP.SIGN_USER_ID = USERTB.USER_ID
+           AND LULP.GATE_CD = USERTB.GATE_CD)
+          LEFT OUTER JOIN STOCOGDP OGDP
+           ON (USERTB.GATE_CD = OGDP.GATE_CD
+           AND USERTB.COMPANY_CD = OGDP.BUYER_CD
+           AND USERTB.DEPT_CD = OGDP.DEPT_CD
+           AND OGDP.DEL_FLAG = '0')
+         WHERE LULP.GATE_CD = #{ses.gateCd}
+           AND LULP.PATH_NUM = #{PATH_NUM}
+           AND LULP.DEL_FLAG = '0'
+         ORDER BY LULP.PATH_SQ
+
+    </select>
+
+    <select id="getPathNo" parameterType="hashMap" resultType="java.lang.String">
+
+        SELECT
+        <if test="_databaseId == 'oracle'">
+            <include refid="com.sql.lpad"/>(<include refid="com.sql.nvl"/>(MAX(TO_NUMBER(PATH_NUM)) + 1, 1), 10, '0')
+        </if>
+        <if test="_databaseId == 'mssql'">
+            <include refid="com.sql.lpad"/>(<include refid="com.sql.nvl"/>(MAX(CAST(PATH_NUM AS FLOAT)) + 1, 1), 10, '0')
+        </if>
+          FROM STOCRULM <include refid="com.sql.noLock"/>
+         WHERE GATE_CD = #{ses.gateCd}
+
+    </select>
+
+    <insert id="bs01080_doMerge" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCRULM<include refid="com.sql.mergeAs"/>RULM
+        USING (SELECT
+                    #{ses.gateCd} AS GATE_CD
+                   ,#{PATH_NUM} AS PATH_NUM <include refid="com.sql.dual"/>
+              )<include refid="com.sql.mergeAs"/>B
+         ON (RULM.GATE_CD = B.GATE_CD
+         AND RULM.PATH_NUM = B.PATH_NUM)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,MAIN_PATH_FLAG = #{MAIN_PATH_FLAG}
+			,SIGN_PATH_NM = #{SIGN_PATH_NM}
+			,SIGN_RMK = #{SIGN_RMK}
+			,BUYER_CD = #{BUYER_CD}
+			,PATH_USER_ID = #{USER_ID}
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,PATH_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,MAIN_PATH_FLAG
+			,SIGN_PATH_NM
+			,SIGN_RMK
+			,BUYER_CD
+			,PATH_USER_ID
+        ) VALUES (
+             #{ses.gateCd}
+			,#{PATH_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,<include refid="com.sql.nvl"/>(#{MAIN_PATH_FLAG}, '0')
+			,#{SIGN_PATH_NM}
+			,#{SIGN_RMK}
+			,#{BUYER_CD}
+			,#{USER_ID}
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <delete id="bs01080_doDeleteRULM" parameterType="hashMap">
+
+		DELETE STOCRULM
+		 WHERE GATE_CD = #{ses.gateCd}
+           AND PATH_NUM = #{PATH_NUM}
+
+    </delete>
+
+    <delete id="bs01080_doDeleteLULP" parameterType="hashMap">
+
+		DELETE STOCLULP
+		 WHERE GATE_CD = #{ses.gateCd}
+           AND PATH_NUM = #{PATH_NUM}
+
+    </delete>
+
+    <insert id="bs01080_doInsertPathDetail" parameterType="hashMap">
+
+		INSERT INTO STOCLULP (
+			 GATE_CD
+			,PATH_NUM
+			,PATH_SQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,SIGN_PATH_SQ
+			,SIGN_REQ_STATUS
+			,SIGN_USER_ID
+		) VALUES (
+			 #{ses.gateCd}
+			,#{PATH_NUM}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(PATH_SQ) + 1, 1) FROM STOCLULP WHERE GATE_CD = #{ses.gateCd} AND PATH_NUM = #{PATH_NUM})
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(SIGN_PATH_SQ) + 1, 1) FROM STOCLULP WHERE GATE_CD = #{ses.gateCd} AND PATH_NUM = #{PATH_NUM})
+			,#{SIGN_REQ_STATUS}
+			,#{SIGN_USER_ID}
+		)
+
+    </insert>
+
+
+    <select id="bS01_090_doSearch" resultType="hashmap">
+        SELECT GATE_CD
+             , CUST_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , PROGRESS_CD
+             , CUST_NM
+             , IRS_NUM
+             , COMPANY_TYPE
+             , CORP_TYPE
+             , COMPANY_REG_NUM
+             , BUSINESS_TYPE
+             , INDUSTRY_TYPE
+             , CEO_USER_NM
+             , TEL_NUM
+             , FAX_NUM
+             , EMAIL
+             , FOUNDATION_DATE
+             , SIGN_STATUS
+             , SIGN_DATE
+             , REJECT_RMK
+             , REJECT_USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REJECT_USER_ID, #{ses.langCd}) AS REJECT_USER_NM
+        FROM STOCCUST
+       WHERE GATE_CD = #{ses.gateCd}
+         AND DEL_FLAG = '0'
+         AND PROGRESS_CD != 'E'
+        <if test="CUST_NM != null and CUST_NM != ''">
+            AND CUST_NM <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IRS_NUM != null and IRS_NUM != ''">
+            AND IRS_NUM <include refid="com.sql.likeL"/> #{IRS_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+	   	    AND PROGRESS_CD IN
+		   <foreach item="item" index="index" collection="PROGRESS_CD_LIST" open="(" separator="," close=")">
+             #{item}
+           </foreach>
+		</if>
+        <if test="CEO_USER_NM != null and CEO_USER_NM != ''">
+            AND CEO_USER_NM <include refid="com.sql.likeL"/> #{CEO_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+    </select>
+
+    <update id="bS01_090_doReject">
+        UPDATE STOCCUST
+          SET PROGRESS_CD = #{PROGRESS_CD}
+            , SIGN_DATE = <include refid="com.sql.sysdate"/>
+            , REJECT_RMK = #{REJECT_RMK}
+            , REJECT_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+          AND CUST_CD = #{CUST_CD}
+          AND DEL_FLAG = '0'
+    </update>
+
+</mapper>

@@ -1,0 +1,1793 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.IM01.IM0101_Mapper">
+
+	<insert id="updateSignStatus" parameterType="hashMap">
+		UPDATE STOCBULK SET STATUS = #{SIGN_STATUS}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND APP_DOC_NUM = #{APP_DOC_NUM}
+		AND APP_DOC_CNT = #{APP_DOC_CNT}
+	</insert>
+
+	<select id="chkItem" parameterType="hashMap" resultType="string">
+		SELECT LISTAGG( CHK , ',') WITHIN GROUP(ORDER BY CHK)
+		  FROM (
+			SELECT
+				CASE WHEN COUNT(*) = 0 AND #{PLANT_CD} != '*' THEN '고객사 및 사업장코드 오류'
+				ELSE 'O' END CHK
+			 FROM STOCCUPL
+			WHERE GATE_CD  = #{ses.gateCd}
+			  AND CUST_CD  = #{CUST_CD}
+			  AND PLANT_CD = #{PLANT_CD}
+			  AND DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT
+				CASE WHEN COUNT(*) = 0 THEN '협력사정보 오류'
+				ELSE 'O' END
+			 FROM STOCVNGL
+			WHERE GATE_CD   = #{ses.gateCd}
+			  AND VENDOR_CD = #{VENDOR_CD}
+			  AND DEL_FLAG  = '0'
+
+			UNION ALL
+
+			SELECT
+				CASE WHEN COUNT(*) != 0 THEN '기존품목 오류'
+				ELSE 'O' END
+			 FROM STOCMTGL
+			WHERE GATE_CD  = #{ses.gateCd}
+			  AND ITEM_CD  = #{ITEM_CD}
+			  AND DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT
+				CASE WHEN COUNT(*) = 0 THEN '표준분류 오류'
+				ELSE 'O' END
+			 FROM STOCMTCA
+			WHERE GATE_CD   = #{ses.gateCd}
+			  AND BUYER_CD  = #{ses.companyCd}
+			  AND ITEM_CLS1 = #{ITEM_CLS1}
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS2,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS2},'*')
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS3,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS3},'*')
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS4,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS4},'*')
+			  AND DEL_FLAG  = '0'
+
+			UNION ALL
+
+			SELECT
+				CASE WHEN COUNT(*) = 0 AND MAX((SELECT COUNT(*) FROM STOCCUST WHERE GATE_CD = #{ses.gateCd} AND CUST_CD  = #{CUST_CD} AND ERP_IF_FLAG = '1')) != 0 THEN '고객사분류 오류'
+				ELSE 'O' END
+			 FROM STOCMTCA
+			WHERE GATE_CD   = #{ses.gateCd}
+			  AND BUYER_CD  = '21'
+			  AND ITEM_CLS1 = #{ITEM_CLS1_CUST}
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS2,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS2_CUST},'*')
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS3,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS3_CUST},'*')
+			  AND <include refid="com.sql.nvl"/>(ITEM_CLS4,'*') = <include refid="com.sql.nvl"/>(#{ITEM_CLS4_CUST},'*')
+			  AND DEL_FLAG  = '0'
+
+			UNION ALL
+
+			SELECT
+				CASE WHEN COUNT(*) = 0 THEN '제조사를 확인해주세요'
+				ELSE 'O' END
+			 FROM STOCMKBR
+			WHERE GATE_CD   = #{ses.gateCd}
+			  AND MKBR_TYPE = 'MK'
+			  AND MKBR_CD   = #{MAKER_CD}
+		      AND DEL_FLAG  = '0'
+		 ) A
+		WHERE CHK != 'O'
+	</select>
+
+	<select id="getAppTargetBulkList"  parameterType="hashmap" resultType="hashMap">
+		SELECT
+			 A.GATE_CD
+			,A.REG_USER_ID
+			,A.JOB_TYPE
+			,A.SEQ
+			,A.REG_DATE
+			,A.STATUS
+			,A.ITEM_STATUS
+			,A.ITEM_CD
+			,A.ITEM_DESC
+			,A.ITEM_SPEC
+			,A.MAKER_CD
+			,A.MAKER_NM
+			,A.MAKER_PART_NO
+			,A.ORIGIN_CD
+			,A.UNIT_CD
+			,A.ORD_UNIT_CD
+			,A.BRAND_CD
+			,A.DEAL_CD
+			,A.VAT_CD
+			,A.VALID_FROM_DATE
+			,A.VALID_TO_DATE
+			,A.ITEM_CLS1
+			,A.ITEM_CLS2
+			,<include refid="com.sql.nvl"/>(A.ITEM_CLS3,'*') ITEM_CLS3
+			,<include refid="com.sql.nvl"/>(A.ITEM_CLS4,'*') ITEM_CLS4
+			,A.ITEM_CLS1_CUST
+			,A.ITEM_CLS2_CUST
+			,<include refid="com.sql.nvl"/>(A.ITEM_CLS3_CUST,'*') ITEM_CLS3_CUST
+			,<include refid="com.sql.nvl"/>(A.ITEM_CLS4_CUST,'*') ITEM_CLS4_CUST
+			,A.NOT_STD_TYPE
+			,A.NOT_STD_RMK
+			,A.CMS_CTRL_USER_ID
+			,A.SG_CTRL_USER_ID
+			,A.VENDOR_CD
+			,A.CONT_UNIT_PRC CONT_UNIT_PRICE
+			,A.MIN_ORDER_QT MOQ_QTY
+			,A.RV_QT RV_QTY
+			,A.LEADTIME
+			,A.CUST_CD
+			,A.SALES_UNIT_PRICE
+			,A.CUR
+			,A.CHANGE_REASON
+			,A.CUST_ITEM_CD
+			,A.ITEM_NOTC_DESC
+			,A.ITEM_NOTC_CERT
+			,A.ITEM_NOTC_ORIGIN
+			,A.ITEM_NOTC_MAKER
+			,A.ITEM_NOTC_AS
+			,A.LEAD_TIME_CD
+			,A.LEAD_TIME_RMK
+			,A.ITEM_DETAIL_URL
+			,A.PLANT_CD
+			,A.DELY_TYPE
+			,A.APP_DOC_NUM
+			,A.APP_DOC_CNT
+			,A.ITEM_KIND_CD
+		FROM STOCBULK A
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.APP_DOC_NUM = #{APP_DOC_NUM}
+		AND A.APP_DOC_CNT = #{APP_DOC_CNT}
+	</select>
+
+	<select id="im01001_doSearchHeader"  parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			'C'<include refid="com.sql.stringMerge"/>CODE AS SET_REGION_CD,
+			CODE AS REGION_CD,
+			CODE_DESC AS REGION_NM
+		FROM STOCCODD
+		WHERE GATE_CD = #{ses.gateCd}
+			  AND DEL_FLAG = '0'
+			  AND CODE_TYPE='MP005'
+		ORDER BY SORT_SQ, UPPER(CODE)
+
+	</select>
+
+	<select id="im01001_doSearch" parameterType="hashmap" resultType="hashMap">
+
+		SELECT   MTGL.ITEM_CD
+		,MTGL.ITEM_DESC
+		,MTGL.ITEM_SPEC
+		, MKBR.MKBR_NM AS MAKER_NM
+		,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+		,MTGL.MAKER_PART_NO
+		,MTGL.ORIGIN_CD
+		,MTGL.UNIT_CD
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(MTGL.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		, INFO.VENDOR_CD
+		, MTGL.SG_CTRL_USER_ID
+		, <include refid="com.sql.dbo"/>GETUSERNAME(MTGL.GATE_CD, MTGL.SG_CTRL_USER_ID, #{ses.langCd}) AS SG_CTRL_USER_NM
+		,INFO.CONT_NO
+		,INFO.CONT_SEQ
+		,INFO.APPLY_COM AS CUST_CD
+		,<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(INFO.GATE_CD, INFO.APPLY_COM,#{ses.langCd}),<include refid="com.sql.dbo"/>getBuyerInfo(INFO.GATE_CD, INFO.APPLY_COM,'CUST_NM')) AS CUST_NM
+		<foreach item="additionalColumnInfo" collection="additionalColumnInfoList">
+			,CASE WHEN (SELECT MAX(REGION_CD) FROM STOYINFR INFR
+			WHERE INFR.GATE_CD = INFO.GATE_CD
+			AND INFR.CONT_NO = INFO.CONT_NO
+			AND INFR.CONT_SEQ = INFO.CONT_SEQ
+			AND INFR.REGION_CD = #{additionalColumnInfo.REGION_CD}
+			AND INFR.DEL_FLAG = '0')IS NOT NULL THEN '1' ELSE NULL END AS ${additionalColumnInfo.SET_REGION_CD}
+		</foreach>
+		FROM STOYINFO INFO
+		INNER JOIN STOCMTGL MTGL
+		ON (MTGL.GATE_CD = INFO.GATE_CD
+		AND MTGL.ITEM_CD = INFO.ITEM_CD
+		AND INFO.DEL_FLAG = '0')
+		LEFT OUTER JOIN STOCMKBR MKBR
+		ON MKBR.GATE_CD = MTGL.GATE_CD
+		AND MKBR.MKBR_TYPE='MK'
+		AND MKBR.MKBR_CD = MTGL.MAKER_CD
+
+		WHERE INFO.GATE_CD = #{ses.gateCd}
+		AND INFO.DEL_FLAG = '0'
+        AND INFO.VALID_FROM_DATE <![CDATA[<=]]> <include refid="com.sql.sysdate"/>
+        AND INFO.VALID_TO_DATE <![CDATA[>=]]> <include refid="com.sql.sysdate"/>
+
+
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			<if test="ITEM_CNT == 1">
+				AND MTGL.ITEM_CD IN ${ITEM_CD}
+			</if>
+			<if test="ITEM_CNT == 0">
+				AND MTGL.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			</if>
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (${ITEM_DESC})
+		</if>
+		<if test="ITEM_SPEC != '' and ITEM_SPEC != null">
+			AND (${ITEM_SPEC})
+		</if>
+		<if test="MAKER_CD != ''and MAKER_CD != null">
+			AND MTGL.MAKER_CD	<include refid="com.sql.likeL"/> #{MAKER_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="MAKER_NM != ''and MAKER_NM != null">
+			AND (${MAKER_NM})
+		</if>
+		<if test="VENDOR_NM !='' and VENDOR_NM != null">
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(MTGL.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD !='' and VENDOR_CD != null">
+			AND INFO.VENDOR_CD	<include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="MAKER_PART_NO != ''and MAKER_PART_NO != null">
+			AND MTGL.MAKER_PART_NO	<include refid="com.sql.likeL"/> #{MAKER_PART_NO} <include refid="com.sql.likeR"/>
+		</if>
+	</select>
+
+	<update id="im01001_doDelete" parameterType="hashmap">
+		UPDATE STOYINFR
+		SET   MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, DEL_FLAG = '1'
+		WHERE GATE_CD = #{ses.gateCd}
+			   AND APPLY_COM =#{APPLY_COM}
+			   AND CONT_NO = #{CONT_NO}
+			   AND CONT_SEQ = #{CONT_SEQ}
+			   AND REGION_CD = #{REGION_CD}
+	</update>
+
+	<update id="im01001_doDeleteAll" parameterType="hashmap">
+		DELETE FROM STOYINFR
+		WHERE GATE_CD = #{ses.gateCd}
+		AND APPLY_COM = #{APPLY_COM}
+		<if test="CONT_SEQ !='' and CONT_SEQ !=null">
+			AND CONT_NO = #{CONT_NO}
+			AND CONT_SEQ = #{CONT_SEQ}
+		</if>
+	</update>
+
+
+	<update id="im01001_doSave" parameterType="hashmap">
+		MERGE INTO STOYINFR A
+		USING (SELECT #{ses.gateCd}  AS GATE_CD
+				   ,#{APPLY_COM} AS APPLY_COM
+				   ,#{CONT_NO} AS CONT_NO
+				   ,#{CONT_SEQ} AS CONT_SEQ
+			  	   ,#{REGION_CD} AS REGION_CD) B
+		ON (A.GATE_CD = B.GATE_CD
+			AND A.APPLY_COM = B.APPLY_COM
+			AND A.CONT_NO = B.CONT_NO
+			AND A.CONT_SEQ = B.CONT_SEQ
+			AND A.REGION_CD = B.REGION_CD)
+
+		WHEN MATCHED THEN UPDATE SET
+			MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,DEL_FLAG='0'
+		WHEN NOT MATCHED THEN INSERT (
+			GATE_CD
+			,APPLY_COM
+			,CONT_NO
+			,CONT_SEQ
+			,REGION_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+		) VALUES (
+			#{ses.gateCd}
+			,#{APPLY_COM}
+			,#{CONT_NO}
+			,#{CONT_SEQ}
+			,#{REGION_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+		<include refid="com.sql.mergeEnd"/>
+	</update>
+
+	<select id="im01002_doSave_List" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			INFO.CONT_NO
+			,INFO.CONT_SEQ
+		FROM STOYINFO INFO
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND INFO.VENDOR_CD = #{VENDOR_CD}
+
+	</select>
+
+	<select id="doCheckINFR" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT COUNT(*)
+		FROM STOYINFR
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CONT_NO = #{CONT_NO}
+		  AND CONT_SEQ = #{CONT_SEQ}
+		  AND REGION_CD = #{REGION_CD}
+	</select>
+
+	<!-- 상품관리 > 계약단가관리 > 마스터 상품조회 (IM01_070) -->
+	<select id="im01070_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			  MTGL.GATE_CD
+			,(SELECT MAX(UUID) AS CNT FROM STOCMTIM MTIM
+			   WHERE MTIM.GATE_CD  = MTGL.GATE_CD
+				 AND MTIM.ITEM_CD  = MTGL.ITEM_CD
+				 AND MTIM.DEL_FLAG = '0') AS IMG_FILE_NUM
+			,(SELECT COUNT(ATCH.UUID_SQ) FROM STOCATCH ATCH
+			   WHERE ATCH.GATE_CD  = MTGL.GATE_CD
+				 AND ATCH.DEL_FLAG = '0'
+				 AND ATCH.UUID = (SELECT MAX(UUID) AS CNT FROM STOCMTIM
+				 				   WHERE GATE_CD  = MTGL.GATE_CD
+				 				     AND ITEM_CD  = MTGL.ITEM_CD
+				 				     AND DEL_FLAG = '0')) AS IMG_FILE_CNT
+			,(SELECT MAX(UUID) AS UUID FROM STOCMTIM
+			   WHERE GATE_CD  = MTGL.GATE_CD
+				 AND ITEM_CD  = MTGL.ITEM_CD
+				 AND DEL_FLAG = '0') AS IMG_ATT_FILE_NUM
+			,(SELECT MAX(UUID_SQ) AS UUID FROM STOCMTIM MTIM
+			   WHERE MTIM.GATE_CD  = MTGL.GATE_CD
+				 AND MTIM.ITEM_CD  = MTGL.ITEM_CD
+				 AND MTIM.MAIN_IMAGE_FLAG = '1'
+				 AND MTIM.DEL_FLAG = '0') AS MAIN_IMG_SQ
+			,(SELECT COUNT(UUID) AS CNT FROM STOCATCH ATCH
+			   WHERE ATCH.GATE_CD  = MTGL.GATE_CD
+				 AND ATCH.UUID     = MTGL.ATT_FILE_NUM
+				 AND ATCH.DEL_FLAG = '0') AS ATT_FILE_CNT
+			,(SELECT MAX(UUID) AS CNT FROM STOCATCH ATCH
+			   WHERE ATCH.GATE_CD  = MTGL.GATE_CD
+				 AND ATCH.UUID     = MTGL.ATT_FILE_NUM
+				 AND ATCH.DEL_FLAG = '0') AS ATT_FILE_NUM
+			,'' AS SOIT_YN
+			,MTGL.REG_DATE
+			,<include refid="com.sql.toDateChar"/>(MTGL.REG_DATE, 'YYYYMMDD') AS ITEM_REG_DATE
+			,<include refid="com.sql.nvl"/>(INFO.MOD_USER_ID, INFO.REG_USER_ID) AS MOD_USER_ID
+			,<include refid="com.sql.dbo"/>getUserName(MTGL.GATE_CD, <include refid="com.sql.nvl"/>(INFO.MOD_USER_ID, INFO.REG_USER_ID), #{ses.langCd}) AS MOD_USER_NM
+			,<include refid="com.sql.toDateChar"/>(MTGL.MOD_DATE, 'YYYYMMDD') AS MOD_DATE
+			,MTGL.ITEM_KIND_CD
+			,MTGL.ITEM_STATUS	-- 품목상태(10:사용중)
+			,MTGL.STD_FLAG		-- 표준화여부
+			,MTGL.CUST_ITEM_CD	-- 고객사 상품코드
+			,MTGL.ITEM_CD		-- 표준 상품코드
+			,MTGL.ITEM_DESC
+			,MTGL.ITEM_SPEC
+			,MTGL.MAKER_CD
+			,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) AS MAKER_NM
+			,MTGL.BRAND_NM
+			,MTGL.MAKER_PART_NO
+			,MTGL.ORIGIN_CD
+			,MTGL.UNIT_CD
+			,<include refid="com.sql.dbo"/>getItemClassPath(MTGL.GATE_CD, #{ses.manageCd}, MTGL.ITEM_CD) AS ITEM_CLS_NM
+			,<include refid="com.sql.dbo"/>getItemClassPath(MTGL.GATE_CD, '21', MTGL.ITEM_CD) AS ITEM_CLS_NM_CUST		-- 고객사 분류는 대명인터네셔널(21)을 기본으로 함
+			,MTGL.SG_CTRL_USER_ID
+			,<include refid="com.sql.dbo"/>getUserName(MTGL.GATE_CD, MTGL.SG_CTRL_USER_ID, #{ses.langCd}) AS SG_CTRL_USER_NM
+			,MTGL.ITEM_DETAIL_TEXT_NUM
+			,MTGL.ITEM_CHG_TYPE
+			,MTGL.ITEM_CHG_REASON
+			,MTGL.NOT_STD_REMARK
+			,MTGL.NOT_STD_TYPE
+			,MTGL.ITEM_DETAIL_URL
+			,MTGC.ITEM_CLS1
+			,MTGC.ITEM_CLS2
+			,MTGC.ITEM_CLS3
+			,MTGC.ITEM_CLS4
+			,MTGCCUST.ITEM_CLS1 AS ITEM_CLS1_CUST
+			,MTGCCUST.ITEM_CLS2 AS ITEM_CLS2_CUST
+			,MTGCCUST.ITEM_CLS3 AS ITEM_CLS3_CUST
+			,MTGCCUST.ITEM_CLS4 AS ITEM_CLS4_CUST
+			,MTGL.VAT_CD
+			<!-- STOYINFO : 공급사 단가테이블 조인 -->
+			,INFO.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(MTGL.GATE_CD, INFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,INFO.CONT_NO
+			,INFO.CONT_SEQ
+			,INFO.APPLY_COM
+			,<include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(#{ses.gateCd}, INFO.APPLY_COM, #{ses.langCd}), <include refid="com.sql.dbo"/>getBuyerInfo(#{ses.gateCd}, INFO.APPLY_COM, 'CUST_NM')), '') AS APPLY_NM
+			,INFO.DEAL_CD
+			,INFO.DELY_TYPE
+			,<include refid="com.sql.toDateChar"/>(INFO.VALID_FROM_DATE, 'YYYYMMDD') as VALID_FROM_DATE
+			,<include refid="com.sql.toDateChar"/>(INFO.VALID_TO_DATE, 'YYYYMMDD') as VALID_TO_DATE
+			,<include refid="com.sql.nvl"/>(INFO.MOQ_QTY,0) AS MOQ_QTY
+			,<include refid="com.sql.nvl"/>(INFO.RV_QTY,0) AS RV_QTY
+			,<include refid="com.sql.nvl"/>(INFO.LEAD_TIME,0) AS LEAD_TIME
+			,INFO.LEAD_TIME_CD
+			,INFO.LEAD_TIME_RMK
+			,(CASE WHEN INFO.LEAD_TIME_RMK IS NULL THEN '' ELSE 'Y' END) AS LEAD_TIME_RMK_YN
+			,<include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE,0) AS CONT_UNIT_PRICE
+			,<include refid="com.sql.nvl"/>(INFO.STD_UNIT_PRICE,0)  AS STD_UNIT_PRICE
+			,(CASE WHEN (<include refid="com.sql.nvl"/>(INFO.STD_UNIT_PRICE, 0) <![CDATA[>]]> 0 AND <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0) <![CDATA[>]]> 0)
+				   		THEN ROUND((<include refid="com.sql.nvl"/>(INFO.STD_UNIT_PRICE, 0) - <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0)) / <include refid="com.sql.nvl"/>(INFO.CONT_UNIT_PRICE, 0) * 100, 2)
+				   ELSE 0
+			  END) AS PROFIT_RATE
+			,INFO.PERIOD_CHANGE_REASON	-- 기간변경사유
+			,(CASE WHEN <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') <![CDATA[<]]> <include refid="com.sql.toDateChar"/>(INFO.VALID_FROM_DATE, 'yyyyMMdd')THEN '대기'
+				   WHEN <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/>(INFO.VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd') THEN '유효'
+				   ELSE '만료'
+			  END) AS UNIT_PRC_VALID_YN -- 계약만료여부
+			,MTGL.TEMP_CD_FLAG --임시품목여부
+			,CASE WHEN #{TEMP_CD_FLAG} ='1' THEN INFO.SIGN_STATUS ELSE '' END SIGN_STATUS --임시품목 정식코드변환시 상태값 체킹
+		FROM STOCMTGL MTGL
+		JOIN (SELECT
+		              MAX(A.GATE_CD) GATE_CD
+		            , ITEM_CD
+		            , MAX(APPLY_COM) APPLY_COM
+		            , MAX(CONT_NO) CONT_NO
+		            , MAX(CONT_SEQ) CONT_SEQ
+		            , MAX(APPLY_PLANT) APPLY_PLANT
+		            , VENDOR_CD
+					, VALID_FROM_DATE
+					, VALID_TO_DATE
+					, MAX(MOQ_QTY) MOQ_QTY
+					, MAX(RV_QTY) RV_QTY
+					, MAX(LEAD_TIME) LEAD_TIME
+					, MAX(LEAD_TIME_CD) LEAD_TIME_CD
+					, MAX(LEAD_TIME_RMK) LEAD_TIME_RMK
+					, CONT_UNIT_PRICE
+					, MAX(STD_UNIT_PRICE) STD_UNIT_PRICE
+					, MAX(DEAL_CD) DEAL_CD
+					, MAX(A.DELY_TYPE) DELY_TYPE
+					, MAX(PERIOD_CHANGE_REASON) PERIOD_CHANGE_REASON
+					, MAX(A.REG_USER_ID) REG_USER_ID
+					, MAX(A.MOD_USER_ID) MOD_USER_ID
+					, MAX(A.SIGN_STATUS) SIGN_STATUS
+					--,ROW_NUMBER() OVER (PARTITION BY ITEM_CD ORDER BY VALID_TO_DATE DESC) AS RNUM
+				FROM STOYINFO A  JOIN STOCCUST CUST ON CUST.GATE_CD  = A.GATE_CD
+                                 AND CUST.CUST_CD = A.APPLY_COM
+                                 AND <include refid="com.sql.nvl"/>(CUST.STOP_FLAG,'0') = '0'
+			   WHERE A.GATE_CD  = #{ses.gateCd}
+			   <!-- 임시품목조회 할때는 SIGN_STATUS 승인 조회 X
+			   		임시품목 정식코드 전환시 결재 승인반려 상태값 관리위함  -->
+			   <if test='TEMP_CD_FLAG !="1"'>
+			     --AND SIGN_STATUS = 'E'
+			    </if>
+			     AND A.DEL_FLAG = '0'
+				 GROUP BY ITEM_CD,VENDOR_CD,VALID_FROM_DATE,VALID_TO_DATE,CONT_UNIT_PRICE
+			     ) INFO
+			 ON (MTGL.GATE_CD = INFO.GATE_CD
+			 AND MTGL.ITEM_CD = INFO.ITEM_CD
+			 --AND INFO.RNUM    = 1
+			 )
+		LEFT JOIN STOCMTGC MTGC
+			 ON (MTGL.GATE_CD   = MTGC.GATE_CD
+			 AND MTGL.ITEM_CD   = MTGC.ITEM_CD
+			 AND MTGC.BUYER_CD  = #{ses.manageCd}
+			 AND MTGC.M_CATE_YN = '1'
+			 AND MTGC.DEL_FLAG  = '0')
+		LEFT JOIN STOCMTGC MTGCCUST
+			 ON (MTGL.GATE_CD = MTGCCUST.GATE_CD
+			 AND MTGL.ITEM_CD = MTGCCUST.ITEM_CD
+			 AND MTGCCUST.BUYER_CD  = '21'	-- 고객사 분류는 21(소노인터네셔널)로 지정
+			 AND MTGCCUST.M_CATE_YN = '1'
+			 AND MTGCCUST.DEL_FLAG  = '0')
+		WHERE MTGL.GATE_CD  = #{ses.gateCd}
+		  AND MTGL.PROGRESS_CD = 'E'	-- 상품등록 진행상태 : 승인
+		  AND MTGL.DEL_FLAG = '0'
+
+		<choose>
+			<when test='TEMP_CD_FLAG != null and TEMP_CD_FLAG != "" and TEMP_CD_FLAG == "1"'>
+				AND MTGL.TEMP_CD_FLAG = '1'
+			</when>
+			<otherwise>
+				AND (MTGL.TEMP_CD_FLAG IS NULL OR MTGL.TEMP_CD_FLAG = '0')
+			</otherwise>
+		</choose>
+		<if test="ITEM_STATUS != null and ITEM_STATUS != ''">
+			AND MTGL.ITEM_STATUS = #{ITEM_STATUS}
+		</if>
+		<if test="DATE_TYPE == '01'">
+			AND MTGL.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{REG_DATE_FROM}<include refid="com.sql.dateFrom"/>
+			AND MTGL.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{REG_DATE_TO}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="DATE_TYPE == '02'">
+			AND INFO.VALID_TO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{REG_DATE_FROM}<include refid="com.sql.dateFrom"/>
+			AND INFO.VALID_TO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{REG_DATE_TO}<include refid="com.sql.dateTo"/>
+		</if>
+		<if test="ITEM_CLS1 != null and ITEM_CLS1 != ''">
+			AND MTGC.ITEM_CLS1 = #{ITEM_CLS1}
+		</if>
+		<if test="ITEM_CLS2 != null and ITEM_CLS2 != ''">
+			AND MTGC.ITEM_CLS2 = #{ITEM_CLS2}
+		</if>
+		<if test="ITEM_CLS3 != null and ITEM_CLS3 != ''">
+			AND MTGC.ITEM_CLS3 = #{ITEM_CLS3}
+		</if>
+		<if test="ITEM_CLS4 != null and ITEM_CLS4 != ''">
+			AND MTGC.ITEM_CLS4 = #{ITEM_CLS4}
+		</if>
+		<if test="ITEM_CLS1_CUST != null and ITEM_CLS1_CUST != ''">
+			AND MTGCCUST.ITEM_CLS1 = #{ITEM_CLS1_CUST}
+		</if>
+		<if test="ITEM_CLS2_CUST != null and ITEM_CLS2_CUST != ''">
+			AND MTGCCUST.ITEM_CLS2 = #{ITEM_CLS2_CUST}
+		</if>
+		<if test="ITEM_CLS3_CUST != null and ITEM_CLS3_CUST != ''">
+			AND MTGCCUST.ITEM_CLS3 = #{ITEM_CLS3_CUST}
+		</if>
+		<if test="ITEM_CLS4_CUST != null and ITEM_CLS4_CUST != ''">
+			AND MTGCCUST.ITEM_CLS4 = #{ITEM_CLS4_CUST}
+		</if>
+		<if test="MAKER_CD != null and MAKER_CD != ''">
+			AND MTGL.MAKER_CD <include refid="com.sql.likeL"/>#{MAKER_CD}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="MAKER_NM != null and MAKER_NM != ''">
+			AND MTGL.MAKER_NM <include refid="com.sql.likeL"/>#{MAKER_NM}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="ITEM_CD != null and ITEM_CD != ''">
+			AND MTGL.ITEM_CD||<include refid="com.sql.nvl"/>(MTGL.CUST_ITEM_CD,' ') <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+        <if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (<include refid="com.sql.dbo"/> MTGL.ITEM_DESC <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+			 OR <include refid="com.sql.dbo"/> MTGL.ITEM_CD <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+        	 OR <include refid="com.sql.dbo"/> MTGL.ITEM_SPEC <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+        	 OR <include refid="com.sql.dbo"/> MTGL.CUST_ITEM_CD <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+        	 )
+        </if>
+		<if test="MAKER_PART_NO != null and MAKER_PART_NO != ''">
+			AND MTGL.MAKER_PART_NO <include refid="com.sql.likeL"/>#{MAKER_PART_NO}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="STD_FLAG != null and STD_FLAG != ''">
+			AND MTGL.STD_FLAG <include refid="com.sql.likeL"/>#{STD_FLAG}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="BRAND_CD != null and BRAND_CD != ''">
+			AND MTGL.BRAND_CD <include refid="com.sql.likeL"/>#{BRAND_CD}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="BRAND_NM != null and BRAND_NM != ''">
+			AND MTGL.BRAND_NM <include refid="com.sql.likeL"/>#{BRAND_NM}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != null and VENDOR_CD != ''">
+			AND INFO.VENDOR_CD <include refid="com.sql.likeL"/>#{VENDOR_CD}<include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != null and VENDOR_NM != ''">
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, INFO.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="SG_CTRL_USER_ID != null and SG_CTRL_USER_ID != ''">
+			AND MTGL.SG_CTRL_USER_ID  = #{SG_CTRL_USER_ID}
+		</if>
+		<!-- 계약만료여부 -->
+		<if test="UNIT_PRC_VALID_YN != '' and UNIT_PRC_VALID_YN != null">
+			<if test="UNIT_PRC_VALID_YN == '1'.toString()"> <!-- 유효 -->
+				AND <include refid="com.sql.toDateChar"/> (<include refid="com.sql.sysdate"/>, 'yyyyMMdd') BETWEEN <include refid="com.sql.toDateChar"/> (INFO.VALID_FROM_DATE, 'yyyyMMdd') AND <include refid="com.sql.toDateChar"/> (INFO.VALID_TO_DATE, 'yyyyMMdd')
+			</if>
+			<if test="UNIT_PRC_VALID_YN == '0'.toString()"> <!-- 만료 -->
+				AND <include refid="com.sql.toDateChar"/> (<include refid="com.sql.sysdate"/>, 'yyyyMMdd') <![CDATA[>]]> <include refid="com.sql.toDateChar"/> (INFO.VALID_TO_DATE, 'yyyyMMdd')
+			</if>
+			<if test="UNIT_PRC_VALID_YN == '9'.toString()"> <!-- 대기 -->
+				AND <include refid="com.sql.toDateChar"/> (<include refid="com.sql.sysdate"/>, 'yyyyMMdd')<![CDATA[<]]> <include refid="com.sql.toDateChar"/>(INFO.VALID_FROM_DATE, 'yyyyMMdd')
+			</if>
+		</if>
+		<if test="DEAL_CD != '' and DEAL_CD != null">
+			AND INFO.DEAL_CD = #{DEAL_CD}
+		</if>
+		<!-- 페이징 처리 -->
+        <if test="SEARCH_COUNT_CD != '' and SEARCH_COUNT_CD != null">
+           OFFSET #{SEARCH_COUNT_CD}*(#{SEARCH_PAGE_NO}-1) ROWS FETCH FIRST #{SEARCH_COUNT_CD} ROWS ONLY
+        </if>
+	</select>
+
+	<update id="im01070_doSave" parameterType="hashmap">
+		UPDATE STOYINFO SET
+			MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+		<if test="VALID_FROM_DATE != '' and VALID_FROM_DATE != null">
+			, VALID_FROM_DATE = #{VALID_FROM_DATE}
+		</if>
+		<if test="VALID_TO_DATE != '' and VALID_TO_DATE != null">
+			, VALID_TO_DATE = #{VALID_TO_DATE}
+		</if>
+		<if test="PERIOD_CHANGE_REASON != '' and PERIOD_CHANGE_REASON != null">
+			, PERIOD_CHANGE_REASON = #{PERIOD_CHANGE_REASON}
+		</if>
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND ITEM_CD = #{ITEM_CD}
+		  AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<select id="im01071_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			 SOIT.CUST_CD
+			,<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerInfo(SOIT.GATE_CD, SOIT.CUST_CD, 'CUST_NM'),<include refid="com.sql.dbo"/>getBuyerName(SOIT.GATE_CD, SOIT.CUST_CD,#{ses.langCd})) AS CUST_NM
+			,SOIT.REG_DATE
+			,<include refid="com.sql.dbo"/>GETUSERNAME(SOIT.GATE_CD, SOIT.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			,CASE WHEN SOIT.DEL_FLAG='1' THEN <include refid="com.sql.dbo"/>GETUSERNAME(SOIT.GATE_CD, SOIT.MOD_USER_ID, #{ses.langCd}) ELSE NULL END AS MOD_USER_NM
+			,CASE WHEN SOIT.DEL_FLAG='1' THEN <include refid="com.sql.toDateChar"/>(SOIT.MOD_DATE, 'YYYY-MM-DD HH24:MI') ELSE NULL END AS MOD_DATE
+			,<include refid="com.sql.dbo"/>GETUSERNAME(SOIT.GATE_CD, SOIT.DEL_REQ_USER_ID, #{ses.langCd}) AS DEL_REQ_USER_NM
+			, SOIT.DEL_REQ_USER_ID
+			, SOIT.MOD_USER_ID
+			, SOIT.REG_USER_ID
+			, SOIT.DEL_RMK
+		FROM STOCSOIT SOIT
+		WHERE SOIT.GATE_CD = #{ses.gateCd}
+		  AND SOIT.ITEM_CD =#{ITEM_CD}
+		ORDER BY SOIT.REG_DATE
+	</select>
+
+	<select id="im01060_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			 B.GATE_CD
+			,B.REG_USER_ID
+			,B.JOB_TYPE
+			,B.SEQ
+			,B.REG_DATE
+			,B.STATUS
+			,B.ITEM_STATUS
+			,B.ITEM_CD
+			,B.ITEM_DESC
+			,B.ITEM_SPEC
+			,B.MAKER_CD
+			,B.MAKER_NM
+			,B.MAKER_PART_NO
+			,B.ORIGIN_CD
+			,B.UNIT_CD
+			,B.ORD_UNIT_CD
+			,B.BRAND_CD
+			,B.DEAL_CD
+			,B.VAT_CD
+
+			,TO_CHAR(B.VALID_FROM_DATE,'YYYYMMDD') VALID_FROM_DATE
+			,TO_CHAR(B.VALID_TO_DATE,'YYYYMMDD') VALID_TO_DATE
+
+			,B.ITEM_CLS1
+			,B.ITEM_CLS2
+			,B.ITEM_CLS3
+			,B.ITEM_CLS4
+			,B.NOT_STD_TYPE
+			,B.NOT_STD_RMK
+			,B.CMS_CTRL_USER_ID
+			,B.SG_CTRL_USER_ID
+			,B.VENDOR_CD
+			,B.CONT_UNIT_PRC
+			,B.MIN_ORDER_QT
+			,B.RV_QT
+			,B.LEADTIME
+			,B.CUST_CD
+			,B.SALES_UNIT_PRICE
+			,B.CUR
+			,B.CHANGE_REASON
+			,B.CUST_ITEM_CD
+			,B.ITEM_NOTC_DESC
+			,B.ITEM_NOTC_CERT
+			,B.ITEM_NOTC_ORIGIN
+			,B.ITEM_NOTC_MAKER
+			,B.ITEM_NOTC_AS
+			,B.LEAD_TIME_CD
+			,B.LEAD_TIME_RMK
+			,B.ITEM_DETAIL_URL
+			,B.PLANT_CD
+			,B.ITEM_CLS1_CUST
+			,B.ITEM_CLS2_CUST
+			,B.ITEM_CLS3_CUST
+			,B.ITEM_CLS4_CUST
+			,B.DELY_TYPE
+            ,CAST(ROUND((B.SALES_UNIT_PRICE - B.CONT_UNIT_PRC) / B.CONT_UNIT_PRC * 100, 2) AS NUMERIC(22,1)) AS SALES_RATE
+
+            ,<include refid="com.sql.dbo"/>GETVENDORNAME(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+            ,<include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(B.GATE_CD, B.CUST_CD, #{ses.langCd}), <include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.CUST_CD, 'CUST_NM')), '' ) AS CUST_NM
+
+            ,<include refid="com.sql.dbo"/>getPlantName(B.GATE_CD, B.CUST_CD, B.PLANT_CD, #{ses.langCd}) AS PLANT_NM
+
+			,(SELECT substr(ITEM_CLS_RMK,5,length(ITEM_CLS_RMK)) FROM STOCMTCA
+			  WHERE GATE_CD = #{ses.gateCd}
+			  AND BUYER_CD = #{ses.manageCd}
+			  AND ITEM_CLS1 = B.ITEM_CLS1
+			  AND ITEM_CLS2 = B.ITEM_CLS2
+			  AND ITEM_CLS3 = B.ITEM_CLS3
+			  AND ITEM_CLS4 = B.ITEM_CLS4
+			  AND DEL_FLAG = '0'
+			  AND ROWNUM = 1
+			 ) ITEM_CLS_NM
+
+			,(SELECT substr(ITEM_CLS_RMK,5,length(ITEM_CLS_RMK)) FROM STOCMTCA
+			  WHERE GATE_CD = #{ses.gateCd}
+			  AND BUYER_CD = '21'
+			  AND ITEM_CLS1 = B.ITEM_CLS1_CUST
+			  AND ITEM_CLS2 = <include refid="com.sql.nvl"/>(B.ITEM_CLS2_CUST,'*')
+			  AND ITEM_CLS3 = <include refid="com.sql.nvl"/>(B.ITEM_CLS3_CUST,'*')
+			  AND ITEM_CLS4 = <include refid="com.sql.nvl"/>(B.ITEM_CLS4_CUST,'*')
+			  AND DEL_FLAG = '0'
+			  AND ROWNUM = 1
+			 ) ITEM_CLS_NM_CUST
+
+			,B.ITEM_KIND_CD
+
+		FROM STOCBULK B
+		WHERE B.GATE_CD = #{ses.gateCd}
+		AND B.JOB_TYPE = 'X'
+
+
+		<if test="STATUS != '' and STATUS !=null">
+			AND B.STATUS = #{STATUS}
+		</if>
+
+
+		<if test="APP_DOC_NUM == '' or APP_DOC_NUM ==null">
+			AND B.REG_USER_ID = #{ses.userId}
+		</if>
+		<if test="APP_DOC_NUM !='' and APP_DOC_NUM !=null">
+			AND APP_DOC_NUM = #{APP_DOC_NUM}
+		</if>
+		<if test="APP_DOC_CNT !='' and APP_DOC_CNT !=null">
+			AND APP_DOC_CNT = #{APP_DOC_CNT}
+		</if>
+		<if test="REG_DATE_FROM !='' and REG_DATE_FROM !=null">
+         	AND REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		</if>
+
+
+        <if test="CUST_CD != '' and CUST_CD != null">
+            AND B.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CUST_NM != '' and CUST_NM != null">
+            AND <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(B.GATE_CD, B.CUST_CD, #{ses.langCd}), <include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.CUST_CD, 'CUST_NM')), '') <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+		<if test="PLANT_CD != '' and PLANT_CD != null">
+			AND B.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PLANT_NM != '' and PLANT_NM != null">
+			AND <include refid="com.sql.dbo"/>getPlantName(#{ses.gateCd}, B.CUST_CD, B.PLANT_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PLANT_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+            AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="VENDOR_NM != '' and VENDOR_NM != null">
+            AND <include refid="com.sql.dbo"/>GETVENDORNAME(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SG_CTRL_USER_ID != '' and SG_CTRL_USER_ID != null">
+          AND B.SG_CTRL_USER_ID = #{SG_CTRL_USER_ID}
+        </if>
+
+        <if test="ITEM_DESC_SPEC != '' and ITEM_DESC_SPEC != null">
+            AND <include refid="com.sql.nvl"/>(B.ITEM_DESC,' ')||<include refid="com.sql.nvl"/>(B.ITEM_SPEC,' ') <include refid="com.sql.likeL"/>#{ITEM_DESC_SPEC}<include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="ITEM_CD != '' and ITEM_CD != null">
+            AND <include refid="com.sql.dbo"/>ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+        </if>
+
+		ORDER BY SEQ
+
+	</select>
+
+	<select id="im01060_doSearchCT" parameterType="hashmap" resultType="hashMap">
+		-- 벌크 매입단가
+		SELECT
+		B.JOB_TYPE
+		,B.SEQ
+		,B.VENDOR_CD
+		,B.STATUS
+		,B.FAIL_RMK
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		,B.ITEM_CD
+		,MTGL.ITEM_DESC
+		,MTGL.ITEM_SPEC
+		,MTGL.MAKER_PART_NO
+		,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) AS MAKER_NM
+		,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+		, <include refid="com.sql.dbo"/>GETCODENAME(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, #{ses.langCd}) AS ORIGIN_NM
+		,<include refid="com.sql.dbo"/>getComCode(MTGL.GATE_CD, 'M037', MTGL.UNIT_CD, 0, #{ses.langCd}) AS UNIT_NM
+		,B.APPLY_COM
+		,<include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.APPLY_COM, 'CUST_NM') AS APPLY_NM
+		,B.QTA_UNIT_PRC	AS QTA_UNIT_PRICE
+		,B.CONT_UNIT_PRC AS CONT_UNIT_PRICE
+		,B.STD_UNIT_PRC	AS STD_UNIT_PRICE
+		,B.MIN_ORDER_QT	AS MOQ_QTY
+		,B.RV_QT AS RV_QTY
+		,B.LEADTIME	AS LEAD_TIME
+		,B.LEAD_TIME_CD
+		,B.LEAD_TIME_RMK
+		,B.DEAL_CD
+		,B.VAT_CD
+		,B.REGION_CD_00
+		,B.REGION_CD_10
+		,B.REGION_CD_20
+		,B.REGION_CD_30
+		,B.REGION_CD_40
+		,B.REGION_CD_50
+		,B.REGION_CD_60
+		,B.REGION_CD_70
+		,B.REGION_CD_80
+		,<include refid="com.sql.toDateChar"/>(B.VALID_FROM_DATE, 'yyyyMMdd') AS VALID_FROM_DATE
+		,<include refid="com.sql.toDateChar"/>(B.VALID_TO_DATE, 'yyyyMMdd') AS VALID_TO_DATE
+
+		FROM STOCBULK B
+		LEFT OUTER JOIN STOCMTGL MTGL
+		ON (B.GATE_CD = MTGL.GATE_CD AND B.ITEM_CD = MTGL.ITEM_CD)
+		WHERE B.GATE_CD = #{ses.gateCd}
+		AND B.DEL_FLAG='0'
+		AND B.JOB_TYPE ='20'
+		<if test="STATUS !='' and STATUS !=null">
+			AND STATUS = #{STATUS}
+		</if>
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND B.APPLY_COM <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(B.GATE_CD, B.APPLY_COM,#{ses.langCd}),<include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.APPLY_COM,'CUST_NM')) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY SEQ
+	</select>
+
+	<select id="im01060_doSearchPR" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+		B.JOB_TYPE
+		,B.SEQ
+		,B.CUST_CD
+		,<include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(B.GATE_CD, B.CUST_CD, #{ses.langCd}), <include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.CUST_CD, 'CUST_NM')), <include refid="com.sql.dbo"/>getManageGroupName(B.GATE_CD, B.CUST_CD)) AS CUST_NM
+		,B.DEPT_CD
+		,<include refid="com.sql.dbo"/>getDeptName(B.GATE_CD, B.CUST_CD, B.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		,B.STATUS
+		,B.FAIL_RMK
+		,B.ITEM_CD
+		,MTGL.ITEM_DESC
+		,MTGL.ITEM_SPEC
+		,MTGL.MAKER_PART_NO
+		,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'MK', MTGL.MAKER_CD) AS MAKER_NM
+		,<include refid="com.sql.dbo"/>GETMKBRNAME(MTGL.GATE_CD, 'BR', MTGL.BRAND_CD) AS BRAND_NM
+		, <include refid="com.sql.dbo"/>GETCODENAME(MTGL.GATE_CD, 'M004', MTGL.ORIGIN_CD, #{ses.langCd}) AS ORIGIN_NM
+		,<include refid="com.sql.dbo"/>getComCode(MTGL.GATE_CD, 'M037', MTGL.UNIT_CD, 0, #{ses.langCd}) AS UNIT_NM
+		,B.CUR
+		,B.SALES_UNIT_PRICE
+		,B.CHANGE_CD
+		,B.CHANGE_REASON
+		FROM STOCBULK B
+		LEFT OUTER JOIN STOCMTGL MTGL
+		ON (B.GATE_CD = MTGL.GATE_CD
+		AND B.ITEM_CD = MTGL.ITEM_CD)
+		WHERE B.GATE_CD = #{ses.gateCd}
+		AND B.DEL_FLAG = '0'
+		AND B.JOB_TYPE = '30'
+		<if test="STATUS !='' and STATUS !=null">
+			AND STATUS = #{STATUS}
+		</if>
+		<if test="CUST_CD != '' and CUST_CD != null">
+			AND B.CUST_CD <include refid="com.sql.likeL"/> #{CUST_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CUST_NM != '' and CUST_NM != null">
+			AND <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>getBuyerName(B.GATE_CD, B.CUST_CD,#{ses.langCd}),<include refid="com.sql.dbo"/>getBuyerInfo(B.GATE_CD, B.CUST_CD,'CUST_NM')) <include refid="com.sql.likeL"/> #{CUST_NM} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY SEQ
+
+	</select>
+
+	<select id="im01060_doSearchIMG" parameterType="hashmap" resultType="hashMap">
+		SELECT B.JOB_TYPE
+		, B.SEQ
+		, B.STATUS
+		, B.FAIL_RMK
+		, B.ITEM_CD
+		, MTGL.ITEM_DESC
+		, B.IMG_UUID
+		, B.IMG_MAIN_IMAGE_NO
+		, B.IMG_REAL_FILE_1_NM
+		, B.IMG_REAL_FILE_2_NM
+		, B.IMG_REAL_FILE_3_NM
+		, B.IMG_REAL_FILE_4_NM
+		, B.IMG_REAL_FILE_NM_DETAIL
+		, B.ITEM_DETAIL_URL
+		FROM STOCBULK B
+		LEFT OUTER JOIN STOCMTGL MTGL
+		ON  B.GATE_CD = MTGL.GATE_CD
+		AND B.ITEM_CD = MTGL.ITEM_CD
+
+		WHERE B.GATE_CD = #{ses.gateCd}
+		AND B.DEL_FLAG = '0'
+		AND B.JOB_TYPE = '40'
+		<if test="STATUS != '' and STATUS != null">
+			AND STATUS = #{STATUS}
+		</if>
+		ORDER BY SEQ
+	</select>
+
+	<select id="doGetVendorInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT VENDOR_CD
+		  FROM STOCVNGL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND PROGRESS_CD = 'E'  -- 승인
+		   AND <include refid="com.sql.nvl"/>(BLOCK_FLAG, '0') = '0'
+		   AND DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doGetCustInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT MAX(CUST_CD) AS CUST_CD FROM (
+			SELECT CUST_CD
+			  FROM STOCCUST
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND CUST_CD = #{CUST_CD}
+			   AND PROGRESS_CD ='E'
+			   AND DEL_FLAG = '0'
+
+			UNION ALL
+
+			SELECT MG_CD AS CUST_CD
+			  FROM STOCMNGD
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND MG_CD = #{CUST_CD}
+			   AND DEL_FLAG = '0'
+			   AND USE_FLAG = '1'
+		  ) A
+
+	</select>
+
+	<select id="doDeptPriceFlag" parameterType="hashMap" resultType="java.lang.String">
+
+		SELECT (CASE WHEN DEPT_PRICE_FLAG = NULL THEN 'N' ELSE (CASE WHEN DEPT_PRICE_FLAG = '1' THEN 'Y' ELSE 'N' END) END) AS DEPT_PRICE_FLAG
+		  FROM STOCCUST
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CUST_CD = #{CUST_CD}
+		   AND PROGRESS_CD = 'E'
+		   AND DEL_FLAG = '0'
+
+    </select>
+
+	<select id="doGetDeptInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT DEPT_CD
+		  FROM STOCOGDP
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{CUST_CD}
+		   AND DEPT_CD = #{DEPT_CD}
+		   AND DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doGetItemInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT A.ITEM_CD
+		  FROM STOCMTGL A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.ITEM_CD = #{ITEM_CD}
+		   AND A.PROGRESS_CD = 'E'
+		   AND A.DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doGetItemImgInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  A.ITEM_CD
+			, A.ITEM_DETAIL_FILE_NUM
+			, B.UUID
+			, ( SELECT COUNT(IMG_UUID)
+				  FROM STOCBULK S
+				 WHERE S.GATE_CD = #{ses.gateCd}
+				   AND S.DEL_FLAG = '0'
+				   AND S.JOB_TYPE = '40'
+				   AND S.IMG_UUID = A.ITEM_CD) AS ITEM_DUP_CNT
+		  FROM STOCMTGL A
+		  LEFT JOIN STOCMTIM B
+		   ON (A.GATE_CD = B.GATE_CD
+		   AND A.ITEM_CD = B.ITEM_CD)
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.ITEM_CD = #{ITEM_CD}
+		   AND A.PROGRESS_CD = 'E'
+		   AND A.DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doGetRegionInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT A.CODE
+		  FROM STOCCODD A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+		   AND A.CODE_TYPE = 'MP005'
+		   AND A.CODE = #{REGION_CD}
+		   AND LANG_CD = #{ses.langCd}
+		   AND A.DEL_FLAG = '0'
+
+	</select>
+
+	<select id="doGetMakerTypeInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			MKBR.MKBR_CD
+		FROM STOCMKBR MKBR
+		WHERE MKBR.GATE_CD = #{ses.gateCd}
+		  AND MKBR.MKBR_TYPE = #{MKBR_TYPE}
+		  AND MKBR.DEL_FLAG = '0'
+		  AND MKBR.USE_FLAG = '1'
+		  AND MKBR_CD = #{MKBR_CD}
+	</select>
+
+	<select id="doGetItemClsInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 ITEM_CLS1
+			,ITEM_CLS2
+			,ITEM_CLS3
+			,ITEM_CLS4
+			,ITEM_CLS
+		FROM STOCMTCA
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND BUYER_CD = #{ses.manageCd}
+		  AND DEL_FLAG='0'
+		  AND USE_FLAG = '1'
+		  AND ITEM_CLS_TYPE = 'C3'
+		  AND ITEM_CLS = #{ITEM_CLS3}
+
+	</select>
+
+	<select id="doGetItemCaatInfo" parameterType="hashMap" resultType="hashMap">
+
+		<if test="_databaseId == 'mssql'">
+		SELECT TOP 1
+			  <include refid="com.sql.nvl"/>(STUFF((SELECT ',' + ATTR_CD
+							  FROM STOCCAAT
+							 WHERE GATE_CD = #{ses.gateCd}
+								   AND BUYER_CD = #{ses.manageCd}
+								   AND DEL_FLAG='0'
+								   AND ITEM_CLS1 = #{ITEM_CLS1}
+								   AND ITEM_CLS2 = #{ITEM_CLS2}
+								   AND ITEM_CLS3 = #{ITEM_CLS3}
+								   AND ITEM_CLS4 = #{ITEM_CLS4}
+							FOR XML PATH ('')), 1, 1, ''),'') AS ATTR_CD_LIST
+		  FROM STOCCAAT
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{ses.manageCd}
+		   AND DEL_FLAG = '0'
+		</if>
+		<if test="_databaseId == 'oracle'">
+		SELECT
+			  <include refid="com.sql.nvl"/>((SELECT LISTAGG(ATTR_CD, ',')
+							  FROM STOCCAAT
+							 WHERE GATE_CD = #{ses.gateCd}
+								   AND BUYER_CD = #{ses.manageCd}
+								   AND DEL_FLAG='0'
+								   AND ITEM_CLS1 = #{ITEM_CLS1}
+								   AND ITEM_CLS2 = #{ITEM_CLS2}
+								   AND ITEM_CLS3 = #{ITEM_CLS3}
+								   AND ITEM_CLS4 = #{ITEM_CLS4}), '') AS ATTR_CD_LIST
+		  FROM STOCCAAT
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BUYER_CD = #{ses.manageCd}
+		   AND DEL_FLAG = '0'
+		   AND ROWNUM = 1
+		</if>
+
+	</select>
+
+
+	<insert id="im01060_doInsertBULK" parameterType="hashmap">
+         MERGE<include refid="com.sql.mergeInto"/> STOCBULK <include refid="com.sql.mergeAs"/>A
+         USING (SELECT
+						 #{ses.gateCd} GATE_CD
+						,#{ses.userId} REG_USER_ID
+						,'X' JOB_TYPE
+						,#{SEQ} SEQ
+					  <include refid="com.sql.dual"/>
+         	   )
+         <include refid="com.sql.mergeAs"/>B
+            ON (A.GATE_CD = B.GATE_CD
+           AND 	A.REG_USER_ID = B.REG_USER_ID
+           AND A.JOB_TYPE = B.JOB_TYPE
+           AND A.SEQ = B.SEQ)
+        WHEN MATCHED THEN
+        UPDATE SET
+                 STATUS = #{YINFO_SIGN_STATUS}
+				,ITEM_STATUS              = #{ITEM_STATUS}			-- ITEM_STATUS
+				,ITEM_CD             = #{ITEM_CD}			-- ITEM_CD
+				,ITEM_DESC             = #{ITEM_DESC}			-- ITEM_DESC
+				,ITEM_SPEC             = #{ITEM_SPEC}			-- ITEM_SPEC
+				,MAKER_CD             = #{MAKER_CD}			-- MAKER_CD
+				,MAKER_NM             = #{MAKER_NM}			-- MAKER_NM
+				,MAKER_PART_NO             = #{MAKER_PART_NO}			-- MAKER_PART_NO
+				,ORIGIN_CD             = #{ORIGIN_CD}			-- ORIGIN_CD
+				,UNIT_CD             = #{UNIT_CD}			-- UNIT_CD
+				,ORD_UNIT_CD             = #{ORD_UNIT_CD}			-- ORD_UNIT_CD
+				,BRAND_CD             = #{BRAND_CD}			-- BRAND_CD
+				,DEAL_CD             = #{DEAL_CD}			-- DEAL_CD
+				,VAT_CD             = #{VAT_CD}			-- VAT_CD
+				,VALID_FROM_DATE             = #{VALID_FROM_DATE}			-- VALID_FROM_DATE
+				,VALID_TO_DATE             = #{VALID_TO_DATE}			-- VALID_TO_DATE
+				,ITEM_CLS1             = #{ITEM_CLS1}			-- ITEM_CLS1
+				,ITEM_CLS2             = #{ITEM_CLS2}			-- ITEM_CLS2
+				,ITEM_CLS3             = #{ITEM_CLS3}			-- ITEM_CLS3
+				,ITEM_CLS4             = #{ITEM_CLS4}			-- ITEM_CLS4
+				,NOT_STD_TYPE             = #{NOT_STD_TYPE}			-- NOT_STD_TYPE
+				,NOT_STD_RMK             = #{NOT_STD_RMK}			-- NOT_STD_RMK
+				,CMS_CTRL_USER_ID             = #{CMS_CTRL_USER_ID}			-- CMS_CTRL_USER_ID
+				,SG_CTRL_USER_ID             = #{SG_CTRL_USER_ID}			-- SG_CTRL_USER_ID
+				,VENDOR_CD             = #{VENDOR_CD}			-- VENDOR_CD
+				,CONT_UNIT_PRC             = ROUND(#{CONT_UNIT_PRC})			-- CONT_UNIT_PRC
+				,MIN_ORDER_QT             = #{MIN_ORDER_QT}			-- MIN_ORDER_QT
+				,RV_QT             = #{RV_QT}			-- RV_QT
+				,LEADTIME             = #{LEADTIME}			-- LEADTIME
+				,CUST_CD             = #{CUST_CD}			-- CUST_CD
+				,SALES_UNIT_PRICE             = ROUND(#{SALES_UNIT_PRICE})			-- SALES_UNIT_PRICE
+				,CUR             = #{CUR}			-- CUR
+				,CHANGE_REASON             = #{CHANGE_REASON}			-- CHANGE_REASON
+				,CUST_ITEM_CD             = #{CUST_ITEM_CD}			-- CUST_ITEM_CD
+				,ITEM_NOTC_DESC             = #{ITEM_NOTC_DESC}			-- ITEM_NOTC_DESC
+				,ITEM_NOTC_CERT             = #{ITEM_NOTC_CERT}			-- ITEM_NOTC_CERT
+				,ITEM_NOTC_ORIGIN             = #{ITEM_NOTC_ORIGIN}			-- ITEM_NOTC_ORIGIN
+				,ITEM_NOTC_MAKER             = #{ITEM_NOTC_MAKER}			-- ITEM_NOTC_MAKER
+				,ITEM_NOTC_AS             = #{ITEM_NOTC_AS}			-- ITEM_NOTC_AS
+				,LEAD_TIME_CD             = #{LEAD_TIME_CD}			-- LEAD_TIME_CD
+				,LEAD_TIME_RMK             = #{LEAD_TIME_RMK}			-- LEAD_TIME_RMK
+				,ITEM_DETAIL_URL             = #{ITEM_DETAIL_URL}			-- ITEM_DETAIL_URL
+				,PLANT_CD             = #{PLANT_CD}			-- PLANT_CD
+				,ITEM_CLS1_CUST             = #{ITEM_CLS1_CUST}			-- ITEM_CLS1_CUST
+				,ITEM_CLS2_CUST             = #{ITEM_CLS2_CUST}			-- ITEM_CLS2_CUST
+				,ITEM_CLS3_CUST             = #{ITEM_CLS3_CUST}			-- ITEM_CLS3_CUST
+				,ITEM_CLS4_CUST             = #{ITEM_CLS4_CUST}			-- ITEM_CLS4_CUST
+				,DELY_TYPE                  = #{DELY_TYPE}
+
+				,APP_DOC_NUM = #{APP_DOC_NUM}
+				,APP_DOC_CNT = #{APP_DOC_CNT}
+				,ITEM_KIND_CD = #{ITEM_KIND_CD}
+        WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,REG_USER_ID
+			,JOB_TYPE
+			,SEQ
+			,REG_DATE
+			,STATUS
+			,ITEM_STATUS
+			,ITEM_CD
+			,ITEM_DESC
+			,ITEM_SPEC
+			,MAKER_CD
+			,MAKER_NM
+			,MAKER_PART_NO
+			,ORIGIN_CD
+			,UNIT_CD
+			,ORD_UNIT_CD
+			,BRAND_CD
+			,DEAL_CD
+			,VAT_CD
+			,VALID_FROM_DATE
+			,VALID_TO_DATE
+			,ITEM_CLS1
+			,ITEM_CLS2
+			,ITEM_CLS3
+			,ITEM_CLS4
+			,NOT_STD_TYPE
+			,NOT_STD_RMK
+			,CMS_CTRL_USER_ID
+			,SG_CTRL_USER_ID
+			,VENDOR_CD
+			,CONT_UNIT_PRC
+			,MIN_ORDER_QT
+			,RV_QT
+			,LEADTIME
+			,CUST_CD
+			,SALES_UNIT_PRICE
+			,CUR
+			,CHANGE_REASON
+			,CUST_ITEM_CD
+			,ITEM_NOTC_DESC
+			,ITEM_NOTC_CERT
+			,ITEM_NOTC_ORIGIN
+			,ITEM_NOTC_MAKER
+			,ITEM_NOTC_AS
+			,LEAD_TIME_CD
+			,LEAD_TIME_RMK
+			,ITEM_DETAIL_URL
+			,PLANT_CD
+			,ITEM_CLS1_CUST
+			,ITEM_CLS2_CUST
+			,ITEM_CLS3_CUST
+			,ITEM_CLS4_CUST
+			,DELY_TYPE
+			,APP_DOC_NUM
+			,APP_DOC_CNT
+
+			,ITEM_KIND_CD
+        ) VALUES (
+			 #{ses.gateCd}			-- GATE_CD
+			,#{ses.userId}			-- REG_USER_ID
+			,'X'			-- JOB_TYPE
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(SEQ),0) + 1 FROM STOCBULK WHERE GATE_CD = #{ses.gateCd} AND REG_USER_ID=#{ses.userId}  )	-- SEQ
+			,<include refid="com.sql.sysdate"/>	-- REG_DATE
+			,#{YINFO_SIGN_STATUS}			-- STATUS
+			,#{ITEM_STATUS}			-- ITEM_STATUS
+			,#{ITEM_CD}			-- ITEM_CD
+			,#{ITEM_DESC}			-- ITEM_DESC
+			,#{ITEM_SPEC}			-- ITEM_SPEC
+			,#{MAKER_CD}			-- MAKER_CD
+			,#{MAKER_NM}			-- MAKER_NM
+			,#{MAKER_PART_NO}			-- MAKER_PART_NO
+			,#{ORIGIN_CD}			-- ORIGIN_CD
+			,#{UNIT_CD}			-- UNIT_CD
+			,#{ORD_UNIT_CD}			-- ORD_UNIT_CD
+			,#{BRAND_CD}			-- BRAND_CD
+			,#{DEAL_CD}			-- DEAL_CD
+			,#{VAT_CD}			-- VAT_CD
+			,#{VALID_FROM_DATE}			-- VALID_FROM_DATE
+			,#{VALID_TO_DATE}			-- VALID_TO_DATE
+			,#{ITEM_CLS1}			-- ITEM_CLS1
+			,#{ITEM_CLS2}			-- ITEM_CLS2
+			,#{ITEM_CLS3}			-- ITEM_CLS3
+			,#{ITEM_CLS4}			-- ITEM_CLS4
+			,#{NOT_STD_TYPE}			-- NOT_STD_TYPE
+			,#{NOT_STD_RMK}			-- NOT_STD_RMK
+			,#{CMS_CTRL_USER_ID}			-- CMS_CTRL_USER_ID
+			,#{SG_CTRL_USER_ID}			-- SG_CTRL_USER_ID
+			,#{VENDOR_CD}			-- VENDOR_CD
+			,ROUND(#{CONT_UNIT_PRC})			-- CONT_UNIT_PRC
+			,#{MIN_ORDER_QT}			-- MIN_ORDER_QT
+			,#{RV_QT}			-- RV_QT
+			,#{LEADTIME}			-- LEADTIME
+			,#{CUST_CD}			-- CUST_CD
+			,ROUND(#{SALES_UNIT_PRICE})			-- SALES_UNIT_PRICE
+			,#{CUR}			-- CUR
+			,#{CHANGE_REASON}			-- CHANGE_REASON
+			,#{CUST_ITEM_CD}			-- CUST_ITEM_CD
+			,#{ITEM_NOTC_DESC}			-- ITEM_NOTC_DESC
+			,#{ITEM_NOTC_CERT}			-- ITEM_NOTC_CERT
+			,#{ITEM_NOTC_ORIGIN}			-- ITEM_NOTC_ORIGIN
+			,#{ITEM_NOTC_MAKER}			-- ITEM_NOTC_MAKER
+			,#{ITEM_NOTC_AS}			-- ITEM_NOTC_AS
+			,#{LEAD_TIME_CD}			-- LEAD_TIME_CD
+			,#{LEAD_TIME_RMK}			-- LEAD_TIME_RMK
+			,#{ITEM_DETAIL_URL}			-- ITEM_DETAIL_URL
+			,#{PLANT_CD}			-- PLANT_CD
+			,#{ITEM_CLS1_CUST}			-- ITEM_CLS1_CUST
+			,#{ITEM_CLS2_CUST}			-- ITEM_CLS2_CUST
+			,#{ITEM_CLS3_CUST}			-- ITEM_CLS3_CUST
+			,#{ITEM_CLS4_CUST}			-- ITEM_CLS4_CUST
+			,#{DELY_TYPE}
+
+			,#{APP_DOC_NUM}-- APP_DOC_NUM
+			,#{APP_DOC_CNT}-- APP_DOC_CNT
+
+			,#{ITEM_KIND_CD}-- ITEM_KIND_CD
+
+		<include refid="com.sql.mergeEnd"/>
+
+
+
+	</insert>
+
+	<update id="im01060_doUpdateBULKSTATUS" parameterType="hashmap">
+
+		UPDATE STOCBULK SET
+		MOD_DATE = <include refid="com.sql.sysdate"/>
+		, MOD_USER_ID = #{ses.userId}
+		, STATUS = #{STATUS}
+		<if test = 'ITEM_ALL_FAIL != null and ITEM_ALL_FAIL != "" and ITEM_ALL_FAIL == "Y"'>
+			, FAIL_RMK = #{FAIL_RMK}
+		</if>
+		WHERE GATE_CD = #{ses.gateCd}
+		AND JOB_TYPE = #{JOB_TYPE}
+		<if test = 'ITEM_ALL_FAIL == null or ITEM_ALL_FAIL == ""'>
+			AND SEQ = #{SEQ}
+		</if>
+		<if test = 'ITEM_ALL_FAIL != null and ITEM_ALL_FAIL != "" and ITEM_ALL_FAIL == "Y"'>
+			AND IMG_UUID = #{ITEM_CD}
+		</if>
+
+	</update>
+
+	<update id="im01060_doUpdateBULK" parameterType="hashmap">
+
+		UPDATE STOCBULK SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,STATUS =#{STATUS}
+			,FAIL_RMK =#{FAIL_RMK}
+			,ITEM_STATUS =#{ITEM_STATUS}
+			,ITEM_CD =#{ITEM_CD}
+			,OLD_ITEM_CD = #{OLD_ITEM_CD}
+			,ITEM_DESC =#{ITEM_DESC}
+			,ITEM_DESC_ENG =#{ITEM_DESC_ENG}
+			,ITEM_SPEC =#{ITEM_SPEC}
+			,ITEM_KIND_CD =#{ITEM_KIND_CD}
+			,MAKER_CD =#{MAKER_CD}
+			,MAKER_NM =#{MAKER_NM}
+			,MAKER_PART_NO =#{MAKER_PART_NO}
+			,ORIGIN_CD =#{ORIGIN_CD}
+			,UNIT_CD =#{UNIT_CD}
+			,ORD_UNIT_CD =#{ORD_UNIT_CD}
+			,BRAND_CD =#{BRAND_CD}
+			,DEAL_CD =#{DEAL_CD}
+			,VAT_CD ='T1'
+			,VALID_FROM_DATE =#{VALID_FROM_DATE}
+			,VALID_TO_DATE =#{VALID_TO_DATE}
+			,ITEM_CLS1 =#{ITEM_CLS1}
+			,ITEM_CLS2 =#{ITEM_CLS2}
+			,ITEM_CLS3 =#{ITEM_CLS3}
+			,ITEM_CLS4 =#{ITEM_CLS4}
+			,STD_FLAG =#{STD_FLAG}
+			,NOT_STD_TYPE =#{NOT_STD_TYPE}
+			,NOT_STD_RMK =#{NOT_STD_RMK}
+			,PARENT_ITEM_CD =#{PARENT_ITEM_CD}
+			,CMS_CTRL_USER_ID =#{CMS_CTRL_USER_ID}
+			,SG_CTRL_USER_ID =#{SG_CTRL_USER_ID}
+			,BUYER_CD =#{BUYER_CD}
+			,APPLY_COM =#{APPLY_COM}
+			,VENDOR_CD =#{VENDOR_CD}
+			,QTA_UNIT_PRC =#{QTA_UNIT_PRICE}
+			,CONT_UNIT_PRC =#{CONT_UNIT_PRICE}
+			,STD_UNIT_PRC =#{STD_UNIT_PRICE}
+			,MIN_ORDER_QT =#{MOQ_QTY}
+			,RV_QT =#{RV_QTY}
+			,LEADTIME =#{LEAD_TIME}
+			,LEAD_TIME_CD =#{LEAD_TIME_CD}
+			,LEAD_TIME_RMK =#{LEAD_TIME_RMK}
+			,CUST_CD =#{CUST_CD}
+			,SALES_UNIT_PRICE =#{SALES_UNIT_PRICE}
+			,CHANGE_CD =#{CHANGE_CD}
+			,CHANGE_REASON =#{CHANGE_REASON}
+			,ITEM_REQ_NO =#{ITEM_REQ_NO}
+			,ITEM_REQ_SEQ =#{ITEM_REQ_SEQ}
+			,ITEM_EXTERNAL_IMG_URL =#{ITEM_EXTERNAL_IMG_URL}
+			,ITEM_DETAIL_TEXT_NUM =#{ITEM_DETAIL_TEXT_NUM}
+			,VENDOR_ITEM_CD =#{VENDOR_ITEM_CD}
+			,CUST_ITEM_CD =#{CUST_ITEM_CD}
+			,CUR =#{CUR}
+			,ITEM_NOTC_DESC =#{ITEM_NOTC_DESC}
+			,ITEM_NOTC_CERT =#{ITEM_NOTC_CERT}
+			,ITEM_NOTC_ORIGIN =#{ITEM_NOTC_ORIGIN}
+			,ITEM_NOTC_MAKER =#{ITEM_NOTC_MAKER}
+			,ITEM_NOTC_AS =#{ITEM_NOTC_AS}
+			,ITEM_ATTR_SEQ_1 =#{ATTR_CD0}
+			,ITEM_ATTR_SEQ_1_VALUE =#{ATTR_VALUE0}
+			,ITEM_ATTR_SEQ_2 =#{ATTR_CD1}
+			,ITEM_ATTR_SEQ_2_VALUE =#{ATTR_VALUE1}
+			,ITEM_ATTR_SEQ_3 =#{ATTR_CD2}
+			,ITEM_ATTR_SEQ_3_VALUE =#{ATTR_VALUE2}
+			,ITEM_ATTR_SEQ_4 =#{ATTR_CD3}
+			,ITEM_ATTR_SEQ_4_VALUE =#{ATTR_VALUE3}
+			,ITEM_ATTR_SEQ_5 =#{ATTR_CD4}
+			,ITEM_ATTR_SEQ_5_VALUE =#{ATTR_VALUE4}
+			,ITEM_ATTR_SEQ_6 =#{ATTR_CD5}
+			,ITEM_ATTR_SEQ_6_VALUE =#{ATTR_VALUE5}
+			,ITEM_ATTR_SEQ_7 =#{ATTR_CD6}
+			,ITEM_ATTR_SEQ_7_VALUE =#{ATTR_VALUE6}
+			,ITEM_ATTR_SEQ_8 =#{ATTR_CD7}
+			,ITEM_ATTR_SEQ_8_VALUE =#{ATTR_VALUE7}
+			,ITEM_ATTR_SEQ_9 =#{ATTR_CD8}
+			,ITEM_ATTR_SEQ_9_VALUE =#{ATTR_VALUE8}
+			,ITEM_ATTR_SEQ_10 =#{ATTR_CD9}
+			,ITEM_ATTR_SEQ_10_VALUE =#{ATTR_VALUE9}
+			,ITEM_ATTR_SEQ_11 =#{ATTR_CD10}
+			,ITEM_ATTR_SEQ_11_VALUE =#{ATTR_VALUE10}
+			,ITEM_ATTR_SEQ_12 =#{ATTR_CD11}
+			,ITEM_ATTR_SEQ_12_VALUE =#{ATTR_VALUE11}
+			,ITEM_ATTR_SEQ_13 =#{ATTR_CD12}
+			,ITEM_ATTR_SEQ_13_VALUE =#{ATTR_VALUE12}
+			,ITEM_ATTR_SEQ_14 =#{ATTR_CD13}
+			,ITEM_ATTR_SEQ_14_VALUE =#{ATTR_VALUE13}
+			,ITEM_ATTR_SEQ_15 =#{ATTR_CD14}
+			,ITEM_ATTR_SEQ_15_VALUE =#{ATTR_VALUE14}
+			,REGION_CD_00 =#{REGION_CD_00}
+			,REGION_CD_10 =#{REGION_CD_10}
+			,REGION_CD_20 =#{REGION_CD_20}
+			,REGION_CD_30 =#{REGION_CD_30}
+			,REGION_CD_40 =#{REGION_CD_40}
+			,REGION_CD_50 =#{REGION_CD_50}
+			,REGION_CD_60 =#{REGION_CD_60}
+			,REGION_CD_70 =#{REGION_CD_70}
+			,REGION_CD_80 =#{REGION_CD_80}
+			,IMG_UUID = #{ITEM_CD}
+			,IMG_MAIN_IMAGE_NO = #{IMG_MAIN_IMAGE_NO}
+			,IMG_REAL_FILE_1_NM = #{IMG_REAL_FILE_1_NM}
+			,IMG_REAL_FILE_2_NM = #{IMG_REAL_FILE_2_NM}
+			,IMG_REAL_FILE_3_NM = #{IMG_REAL_FILE_3_NM}
+			,IMG_REAL_FILE_4_NM = #{IMG_REAL_FILE_4_NM}
+			,IMG_REAL_FILE_NM_DETAIL = #{IMG_REAL_FILE_NM_DETAIL}
+			,ITEM_DETAIL_URL = #{ITEM_DETAIL_URL}
+			,FI_MNG_NO = #{FI_MNG_NO}
+			,DEPT_CD = (CASE WHEN #{DEPT_CD} IS NULL THEN '*' ELSE #{DEPT_CD} END)
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND JOB_TYPE = #{JOB_TYPE}
+		   AND SEQ = #{SEQ}
+
+	</update>
+
+	<delete id="im01060_doDelete" parameterType="hashmap">
+		DELETE STOCBULK
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND JOB_TYPE = 'X'
+		   AND SEQ = #{SEQ}
+	</delete>
+
+	<select id="returnYinfoContNo" parameterType="hashMap" resultType="java.lang.String">
+
+		SELECT max(CONT_NO) AS CONT_NO
+		  FROM STOYINFO
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND ITEM_CD = #{ITEM_CD}
+		   AND VENDOR_CD = #{VENDOR_CD}
+
+	</select>
+
+	<select id="returnYinfoContSeq" parameterType="hashMap" resultType="java.lang.String">
+
+		SELECT <include refid="com.sql.nvl"/>(MAX(CONT_SEQ),0) + 1 as CONT_SEQ
+		  FROM STOYINFO
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NO = #{CONT_NO}
+
+	</select>
+
+
+	<select id="changeYINFOInfo"  parameterType="hashMap" resultType="hashMap">
+
+		SELECT TOP 1
+			 <include refid="com.sql.toDateChar"/>(VALID_TO_DATE, 'yyyyMMdd') AS PREV_VALID_TO_DATE
+			,<include refid="com.sql.toDateChar"/>(VALID_FROM_DATE, 'yyyyMMdd') AS PREV_VALID_FROM_DATE
+			,CAST(CONT_UNIT_PRICE AS INT) as PREV_UNIT_PRICE
+			,VENDOR_CD AS PREV_VENDOR_CD
+			,APPLY_COM as PREV_APPLY_COM
+			,CONT_NO as PREV_CONT_NO
+			,CONT_SEQ as PREV_CONT_SEQ
+		FROM STOYINFO
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND APPLY_COM = #{APPLY_COM}
+		  AND ITEM_CD = #{ITEM_CD}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND CONT_NO + CONVERT(varchar(20), CONVERT(float, CONT_SEQ)) != (#{CONT_NO} + CONVERT(varchar(20), CONVERT(numeric(22), #{CONT_SEQ})))
+		  AND (CASE WHEN TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYYMMDD') BETWEEN VALID_FROM_DATE AND VALID_TO_DATE THEN '1' ELSE '0' END) = '1'
+
+	</select>
+
+	<insert id="im01001_MTGL_Insert" parameterType="hashmap">
+
+		INSERT INTO STOCMTGL (
+			 GATE_CD
+			,ITEM_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PROGRESS_CD
+			,ITEM_DESC
+			,ITEM_DESC_ENG
+			,ITEM_SPEC
+			,ITEM_KIND_CD
+			,MAKER_CD
+			,MAKER_PART_NO
+			,ORIGIN_CD
+			,UNIT_CD
+			,ORD_UNIT_CD
+			,CONV_QT
+			,MIN_ORDER_QT
+			,LEADTIME
+			,VAT_CD
+			,ORDER_HALT_FLAG
+			,ITEM_STATUS
+			,REQ_DATE
+			,REQ_USER_ID
+			,CONF_DATE
+			,CONF_USER_ID
+			,CONF_REMARK
+			,DATA_CREATE_TYPE
+			,OLD_ITEM_CD
+			,PACKAGE_TYPE
+			,ERP_ITEM_STATUS
+			,RE_GR_DUE_DATE
+			,STD_FLAG
+			,CMS_REMARK
+			,ITEM_CHG_TYPE
+			,ITEM_CHG_REASON
+			,CMS_CTRL_USER_ID
+			,SG_CTRL_USER_ID
+			,NOT_STD_TYPE
+			,NOT_STD_REMARK
+			,ITEM_RMK
+			,ATT_FILE_NUM
+			,ECHO_GREEN_ITEM_FLAG
+			,PRICE_CHG_FLAG
+			,ITEM_DETAIL_URL
+			,ITEM_DETAIL_TEXT_NUM
+			,FI_MNG_NO
+			,BRAND_CD
+			,ITEM_DETAIL_FILE_NUM
+			,ITEM_NOTC_DESC
+			,ITEM_NOTC_CERT
+			,ITEM_NOTC_ORIGIN
+			,ITEM_NOTC_MAKER
+			,ITEM_NOTC_AS
+		) VALUES (
+			#{ses.gateCd}
+			,#{ITEM_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{PROGRESS_CD}
+			,#{ITEM_DESC}
+			,#{ITEM_DESC_ENG}
+			,#{ITEM_SPEC}
+			,#{ITEM_KIND_CD}
+			,#{MAKER_CD}
+			,#{MAKER_PART_NO}
+			,#{ORIGIN_CD}
+			,#{UNIT_CD}
+			,#{ORD_UNIT_CD}
+			,#{CONV_QT}
+			,#{MIN_ORDER_QT}
+			,#{LEADTIME}
+			,#{VAT_CD}
+			,#{ORDER_HALT_FLAG}
+			,#{ITEM_STATUS}
+			,#{REQ_DATE}
+			,#{REQ_USER_ID}
+			,#{CONF_DATE}
+			,#{CONF_USER_ID}
+			,#{CONF_REMARK}
+			,#{DATA_CREATE_TYPE}
+			,#{OLD_ITEM_CD}
+			,#{PACKAGE_TYPE}
+			,#{ERP_ITEM_STATUS}
+			,#{RE_GR_DUE_DATE}
+			,#{STD_FLAG}
+			,#{CMS_REMARK}
+			,#{ITEM_CHG_TYPE}
+			,#{ITEM_CHG_REASON}
+			,#{CMS_CTRL_USER_ID}
+			,#{SG_CTRL_USER_ID}
+			,#{NOT_STD_TYPE}
+			,#{NOT_STD_RMK}
+			,#{ITEM_RMK}
+			,#{ATT_FILE_NUM}
+			,#{ECHO_GREEN_ITEM_FLAG}
+			,#{PRICE_CHG_FLAG}
+			,#{ITEM_DETAIL_URL}
+			,#{ITEM_DETAIL_TEXT_NUM}
+			,#{FI_MNG_NO}
+			,#{BRAND_CD}
+			,#{ITEM_DETAIL_FILE_NUM}
+			,#{ITEM_NOTC_DESC}
+			,#{ITEM_NOTC_CERT}
+			,#{ITEM_NOTC_ORIGIN}
+			,#{ITEM_NOTC_MAKER}
+			,#{ITEM_NOTC_AS}
+		)
+	</insert>
+
+
+	<update id="im01060_doUpdateYINFOBeforeDate" parameterType="hashMap">
+
+		UPDATE STOYINFO SET
+		     MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,VALID_TO_DATE = (Convert(varchar(10), DATEADD(D, -1, #{VALID_FROM_DATE}),112))
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND APPLY_COM = #{APPLY_COM}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND ITEM_CD = #{ITEM_CD}
+		  AND CONT_NO = #{PREV_CONT_NO}
+		  AND CONT_SEQ = CONVERT(float, #{PREV_CONT_SEQ})
+
+	</update>
+
+
+	<insert id="im01060_doSave_YINFH_FROMDATE" parameterType="hashMap">
+
+		INSERT INTO STOYINFH (
+			 GATE_CD
+			,ITEM_CD
+			,HIS_SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,CUR
+
+			,PREV_UNIT_PRICE
+			,AFTER_UNIT_PRICE
+
+			,CHANGE_REASON
+			,PREV_VENDOR_CD
+			,AFTER_VENDOR_CD
+
+			,PREV_APPLY_COM
+			,PREV_CONT_NO
+			,PREV_CONT_SEQ
+
+			,AFTER_APPLY_COM
+			,AFTER_CONT_NO
+			,AFTER_CONT_SEQ
+			,CONT_TYPE_CD
+			,PREV_VALID_FROM_DATE
+			,PREV_VALID_TO_DATE
+			,AFTER_VALID_FROM_DATE
+			,AFTER_VALID_TO_DATE
+		) VALUES (
+			#{ses.gateCd}
+			,#{ITEM_CD}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(HIS_SEQ),0) + 1 FROM STOYINFH WHERE GATE_CD= #{ses.gateCd} AND ITEM_CD =#{ITEM_CD})
+			,<include refid="com.sql.sysdate"/>
+			,#{SG_CTRL_USER_ID}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,'KRW'
+
+			,(CASE WHEN #{PREV_UNIT_PRICE}='' THEN 0 ELSE #{PREV_UNIT_PRICE} END )
+			,<include refid="com.sql.nvl"/>(#{CONT_UNIT_PRICE},0)
+
+			,#{CHANGE_REASON}
+			,#{PREV_VENDOR_CD}
+			,#{VENDOR_CD}
+
+			,#{PREV_APPLY_COM}
+			,#{PREV_CONT_NO}
+			,#{PREV_CONT_SEQ}
+
+			,#{APPLY_COM}
+			,#{CONT_NO}
+			,#{CONT_SEQ}
+			,#{CONT_TYPE_CD}
+			,#{PREV_VALID_FROM_DATE}
+			,#{PREV_VALID_TO_DATE}
+			,#{PREV_VALID_FROM_DATE}
+			,(Convert(varchar(10),DATEADD(D, -1, #{VALID_FROM_DATE}),112))
+		)
+	</insert>
+
+	<delete id="RETURN_deleteMTGL" parameterType="hashmap">
+		DELETE STOCMTGL
+		WHERE GATE_CD = #{ses.gateCd}
+		AND ITEM_CD =#{ITEM_CD}
+	</delete>
+
+	<delete id="RETURN_deleteMTGC" parameterType="hashmap">
+		DELETE STOCMTGC
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND BUYER_CD = #{ses.companyCd}
+		  AND ITEM_CD =#{ITEM_CD}
+	</delete>
+
+	<delete id="RETURN_deleteMTAT" parameterType="hashmap">
+		DELETE STOCMTAT
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND BUYER_CD = #{ses.companyCd}
+		  AND ITEM_CD =#{ITEM_CD}
+	</delete>
+
+	<delete id="RETURN_deleteYINFO" parameterType="hashmap">
+		DELETE STOYINFO
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND APPLY_COM =#{APPLY_COM}
+		  AND ITEM_CD = #{ITEM_CD}
+		  AND CONT_NO =#{CONT_NO}
+		  AND CONT_SEQ =#{CONT_SEQ}
+	</delete>
+	<delete id="RETURN_deleteYINFR" parameterType="hashmap">
+		DELETE STOYINFR
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND APPLY_COM =#{APPLY_COM}
+		  AND CONT_NO =#{CONT_NO}
+		  AND CONT_SEQ =#{CONT_SEQ}
+	</delete>
+	<delete id="RETURN_deleteYINFH" parameterType="hashmap">
+		DELETE STOYINFH
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND ITEM_CD =#{ITEM_CD}
+		  AND AFTER_CONT_NO =#{CONT_NO}
+		  AND AFTER_CONT_SEQ =#{CONT_SEQ}
+	</delete>
+
+	<delete id="RETURN_deleteUINFO" parameterType="hashmap">
+		DELETE STOUINFO
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD =#{CUST_CD}
+		  AND ITEM_CD =#{ITEM_CD}
+	</delete>
+
+	<delete id="RETURN_deleteUINFH" parameterType="hashmap">
+		DELETE STOUINFH
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND CUST_CD =#{CUST_CD}
+		  AND ITEM_CD =#{ITEM_CD}
+		  AND HIS_SQ = (SELECT MAX(HIS_SQ) FROM STOUINFH WHERE GATE_CD = #{ses.gateCd} AND CUST_CD =#{CUST_CD} AND ITEM_CD =#{ITEM_CD} )
+	</delete>
+
+	<insert id="im01060_doSaveMTIM" parameterType="hashMap">
+		INSERT INTO STOCMTIM (
+			GATE_CD
+			, ITEM_CD
+			, UUID
+			, UUID_SQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, MAIN_IMAGE_FLAG
+		) VALUES (
+			#{ses.gateCd}
+			, #{ITEM_CD}
+			, #{UUID}
+			, #{UUID_SQ}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{MAIN_IMAGE_FLAG}
+		)
+	</insert>
+
+	<insert id="im01060_doSaveATCH" parameterType="hashMap">
+		INSERT INTO STOCATCH (
+			GATE_CD
+			, UUID
+			, UUID_SQ
+			, FILE_NM
+			, FILE_PATH
+			, FILE_SIZE
+			, FILE_EXTENSION
+			, REAL_FILE_NM
+			, BIZ_TYPE
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, FILE_SQ
+			, DEL_FLAG
+			, ENC_FLAG
+		) VALUES (
+			#{ses.gateCd}
+			, #{UUID}
+			, #{UUID_SQ}
+			, #{FILE_NM}
+			, #{FILE_PATH}
+			, #{FILE_SIZE}
+			, #{FILE_EXTENSION}
+			, #{REAL_FILE_NM}
+			, #{BIZ_TYPE}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, #{FILE_SQ}
+			, '0'
+			, '0'
+		)
+	</insert>
+
+	<update id="im01060_doUpdateMTGL" parameterType="hashMap">
+
+		UPDATE STOCMTGL SET
+			 ITEM_DETAIL_FILE_NUM = #{ITEM_DETAIL_FILE_NUM}
+			,ITEM_DETAIL_URL = #{ITEM_DETAIL_URL}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND ITEM_CD = #{ITEM_CD}
+
+	</update>
+
+	<delete id="RETURN_deleteMTIM" parameterType="hashmap">
+		DELETE STOCMTIM
+		WHERE GATE_CD = #{ses.gateCd}
+		AND ITEM_CD = #{ITEM_CD}
+		AND UUID = #{ITEM_CD}
+	</delete>
+
+	<delete id="RETURN_deleteATCH" parameterType="hashmap">
+		DELETE STOCATCH
+		WHERE GATE_CD = #{ses.gateCd}
+		AND UUID = #{UUID}
+	</delete>
+</mapper>

@@ -1,0 +1,94 @@
+<?xml  version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.evermp.STO.STO0301_Mapper">
+
+	<select id="sto0301_doSearch" parameterType="hashmap" resultType="hashMap">
+	SELECT DISTINCT X.*
+	  FROM(
+			SELECT  A.GATE_CD
+		  	  	  , A.AGENT_CODE AS VENDOR_CD
+		  	  	  , <include refid="com.sql.dbo"/> GETCOMPANYNAME(A.GATE_CD,A.AGENT_CODE,#{ses.langCd})  AS VENDOR_NM
+		  		  , A.DEAL_CD
+		  		  , A.STR_CTRL_CODE
+		  		  , A.WAREHOUSE_CODE
+		  		  , C.WAREHOUSE_TYPE
+				  , C.WH_NM
+				  , MTGL.UNIT_CD
+				  , MTGL.CUST_ITEM_CD --고객사 상품코드
+				  , MTGL.ITEM_DESC
+				  , MTGL.ITEM_SPEC
+				  , A.ITEM_CD
+				  , A.ITEM_QTY
+				  , <include refid="com.sql.nvl"/>(BASE_QTY,0)+<include refid="com.sql.nvl"/>(ESUM,0) - <include refid="com.sql.nvl"/>(XSUM,0) AS REAL_QTY
+				  , MTGL.SAFE_QTY
+				  , MTGL.SAVE_QTY
+				  , D.CUR
+				  , D.CONT_UNIT_PRICE
+				  , MTGL.ITEM_STATUS
+			  FROM (
+			  		SELECT
+							  GATE_CD
+							, AGENT_CODE
+							, DEAL_CD
+							, STR_CTRL_CODE
+							, WAREHOUSE_CODE
+							, ITEM_CD
+							, SUM(ITEM_QTY) AS ITEM_QTY
+							, SUM(CASE WHEN 100 <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]> MOVEMENT_TYPE THEN ITEM_QTY END)AS ESUM --입고수량
+				            , SUM(CASE WHEN 900 <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]> MOVEMENT_TYPE THEN ITEM_QTY END)AS XSUM --출고수량
+							, SUM(CASE WHEN 999 <![CDATA[=]]> MOVEMENT_TYPE THEN ITEM_QTY END ) AS BASE_QTY --기초수량
+					  FROM STOIMMRS
+					 WHERE DEL_FLAG ='0'
+					   AND RD_DATE BETWEEN TRUNC( SYSDATE ,'MM') AND SYSDATE
+					 GROUP BY GATE_CD,AGENT_CODE,STR_CTRL_CODE,WAREHOUSE_CODE,ITEM_CD,DEAL_CD
+					) A
+			  JOIN STOCMTGL MTGL
+			     ON  A.GATE_CD= MTGL.GATE_CD
+			     AND A.ITEM_CD =MTGL.ITEM_CD
+			     AND MTGL.DEL_FLAG = '0'
+			  JOIN STOCOGWH C
+				 ON A.GATE_CD = C.GATE_CD
+				 AND A.STR_CTRL_CODE = C.STR_CTRL_CODE
+				 AND A.WAREHOUSE_CODE = C.WAREHOUSE_CODE
+			  JOIN STOYINFO D
+			     ON A.GATE_CD = D.GATE_CD
+				 AND A.ITEM_CD = D.ITEM_CD
+				 AND D.DEAL_CD IN ('100' , '400')
+				 AND D.VALID_TO_DATE = (SELECT MAX(VALID_TO_DATE)
+				 						  FROM STOYINFO
+				 						 WHERE GATE_CD = D.GATE_CD
+				 						   AND ITEM_CD = D.ITEM_CD
+				 						   AND VALID_FROM_DATE <![CDATA[<]]>SYSDATE
+				 						   AND DEL_FLAG = '0')
+				 AND D.DEL_FLAG = '0'
+		      WHERE C.DEL_FLAG = '0'
+			 <if test="STR_CTRL_CODE != null and STR_CTRL_CODE != ''">
+			    AND C.STR_CTRL_CODE = #{STR_CTRL_CODE}
+			 </if>
+			 <if test="ITEM_CD != null and ITEM_CD != ''">
+			    AND A.ITEM_CD||<include refid="com.sql.nvl"/>(MTGL.CUST_ITEM_CD,' ') <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+			 </if>
+			  <if test="ITEM_DESC != '' and ITEM_DESC != null">
+	  		    AND (${ITEM_DESC})
+	   		 </if>
+		     <if test="VENDOR_CD != null and VENDOR_CD != ''">
+			    AND (A.AGENT_CODE <include refid="com.sql.likeL"/>#{VENDOR_CD}<include refid="com.sql.likeR"/>)
+    	     </if>
+	         <if test="ses.userType == 'S'.toString()">
+		        AND A.AGENT_CODE = #{VENDOR_CD}
+			 </if>
+			 <if test="DEAL_CD != null and DEAL_CD !=''">
+				AND A.DEAL_CD = #{DEAL_CD}
+			 </if>
+		     <if test="EXCLUDE != null and EXCLUDE !=''">
+			    AND <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(BASE_QTY,0)+<include refid="com.sql.nvl"/>(ESUM,0) - <include refid="com.sql.nvl"/>(XSUM,0),0) > 0
+		     </if>
+		      )X
+	  WHERE 1=1
+	  <if test="VENDOR_NM != null and VENDOR_NM != ''">
+		AND X.VENDOR_NM <include refid="com.sql.likeL"/>#{VENDOR_NM}<include refid="com.sql.likeR"/>
+	  </if>
+	 ORDER BY X.DEAL_CD, X.ITEM_DESC
+
+	  </select>
+</mapper>

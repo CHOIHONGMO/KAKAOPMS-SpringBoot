@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.common.cache.CacheMapper">
+
+	<select id="getScrnData" parameterType="hashmap" resultType="hashMap">
+		SELECT SCREEN_ID
+		      ,SCREEN_URL
+		      ,GRID_TYPE
+		      ,<include refid="com.sql.nvl"/>(EXCEL_OPTION, 'A') AS EXCEL_OPTION
+		  FROM STOCSCRN
+		 WHERE GATE_CD = <choose>
+                             <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                             <otherwise>#{ses.gateCd}</otherwise>
+                         </choose>
+		   AND DEL_FLAG = '0'
+    </select>
+
+	<select id="getMessagesByScreenId" parameterType="hashMap" resultType="hashMap">
+        SELECT MULTI_TYPE
+		      ,MULTI_CD
+		      ,MULTI_CONTENTS
+        FROM STOCLANG
+        WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{ses.gateCd}</otherwise>
+                        </choose>
+          AND SCREEN_ID = #{screenId}
+          AND LANG_CD = <choose>
+                            <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                            <otherwise>#{langCd}</otherwise>
+                        </choose>
+          AND MULTI_TYPE   = 'M'
+          AND FORM_GRID_ID = 'msg'
+          AND DEL_FLAG     = '0'
+        ORDER BY MULTI_CD
+    </select>
+
+	<select id="getAuthorizedButtonCd" resultType="hashMap">
+
+        SELECT SCAC.ACTION_CD
+		      ,ACPF.ACTION_PROFILE_CD
+          FROM STOCACPF ACPF
+          JOIN STOCSCAC SCAC
+	           ON (SCAC.GATE_CD   = ACPF.GATE_CD
+	           AND SCAC.SCREEN_ID = ACPF.SCREEN_ID
+	           AND SCAC.ACTION_CD = ACPF.ACTION_CD
+	           AND SCAC.DEL_FLAG  = '0')
+         WHERE ACPF.GATE_CD  = <include refid="com.sql.gateCd"/>
+           AND ACPF.SCREEN_ID = #{screenId}
+           AND ACPF.DEL_FLAG = '0'
+		<if test="actionAuthCd != 'notUse'">
+           AND ACPF.ACTION_PROFILE_CD = #{actionAuthCd}
+		</if>
+
+    </select>
+
+    <select id="getBreadCrumbInfoLike" resultType="string">
+    	<if test="_databaseId == 'oracle'">
+			SELECT TMPL_MENU_CD
+		      FROM STOCMUTM
+		     WHERE DEL_FLAG = '0'
+			<if test="moduleType != null and moduleType != ''">
+		       AND MODULE_TYPE = #{moduleType}
+			</if>
+		       AND TMPL_MENU_GROUP_CD IN
+		                  (SELECT TMPL_MENU_GROUP_CD
+		                     FROM STOCMUGR
+		                    WHERE GATE_CD = <choose>
+                                                <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                <otherwise>#{ses.gateCd}</otherwise>
+                                            </choose>
+		                      AND DEL_FLAG = 0
+		                      AND MENU_GROUP_CD IN
+		                                 (SELECT MENU_GROUP_CD
+		                                    FROM STOCAUMP
+		                                   WHERE GATE_CD = <choose>
+                                                               <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                               <otherwise>#{ses.gateCd}</otherwise>
+                                                           </choose>
+		                                     AND AUTH_CD = #{ses.grantedAuthCd}
+		                                     AND DEL_FLAG = 0))
+			START WITH SCREEN_ID LIKE #{screenId}||'%'
+			CONNECT BY PRIOR HIGH_TMPL_MENU_CD = TMPL_MENU_CD
+			  ORDER BY LEVEL DESC
+		</if>
+		<if test="_databaseId == 'mssql' or _databaseId == 'mysql' or _databaseId == 'postgresql'">
+		  	WITH 
+		  	<if test="_databaseId == 'mysql' or _databaseId == 'postgresql'">
+		  		RECURSIVE
+		  	</if>
+		  	cte (
+		       TMPL_MENU_CD, HIGH_TMPL_MENU_CD, lvl
+		    )
+		    AS (
+		    	SELECT TMPL_MENU_CD, HIGH_TMPL_MENU_CD, 1 AS lvl
+		          FROM STOCMUTM
+		         WHERE DEL_FLAG = '0'
+		         	<if test="moduleType != null and moduleType != ''">
+						AND MODULE_TYPE = #{moduleType}
+					</if> 
+		         	AND SCREEN_ID = #{screenId}
+		            AND TMPL_MENU_GROUP_CD IN
+		                        (SELECT TMPL_MENU_GROUP_CD
+		                           FROM STOCMUGR
+		                          WHERE GATE_CD = <choose>
+                                                      <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                      <otherwise>#{ses.gateCd}</otherwise>
+                                                  </choose>
+		                            AND DEL_FLAG = 0
+		                            AND MENU_GROUP_CD IN
+		                            	(SELECT MENU_GROUP_CD
+		                                   FROM STOCAUMP
+		                                  WHERE GATE_CD = <choose>
+                                                              <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                              <otherwise>#{ses.gateCd}</otherwise>
+                                                          </choose>
+		                                    AND AUTH_CD = #{ses.grantedAuthCd}
+		                                    AND DEL_FLAG = 0))
+		        UNION ALL
+		        SELECT a.TMPL_MENU_CD, a.HIGH_TMPL_MENU_CD, lvl + 1
+		          FROM STOCMUTM a, cte b
+		         WHERE DEL_FLAG = '0'
+	         	<if test="moduleType != null and moduleType != ''">
+					AND MODULE_TYPE = #{moduleType}
+				</if> 
+					AND a.TMPL_MENU_CD = b.HIGH_TMPL_MENU_CD
+					AND TMPL_MENU_GROUP_CD IN
+		                        (SELECT TMPL_MENU_GROUP_CD
+		                           FROM STOCMUGR
+		                          WHERE GATE_CD = <choose>
+                                                      <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                      <otherwise>#{ses.gateCd}</otherwise>
+                                                  </choose>
+		                            AND DEL_FLAG = 0
+		                            AND MENU_GROUP_CD IN
+		                            	(SELECT MENU_GROUP_CD
+		                                   FROM STOCAUMP
+		                                  WHERE GATE_CD = <choose>
+                                                              <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                              <otherwise>#{ses.gateCd}</otherwise>
+                                                          </choose>
+		                                    AND AUTH_CD = #{ses.grantedAuthCd}
+		                                    AND DEL_FLAG = 0))
+			)
+			SELECT TMPL_MENU_CD
+			  FROM cte
+			 ORDER BY lvl DESC
+		</if>
+    </select>
+
+    <select id="getBreadCrumbInfo" resultType="string">
+    	<if test="_databaseId == 'oracle'">
+			SELECT TMPL_MENU_CD
+		      FROM STOCMUTM
+		     WHERE DEL_FLAG = '0'
+		  	       <if test="moduleType != null and moduleType != ''">
+			        AND MODULE_TYPE = #{moduleType}
+			       </if>
+		       AND TMPL_MENU_GROUP_CD IN
+		                  (SELECT TMPL_MENU_GROUP_CD
+		                     FROM STOCMUGR
+		                    WHERE GATE_CD = <choose>
+                                                <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                <otherwise>#{ses.gateCd}</otherwise>
+                                            </choose>
+		                      AND DEL_FLAG = 0
+		                      AND MENU_GROUP_CD IN
+		                                 (SELECT MENU_GROUP_CD
+		                                    FROM STOCAUMP
+		                                   WHERE GATE_CD = <choose>
+                                                               <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                               <otherwise>#{ses.gateCd}</otherwise>
+                                                           </choose>
+		                                     AND AUTH_CD = #{ses.grantedAuthCd}
+		                                     AND DEL_FLAG = 0))
+			START WITH SCREEN_ID = #{screenId}
+			CONNECT BY PRIOR HIGH_TMPL_MENU_CD = TMPL_MENU_CD
+			  ORDER BY LEVEL DESC
+		</if>
+		<if test="_databaseId == 'mssql' or _databaseId == 'mysql' or _databaseId == 'postgresql'">
+		  	WITH 
+		  	<if test="_databaseId == 'mysql' or _databaseId == 'postgresql'">
+		  		RECURSIVE
+		  	</if>
+		  	cte (
+		       TMPL_MENU_CD, HIGH_TMPL_MENU_CD, lvl
+		    )
+		    AS
+		       (SELECT TMPL_MENU_CD, HIGH_TMPL_MENU_CD, 1 AS lvl
+		          FROM STOCMUTM
+		         WHERE DEL_FLAG = '0'
+		         	<if test="moduleType != null and moduleType != ''">
+						AND MODULE_TYPE = #{moduleType}
+					</if> 
+		         	AND SCREEN_ID = #{screenId}
+		            AND TMPL_MENU_GROUP_CD IN
+		                        (SELECT TMPL_MENU_GROUP_CD
+		                           FROM STOCMUGR
+		                          WHERE GATE_CD = <choose>
+                                                      <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                      <otherwise>#{ses.gateCd}</otherwise>
+                                                  </choose>
+		                            AND DEL_FLAG = 0
+		                            AND MENU_GROUP_CD IN
+		                            	(SELECT MENU_GROUP_CD
+		                                   FROM STOCAUMP
+		                                  WHERE GATE_CD = <choose>
+                                                              <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                              <otherwise>#{ses.gateCd}</otherwise>
+                                                          </choose>
+		                                    AND AUTH_CD = #{ses.grantedAuthCd}
+		                                    AND DEL_FLAG = 0))
+		        UNION ALL
+		        SELECT a.TMPL_MENU_CD, a.HIGH_TMPL_MENU_CD, lvl + 1
+		          FROM STOCMUTM a, cte b
+		         WHERE DEL_FLAG = '0'
+		         	<if test="moduleType != null and moduleType != ''">
+						AND MODULE_TYPE = #{moduleType}
+					</if> 
+					AND a.TMPL_MENU_CD = b.HIGH_TMPL_MENU_CD
+					AND TMPL_MENU_GROUP_CD IN
+		                        (SELECT TMPL_MENU_GROUP_CD
+		                           FROM STOCMUGR
+		                          WHERE GATE_CD = <choose>
+                                                      <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                      <otherwise>#{ses.gateCd}</otherwise>
+                                                  </choose>
+		                            AND DEL_FLAG = 0
+		                            AND MENU_GROUP_CD IN
+		                            	(SELECT MENU_GROUP_CD
+		                                   FROM STOCAUMP
+		                                  WHERE GATE_CD = <choose>
+                                                              <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                                              <otherwise>#{ses.gateCd}</otherwise>
+                                                          </choose>
+		                                    AND AUTH_CD = #{ses.grantedAuthCd}
+		                                    AND DEL_FLAG = 0)))
+			SELECT TMPL_MENU_CD
+			  FROM cte
+			 ORDER BY lvl DESC
+		</if>
+    </select>
+
+    <select id="getButtonInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT ACTION_CD AS "actionCd",
+               BUTTON_ICON_NM AS "btnIcon",
+               <include refid="com.sql.nvl"/>(INVISIBLE_FLAG, '0') AS "invisibleFlag",
+               CASE WHEN FP_EQ_FLAG  = '1' THEN 'EQ'
+                    WHEN FP_EO_FLAG  = '1' THEN 'EO'
+                    WHEN FP_EI_FLAG  = '1' THEN 'EI'
+                    WHEN FP_ETC_TEXT = '1' THEN 'ETC'
+                    ELSE ''
+               END AS "fpFlag",
+			   CASE WHEN (SELECT COUNT(*)
+					   	    FROM STOCMBTA
+					   	   WHERE GATE_CD = A.GATE_CD
+					   	     AND SCREEN_ID = A.SCREEN_ID
+					   	     AND ACTION_CD = A.ACTION_CD
+					   	     AND ((DATA_TYPE = 'U' AND DATA_CD = #{userId})
+					   	      OR  (DATA_TYPE = 'J' AND DATA_CD IN (SELECT CTRL_CD FROM STOCBACP
+					   	  										    WHERE GATE_CD  = #{ses.gateCd}
+					   	  										 	  AND BUYER_CD = #{ses.companyCd}
+					   	  											  AND CTRL_USER_ID = #{userId}
+					   	  											  AND USE_FLAG = '1'
+					   	  											  AND DEL_FLAG = '0')
+					   	  	))
+					   	     AND DEL_FLAG = '0'
+			   ) <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END AS "buttonAuth",
+			   MULTI_NM AS "buttonCaption"
+          FROM (
+            SELECT SCAC.GATE_CD,
+				   SCAC.SCREEN_ID,
+		           SCAC.ACTION_CD,
+                   SCAC.BUTTON_ICON_NM,
+                   SCAC.INVISIBLE_FLAG,
+                   SCAC.FP_EQ_FLAG,
+				   SCAC.FP_EI_FLAG,
+				   SCAC.FP_EO_FLAG,
+				   SCAC.FP_ETC_TEXT,
+				   MULG.MULTI_NM
+              FROM STOCSCAC SCAC
+			  JOIN STOCMULG MULG
+				   ON (SCAC.GATE_CD  = MULG.GATE_CD
+				   AND SCAC.SCREEN_ID= MULG.SCREEN_ID
+				   AND SCAC.ACTION_CD= MULG.ACTION_CD
+				   AND MULG.LANG_CD  = #{langCd}
+				   AND MULG.MULTI_CD = 'SA'
+				   AND MULG.DEL_FLAG = '0')
+             WHERE SCAC.GATE_CD  = <include refid="com.sql.gateCd"/>
+               AND SCAC.SCREEN_ID= #{screenId}
+               AND SCAC.DEL_FLAG = '0'
+           ) A
+
+    </select>
+
+	<select id="getComCodes" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			CODD.CODE_TYPE,
+			CODD.CODE,
+			CODD.CODE_DESC,
+			CODD.TEXT1,
+			CODD.TEXT2,
+			CODD.TEXT3,
+			CODD.TEXT4
+		 FROM STOCCODH CODH , STOCCODD CODD
+		WHERE CODH.GATE_CD = CODD.GATE_CD
+		  AND CODH.CODE_TYPE = CODD.CODE_TYPE
+		  AND CODH.LANG_CD = CODD.LANG_CD
+		  AND CODH.GATE_CD = <choose>
+                                <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                                <otherwise>#{ses.gateCd}</otherwise>
+                            </choose>
+		  AND CODH.CODE_TYPE = #{codeType}
+		  AND CODH.LANG_CD = <choose>
+                                 <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                                 <otherwise>#{langCd}</otherwise>
+                             </choose>
+		  AND CODD.USE_FLAG = '1'
+		  AND CODH.USE_FLAG = '1'
+		  AND CODD.DEL_FLAG = '0'
+		  AND CODH.DEL_FLAG = '0'			
+		ORDER BY <include refid="com.sql.toNumber"/>CODD.SORT_SQ<include refid="com.sql.asNumber"/>
+			   , UPPER(CODD.CODE_DESC) 
+
+	</select>
+
+	<select id="getAllCodeType" resultType="String">
+        SELECT CODE_TYPE
+          FROM STOCCODH
+         WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{ses.gateCd}</otherwise>
+                        </choose>
+           AND DEL_FLAG = 0
+	</select>
+
+	<select id="getFormInfo" parameterType="hashMap" resultType="hashmap">
+		SELECT
+               SCREEN_ID AS "screenId"
+             , FORM_GRID_ID AS "formId"
+             , COLUMN_ID AS "columnId"
+             ,<choose>
+                   <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                   <otherwise>#{langCd}</otherwise>
+              </choose> AS "languageCd"
+             , MULTI_CD AS "multiCd"
+             , MULTI_CONTENTS AS "multiContents"
+             , MULTI_TYPE AS "multiType"
+             , DATA_TYPE AS "dataType"
+			 , ALIGNMENT_TYPE AS "alignmentType"
+			 , COLUMN_TYPE AS "columnType"
+             , <include refid="com.sql.toVarchar"/>MAX_LENGTH<include refid="com.sql.asVarchar"/> AS "maxLength"
+			 , <include refid="com.sql.toVarchar"/>COLUMN_WIDTH<include refid="com.sql.asVarchar"/> AS "width"
+             ,(CASE WHEN EDIT_FLAG = '1' THEN 'true' ELSE 'false' END) AS "editable"
+             ,(CASE WHEN BACK_COLOR_TEXT = 'NULL' THEN '' ELSE BACK_COLOR_TEXT END) AS "backColor"
+             , <include refid="com.sql.nvl"/>(DISABLE_FLAG, '0') AS "disableFlag"
+       		 , <include refid="com.sql.nvl"/>(INVISIBLE_FLAG, '0') AS "invisibleFlag"
+             , COMMON_ID AS "commonId"
+             ,(SELECT <include refid="com.sql.nvl"/>(SCRN.PANEL_USE_FLAG, '0') FROM STOCSCRN SCRN WHERE SCRN.GATE_CD = LANG.GATE_CD AND SCRN.SCREEN_ID = LANG.SCREEN_ID AND SCRN.DEL_FLAG = '0') AS "panelVisible"
+             ,(SELECT <include refid="com.sql.nvl"/>(SCRN.SHRINK_TO_FIT, '0') FROM STOCSCRN SCRN WHERE SCRN.GATE_CD = LANG.GATE_CD AND SCRN.SCREEN_ID = LANG.SCREEN_ID AND SCRN.DEL_FLAG = '0') AS "shrinkToFit"
+             , LANG.ON_NUMBER_KR AS "onNumberKr"
+			 , LANG.CURRENCY_TEXT AS "currencyText"
+         FROM STOCLANG LANG
+        WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{ses.gateCd}</otherwise>
+                        </choose>
+          AND DEL_FLAG = '0'
+          AND USE_FLAG = '1'
+          AND SCREEN_ID = #{screenId}
+          AND LANG_CD = <choose>
+                            <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                            <otherwise>#{langCd}</otherwise>
+                        </choose>
+          AND MULTI_TYPE IN ('F', 'G')
+	    ORDER BY FORM_GRID_ID
+    </select>
+
+	<resultMap id="gridMetaResult" type="gridMeta">
+		<result property="columnId" column="columnId" />
+		<result property="columnType" column="columnType" />
+		<result property="commonId" column="commonId" />
+		<result property="text" column="text" typeHandler="com.st_ones.common.mybatis.EverStringTypeHandler" />
+		<result property="width" column="width" />
+		<result property="maxLength" column="maxlength" />
+		<result property="editable" column="editable" />
+		<result property="align" column="align" />
+		<result property="fontColor" column="fontColor" />
+		<result property="backgroundColor" column="backgroundColor" />
+		<result property="essential" column="essential" />
+		<result property="dataType" column="dataType" />
+		<result property="langCd" column="langCd" />
+		<result property="imageName" column="imageName" />
+		<result property="multiType" column="multiType" />
+		<result property="dynamicColumn" column="dynamicColumn" />
+		<result property="textWrap" column="textWrap" />
+		<result property="maskType" column="maskType" />
+		<result property="decimalYn" column="decimalYn" />
+	</resultMap>
+
+    <sql id="gridMetaCommon">
+
+        SELECT
+			  COLUMN_ID AS "columnId"
+			, COLUMN_TYPE AS "columnType"
+			, COMMON_ID AS "commonId"
+			, MULTI_CONTENTS AS "text"
+            , <include refid="com.sql.toVarchar"/>MAX_LENGTH<include refid="com.sql.asVarchar"/> AS "maxLength"
+			, <include refid="com.sql.toVarchar"/>COLUMN_WIDTH<include refid="com.sql.asVarchar"/> AS "width"
+			,(CASE WHEN EDIT_FLAG = '1' THEN 'true' ELSE 'false' END) AS "editable"
+			,(CASE WHEN ALIGNMENT_TYPE = 'C' THEN 'center'
+			       WHEN ALIGNMENT_TYPE = 'L' THEN 'left'
+			       WHEN ALIGNMENT_TYPE = 'R' THEN 'right'
+			       ELSE 'left' END) AS "align"
+			, CASE WHEN FONT_COLOR_TEXT = 'I' THEN '0|0|255' ELSE '' END AS "fontColor"
+			, CASE WHEN BACK_COLOR_TEXT = 'E' THEN '220|254|194' WHEN BACK_COLOR_TEXT='O' THEN '246|254|252' ELSE '' END AS "backgroundColor"
+			, CASE WHEN <include refid="com.sql.nvl"/>(BACK_COLOR_TEXT, '') = '' THEN 'D' ELSE BACK_COLOR_TEXT END AS "essential"
+			, DATA_TYPE AS "dataType"
+			, LANG_CD AS "langCd"
+			, IMAGE_NM AS "imageName"
+			, MULTI_TYPE AS "multiType"
+			, DYNAMIC_COLUMN_FLAG AS "dynamicColumn"
+			,(CASE WHEN TEXT_WRAP = '1' THEN 'explicit' ELSE 'ellipse' END) AS "textWrap",
+			, MASK_TYPE AS "maskType"
+		 FROM STOCLANG
+		WHERE GATE_CD = <choose>
+	                        <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+	                        <otherwise>#{ses.gateCd}</otherwise>
+	                    </choose>
+		  AND USE_FLAG = '1'
+		  AND DEL_FLAG = '0'
+    </sql>
+	
+	<!-- 사용자별 컬럼 정의 (BSYL_021) -->
+    <select id="getColumnInfos" resultMap="gridMetaResult" >
+		SELECT Z.*
+		  FROM (
+		  		SELECT A.COLUMN_ID AS "columnId"
+					 , A.COLUMN_TYPE AS "columnType"
+					 , A.COMMON_ID AS "commonId"
+					 , A.MULTI_CONTENTS AS "text"
+					 ,<include refid="com.sql.toVarchar"/><include refid="com.sql.nvl"/>(CC.COLUMN_WIDTH, A.COLUMN_WIDTH)<include refid="com.sql.asVarchar"/> AS "width"
+					 ,<include refid="com.sql.toVarchar"/>A.MAX_LENGTH<include refid="com.sql.asVarchar"/> AS "maxlength"
+					 ,(CASE WHEN A.EDIT_FLAG = '1' THEN 'true' ELSE 'false' END) AS "editable"
+					 ,(CASE WHEN A.ALIGNMENT_TYPE = 'C' THEN 'center'
+				   			WHEN A.ALIGNMENT_TYPE = 'L' THEN 'left'
+				   			WHEN A.ALIGNMENT_TYPE = 'R' THEN 'right'
+			  				ELSE 'left' END) AS "align"
+					 ,(CASE WHEN A.FONT_COLOR_TEXT = 'I' THEN '0|0|255' ELSE '' END) AS "fontColor"
+					 ,(CASE WHEN A.BACK_COLOR_TEXT = 'E' THEN '220|254|194'
+					 		WHEN A.BACK_COLOR_TEXT = 'O' THEN '246|254|252' ELSE '' END) AS "backgroundColor"
+					 ,(CASE WHEN <include refid="com.sql.nvl"/>(A.BACK_COLOR_TEXT, '') = '' THEN 'D' ELSE A.BACK_COLOR_TEXT END) AS "essential"
+					 , A.DATA_TYPE AS "dataType"
+					 , A.LANG_CD AS "langCd"
+					 , A.IMAGE_NM AS "imageName"
+					 , A.MULTI_TYPE AS "multiType"
+					 ,(CASE WHEN A.DYNAMIC_COLUMN_FLAG = '1' THEN A.DYNAMIC_COLUMN_FLAG ELSE '0' END) AS "dynamicColumn"
+					 , CC.FROZE_FLAG AS "frozeFlag"
+					 , A.MASK_TYPE AS "maskType"
+					 ,(CASE WHEN <include refid="com.sql.nvl"/>(CC.COLUMN_WIDTH, A.COLUMN_WIDTH) = 0 THEN 999
+						    ELSE <include refid="com.sql.nvl"/>(CC.SORT_SQ, A.SORT_SQ) END) AS SORT_SQ
+					 , A.DECIMAL_YN AS "decimalYn"
+				  FROM STOCLANG A
+				  LEFT OUTER JOIN STOCUSCC CC
+					   ON (A.GATE_CD   = CC.GATE_CD
+					   AND A.SCREEN_ID = CC.SCREEN_ID
+					   AND A.LANG_CD   = CC.LANG_CD
+					   AND A.MULTI_CD  = CC.MULTI_CD
+					   AND A.FORM_GRID_ID = CC.FORM_GRID_ID
+					   AND CC.USER_ID  = #{ses.userId}
+					   AND CC.DEL_FLAG = '0')
+				 WHERE A.GATE_CD    = #{ses.gateCd}
+				   AND A.USE_FLAG   = '1'
+				   AND A.DEL_FLAG   = '0'
+				   AND A.FORM_GRID_ID = #{gridId}
+				   AND A.SCREEN_ID  = #{screenId}
+				   AND A.LANG_CD    = #{langCd}
+				   AND A.MULTI_TYPE = 'G'
+				   AND (SELECT COUNT(*) FROM STOCUSCC WHERE GATE_CD = #{ses.gateCd} AND SCREEN_ID = #{screenId} AND USER_ID = #{ses.userId}) = 0
+
+				 UNION
+
+				SELECT A.COLUMN_ID AS "columnId"
+					 , A.COLUMN_TYPE AS "columnType"
+					 , A.COMMON_ID AS "commonId"
+					 , A.MULTI_CONTENTS AS "text"
+					 ,<include refid="com.sql.toVarchar"/><include refid="com.sql.nvl"/>(CC.COLUMN_WIDTH, A.COLUMN_WIDTH)<include refid="com.sql.asVarchar"/> AS "width"
+					 ,<include refid="com.sql.toVarchar"/>A.MAX_LENGTH<include refid="com.sql.asVarchar"/> AS "maxlength"
+					 , (CASE WHEN A.EDIT_FLAG = '1' THEN 'true' ELSE 'false' END) AS "editable"
+					 , (CASE WHEN A.ALIGNMENT_TYPE = 'C' THEN 'center'
+					 	   	 WHEN A.ALIGNMENT_TYPE = 'L' THEN 'left'
+					 	   	 WHEN A.ALIGNMENT_TYPE = 'R' THEN 'right'
+					   		 ELSE 'left' END) AS "align"
+					 , (CASE WHEN A.FONT_COLOR_TEXT = 'I' THEN '0|0|255' ELSE '' END) AS "fontColor"
+					 , (CASE WHEN A.BACK_COLOR_TEXT = 'E' THEN '220|254|194'
+					 		 WHEN A.BACK_COLOR_TEXT = 'O' THEN '246|254|252' ELSE '' END) AS "backgroundColor"
+					 , (CASE WHEN <include refid="com.sql.nvl"/>(A.BACK_COLOR_TEXT, '') = '' THEN 'D' ELSE A.BACK_COLOR_TEXT END) AS "essential"
+					 , A.DATA_TYPE AS "dataType"
+					 , A.LANG_CD AS "langCd"
+					 , A.IMAGE_NM AS "imageName"
+					 , A.MULTI_TYPE AS "multiType"
+					 , (CASE WHEN A.DYNAMIC_COLUMN_FLAG = '1' THEN A.DYNAMIC_COLUMN_FLAG ELSE '0' END) AS "dynamicColumn"
+		    		 , CC.FROZE_FLAG AS "frozeFlag"
+		    		 , A.MASK_TYPE AS "maskType"
+					 , (CASE WHEN <include refid="com.sql.nvl"/>(CC.COLUMN_WIDTH, A.COLUMN_WIDTH) = 0 THEN 999
+		    		         ELSE <include refid="com.sql.nvl"/>(CC.SORT_SQ, A.SORT_SQ) END) AS SORT_SQ
+					 , A.DECIMAL_YN AS "decimalYn"
+				  FROM STOCLANG A
+			 	  JOIN STOCUSCC CC
+					   ON (A.GATE_CD   = CC.GATE_CD
+					   AND A.SCREEN_ID = CC.SCREEN_ID
+					   AND A.LANG_CD   = CC.LANG_CD
+					   AND A.MULTI_CD  = CC.MULTI_CD
+					   AND A.FORM_GRID_ID = CC.FORM_GRID_ID
+					   AND CC.USER_ID  = #{ses.userId}
+					   AND CC.DEL_FLAG = '0')
+				 WHERE A.GATE_CD    = #{ses.gateCd}
+				   AND A.USE_FLAG   = '1'
+				   AND A.DEL_FLAG   = '0'
+				   AND A.FORM_GRID_ID = #{gridId}
+				   AND A.SCREEN_ID  = #{screenId}
+				   AND A.LANG_CD    = #{langCd}
+				   AND A.MULTI_TYPE = 'G'
+				   AND (SELECT COUNT(*) FROM STOCUSCC WHERE GATE_CD = #{ses.gateCd} AND SCREEN_ID = #{screenId} AND USER_ID = #{ses.userId}) != 0
+			   ) Z
+		   ORDER BY SORT_SQ
+    </select>
+
+    <select id="getBottomBarInfos" resultMap="gridMetaResult">
+   		  <include refid="gridMetaCommon"/>
+		  AND FORM_GRID_ID = 'btn'
+		  AND SCREEN_ID = 'BUTTON'
+		  AND LANG_CD = <choose>
+                            <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                            <otherwise>#{langCd}</otherwise>
+                        </choose>
+		  AND MULTI_TYPE = 'B'
+		ORDER BY SORT_SQ
+    </select>
+
+	<sql id="getCmpcCommon">
+		 FROM STOCCMPC
+		WHERE GATE_CD = <choose>
+                            <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                            <otherwise>#{ses.gateCd}</otherwise>
+                        </choose>
+		  AND DATABASE_CD = #{databaseCd}
+		  AND COMMON_ID = #{commonId}
+	</sql>
+
+	<select id="getUserCodes" resultType="string">
+		SELECT SQL_TEXT
+		<include refid="getCmpcCommon" />
+	</select>
+
+    <select id="getCommonPopupDetailInfo" resultType="hashmap">
+		SELECT
+		      SQL_TEXT
+			, TYPE_CD
+			, AUTO_SEARCH_FLAG
+			, COMMON_ID
+			,<include refid="com.sql.toVarchar"/>WINDOW_WIDTH<include refid="com.sql.asVarchar"/> AS WINDOW_WIDTH
+			,<include refid="com.sql.toVarchar"/>CAST(WINDOW_HEIGHT<include refid="com.sql.asVarchar"/> AS WINDOW_HEIGHT
+			, LIST_ITEM_CD
+			<include refid="getCmpcCommon" />
+	</select>
+
+	<sql id="getMulgCommonColumn">SELECT MULTI_NM</sql>
+
+	<sql id="getMulgCommon">
+    	  FROM STOCMULG
+    	 WHERE GATE_CD = <choose>
+                             <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                             <otherwise>#{ses.gateCd}</otherwise>
+                         </choose>
+    	   AND LANG_CD = <choose>
+                            <when test="langCd == null or langCd == ''"><include refid="com.sql.langCd"/></when>
+                            <otherwise>#{langCd}</otherwise>
+                        </choose>
+    	   AND DEL_FLAG = '0'
+   	   <if test="multiCd != null and multiCd != ''">
+   	   	   AND MULTI_CD = #{multiCd}
+   	   </if>
+	</sql>
+
+	<select id="getMULGCommonPopupInfo" resultType="hashMap">
+		<include refid="getMulgCommonColumn" /> , MULTI_CD
+		<include refid="getMulgCommon" /> AND DEL_FLAG = '0' AND COMMON_ID = #{commonId}
+	</select>
+
+	 <select id="getMULGSa" resultType="hashMap">
+       <include refid="getMulgCommonColumn"/>, ACTION_CD
+       <include refid="getMulgCommon"/>
+       AND SCREEN_ID = #{screenId}
+    </select>
+
+    <select id="getMulgPopupName" resultType="string">
+    	<include refid="getMulgCommonColumn"/>
+    	<include refid="getMulgCommon"/>
+    	AND SCREEN_ID = #{screenId}
+    </select>
+
+	<sql id="getMulgCommonColumn2">SELECT <include refid="com.sql.mtop1"/>
+		MULTI_NM
+	</sql>
+
+    <select id="getMulgMt" resultType="string" >
+    	SELECT <include refid="com.sql.mtop1"/> MULTI_NM
+		  FROM (
+			<include refid="getMulgCommonColumn2"/>
+			<include refid="getMulgCommon"/>
+		   	  AND TMPL_MENU_CD = #{tmplMenuCd}
+		 	ORDER BY REG_DATE DESC
+		  ) A
+		 WHERE 1 = 1
+		 <include refid="com.sql.otop1"/>
+    </select>
+
+    <select id="getMulgMtAll" resultType="hashMap">
+		<include refid="getMulgCommonColumn" /> , TMPL_MENU_CD
+		<include refid="getMulgCommon" />
+	</select>
+
+	<select id="getExcelDownMode" resultType="string">
+
+		SELECT <include refid="com.sql.mtop1"/>
+			   <include refid="com.sql.nvl"/>(EXCEL_OPTION, 'A') AS EXCEL_OPTION
+		  FROM STOCSCRN 
+		 WHERE GATE_CD = <choose>
+                             <when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+                             <otherwise>#{ses.gateCd}</otherwise>
+                         </choose>
+		   AND SCREEN_ID = #{screenId} 
+		   AND DEL_FLAG  = 0
+		   <include refid="com.sql.otop1"/>
+	</select>
+
+	<resultMap type="java.util.HashMap" id="toolbarMap">
+		<result property="isBookmarked" column="isBookmarked" javaType="java.lang.Boolean" />
+		<result property="hasHelp" column="hasHelp" javaType="java.lang.Boolean" />
+		<result property="hasGrid" column="hasGrid" javaType="java.lang.Boolean" />
+	</resultMap>
+
+	<select id="getToolbarInfo" resultMap="toolbarMap">
+		SELECT CASE WHEN (SELECT COUNT(*)
+					 	    FROM STOCSCBM
+						   WHERE GATE_CD = #{ses.gateCd}
+						     AND TMPL_MENU_CD = #{tmplMenuCd}
+						     AND USER_ID =  #{ses.userId} ) > 0 THEN 1
+			        ELSE 0 END AS "isBookmarked"
+			  ,CASE WHEN (SELECT COUNT(*)
+							FROM STOCATCH
+						   WHERE GATE_CD = #{ses.gateCd}
+							 AND UUID = ( SELECT HELP_ATT_FILE_NUM
+											FROM STOCSCRN
+										   WHERE GATE_CD = #{ses.gateCd}
+											 AND SCREEN_ID = #{screenId}))
+					   +( SELECT COUNT(*)
+					 	    FROM STOCTXTH <include refid="com.sql.noLock"/>
+				 		   WHERE GATE_CD = #{ses.gateCd}
+						 	 AND TEXT_NUM = ( SELECT HELP_TEXT_NUM
+											    FROM STOCSCRN
+											   WHERE GATE_CD = #{ses.gateCd}
+												 AND SCREEN_ID = #{screenId})) > 0 THEN 1
+			        ELSE 0 END AS "hasHelp"
+			  ,CASE WHEN ( SELECT COUNT(*)
+						     FROM STOCLANG
+						    WHERE GATE_CD = #{ses.gateCd}
+					  		  AND SCREEN_ID = #{screenId}
+					  		  AND LANG_CD = #{ses.langCd}
+					  		  AND MULTI_TYPE = 'G'
+					  		  AND COLUMN_WIDTH > 0
+					  		  AND INVISIBLE_FLAG = '0'
+					  		  AND USE_FLAG = '1'
+					  		  AND DEL_FLAG = '0') > 0 THEN 1
+			        ELSE 0 END AS "hasGrid"
+			<if test="_databaseId == 'mssql'">
+			  ,STUFF((SELECT DISTINCT ',' + FORM_GRID_ID
+						FROM STOCLANG
+					   WHERE GATE_CD = #{ses.gateCd}
+				  		 AND SCREEN_ID = #{screenId}
+				  		 AND LANG_CD = #{ses.langCd}
+				  		 AND MULTI_TYPE = 'G'
+						 FOR XML PATH('')), 1,1,'') AS "gridId"
+			</if>
+			<if test="_databaseId == 'oracle'">
+			  ,(SELECT REGEXP_REPLACE(LISTAGG(FORM_GRID_ID, ',') WITHIN GROUP (ORDER BY FORM_GRID_ID), '([^,]+)(,\1)*(,|$)', '\1\3') AS "gridId"
+					FROM STOCLANG
+				   WHERE GATE_CD = #{ses.gateCd}
+					 AND SCREEN_ID = #{screenId}
+					 AND LANG_CD = #{ses.langCd}
+					 AND MULTI_TYPE = 'G') AS "gridId"
+			</if>
+			<if test="_databaseId == 'mysql'">
+				,(SELECT GROUP_CONCAT(DISTINCT FORM_GRID_ID SEPARATOR ',')
+					FROM STOCLANG
+				   WHERE GATE_CD = #{ses.gateCd}
+					 AND SCREEN_ID = #{screenId}
+					 AND LANG_CD = #{ses.langCd}
+					 AND MULTI_TYPE = 'G') AS "gridId"
+			</if>
+		  <include refid="com.sql.dual"/>
+	</select>
+	
+    <select id="getFullMenuNm" resultType="java.util.Map">
+
+		SELECT
+			    CODD.CODE_DESC AS MODULE_NM
+			  , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', CODD.LANG_CD, MUTM.HIGH_TMPL_MENU_CD, '-') AS HIGH_TMPL_MENU_NM
+			  , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', CODD.LANG_CD, MUTM.TMPL_MENU_CD, MUTM.SCREEN_ID) AS TMPL_MENU_NM
+		  FROM STOCMUTM MUTM
+		  JOIN STOCCODD CODD
+			   ON (CODD.GATE_CD   = MUTM.GATE_CD
+			   AND CODD.CODE_TYPE = 'M009'
+			   AND CODD.LANG_CD   = #{ses.langCd})
+			   AND CODD.CODE      = MUTM.MODULE_TYPE
+			   AND CODD.USE_FLAG  = '1'
+			   AND CODD.DEL_FLAG  = '0'
+		 WHERE MUTM.GATE_CD      = #{ses.gateCd}
+		   AND MUTM.TMPL_MENU_CD = #{tmpl_menu_cd}
+		   AND MUTM.USE_FLAG     = '1'
+		   AND MUTM.DEL_FLAG     = '0'
+	</select>
+
+</mapper>

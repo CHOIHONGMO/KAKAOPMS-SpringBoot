@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.regEval.eval.SRM_197_Mapper">
+
+	<resultMap id="srm197ResultMap" type="java.util.HashMap">
+		<result column="PROGRESS_NM" property="PROGRESS_NM" typeHandler="everStringTypeHandler" />
+		<result column="SIGN_STATUS_NM" property="SIGN_STATUS_NM" typeHandler="everStringTypeHandler" />
+		<result column="COMPLETE_STATUS_NM" property="COMPLETE_STATUS_NM" typeHandler="everStringTypeHandler" />
+		<result column="VENDOR_NM" property="VENDOR_NM" typeHandler="everStringTypeHandler" />
+		<result column="EV_CTRL_USER_NM" property="EV_CTRL_USER_NM" typeHandler="everStringTypeHandler" />
+		<result column="EV_TPL_SUBJECT" property="EV_TPL_SUBJECT" typeHandler="everStringTypeHandler" />
+		<result column="PROGRESS_RMK" property="PROGRESS_RMK" typeHandler="everStringTypeHandler" />
+	</resultMap>
+
+	<select id="doSearch" parameterType="hashmap" resultMap="srm197ResultMap">
+
+		SELECT PROGRESS_CD
+			   ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M122',PROGRESS_CD,#{ses.langCd}) AS PROGRESS_NM
+		       ,SIGN_STATUS
+		       ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M020',SIGN_STATUS,#{ses.langCd}) AS SIGN_STATUS_NM
+		       ,COMPLETE_STATUS_CD
+		       ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M201',COMPLETE_STATUS_CD,#{ses.langCd}) AS COMPLETE_STATUS_NM
+		       ,EV_NUM
+		       ,VENDOR_CD
+		       ,VENDOR_NM
+		       ,EV_CTRL_USER_NM
+		       ,EV_CTRL_USER_ID
+		       ,EV_TPL_SUBJECT
+		       ,EV_SCORE
+		       <!--,EV_CNT_D||'/'||EV_CNT AS EV_CNT-->
+			   ,GETUSERNAME(#{ses.gateCd}, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+			   ,<include refid="com.sql.toDateChar"/>(REQUEST_DATE, 'YYYY-MM-DD HH24:MI') AS REQUEST_DATE
+		       ,PROGRESS_RMK
+		       ,EV_NM
+			   ,APP_DOC_NUM
+			   ,APP_DOC_CNT
+			   ,EV_TPL_NUM
+			   ,VENDOR_PROGRESS_CD
+		FROM (
+				SELECT 	 VM.PROGRESS_CD
+						,VM.SIGN_STATUS
+						,VM.COMPLETE_STATUS_CD
+						,VM.EV_NUM
+						,VM.VENDOR_CD
+						,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VM.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+						,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, VM.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+						,VM.EV_CTRL_USER_ID
+						,TM.EV_TPL_SUBJECT
+						,VM.EV_SCORE
+						,(SELECT COUNT(*) FROM STOCEVVU WHERE GATE_CD=VM.GATE_CD AND EV_NUM = VM.EV_NUM AND DEL_FLAG = '0') EV_CNT
+						,(SELECT COUNT(*) FROM STOCEVVU WHERE GATE_CD=VM.GATE_CD AND EV_NUM = VM.EV_NUM AND DEL_FLAG = '0' AND PROGRESS_CD='200') EV_CNT_D
+						,VM.REG_DATE AS REQUEST_DATE
+						,VM.PROGRESS_RMK
+						,VM.EV_NM
+						,VM.APP_DOC_NUM
+						,VM.APP_DOC_CNT
+						,TM.EV_TPL_NUM
+						,VM.MOD_USER_ID
+						,(SELECT PROGRESS_CD FROM STOCVNGL WHERE GATE_CD=#{ses.gateCd} AND VENDOR_CD= VM.VENDOR_CD AND DEL_FLAG='0') AS VENDOR_PROGRESS_CD
+				FROM	STOCEVVM VM
+		LEFT OUTER JOIN	STOCEVTM TM
+		  		ON		(VM.GATE_CD 		= TM.GATE_CD
+		  		AND		VM.SITE_EV_TPL_NUM 	= TM.EV_TPL_NUM
+		  		AND    TM.DEL_FLAG 		= '0')
+		  		WHERE	VM.GATE_CD 			= #{ses.gateCd}
+		  		  AND  VM.DEL_FLAG 		= '0'
+		  		<if test="REQ_START_DATE != '' and REQ_START_DATE != null and REQ_END_DATE != '' and REQ_END_DATE != null">
+					AND VM.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_END_DATE}, 'YYYYMMDD HH24:MI:SS')
+				</if>
+				
+				<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+					AND VM.PROGRESS_CD = #{PROGRESS_CD}
+				</if>
+				<if test="EV_CTRL_USER_ID != '' and EV_CTRL_USER_ID != null">
+					AND UPPER(VM.EV_CTRL_USER_ID) <include refid="com.sql.likeL"/> UPPER(#{EV_CTRL_USER_ID}) <include refid="com.sql.likeR"/>
+				</if>
+				<if test="EV_CTRL_USER_NM != '' and EV_CTRL_USER_NM != null">
+					AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME_ORI(VM.GATE_CD, VM.EV_CTRL_USER_ID, #{ses.langCd}))  LIKE  UPPER(#{EV_CTRL_USER_NM})  || '%'
+				</if>
+				<if test="VENDOR_CD != '' and VENDOR_CD != null">
+					AND UPPER(VM.VENDOR_CD) <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="VENDOR_NM != '' and VENDOR_NM != null">
+					AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VM.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+				</if>
+				<if test="COMPLETE_STATUS_CD != '' and COMPLETE_STATUS_CD != null">
+					AND VM.COMPLETE_STATUS_CD = #{COMPLETE_STATUS_CD}
+				</if>
+				<if test="EV_TYPE != '' and EV_TYPE != null">
+					AND VM.EV_TYPE = #{EV_TYPE}
+				</if>
+
+		) BASE
+		ORDER BY EV_NUM DESC
+	</select>
+
+	<update id="doConfirm" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 PROGRESS_CD 	= '300'
+				,COMPLETE_DATE 	= <include refid="com.sql.sysdate"/>
+				,PROGRESS_DATE 	= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 	= #{PROGRESS_RMK}
+				,EV_SCORE 		= #{EV_SCORE}
+		WHERE	GATE_CD 		= #{ses.gateCd}
+		AND		EV_NUM 			= #{EV_NUM}
+	</update>
+	
+	<select id="getScore" parameterType="hashmap" resultType="java.lang.Double">
+		SELECT 	ROUND(AVG(EVAL_SCORE), 1) AS EV_SCORE 
+		FROM 	STOCEVVU 
+		WHERE 	EV_NUM 		= #{EV_NUM}
+		AND		GATE_CD 	= #{ses.gateCd}
+		AND 	DEL_FLAG 	= '0' 
+		AND 	EVAL_SCORE IS NOT NULL
+	</select>
+
+	<update id="doCancle" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 PROGRESS_CD 	= '200'
+				,COMPLETE_DATE 	= null
+				,PROGRESS_DATE 	= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 	= #{PROGRESS_RMK}
+				,EV_SCORE 		= null
+		WHERE	GATE_CD 		= #{ses.gateCd}
+		AND		EV_NUM 			= #{EV_NUM}
+	</update>
+
+	<update id="doReEval" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 COMPLETE_STATUS_CD  	= '300'
+				,PROGRESS_DATE 			= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 			= #{PROGRESS_RMK}
+		WHERE	GATE_CD 				= #{ses.gateCd}
+		AND		EV_NUM 					= #{EV_NUM}
+	</update>
+
+	<update id="doInconsist" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 COMPLETE_STATUS_CD = '200'
+				,PROGRESS_DATE 		= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 		= #{PROGRESS_RMK}
+		WHERE	GATE_CD 			= #{ses.gateCd}
+		AND		EV_NUM 				= #{EV_NUM}
+	</update>
+	<update id="doInconsistVngl">
+		UPDATE	STOCVNGL
+		   SET	VENDOR_TYPE = 'X'
+		 WHERE	GATE_CD 	= #{ses.gateCd}
+		   AND	VENDOR_CD	= #{VENDOR_CD}
+	</update>
+
+	<update id="doRequest" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 COMPLETE_STATUS_CD = '100'
+				,PROGRESS_DATE 		= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 		= #{PROGRESS_RMK}
+			 	,APP_DOC_NUM 		= #{APP_DOC_NUM}
+			 	,APP_DOC_CNT 		= #{APP_DOC_CNT}
+				,SIGN_STATUS 		= #{SIGN_STATUS}
+				<if test="SIGN_STATUS eq 'E'.toString() or SIGN_STATUS eq 'R'.toString()">
+				,SIGN_DATE 			= <include refid="com.sql.sysdate"/>
+				</if>
+		WHERE	GATE_CD 			= #{ses.gateCd}
+		AND		EV_NUM 				= #{EV_NUM}
+	</update>
+
+	<update id="doImprove" parameterType="hashmap">
+		UPDATE 	STOCEVVM
+		SET		 COMPLETE_STATUS_CD = '400'
+				,PROGRESS_DATE 		= <include refid="com.sql.sysdate"/>
+				,PROGRESS_RMK 		= #{PROGRESS_RMK}
+		WHERE	GATE_CD 			= #{ses.gateCd}
+		AND		EV_NUM 				= #{EV_NUM}
+	</update>
+	
+	<select id="getSignStatus" parameterType="hashmap" resultType="java.lang.String">
+		SELECT VNGL.SIGN_STATUS
+		  FROM STOCEVVM EVVM JOIN STOCVNGL VNGL
+		       ON (EVVM.GATE_CD 	= VNGL.GATE_CD
+		       AND EVVM.VENDOR_CD 	= VNGL.VENDOR_CD
+		       AND VNGL.DEL_FLAG 	= '0')
+		 WHERE EVVM.GATE_CD 	= #{ses.gateCd}
+		   AND EVVM.EV_NUM 		= #{EV_NUM}
+		   AND EVVM.VENDOR_CD	= #{VENDOR_CD}
+		   AND EVVM.DEL_FLAG 	= '0'
+	</select>
+
+	<update id="doUpdateAppDoc" parameterType="hashmap">
+		UPDATE STOCVNGL SET
+			   MOD_DATE 	= <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID 	= #{ses.userId}
+			 , APP_DOC_NUM 	= #{APP_DOC_NUM}
+			 , APP_DOC_CNT 	= #{APP_DOC_CNT}
+			 , SIGN_STATUS 	= #{SIGN_STATUS}
+		 WHERE GATE_CD 		= #{ses.gateCd}
+		   AND VENDOR_CD 	= #{VENDOR_CD}
+		   AND DEL_FLAG     = '0'
+	</update>
+</mapper>

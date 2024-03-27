@@ -1,0 +1,723 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0523_Mapper">
+
+	<select id="DH0523_doSearch" parameterType="hashmap" resultType="hashmap">
+
+		WITH BOMTREE AS (
+        			SELECT A.GATE_CD
+						 , A.BOM_ID
+						 , A.BOM_REV
+						 , A.PARENT_BOM_ID
+						 , A.BOM_SQ
+						 , A.ITEM_CD
+						 , A.ITEM_DESC
+						 , A.ITEM_QT
+						 , A.PARENT_ITEM_CD
+						 , A.MAT_CD
+						 , A.EO_NO
+						 , A.EO_DATE
+						 , A.MATERIAL_GRADE
+						 , A.MATERIAL_SPEC
+						 , A.MATERIAL_THICKNESS
+						 , A.SURFACE_TR_GRADE
+						 , A.SURFACE_TR_SPEC
+						 , A.DESIGN_WEIGHT
+						 , A.SHOW_ON_DRAWING
+						 , A.REMARK
+						 , A.ITEM_REV
+						 , A.SUPPLIER
+						 , A.SUPPLIER_CODE
+						 , A.COMPLETE_PROJ_NO
+						 , A.PART_PROJ_NO
+						 , A.EO_CHILD_NO
+						 , A.EA
+						 , 1 LEVEL
+        				 , CONVERT(VARCHAR(2000), A.BOM_ID) AS SORT
+						 , A.UNIT_CD
+						 , A.BOM_REV AS OLD_BOM_REV
+						 , A.TOP_ITEM_CD
+						 , A.GR_FLAG
+        			  FROM <include refid="com.sql.dbo"/>STOCBOMM A
+        			 WHERE A.BOM_ID IN (SELECT BOM_ID
+        								FROM STOCBOMM S
+							     	   WHERE S.GATE_CD = A.GATE_CD
+							     	     AND S.BOM_ID  = A.BOM_ID
+									<if test="BOM_ID != '' and BOM_ID != null">
+									     AND S.BOM_ID = #{BOM_ID}
+									</if>
+									<if test="BOM_REV != '' and BOM_REV != null">
+									<![CDATA[
+										 AND S.BOM_REV <= #{BOM_REV}
+									]]>
+									</if>
+									<if test="ITEM_CD != '' and ITEM_CD != null">
+								       AND ITEM_CD = #{ITEM_CD}
+									</if>
+							    		 AND S.DEL_FLAG = '0')
+        			   AND A.BOM_REV = (SELECT max(BOM_REV)
+										FROM STOCBOMM S
+									   WHERE S.GATE_CD = A.GATE_CD
+									     AND S.BOM_ID  = A.BOM_ID
+									<if test="BOM_REV != '' and BOM_REV != null">
+									<![CDATA[
+										 AND S.BOM_REV <= #{BOM_REV}
+									]]>
+									</if>
+								         AND S.DEL_FLAG = '0')
+        			   AND A.DEL_FLAG = '0'
+
+        			 UNION ALL
+
+        			SELECT B.GATE_CD
+						 , B.BOM_ID
+						 , B.BOM_REV
+						 , B.PARENT_BOM_ID
+						 , B.BOM_SQ
+						 , B.ITEM_CD
+						 , B.ITEM_DESC
+						 , B.ITEM_QT
+						 , (CASE WHEN B.PARENT_ITEM_CD IS NULL OR B.PARENT_ITEM_CD = '' THEN C.ITEM_CD ELSE B.PARENT_ITEM_CD END) AS PARENT_ITEM_CD
+						 , B.MAT_CD
+						 , B.EO_NO
+						 , B.EO_DATE
+						 , B.MATERIAL_GRADE
+						 , B.MATERIAL_SPEC
+						 , B.MATERIAL_THICKNESS
+						 , B.SURFACE_TR_GRADE
+						 , B.SURFACE_TR_SPEC
+						 , B.DESIGN_WEIGHT
+						 , B.SHOW_ON_DRAWING
+						 , B.REMARK
+						 , B.ITEM_REV
+						 , B.SUPPLIER
+						 , B.SUPPLIER_CODE
+						 , B.COMPLETE_PROJ_NO
+						 , B.PART_PROJ_NO
+						 , B.EO_CHILD_NO
+						 , B.EA
+						 , LEVEL + 1
+        				 , CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+						 , B.UNIT_CD
+						 , B.BOM_REV AS OLD_BOM_REV
+						 , B.TOP_ITEM_CD
+						 , B.GR_FLAG
+        			  FROM STOCBOMM B
+        			  JOIN BOMTREE C
+        				ON(B.GATE_CD       = C.GATE_CD
+        			   AND B.PARENT_BOM_ID = C.BOM_ID
+					<if test="BOM_REV != '' and BOM_REV != null">
+					<![CDATA[
+					   AND B.BOM_REV <= #{BOM_REV}
+					]]>
+					</if>
+        			   AND B.DEL_FLAG = '0')
+        		)
+        		SELECT distinct
+        			   CASE WHEN LEVEL = 1 THEN '●' ELSE '' END  A
+        			 , CASE WHEN LEVEL = 2 THEN '●' ELSE '' END  B
+        			 , CASE WHEN LEVEL = 3 THEN '●' ELSE '' END  C
+        			 , CASE WHEN LEVEL = 4 THEN '●' ELSE '' END  D
+        			 , CASE WHEN LEVEL = 5 THEN '●' ELSE '' END  E
+        			 , CASE WHEN LEVEL = 6 THEN '●' ELSE '' END  F
+        			 , CASE WHEN LEVEL = 7 THEN '●' ELSE '' END  G
+        			 , CASE WHEN LEVEL = 8 THEN '●' ELSE '' END  H
+        			 , CASE WHEN LEVEL = 9 THEN '●' ELSE '' END  I
+        			 , CASE WHEN LEVEL = 10 THEN '●' ELSE '' END  K
+        			 , T.BOM_ID
+					 , T.BOM_REV
+					 , T.PARENT_BOM_ID
+					 , T.BOM_SQ
+					 , T.ITEM_CD
+					 , T.ITEM_DESC
+					 , T.ITEM_QT
+					 , T.PARENT_ITEM_CD
+					 , T.MAT_CD          as MAT_GROUP
+					 , T.EO_NO
+					 , <include refid="com.sql.dbo"/> getGmtDate(EO_DATE, #{ses.userGmt}, #{ses.userGmt}, <include refid="com.sql.dateFormat"/>) EO_DATE
+					 , T.MATERIAL_GRADE
+					 , T.MATERIAL_SPEC
+					 , T.MATERIAL_THICKNESS
+					 , T.SURFACE_TR_GRADE
+					 , T.SURFACE_TR_SPEC
+					 , T.DESIGN_WEIGHT
+					 , T.SHOW_ON_DRAWING
+					 , T.REMARK
+					 , T.ITEM_REV
+					 , T.SUPPLIER
+					 , T.SUPPLIER_CODE
+					 , T.COMPLETE_PROJ_NO
+					 , T.PART_PROJ_NO
+					 , T.EO_CHILD_NO
+					 , T.EA
+					 , MTGL.MAT_CD
+				  	 , MTGL.NET_WGT
+					 , MTGL.SPEC
+					 , MTGL.WEIGHT
+					 , MTGL.THICK
+					 , MTGL.COLL_LOSS_RTO
+					 , MTGL.WIDTH
+					 , MTGL.HEIGHT
+					 , MTGL.BL_WIDTH
+					 , MTGL.BL_HEIGHT
+					 , MTGL.CVT
+					 , T.UNIT_CD
+					 , T.OLD_BOM_REV
+					 , T.TOP_ITEM_CD
+					 , T.SORT
+					 , T.GR_FLAG
+        		  FROM BOMTREE T
+        		  JOIN STOCMTGL MTGL
+        			ON(MTGL.GATE_CD = T.GATE_CD
+        		   AND MTGL.ITEM_CD  = T.ITEM_CD)
+        		 WHERE T.GATE_CD = #{ses.gateCd}
+        		   AND T.BOM_REV = (SELECT MAX(BOM_REV)
+					   				  FROM <include refid="com.sql.dbo"/>STOCBOMM
+				  				   	 WHERE GATE_CD = T.GATE_CD
+				  				   	   AND BOM_ID  = T.BOM_ID
+				  				   <if test="BOM_REV != '' and BOM_REV != null">
+		   						   <![CDATA[
+				  					   AND BOM_REV <= #{BOM_REV}
+								   ]]>
+				  				   </if>
+				  				   	   AND DEL_FLAG = '0')
+        		 ORDER BY T.SORT
+
+	</select>
+
+	<insert id="DH0523_doMTGLSave" parameterType="hashmap">
+	
+		 MERGE STOCMTGL AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{ITEM_CD} AS ITEM_CD) AS B
+            ON (A.GATE_CD = B.GATE_CD
+           AND A.ITEM_CD = B.ITEM_CD)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , ITEM_DESC = <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , ITEM_RMK = #{REMARK}
+			 , MAT_CD = <include refid="com.sql.trim"/>(#{MAT_CD})
+			 , NET_WGT = CAST((case when '' = #{NET_WGT} or '0' = #{NET_WGT} then '0' else #{NET_WGT} end) AS NUMERIC(15, 5))
+			 , SPEC = #{SPEC}
+			 , WEIGHT = CAST((case when '' = #{WEIGHT} or '0' = #{WEIGHT} then '0' else #{WEIGHT} end) AS NUMERIC(15, 5))
+			 , THICK = CAST((case when '' = #{THICK} or '0' = #{THICK} then '0' else #{THICK} end) AS NUMERIC(15, 5))
+			 , COLL_LOSS_RTO = (CASE WHEN #{COLL_LOSS_RTO} IS NULL or #{COLL_LOSS_RTO} = '' or #{COLL_LOSS_RTO} = '0' THEN '0' else CAST((case when '' = #{COLL_LOSS_RTO} or '0' = #{COLL_LOSS_RTO} then '0' else #{COLL_LOSS_RTO} end) AS NUMERIC(15, 5)) END)
+			 , WIDTH = CAST((case when '' = #{WIDTH} or '0' = #{WIDTH} then '0' else #{WIDTH} end) AS NUMERIC(15, 5))
+			 , HEIGHT = CAST((case when '' = #{HEIGHT} or '0' = #{HEIGHT} then '0' else #{HEIGHT} end) AS NUMERIC(15, 5))
+			 , BL_WIDTH = CAST((case when '' = #{BL_WIDTH} or '0' = #{BL_WIDTH} then '0' else #{BL_WIDTH} end) AS NUMERIC(15, 5))
+			 , BL_HEIGHT = CAST((case when '' = #{BL_HEIGHT} or '0' = #{BL_HEIGHT} then '0' else #{BL_HEIGHT} end) AS NUMERIC(15, 5))
+			 , CVT = CAST((case when '' = #{CVT} or '0' = #{CVT} then '0' else #{CVT} end) AS NUMERIC(15, 5))
+			 , MAT_GROUP = <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , UNIT_CD = <include refid="com.sql.trim"/>(#{UNIT_CD})
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_KIND_CD
+			 , ITEM_RMK
+			 , PROGRESS_CD
+			 , REQ_DATE
+			 , REQ_USER_ID
+			 , MAT_CD
+			 , NET_WGT
+			 , SPEC
+			 , WEIGHT
+			 , THICK
+			 , COLL_LOSS_RTO
+			 , WIDTH
+			 , HEIGHT
+			 , BL_WIDTH
+			 , BL_HEIGHT
+			 , CVT
+			 , MAT_GROUP
+			 , UNIT_CD
+			 , ITEM_CLS1
+		) VALUES (
+			   #{ses.gateCd}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , 'ROH2'
+			 , #{REMARK}
+			 , 'E'
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , <include refid="com.sql.trim"/>(#{MAT_CD})
+			 , CAST((case when '' = #{NET_WGT} or '0' = #{NET_WGT} then '0' else #{NET_WGT} end) AS NUMERIC(15, 5))
+			 , #{SPEC}
+			 , CAST((case when '' = #{WEIGHT} or '0' = #{WEIGHT} then '0' else #{WEIGHT} end) AS NUMERIC(15, 5))
+			 , CAST((case when '' = #{THICK} or '0' = #{THICK} then '0' else #{THICK} end) AS NUMERIC(15, 5))
+			 , (CASE WHEN #{COLL_LOSS_RTO} IS NULL or #{COLL_LOSS_RTO} = '' or #{COLL_LOSS_RTO} = '0' THEN '0' else CAST((case when '' = #{COLL_LOSS_RTO} or '0' = #{COLL_LOSS_RTO} then '0' else #{COLL_LOSS_RTO} end) AS NUMERIC(15, 5)) END)
+			 , CAST((case when '' = #{WIDTH} or '0' = #{WIDTH} then '0' else #{WIDTH} end) AS NUMERIC(15, 5))
+			 , CAST((case when '' = #{HEIGHT} or '0' = #{HEIGHT} then '0' else #{HEIGHT} end) AS NUMERIC(15, 5))
+			 , CAST((case when '' = #{BL_WIDTH} or '0' = #{BL_WIDTH} then '0' else #{BL_WIDTH} end) AS NUMERIC(15, 5))
+			 , CAST((case when '' = #{BL_HEIGHT} or '0' = #{BL_HEIGHT} then '0' else #{BL_HEIGHT} end) AS NUMERIC(15, 5))
+			 , CAST((case when '' = #{CVT} or '0' = #{CVT} then '0' else #{CVT} end) AS NUMERIC(15, 5))
+			 , <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , '01'
+		<include refid="com.sql.mergeEnd"/>
+		
+	</insert>
+
+	<insert id="DH0523_doExcelBOMMSave" parameterType="hashmap">
+	
+		 MERGE STOCBOMM AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{BOM_ID} AS BOM_ID, #{BOM_REV} AS BOM_REV) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.BOM_ID = B.BOM_ID
+		   AND A.BOM_REV = B.BOM_REV)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , BOM_SQ = (case when '' = #{BOM_SQ} then '0' else #{BOM_SQ} end)
+			 , PARENT_BOM_ID = #{PARENT_BOM_ID}
+			 , ITEM_CD = <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , ITEM_DESC = <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , ITEM_REV = #{ITEM_REV}
+			 , PARENT_ITEM_CD = <include refid="com.sql.trim"/>(#{PARENT_ITEM_CD})
+			 , ITEM_QT = CAST((case when '' = #{ITEM_QT} then '0.00' else #{ITEM_QT} end) AS NUMERIC(18, 4))
+			 , MATERIAL_GRADE = #{MATERIAL_GRADE}
+			 , MATERIAL_SPEC = #{MATERIAL_SPEC}
+			 , MATERIAL_THICKNESS = #{MATERIAL_THICKNESS}
+			 , SURFACE_TR_GRADE = #{SURFACE_TR_GRADE}
+			 , SURFACE_TR_SPEC = #{SURFACE_TR_SPEC}
+			 , DESIGN_WEIGHT = #{DESIGN_WEIGHT}
+			 , SUPPLIER = #{SUPPLIER}
+			 , SUPPLIER_CODE = #{SUPPLIER_CODE}
+			 , SHOW_ON_DRAWING = #{SHOW_ON_DRAWING}
+			 , REMARK = #{REMARK}
+			 , EO_NO = #{EO_NO}
+			 , EA = #{EA}
+			 , COMPLETE_PROJ_NO = #{COMPLETE_PROJ_NO}
+			 , PART_PROJ_NO = #{PART_PROJ_NO}
+			 , CASE_NUMBER = #{CASE_NUMBER}
+			 , EO_CHILD_NO = #{EO_CHILD_NO}
+			 , EO_DATE = #{EO_DATE}
+			 , MAT_CD = <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , TOP_ITEM_CD = <include refid="com.sql.trim"/>(#{TOP_ITEM_CD})
+			 , UNIT_CD = <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , GR_FLAG = (CASE WHEN #{GR_FLAG} IS NULL OR #{GR_FLAG} = '' THEN '1' ELSE #{GR_FLAG} END)
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , BOM_ID
+			 , BOM_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , BOM_SQ
+			 , PARENT_BOM_ID
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_REV
+			 , PARENT_ITEM_CD
+			 , ITEM_QT
+			 , MATERIAL_GRADE
+			 , MATERIAL_SPEC
+			 , MATERIAL_THICKNESS
+			 , SURFACE_TR_GRADE
+			 , SURFACE_TR_SPEC
+			 , DESIGN_WEIGHT
+			 , SUPPLIER
+			 , SUPPLIER_CODE
+			 , SHOW_ON_DRAWING
+			 , REMARK
+			 , EO_NO
+			 , EA
+			 , COMPLETE_PROJ_NO
+			 , PART_PROJ_NO
+			 , CASE_NUMBER
+			 , EO_CHILD_NO
+			 , EO_DATE
+			 , MAT_CD
+			 , TOP_ITEM_CD
+			 , UNIT_CD
+			 , GR_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{BOM_ID}
+			 , #{BOM_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , (case when '' = #{BOM_SQ} then '0' else #{BOM_SQ} end)
+			 , #{PARENT_BOM_ID}
+			 , <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , #{ITEM_REV}
+			 , <include refid="com.sql.trim"/>(#{PARENT_ITEM_CD})
+			 , CAST((case when '' = #{ITEM_QT} then '0.00' else #{ITEM_QT} end) AS NUMERIC(18, 4))
+			 , #{MATERIAL_GRADE}
+			 , #{MATERIAL_SPEC}
+			 , #{MATERIAL_THICKNESS}
+			 , #{SURFACE_TR_GRADE}
+			 , #{SURFACE_TR_SPEC}
+			 , #{DESIGN_WEIGHT}
+			 , #{SUPPLIER}
+			 , #{SUPPLIER_CODE}
+			 , #{SHOW_ON_DRAWING}
+			 , #{REMARK}
+			 , #{EO_NO}
+			 , #{EA}
+			 , #{COMPLETE_PROJ_NO}
+			 , #{PART_PROJ_NO}
+			 , #{CASE_NUMBER}
+			 , #{EO_CHILD_NO}
+			 , #{EO_DATE}
+			 , <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , <include refid="com.sql.trim"/>(#{TOP_ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , (CASE WHEN #{GR_FLAG} IS NULL OR #{GR_FLAG} = '' THEN '1' ELSE #{GR_FLAG} END)
+		<include refid="com.sql.mergeEnd"/>
+
+	</insert>
+
+	<insert id="DH0523_doExcelBOMMInsert" parameterType="hashmap">
+
+		INSERT INTO STOCBOMM (
+			   GATE_CD
+			 , BOM_ID
+			 , BOM_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , BOM_SQ
+			 , PARENT_BOM_ID
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_REV
+			 , PARENT_ITEM_CD
+			 , ITEM_QT
+			 , MATERIAL_GRADE
+			 , MATERIAL_SPEC
+			 , MATERIAL_THICKNESS
+			 , SURFACE_TR_GRADE
+			 , SURFACE_TR_SPEC
+			 , DESIGN_WEIGHT
+			 , SUPPLIER
+			 , SUPPLIER_CODE
+			 , SHOW_ON_DRAWING
+			 , REMARK
+			 , EO_NO
+			 , EA
+			 , COMPLETE_PROJ_NO
+			 , PART_PROJ_NO
+			 , CASE_NUMBER
+			 , EO_CHILD_NO
+			 , EO_DATE
+			 , MAT_CD
+			 , TOP_ITEM_CD
+			 , UNIT_CD
+			 , GR_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{BOM_ID}
+			 , #{BOM_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{BOM_SQ}
+			 , #{PARENT_BOM_ID}
+			 , <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , #{ITEM_REV}
+			 , <include refid="com.sql.trim"/>(#{PARENT_ITEM_CD})
+			 , CAST((case when '' = #{ITEM_QT} then '0.00' else #{ITEM_QT} end) AS NUMERIC(18, 4))
+			 , #{MATERIAL_GRADE}
+			 , #{MATERIAL_SPEC}
+			 , #{MATERIAL_THICKNESS}
+			 , #{SURFACE_TR_GRADE}
+			 , #{SURFACE_TR_SPEC}
+			 , #{DESIGN_WEIGHT}
+			 , #{SUPPLIER}
+			 , #{SUPPLIER_CODE}
+			 , #{SHOW_ON_DRAWING}
+			 , #{REMARK}
+			 , #{EO_NO}
+			 , #{EA}
+			 , #{COMPLETE_PROJ_NO}
+			 , #{PART_PROJ_NO}
+			 , #{CASE_NUMBER}
+			 , #{EO_CHILD_NO}
+			 , #{EO_DATE}
+			 , <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , <include refid="com.sql.trim"/>(#{TOP_ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , (CASE WHEN #{GR_FLAG} IS NULL OR #{GR_FLAG} = '' THEN '1' ELSE #{GR_FLAG} END)
+		)
+
+	</insert>
+
+	<insert id="DH0523_doSave" parameterType="hashmap">
+	
+		 MERGE STOCBOMM AS A
+		 USING (SELECT #{ses.gateCd} AS GATE_CD, #{BOM_ID} AS BOM_ID, #{BOM_REV} AS BOM_REV) AS B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.BOM_ID = B.BOM_ID
+		   AND A.BOM_REV = B.BOM_REV)
+		  WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , BOM_SQ = (case when '' = #{BOM_SQ} then '0' else #{BOM_SQ} end)
+			 , PARENT_BOM_ID = #{PARENT_BOM_ID}
+			 , ITEM_CD = <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , ITEM_DESC = <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , ITEM_REV = #{ITEM_REV}
+			 , PARENT_ITEM_CD = <include refid="com.sql.trim"/>(#{PARENT_ITEM_CD})
+			 , ITEM_QT = CAST((case when '' = #{ITEM_QT} then '0.00' else #{ITEM_QT} end) AS NUMERIC(18, 4))
+			 , MATERIAL_GRADE = #{MATERIAL_GRADE}
+			 , MATERIAL_SPEC = #{MATERIAL_SPEC}
+			 , MATERIAL_THICKNESS = #{MATERIAL_THICKNESS}
+			 , SURFACE_TR_GRADE = #{SURFACE_TR_GRADE}
+			 , SURFACE_TR_SPEC = #{SURFACE_TR_SPEC}
+			 , DESIGN_WEIGHT = #{DESIGN_WEIGHT}
+			 , SUPPLIER = #{SUPPLIER}
+			 , SUPPLIER_CODE = #{SUPPLIER_CODE}
+			 , SHOW_ON_DRAWING = #{SHOW_ON_DRAWING}
+			 , REMARK = #{REMARK}
+			 , EO_NO = #{EO_NO}
+			 , EA = #{EA}
+			 , COMPLETE_PROJ_NO = #{COMPLETE_PROJ_NO}
+			 , PART_PROJ_NO = #{PART_PROJ_NO}
+			 , CASE_NUMBER = #{CASE_NUMBER}
+			 , EO_CHILD_NO = #{EO_CHILD_NO}
+			 , EO_DATE = #{EO_DATE}
+			 , MAT_CD = <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , TOP_ITEM_CD = <include refid="com.sql.trim"/>(#{TOP_ITEM_CD})
+			 , UNIT_CD = <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , GR_FLAG = (CASE WHEN #{GR_FLAG} IS NULL OR #{GR_FLAG} = '' THEN '1' ELSE #{GR_FLAG} END)
+		  WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , BOM_ID
+			 , BOM_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , BOM_SQ
+			 , PARENT_BOM_ID
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_REV
+			 , PARENT_ITEM_CD
+			 , ITEM_QT
+			 , MATERIAL_GRADE
+			 , MATERIAL_SPEC
+			 , MATERIAL_THICKNESS
+			 , SURFACE_TR_GRADE
+			 , SURFACE_TR_SPEC
+			 , DESIGN_WEIGHT
+			 , SUPPLIER
+			 , SUPPLIER_CODE
+			 , SHOW_ON_DRAWING
+			 , REMARK
+			 , EO_NO
+			 , EA
+			 , COMPLETE_PROJ_NO
+			 , PART_PROJ_NO
+			 , CASE_NUMBER
+			 , EO_CHILD_NO
+			 , EO_DATE
+			 , MAT_CD
+			 , TOP_ITEM_CD
+			 , UNIT_CD
+			 , GR_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{BOM_ID}
+			 , #{BOM_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , (case when '' = #{BOM_SQ} then '0' else #{BOM_SQ} end)
+			 , #{PARENT_BOM_ID}
+			 , <include refid="com.sql.trim"/>(#{ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{ITEM_DESC})
+			 , #{ITEM_REV}
+			 , <include refid="com.sql.trim"/>(#{PARENT_ITEM_CD})
+			 , CAST((case when '' = #{ITEM_QT} then '0.00' else #{ITEM_QT} end) AS NUMERIC(18, 4))
+			 , #{MATERIAL_GRADE}
+			 , #{MATERIAL_SPEC}
+			 , #{MATERIAL_THICKNESS}
+			 , #{SURFACE_TR_GRADE}
+			 , #{SURFACE_TR_SPEC}
+			 , #{DESIGN_WEIGHT}
+			 , #{SUPPLIER}
+			 , #{SUPPLIER_CODE}
+			 , #{SHOW_ON_DRAWING}
+			 , #{REMARK}
+			 , #{EO_NO}
+			 , #{EA}
+			 , #{COMPLETE_PROJ_NO}
+			 , #{PART_PROJ_NO}
+			 , #{CASE_NUMBER}
+			 , #{EO_CHILD_NO}
+			 , #{EO_DATE}
+			 , <include refid="com.sql.trim"/>(#{MAT_GROUP})
+			 , <include refid="com.sql.trim"/>(#{TOP_ITEM_CD})
+			 , <include refid="com.sql.trim"/>(#{UNIT_CD})
+			 , (CASE WHEN #{GR_FLAG} IS NULL OR #{GR_FLAG} = '' THEN '1' ELSE #{GR_FLAG} END)
+		<include refid="com.sql.mergeEnd"/>
+
+	</insert>
+
+	<insert id="DH0523_doInsertRoot" parameterType="hashmap">
+
+		INSERT INTO STOCBOMM (
+			   GATE_CD
+			 , BOM_ID
+			 , BOM_REV
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , BOM_SQ
+			 , PARENT_BOM_ID
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_REV
+			 , PARENT_ITEM_CD
+			 , ITEM_QT
+			 , MATERIAL_GRADE
+			 , MATERIAL_SPEC
+			 , MATERIAL_THICKNESS
+			 , SURFACE_TR_GRADE
+			 , SURFACE_TR_SPEC
+			 , DESIGN_WEIGHT
+			 , SUPPLIER
+			 , SUPPLIER_CODE
+			 , SHOW_ON_DRAWING
+			 , REMARK
+			 , EO_NO
+			 , EA
+			 , COMPLETE_PROJ_NO
+			 , PART_PROJ_NO
+			 , CASE_NUMBER
+			 , EO_CHILD_NO
+			 , EO_DATE
+			 , MAT_CD
+			 , TOP_ITEM_CD
+			 , UNIT_CD
+			 , GR_FLAG
+		) SELECT
+			   GATE_CD
+			 , BOM_ID
+			 , #{BOM_REV}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , BOM_SQ
+			 , PARENT_BOM_ID
+			 , ITEM_CD
+			 , ITEM_DESC
+			 , ITEM_REV
+			 , PARENT_ITEM_CD
+			 , ITEM_QT
+			 , MATERIAL_GRADE
+			 , MATERIAL_SPEC
+			 , MATERIAL_THICKNESS
+			 , SURFACE_TR_GRADE
+			 , SURFACE_TR_SPEC
+			 , DESIGN_WEIGHT
+			 , SUPPLIER
+			 , SUPPLIER_CODE
+			 , SHOW_ON_DRAWING
+			 , REMARK
+			 , EO_NO
+			 , EA
+			 , COMPLETE_PROJ_NO
+			 , PART_PROJ_NO
+			 , CASE_NUMBER
+			 , EO_CHILD_NO
+			 , EO_DATE
+			 , MAT_CD
+			 , TOP_ITEM_CD
+			 , UNIT_CD
+			 , GR_FLAG
+			FROM STOCBOMM
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND BOM_ID  = #{ROOT_BOM_ID}
+		     AND BOM_REV = #{ROOT_BOM_REV}
+
+	</insert>
+
+	<select id="DH0523_doBOMACheck" parameterType="hashmap" resultType="java.lang.Integer">
+
+		SELECT COUNT(1)
+		  FROM STOCBOMM BOMM
+		 INNER JOIN STOCBOMA BOMA
+				 ON(BOMM.GATE_CD = BOMA.GATE_CD
+				AND BOMM.BOM_ID = BOMA.BOM_ID
+				AND BOMM.BOM_REV = BOMA.BOM_REV
+				AND BOMA.DEL_FLAG = '0')
+		 WHERE BOMM.GATE_CD = #{ses.gateCd}
+		   AND BOMM.BOM_ID  = #{BOM_ID}
+		   AND BOMM.BOM_REV = #{BOM_REV}
+
+	</select>
+
+	<select id="DH0523_getBomList" parameterType="hashmap" resultType="java.util.Map">
+
+		WITH BOM AS (
+			 SELECT BOM_ID, BOM_REV
+			   FROM STOCBOMM
+			  WHERE GATE_CD = #{ses.gateCd}
+				AND BOM_ID  = #{BOM_ID}
+				AND BOM_REV = #{BOM_REV}
+			  UNION ALL
+			 SELECT B.BOM_ID, B.BOM_REV
+			   FROM STOCBOMM B
+ 			   JOIN BOM C
+    			 ON(B.PARENT_BOM_ID = C.BOM_ID
+    			AND B.BOM_REV  = C.BOM_REV
+   				AND B.DEL_FLAG = '0')
+		) SELECT BOM_ID, BOM_REV FROM BOM
+
+	</select>
+
+	<update id="DH0523_doDelete" parameterType="hashmap">
+
+		UPDATE STOCBOMM SET
+			   DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND BOM_ID  = #{BOM_ID}
+		   AND BOM_REV = #{BOM_REV}
+
+	</update>
+
+	<update id="DH0523_doChangeLevel" parameterType="hashmap">
+
+		UPDATE STOCBOMM
+		   SET BOM_SQ     = BOM_SQ + 1
+			 , MOD_DATE   = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD       = #{ses.gateCd}
+		   AND PARENT_BOM_ID = #{PARENT_BOM_ID}
+		   AND BOM_ID + CAST(BOM_REV AS NVARCHAR) in (SELECT S.BOM_ID + CAST(max(BOM_REV) AS NVARCHAR)
+														FROM STOCBOMM S
+									   				   WHERE S.GATE_CD       = #{ses.gateCd}
+									   				     AND S.PARENT_BOM_ID = #{PARENT_BOM_ID}
+													<if test="BOM_REV != '' and BOM_REV != null">
+													<![CDATA[
+										 				 AND S.BOM_REV <= #{BOM_REV}
+													]]>
+													</if>
+								         				 AND S.DEL_FLAG = '0'
+								         			   GROUP BY S.BOM_ID)
+		   AND DEL_FLAG = '0'
+
+	</update>
+	
+</mapper>

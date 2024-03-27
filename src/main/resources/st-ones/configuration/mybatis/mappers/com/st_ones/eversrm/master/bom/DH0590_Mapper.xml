@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0590_Mapper">
+
+
+	<select id="doSearchInfo" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+		 E.PLANT_CD
+		,A.ITEM_CD
+		,A.ITEM_DESC
+		,(SELECT MAX(H.ITEM_QT)
+            FROM STOCBOMM H
+           WHERE H.GATE_CD = #{ses.gateCd}
+             AND H.ITEM_CD = A.ITEM_CD
+             AND H.BOM_REV = (SELECT MAX(BOM_REV) FROM STOCBOMM
+		                     WHERE GATE_CD = H.GATE_CD
+				               AND BOM_ID  = H.BOM_ID
+				               AND DEL_FLAG ='0')
+			 AND H.DEL_FLAG = '0') AS ITEM_QT
+		,E.UNIT_CD
+		,E.VENDOR_CD
+		,<include refid="com.sql.dbo"/>getVendorName(E.GATE_CD, E.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		,E.CUR
+		,E.UNIT_PRC
+
+		,A.MAT_GROUP
+		,'0' AS PLAN_STND_PRC
+		,'0' AS BUY_STND_PRC
+		,E.TAX_CD
+		,E.PUR_ORG_CD
+		,E.CTRL_CD
+		,E.BUYER_CD
+		,E.UNIT_PRC CONFIRM_PRC
+		FROM STOCMTGL A
+		JOIN STOCINFO E ON E.GATE_CD = A.GATE_CD
+		               AND E.ITEM_CD = A.ITEM_CD
+		               AND E.DEL_FLAG = '0'
+		               AND <include refid="com.sql.sysdate"/> BETWEEN E.VALID_FROM_DATE AND E.VALID_TO_DATE
+					<if test="VENDOR_CD != '' and VENDOR_CD != null">
+					   AND E.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_CD != '' and PLANT_CD != null">
+					   AND E.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+					</if>
+	    WHERE A.GATE_CD = #{ses.gateCd}
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		  AND A.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+
+					 <if test="MAT_CD != '' and MAT_CD != null">
+					   AND A.MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+					 </if>
+		AND A.ITEM_KIND_CD = 'ROH2'
+		ORDER BY  A.ITEM_CD
+
+	</select>
+
+
+	<select id="doSearchT" parameterType="hashmap" resultType="hashMap">
+		SELECT
+		 E.PLANT_CD
+		,A.ITEM_CD
+		,A.ITEM_DESC
+		,(SELECT MAX(H.ITEM_QT)
+            FROM STOCBOMM H
+           WHERE H.GATE_CD = #{ses.gateCd}
+             AND H.ITEM_CD = K.ITEM_CD
+             AND H.BOM_REV = (SELECT MAX(BOM_REV) FROM STOCBOMM
+		                     WHERE GATE_CD = H.GATE_CD
+				               AND BOM_ID  = H.BOM_ID
+				               AND DEL_FLAG ='0')
+			 AND H.DEL_FLAG = '0') AS ITEM_QT
+		,E.UNIT_CD
+		,E.VENDOR_CD
+		,<include refid="com.sql.dbo"/>getVendorName(E.GATE_CD, E.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		,E.CUR
+		,E.UNIT_PRC
+
+		,A.MAT_GROUP
+		,'0' AS PLAN_STND_PRC
+		,'0' AS BUY_STND_PRC
+		,E.TAX_CD
+		,E.PUR_ORG_CD
+		,E.CTRL_CD
+		,E.BUYER_CD
+		FROM (
+			SELECT DISTINCT GATE_CD, 'C' TYPE, '1' LEV,ITEM_CD ,'' CHILDITEM  ,0 PRE_CM_PRC ,0 CM_PRC FROM STOCMTCM
+			WHERE GATE_CD = #{ses.gateCd} AND <include refid="com.sql.nvl"/>(PRE_CM_PRC,0) != <include refid="com.sql.nvl"/>(CM_PRC,0) AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'F' TYPE, '1' LEV,ITEM_CD ,'' CHILDITEM  ,0 PRE_CM_PRC ,0 CM_PRC FROM STOCMTFM
+			 WHERE GATE_CD = #{ses.gateCd} AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'C' TYPE, '2' LEV,ITEM_CD ,CM_ITEM_CD CHILDITEM, PRE_CM_PRC,CM_PRC FROM STOCMTCM
+			WHERE GATE_CD = #{ses.gateCd} AND <include refid="com.sql.nvl"/>(PRE_CM_PRC,0) != <include refid="com.sql.nvl"/>(CM_PRC,0) AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'F' TYPE, '2' LEV,ITEM_CD ,FM_ITEM_CD CHILDITEM ,0 PRE_CM_PRC,0 CM_PRC FROM STOCMTFM
+			WHERE GATE_CD = #{ses.gateCd} AND DEL_FLAG = '0'
+		) K
+		JOIN STOCMTGL A ON A.GATE_CD = K.GATE_CD
+					   AND A.ITEM_CD = K.ITEM_CD
+					 <if test="MAT_CD != '' and MAT_CD != null">
+					   AND A.MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+					 </if>
+		JOIN STOCINFO E ON E.GATE_CD = K.GATE_CD
+		               AND E.ITEM_CD = K.ITEM_CD
+		               AND E.DEL_FLAG = '0'
+		               AND <include refid="com.sql.sysdate"/> BETWEEN E.VALID_FROM_DATE AND E.VALID_TO_DATE
+					<if test="VENDOR_CD != '' and VENDOR_CD != null">
+					   AND E.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_CD != '' and PLANT_CD != null">
+					   AND E.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+					</if>
+		LEFT OUTER JOIN STOCMATM B ON B.GATE_CD = A.GATE_CD
+		                          AND B.MAT_CD  = A.MAT_CD
+		                          AND <include refid="com.sql.nvl"/>(B.MAT_PRC,0) != <include refid="com.sql.nvl"/>(A.PREV_MAT_PRC,0)
+		                          AND B.DEL_FLAG = '0'
+
+	    WHERE K.GATE_CD = #{ses.gateCd}
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		  AND K.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+		  AND K.LEV = '1'
+		ORDER BY K.TYPE DESC, K.ITEM_CD, K.CHILDITEM
+	</select>
+
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+		 K.TYPE
+		,K.LEV
+		, E.BUYER_CD
+		,E.PLANT_CD
+		,<include refid="com.sql.dbo"/>GETPLANTNAME(E.GATE_CD, E.BUYER_REQ_CD, E.PLANT_CD,#{ses.langCd}) AS PLANT_NM
+		,K.ITEM_CD
+		,K.CHILDITEM
+		,(SELECT ITEM_DESC FROM STOCMTGL WHERE GATE_CD = #{ses.gateCd} AND ITEM_CD =K.CHILDITEM ) CHILDITEMNM
+		,A.ITEM_DESC
+		,K.ITEM_QT
+		,B.MAT_NM
+		,A.SPEC
+		,B.MAT_KIND
+		,A.WEIGHT
+		,A.THICK
+		,A.WIDTH
+		,A.HEIGHT
+		,E.VENDOR_CD
+		,<include refid="com.sql.dbo"/>getVendorName(E.GATE_CD, E.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		,A.COLL_LOSS_RTO
+		,A.BL_WIDTH
+		,A.BL_HEIGHT
+		<!--
+		,CASE WHEN A.SPEC = 'C' THEN ROUND(( A.THICK * A.WIDTH * A.HEIGHT * A.COLL_LOSS_RTO * A.WEIGHT ) / 1000000 / (CASE WHEN CVT = 0 OR CVT IS null THEN 1 ELSE CVT END), 3)
+		      ELSE ROUND(( A.THICK * A.WIDTH * A.HEIGHT * A.WEIGHT ) / 1000000 / (CASE WHEN CVT = 0 OR CVT IS null THEN 1 ELSE CVT END), 3)
+		 -->
+		,CASE WHEN A.SPEC = 'C' THEN ( A.THICK * A.WIDTH * A.HEIGHT * A.COLL_LOSS_RTO * A.WEIGHT ) / 1000000 / (CASE WHEN CVT = 0 OR CVT IS null THEN 1 ELSE CVT END)
+		      ELSE ( A.THICK * A.WIDTH * A.HEIGHT * A.WEIGHT ) / 1000000 / (CASE WHEN CVT = 0 OR CVT IS null THEN 1 ELSE CVT END)
+		 END INPUT_WGT
+		,(CASE WHEN CVT = 0 OR CVT IS null THEN 1 ELSE CVT END) CVT
+		,A.NET_WGT
+		,<include refid="com.sql.nvl"/>(A.PREV_MAT_PRC,0) + 0.76 PREV_MAT_PRC
+		,<include refid="com.sql.nvl"/>(A.PREV_MAT_PRC,0) + 0.76 AFTER_MAT_PRC
+		,A.PREV_SCRAP_PRC
+		,0 AFTER_SCRAP_PRC
+		,0 BEFORE_JERUBI
+		,0 AFTER_JERUBI
+		,0 CHI_AMT
+		,K.PRE_CM_PRC
+		,K.CM_PRC
+		,0 CHI_AMT2
+		,E.UNIT_PRC
+		,0 CONFIRM_PRC
+		,A.MAT_GROUP
+		,E.UNIT_CD
+		,E.CUR
+		,E.TAX_CD
+		,E.PUR_ORG_CD
+		,E.CTRL_CD
+		,'0' AS PLAN_STND_PRC
+		,'0' AS BUY_STND_PRC
+		FROM (
+			SELECT DISTINCT GATE_CD, 'C' TYPE, '1' LEV,ITEM_CD ,'' CHILDITEM  ,0 PRE_CM_PRC ,0 CM_PRC, ITEM_QT FROM STOCMTCM
+			WHERE GATE_CD = #{ses.gateCd} AND <include refid="com.sql.nvl"/>(PRE_CM_PRC,0) != <include refid="com.sql.nvl"/>(CM_PRC,0) AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'F' TYPE, '1' LEV,ITEM_CD ,'' CHILDITEM  ,0 PRE_CM_PRC ,0 CM_PRC, ITEM_QT FROM STOCMTFM
+			 WHERE GATE_CD = #{ses.gateCd} AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'C' TYPE, '2' LEV,ITEM_CD ,CM_ITEM_CD CHILDITEM, PRE_CM_PRC,CM_PRC, ITEM_QT FROM STOCMTCM
+			WHERE GATE_CD = #{ses.gateCd} AND <include refid="com.sql.nvl"/>(PRE_CM_PRC,0) != <include refid="com.sql.nvl"/>(CM_PRC,0) AND DEL_FLAG = '0'
+			UNION ALL
+			SELECT DISTINCT GATE_CD, 'F' TYPE, '2' LEV,ITEM_CD ,FM_ITEM_CD CHILDITEM ,0 PRE_CM_PRC,0 CM_PRC, ITEM_QT FROM STOCMTFM
+			 WHERE GATE_CD = #{ses.gateCd} AND DEL_FLAG = '0'
+		) K
+		JOIN STOCMTGL A ON A.GATE_CD = K.GATE_CD
+					   AND A.ITEM_CD = K.CHILDITEM
+					 <if test="MAT_CD != '' and MAT_CD != null">
+					   AND A.MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+					 </if>
+		JOIN STOCINFO E ON E.GATE_CD = K.GATE_CD
+		               AND E.ITEM_CD = K.ITEM_CD
+		               AND E.DEL_FLAG = '0'
+		               AND <include refid="com.sql.sysdate"/> BETWEEN E.VALID_FROM_DATE AND E.VALID_TO_DATE
+					<if test="VENDOR_CD != '' and VENDOR_CD != null">
+					   AND E.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="PLANT_CD != '' and PLANT_CD != null">
+					   AND E.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+					</if>
+		LEFT OUTER JOIN STOCMATM B ON B.GATE_CD = A.GATE_CD
+		                          AND B.MAT_CD  = A.MAT_CD
+		                          AND <include refid="com.sql.nvl"/>(B.MAT_PRC,0) != <include refid="com.sql.nvl"/>(A.PREV_MAT_PRC,0)
+		                          AND B.DEL_FLAG = '0'
+
+	    WHERE K.GATE_CD = #{ses.gateCd}
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+		  AND K.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+		</if>
+		 AND K.LEV = '2'
+		ORDER BY K.TYPE DESC, K.ITEM_CD, K.CHILDITEM
+	</select>
+</mapper>

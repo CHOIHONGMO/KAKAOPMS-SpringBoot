@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.execEval.eval.SRM_270_Mapper">
+
+	<select id="doSearch" resultType="hashmap" parameterType="hashmap">
+
+		SELECT	 EM.EV_NUM
+				,EM.EV_NM
+				,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M197',EM.PURCHASE_TYPE,#{ses.langCd}) AS PURCHASE_TYPE
+				,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M212',EM.EV_TYPE,#{ses.langCd}) AS EV_TYPE
+				,EM.EV_TYPE AS EV_TYPE_CD
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EM.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+				,EV_CTRL_USER_ID
+				,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M122',ES.PROGRESS_CD,#{ses.langCd}) AS PROGRESS_NM
+				,ES.PROGRESS_CD
+				,TM.EV_TPL_SUBJECT
+				,TM.EV_TPL_NUM
+				,ES.VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, ES.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+			<if test='_databaseId=="oracle"'>
+				,(TO_CHAR((SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EM.GATE_CD AND EV_NUM = EM.EV_NUM AND VENDOR_CD = ES.VENDOR_CD AND DEL_FLAG = '0' AND PROGRESS_CD = '200')) || '/' ||
+				  TO_CHAR((CASE WHEN 
+	 							   ((SELECT COUNT(*) FROM STOCEVTD TD INNER JOIN STOCEVIM IM ON TD.EV_ITEM_NUM = IM.EV_ITEM_NUM WHERE TD.EV_TPL_NUM = EM.EXEC_EV_TPL_NUM AND TD.GATE_CD = EM.GATE_CD AND TD.DEL_FLAG = '0' AND IM.EV_ITEM_METHOD_CD = 'QUA') = 0) 
+	 						    THEN 0 
+	 						    ELSE (SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EM.GATE_CD AND EV_NUM = EM.EV_NUM AND VENDOR_CD = ES.VENDOR_CD AND DEL_FLAG = '0') 
+	 						    END)
+				  		 )
+				 ) AS EV_USER_CNT
+			</if>
+			<if test='_databaseId=="mssql"'>
+				,(CONVERT(VARCHAR(3),(SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EM.GATE_CD AND EV_NUM = EM.EV_NUM AND VENDOR_CD = ES.VENDOR_CD AND DEL_FLAG='0' AND PROGRESS_CD='200')) +'/'+
+				  CONVERT(VARCHAR(3),(CASE WHEN 
+				 							   ((SELECT COUNT(*) FROM STOCEVTD TD INNER JOIN STOCEVIM IM ON TD.EV_ITEM_NUM = IM.EV_ITEM_NUM WHERE TD.EV_TPL_NUM = EM.EXEC_EV_TPL_NUM AND TD.GATE_CD = EM.GATE_CD AND TD.DEL_FLAG = '0' AND IM.EV_ITEM_METHOD_CD = 'QUA') = 0) 
+				 						   THEN 0 
+				 						   ELSE (SELECT COUNT(*) FROM STOCEVEU WHERE GATE_CD = EM.GATE_CD AND EV_NUM = EM.EV_NUM AND VENDOR_CD = ES.VENDOR_CD AND DEL_FLAG='0') 
+				 						   END)
+				  		 )
+				 ) AS EV_USER_CNT			
+			</if>
+				,ES.EV_SCORE
+				,'' AS DETAIL
+				,ES.EVAL_GRADE_CLS
+				,<include refid="com.sql.dbo"/>GETGMTDATE(EM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+				,<include refid="com.sql.dbo"/>GETGMTDATE(EM.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS START_DATE
+				,<include refid="com.sql.dbo"/>GETGMTDATE(EM.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CLOSE_DATE
+				,ES.FIRST_EV_SCORE
+				,ES.FIRST_EVAL_GRADE_CLS
+				,ES.AMEND_REASON
+		FROM	STOCEVES ES
+	INNER JOIN	STOCEVEM EM ON EM.GATE_CD = ES.GATE_CD AND EM.EV_NUM = ES.EV_NUM
+	INNER JOIN	STOCEVTM TM ON TM.GATE_CD = EM.GATE_CD AND TM.EV_TPL_NUM = EM.EXEC_EV_TPL_NUM
+		WHERE	ES.GATE_CD = #{ses.gateCd}
+		AND		ES.DEL_FLAG = '0'
+		AND 	EM.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		AND		ES.PROGRESS_CD IS NOT NULL
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND EM.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+			AND EM.PURCHASE_TYPE = #{PURCHASE_TYPE}
+		</if>
+		<if test="EV_CTRL_USER_NM != '' and EV_CTRL_USER_NM != null">
+			AND <include refid="com.sql.dbo"/>GETUSERNAME(EM.GATE_CD, EM.EV_CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_CTRL_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_NUM != '' and EV_NUM != null">
+			AND EM.EV_NUM <include refid="com.sql.likeL"/> #{EV_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},ES.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_NM != '' and EV_NM != null">
+			AND EM.EV_NM <include refid="com.sql.likeL"/> #{EV_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_TYPE != '' and EV_TYPE != null">
+			AND EM.EV_TYPE = #{EV_TYPE}
+		</if>
+		ORDER BY EV_NUM DESC, VENDOR_CD ASC
+	</select>
+	
+	<update id="doComplete" parameterType="hashmap">
+		UPDATE	 STOCEVES
+		SET		 PROGRESS_CD 	= '300'
+				,MOD_DATE		= <include refid="com.sql.sysdate"/>
+			   	,MOD_USER_ID	= #{ses.userId}
+		WHERE	 GATE_CD 		= #{ses.gateCd}
+		AND		 EV_NUM 		= #{EV_NUM}
+		AND		 VENDOR_CD 		= #{VENDOR_CD}
+	</update>
+	
+	
+	<update id="doCancel" parameterType="hashmap">
+		UPDATE 	STOCEVES
+		SET		PROGRESS_CD = '200'
+			   ,MOD_DATE	= <include refid="com.sql.sysdate"/>
+			   ,MOD_USER_ID	= #{ses.userId}
+		WHERE	GATE_CD 	= #{ses.gateCd}
+		AND		EV_NUM	 	= #{EV_NUM}
+		AND		VENDOR_CD 	= #{VENDOR_CD}
+	</update>
+	<update id="doCancelEm" parameterType="hashmap">
+		UPDATE 	STOCEVEM
+		   SET	PROGRESS_CD 	= '200'
+		   	   ,MOD_DATE		= <include refid="com.sql.sysdate"/>
+		   	   ,MOD_USER_ID		= #{ses.userId}
+		   	   ,COMPLETE_DATE 	= null
+		 WHERE	GATE_CD			= #{ses.gateCd}
+		   AND	EV_NUM			= #{EV_NUM}
+	</update>
+	
+	<update id="doEdit" parameterType="hashmap">
+		UPDATE	 STOCEVES
+		SET		 EV_SCORE 		= #{EV_SCORE}
+				,EVAL_GRADE_CLS = #{EVAL_GRADE_CLS}
+				,AMEND_REASON 	= #{AMEND_REASON}
+				,MOD_DATE		= <include refid="com.sql.sysdate"/>
+			    ,MOD_USER_ID	= #{ses.userId}
+		WHERE	GATE_CD 		= #{ses.gateCd}
+		AND		EV_NUM 			= #{EV_NUM}
+		AND		VENDOR_CD 		= #{VENDOR_CD}
+	</update>
+	
+	<select id="check" parameterType="hashmap" resultType='java.lang.String'>
+		SELECT
+			CASE WHEN 
+				(SELECT COUNT(*) FROM STOCEVES WHERE EV_NUM = #{EV_NUM}) 
+				= 
+				(SELECT COUNT(*) FROM STOCEVES WHERE EV_NUM = #{EV_NUM} AND PROGRESS_CD = '300') 
+		  THEN 'TRUE' 
+		  ELSE 'FALSE' 
+		  END
+	   <include refid="com.sql.dual"/>
+	</select>
+	
+	<update id="emFinish" parameterType="hashmap">
+		UPDATE	STOCEVEM
+		   SET	PROGRESS_CD 	= '300'
+		   	   ,MOD_DATE		= <include refid="com.sql.sysdate"/>
+		   	   ,MOD_USER_ID		= #{ses.userId}
+		   	   ,COMPLETE_DATE 	= <include refid="com.sql.sysdate"/>
+		 WHERE	EV_NUM = #{EV_NUM}
+	</update>
+
+</mapper>

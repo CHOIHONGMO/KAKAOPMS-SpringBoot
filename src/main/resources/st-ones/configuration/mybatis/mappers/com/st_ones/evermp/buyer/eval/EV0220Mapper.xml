@@ -1,0 +1,851 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.eval.EV0220Mapper">
+
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT EM.PROGRESS_CD
+			  ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M122',EM.PROGRESS_CD,#{ses.langCd}) AS PROGRESS_NM
+			  ,EM.EV_NUM
+			  ,EM.EV_NM
+			  ,EM.PURCHASE_TYPE
+			  ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M197',EM.PURCHASE_TYPE,#{ses.langCd}) AS PURCHASE_TYPE_NM
+			  ,EM.EV_TYPE
+			  ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M212',EM.EV_TYPE,#{ses.langCd}) AS EV_TYPE_NM
+			  ,EM.EV_CTRL_USER_ID
+			  ,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EM.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(EM.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(EM.REQUEST_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQUEST_DATE
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(EM.COMPLETE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS COMPLETE_DATE
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(EM.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS START_DATE
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(EM.CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CLOSE_DATE
+			  ,EM.EXEC_EV_TPL_NUM
+			  ,(SELECT EV_TPL_SUBJECT FROM STOCEVTM TM WHERE EM.GATE_CD = TM.GATE_CD AND TM.EV_TPL_NUM = EM.EXEC_EV_TPL_NUM AND TM.DEL_FLAG = '0') AS EXEC_EV_TPL_NM
+			  ,(SELECT COUNT(*) FROM STOCEVES ES WHERE EM.GATE_CD = ES.GATE_CD AND ES.EV_NUM = EM.EV_NUM AND ES.DEL_FLAG = '0') AS VENDOR_CNT
+			  ,(SELECT COUNT(DISTINCT EU.EV_USER_ID) FROM STOCEVEU EU WHERE EM.GATE_CD = EU.GATE_CD AND EU.EV_NUM = EM.EV_NUM AND EU.DEL_FLAG = '0' ) AS EV_CTRL_USER_CNT
+		      ,CASE WHEN (SELECT COUNT(*)
+							FROM STOCEVTM TM
+							JOIN STOCEVTD TD
+							  ON(TD.GATE_CD    = TM.GATE_CD
+							 AND TD.EV_TPL_NUM = TM.EV_TPL_NUM
+							 AND TD.DEL_FLAG   = '0')
+							JOIN STOCEVIM IM
+							  ON(IM.GATE_CD           = TD.GATE_CD
+							 AND IM.EV_ITEM_NUM       = TD.EV_ITEM_NUM
+							 AND IM.EV_ITEM_METHOD_CD = 'QTY'
+							 AND IM.DEL_FLAG          = '0')
+						  WHERE TM.GATE_CD            = EM.GATE_CD
+							AND TM.EV_TPL_NUM         = EM.EXEC_EV_TPL_NUM
+							AND TM.DEL_FLAG           = '0') > 0 THEN 'Y' ELSE '' END AS QTY_FLAG -- 정량평가대상여부
+			  ,CASE WHEN (SELECT COUNT(*)
+							FROM STOCEVET ET
+						   WHERE ET.GATE_CD           = EM.GATE_CD
+						     AND ET.EV_NUM            = EM.EV_NUM
+						     AND ET.EV_ITEM_METHOD_CD = 'QTY'
+						     AND ET.DEL_FLAG          = '0') > 0 THEN 'Y' ELSE '' END AS QTY_RSLT_FLAG -- 정량평가수행여부
+		  FROM STOCEVEM EM
+/*
+		  JOIN (
+		SELECT
+			  GATE_CD
+			, EV_NUM
+			, EV_USER_ID
+			, CASE WHEN SUM(CASE WHEN PROGRESS_CD = '200' THEN 0 ELSE 1 END) > 0 THEN '100' ELSE '200' END AS PRG_CHK
+			,MAX(ESG_CHK_TYPE) ESG_CHK_TYPE
+		FROM STOCEVEU
+		WHERE GATE_CD  = {ses.gateCd}
+		 AND DEL_FLAG = '0'
+		GROUP BY GATE_CD, EV_NUM, EV_USER_ID) EVEU
+		ON  (EM.GATE_CD    		= EVEU.GATE_CD
+		AND EM.EV_NUM      	= EVEU.EV_NUM)
+*/
+	 	 WHERE EM.GATE_CD 	= #{ses.gateCd}
+		<if test="VENDOR_CD !=null and VENDOR_CD !='' ">
+			AND EXISTS(
+			SELECT '1' FROM STOCEVEU
+			WHERE GATE_CD = EM.GATE_CD
+			AND EV_NUM = EM.EV_NUM
+			AND DEL_FLAG = '0'
+		    AND UPPER(VENDOR_CD) <include refid="com.sql.likeL"/> UPPER(#{VENDOR_CD}) <include refid="com.sql.likeR"/>
+			)
+		</if>
+		<if test="VENDOR_NM !=null and VENDOR_NM !='' ">
+			AND EXISTS(
+			SELECT '1' FROM STOCEVEU
+			WHERE GATE_CD = EM.GATE_CD
+			AND EV_NUM = EM.EV_NUM
+			AND DEL_FLAG = '0'
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+			)
+		</if>
+	 	   AND DEL_FLAG 	= '0'
+		<if test="_databaseId == 'mssql'">
+	       AND EM.REG_DATE BETWEEN #{REG_DATE_FROM} AND #{REG_DATE_TO}
+		</if>
+		<if test="_databaseId == 'oracle'">
+	       AND EM.REG_DATE BETWEEN TO_DATE(#{REG_DATE_FROM} , 'YYYYMMDD HH24:MI:SS') AND TO_DATE(#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+		</if>
+
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+		   AND EM.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+		   AND EM.PURCHASE_TYPE = #{PURCHASE_TYPE}
+		</if>
+		<if test="EV_CTRL_USER_ID != '' and EV_CTRL_USER_ID != null">
+		   AND EM.EV_CTRL_USER_ID = #{EV_CTRL_USER_ID}
+		</if>
+		<if test="EV_CTRL_USER_NM != '' and EV_CTRL_USER_NM != null">
+			AND <include refid="com.sql.dbo"/>GETUSERNAME(EM.GATE_CD, EM.EV_CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_CTRL_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_NUM != '' and EV_NUM != null">
+		   AND EM.EV_NUM <include refid="com.sql.likeL"/> #{EV_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_NM != '' and EV_NM != null">
+		   AND EM.EV_NM <include refid="com.sql.likeL"/> #{EV_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_TYPE != '' and EV_TYPE != null">
+		   AND EM.EV_TYPE = #{EV_TYPE}
+		</if>
+		<if test="BUYER_CD != null and BUYER_CD != ''">
+			AND EM.BUYER_CD in
+			<foreach collection="BUYER_CD_LIST" item="item" open="(" close=")" separator=",">
+				#{item}
+			</foreach>
+		</if>
+
+		ORDER BY EV_NUM DESC
+	</select>
+
+	<select id="doEvCheck" parameterType="hashmap" resultType="hashmap">
+		SELECT EVEM.EV_NUM
+			  ,EVEM.EV_TYPE
+			  ,EVEM.EXEC_EV_TPL_NUM
+			  ,EVEM.PURCHASE_TYPE
+			  ,EVEM.START_DATE
+			  ,EVEM.CLOSE_DATE
+			  ,EVTD.EV_ITEM_NUM
+			  ,EVTD.WEIGHT
+			  ,EVIM.EV_ITEM_SUBJECT
+			  ,EVIM.EV_ITEM_CONTENTS
+			  ,EVIM.QTY_ITEM_CD
+			  ,EVID.EV_ID_SQ
+			  ,EVID.EV_ID_CONTENTS
+			  ,EVID.EV_ID_SCORE
+			  ,EVID.FROM_VALUE
+			  ,EVID.FROM_CONDITION_CD
+			  ,EVID.TO_VALUE
+			  ,EVID.TO_CONDITION_CD
+			  ,(
+			  	SELECT MAX(EV_ID_SCORE)
+			  	FROM STOCEVID
+			  	WHERE GATE_CD = EVID.GATE_CD
+				AND EV_ITEM_NUM = EVID.EV_ITEM_NUM
+				AND DEL_FLAG = '0'
+			   ) HIGH_SCORE
+		  FROM STOCEVTD EVTD
+		 INNER JOIN STOCEVIM EVIM
+		    ON (EVIM.GATE_CD     = EVTD.GATE_CD
+		   AND EVIM.EV_ITEM_NUM = EVTD.EV_ITEM_NUM
+		   AND EVIM.DEL_FLAG    = '0')
+		 INNER JOIN STOCEVEM EVEM
+		    ON (EVEM.GATE_CD         = EVTD.GATE_CD
+		   AND EVEM.EXEC_EV_TPL_NUM = EVTD.EV_TPL_NUM)
+		 INNER JOIN STOCEVID EVID
+		    ON (EVID.GATE_CD     = EVTD.GATE_CD
+		   AND EVID.EV_ITEM_NUM = EVTD.EV_ITEM_NUM
+		   AND EVID.DEL_FLAG    = '0')
+		 WHERE EVTD.GATE_CD  = #{ses.gateCd}
+		   AND EVTD.DEL_FLAG = '0'
+		   AND EVEM.EV_NUM   = #{EV_NUM}
+		   AND EVIM.EV_ITEM_METHOD_CD  = 'QTY'
+		 ORDER BY EVIM.EV_ITEM_NUM, EVID.EV_ID_ORDER, EVID.EV_ID_SQ
+	</select>
+
+	<select id="doEvCheck_EV0045" parameterType="hashmap" resultType="hashmap">
+		SELECT EVVM.EV_NUM
+			, 'REGISTRATION' AS EV_TYPE
+			, EVVM.SCRE_EV_TPL_NUM AS EXEC_EV_TPL_NUM
+			, EVVM.PURCHASE_TYPE
+			, EVVM.START_DATE
+			, EVVM.END_DATE AS CLOSE_DATE
+			, EVTD.EV_ITEM_NUM
+			, EVTD.WEIGHT
+			, EVIM.EV_ITEM_SUBJECT
+			, EVIM.EV_ITEM_CONTENTS
+			, EVIM.QTY_ITEM_CD
+			, EVID.EV_ID_SQ
+			, EVID.EV_ID_CONTENTS
+			, EVID.EV_ID_SCORE
+			, EVID.FROM_VALUE
+			, EVID.FROM_CONDITION_CD
+			, EVID.TO_VALUE
+			, EVID.TO_CONDITION_CD
+		FROM STOCEVTD EVTD
+		INNER JOIN STOCEVIM EVIM
+		    ON (EVIM.GATE_CD = EVTD.GATE_CD
+			AND EVIM.EV_ITEM_NUM = EVTD.EV_ITEM_NUM
+		   	AND EVIM.DEL_FLAG = '0')
+		INNER JOIN STOCEVVM EVVM
+		    ON (EVVM.GATE_CD = EVTD.GATE_CD
+		   	AND EVVM.SCRE_EV_TPL_NUM = EVTD.EV_TPL_NUM
+		    AND EVVM.DEL_FLAG = '0')
+		INNER JOIN STOCEVID EVID
+		    ON (EVID.GATE_CD = EVTD.GATE_CD
+		   	AND EVID.EV_ITEM_NUM = EVTD.EV_ITEM_NUM
+		   	AND EVID.DEL_FLAG = '0')
+		WHERE EVTD.GATE_CD = #{ses.gateCd}
+		AND EVTD.DEL_FLAG = '0'
+		AND EVVM.EV_NUM = #{EV_NUM}
+		AND EVIM.EV_ITEM_METHOD_CD = 'QTY'
+		ORDER BY EVIM.EV_ITEM_NUM, EVID.EV_ID_ORDER, EVID.EV_ID_SQ
+	</select>
+
+	<!-- 평가대상업체 -->
+	<select id="getVendorList" parameterType="hashmap" resultType="hashmap">
+	    SELECT GATE_CD
+	          ,EV_NUM
+	          ,VENDOR_CD
+	          ,VENDOR_SQ
+	          ,<include refid="com.sql.dbo"/>getVendorName(GATE_CD, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+	      FROM STOCEVES
+	     WHERE GATE_CD  		= #{ses.gateCd}
+	       AND EV_NUM   		= #{EV_NUM}
+	       AND DEL_FLAG 		= '0'
+	</select>
+
+	<select id="getVendorListEV0045" parameterType="hashmap" resultType="hashmap">
+	    SELECT GATE_CD
+			, EV_NUM
+	        , VENDOR_CD
+	        , '1' AS VENDOR_SQ
+	        ,<include refid="com.sql.dbo"/>getVendorName(GATE_CD, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+	    FROM STOCEVVM
+	    WHERE GATE_CD = #{ses.gateCd}
+	    AND EV_NUM = #{EV_NUM}
+	    AND DEL_FLAG = '0'
+	</select>
+
+	<!-- 정량평가 삭제  -->
+	<delete id="deleteEvet" parameterType="hashmap">
+		UPDATE STOCEVET
+		   SET DEL_FLAG 	= '1'
+		  	  ,MOD_DATE 	= <include refid="com.sql.sysdate"/>
+		  	  ,MOD_USER_ID 	= #{ses.userId}
+		 WHERE GATE_CD     	= #{ses.gateCd}
+		   AND EV_NUM     = #{EV_NUM}
+		   AND EV_TPL_NUM = #{EV_TPL_NUM}
+		   AND VENDOR_CD  = #{VENDOR_CD}
+	</delete>
+
+	<!-- 정량평가 등록  -->
+	<update id="regEvetItem" parameterType="hashmap">
+		MERGE<include refid="com.sql.mergeInto"/>STOCEVET TARGET
+		 USING (SELECT #{ses.gateCd}         AS GATE_CD
+					  ,#{EV_NUM}             AS EV_NUM
+					  ,#{VENDOR_CD}          AS VENDOR_CD
+					  ,#{EV_TPL_NUM}         AS EV_TPL_NUM
+					  ,#{EV_ITEM_NUM}        AS EV_ITEM_NUM
+					  ,'0'                   AS DEL_FLAG
+					  ,<include refid="com.sql.sysdate"/>     AS REG_DATE
+					  ,#{ses.userId}         AS REG_USER_ID
+					  ,'QTY'                 AS EV_ITEM_METHOD_CD
+					  ,#{EV_SCORE}           AS EV_SCORE
+					  ,#{RESULT_VALUE}       AS RESULT_VALUE
+					  ,#{RESULT_VALUE_EXIST} AS RESULT_VALUE_EXIST
+					  ,'100'                 AS PROGRESS_CD
+					  ,#{GROUP_CD}           AS GROUP_CD
+					  ,#{ADDITION_SCORE}     AS ADDITION_SCORE
+					  ,#{FINAL_SCORE}        AS FINAL_SCORE
+		    		, #{EV_ID_SQ} AS EV_ID_SQ
+				  <include refid="com.sql.dual"/>
+		      ) SOURCE
+		    ON (TARGET.GATE_CD    = SOURCE.GATE_CD
+		   AND TARGET.EV_NUM      = SOURCE.EV_NUM
+		   AND TARGET.VENDOR_CD   = SOURCE.VENDOR_CD
+		   AND TARGET.EV_TPL_NUM  = SOURCE.EV_TPL_NUM
+		   AND TARGET.EV_ITEM_NUM = SOURCE.EV_ITEM_NUM
+		      )
+		WHEN MATCHED THEN
+		UPDATE SET EV_SCORE           = SOURCE.EV_SCORE
+				  ,ADDITION_SCORE     = SOURCE.ADDITION_SCORE
+				  ,RESULT_VALUE       = SOURCE.RESULT_VALUE
+				  ,RESULT_VALUE_EXIST = SOURCE.RESULT_VALUE_EXIST
+				  ,FINAL_SCORE        = SOURCE.FINAL_SCORE
+				  ,GROUP_CD           = SOURCE.GROUP_CD
+				  ,DEL_FLAG           = SOURCE.DEL_FLAG
+				  ,MOD_DATE           = SOURCE.REG_DATE
+				  ,MOD_USER_ID        = SOURCE.REG_USER_ID
+		    	, EV_ID_SQ = SOURCE.EV_ID_SQ
+		WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, EV_NUM, VENDOR_CD, EV_TPL_NUM, EV_ITEM_NUM,
+				DEL_FLAG, EV_ITEM_METHOD_CD, EV_SCORE, RESULT_VALUE, RESULT_VALUE_EXIST,
+				PROGRESS_CD, GROUP_CD, ADDITION_SCORE, FINAL_SCORE, REG_DATE,
+				REG_USER_ID, MOD_DATE, MOD_USER_ID, EV_ID_SQ)
+		VALUES (SOURCE.GATE_CD, SOURCE.EV_NUM, SOURCE.VENDOR_CD, SOURCE.EV_TPL_NUM, SOURCE.EV_ITEM_NUM,
+		        SOURCE.DEL_FLAG, SOURCE.EV_ITEM_METHOD_CD, SOURCE.EV_SCORE, SOURCE.RESULT_VALUE, SOURCE.RESULT_VALUE_EXIST,
+		        SOURCE.PROGRESS_CD, SOURCE.GROUP_CD, SOURCE.ADDITION_SCORE, SOURCE.FINAL_SCORE, SOURCE.REG_DATE,
+		        SOURCE.REG_USER_ID, SOURCE.REG_DATE, SOURCE.REG_USER_ID, SOURCE.EV_ID_SQ)
+		<if test='_databaseId=="mssql"'>
+			;
+		</if>
+	</update>
+
+	<!-- 협력업체 관련 평가항목별 점수조회 -->
+	<select id="getVendorInfoScore" parameterType="hashmap" resultType="java.lang.String">
+
+		SELECT
+			   (CASE #{QT_ITEM_CD} WHEN 'E1001' THEN            -- 신용등급(정기평가)
+			   							VNGL.CREDIT_RATING
+			   					   WHEN 'S1001' THEN            -- 신용등급(등록평가)
+			   							VNGL.CREDIT_RATING
+						   		   WHEN 'S1002' THEN            -- IT인력규모
+						   		   		VNGL.TECH_EXP_CNT + VNGL.TECH_ADV_CNT + VNGL.TECH_INT_CNT + VNGL.TECH_BEG_CNT
+						   		   WHEN 'S1003' THEN -- IT인력
+						   		   		(VNGL.TECH_EXP_CNT * 10 +
+						   		   		 VNGL.TECH_ADV_CNT *  8 +
+						   		   		 VNGL.TECH_INT_CNT *  6 +
+						   		   		 VNGL.TECH_BEG_CNT *  4)/60 * 100
+						   		   WHEN 'S1004' THEN            -- 사업수행실적
+						   		   		 VNGL.DELI_COMP_CNT
+						   		   WHEN 'S1005' THEN            -- 솔루션보유
+						   		   		 (SELECT COUNT(VNBS.BUSI_SQ)
+						   		   		 	FROM STOCVNBS VNBS
+						   		   		   WHERE VNBS.GATE_CD   = VNGL.GATE_CD
+						   		   		     AND VNBS.VENDOR_CD = VNGL.VENDOR_CD
+						   		   		     AND VNBS.DEL_FLAG  = '0')
+			   					   ELSE '0'
+			     END) AS EV_SCORE
+		  FROM STOCVNGL VNGL
+		 WHERE VNGL.GATE_CD   = #{ses.gateCd}
+		   AND VNGL.VENDOR_CD = #{VENDOR_CD}
+
+	</select>
+
+	<!-- 정량평가 점수조회  -->
+	<select id="getEvetScore" parameterType="hashmap" resultType="java.lang.String">
+		SELECT <include refid="com.sql.nvl"/>(SUM(FINAL_SCORE),0) AS EVET_SCORE
+		  FROM STOCEVET
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND EV_NUM    = #{EV_NUM}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG  = '0'
+	</select>
+
+	<!-- 정성평가 점수조회  -->
+	<select id="getEveuScore" parameterType="hashmap" resultType="java.lang.String">
+		SELECT <include refid="com.sql.nvl"/>(AVG(EV_SCORE) ,0) AS EVEU_SCORE
+		  FROM STOCEVEU
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND EV_NUM      = #{EV_NUM}
+		   AND VENDOR_CD   = #{VENDOR_CD}
+		   AND VENDOR_SQ   = #{VENDOR_SQ}
+		   AND DEL_FLAG    = '0'
+		   AND PROGRESS_CD = '200'
+	</select>
+
+	<!-- 템플릿 가중치 합  -->
+	<select id="getWeightSum" parameterType="hashmap" resultType="java.lang.String">
+        SELECT SUM(WEIGHT) AS WEIGHT
+		  FROM STOCEVTD
+	   WHERE GATE_CD 	= #{ses.gateCd}
+		 AND EV_TPL_NUM	= #{EV_TPL_NUM}
+		 AND DEL_FLAG 	= '0'
+	</select>
+
+	<!-- 평가결과 등록  -->
+	<update id="regEves" parameterType="hashmap">
+		MERGE<include refid="com.sql.mergeInto"/>STOCEVES TARGET
+		USING (SELECT #{ses.gateCd}		AS GATE_CD
+					 ,#{EV_NUM} 		AS EV_NUM
+					 ,#{VENDOR_CD} 		AS VENDOR_CD
+		    		 ,#{VENDOR_SQ} AS VENDOR_SQ
+					 ,'0' 				AS DEL_FLAG
+					 ,<include refid="com.sql.sysdate"/>	AS REG_DATE
+					 ,#{ses.userId} 	AS REG_USER_ID
+					 ,#{EV_SCORE} 		AS FIRST_EV_SCORE
+					 ,#{EV_GRADE_CLS} 	AS FIRST_EVAL_GRADE_CLS
+					 ,'100'             AS PROGRESS_CD
+				<include refid="com.sql.dual"/>
+		      ) SOURCE
+		   ON (TARGET.GATE_CD  = SOURCE.GATE_CD
+		  AND TARGET.EV_NUM    = SOURCE.EV_NUM
+		  AND TARGET.VENDOR_CD = SOURCE.VENDOR_CD
+		  AND TARGET.VENDOR_SQ = SOURCE.VENDOR_SQ)
+		WHEN MATCHED THEN
+		UPDATE SET FIRST_EV_SCORE   	= SOURCE.FIRST_EV_SCORE
+				  ,EV_SCORE   			= SOURCE.FIRST_EV_SCORE
+				  ,FIRST_EVAL_GRADE_CLS = SOURCE.FIRST_EVAL_GRADE_CLS
+				  ,EVAL_GRADE_CLS 		= SOURCE.FIRST_EVAL_GRADE_CLS
+				  ,MOD_DATE       		= SOURCE.REG_DATE
+				  ,MOD_USER_ID    		= SOURCE.REG_USER_ID
+		WHEN NOT MATCHED THEN
+		INSERT (GATE_CD, EV_NUM, VENDOR_CD, VENDOR_SQ, DEL_FLAG, PROGRESS_CD,
+				FIRST_EV_SCORE, FIRST_EVAL_GRADE_CLS, REG_DATE, REG_USER_ID, MOD_DATE, MOD_USER_ID)
+		VALUES (SOURCE.GATE_CD, SOURCE.EV_NUM, SOURCE.VENDOR_CD, SOURCE.VENDOR_SQ, SOURCE.DEL_FLAG, SOURCE.PROGRESS_CD,
+		        SOURCE.FIRST_EV_SCORE, SOURCE.FIRST_EVAL_GRADE_CLS, SOURCE.REG_DATE, SOURCE.REG_USER_ID, SOURCE.REG_DATE, SOURCE.REG_USER_ID)
+		<if test='_databaseId=="mssql"'>
+			;
+		</if>
+	</update>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="getEsgScore" parameterType="hashmap" resultType="java.lang.String">
+		SELECT ISNULL(MAX(EV_SCORE),'-1') AS EV_SCORE
+		FROM STOCEVEU EVEU
+		WHERE EVEU.GATE_CD = #{ses.gateCd}
+		AND EVEU.DEL_FLAG = '0'
+		AND EVEU.EV_NUM = (
+			SELECT
+			MAX(A.EV_NUM) -- ESG 템플릿으로 평가가져오기 (가장 최근 평가번호가져옴(평가기간내에서 ))
+			FROM STOCEVEM A JOIN STOCEVTM B ON A.GATE_CD = B.GATE_CD
+			                                    AND A.EXEC_EV_TPL_NUM = B.EV_TPL_NUM
+												AND B.DEL_FLAG = '0'
+												AND B.CREATE_TYPE_CD = 'S'
+												AND B.EV_TPL_TYPE_CD = 'G' -- ESG 평가만
+								JOIN STOCEVEU C ON A.GATE_CD = C.GATE_CD
+								                AND A.EV_NUM = C.EV_NUM
+												AND C.VENDOR_CD = #{VENDOR_CD}
+												AND C.VENDOR_SQ = '1'
+												AND C.DEL_FLAG = '0'
+
+			WHERE A.GATE_CD = '100'
+			AND A.DEL_FLAG = '0'
+
+
+			AND
+
+			REQUEST_DATE BETWEEN SUBSTRING(#{CLOSEDATE},1,4)+'-01-01 00:00:00.0'
+					     AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+
+		)
+		AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = '1'
+	</select>
+
+
+
+
+
+
+
+
+
+
+	<select id="getWongaScore" parameterType="hashmap" resultType="java.lang.String">
+		SELECT
+			SUM(RESULT2) RESULT2
+		FROM (
+			   SELECT
+			   		 T1.ITEM_CD
+			   		,SUM(C_GR_AMT) C_GR_AMT
+			   		,SUM(B_GR_AMT) B_GR_AMT
+
+					,((SUM(C_GR_AMT) - SUM(B_GR_AMT)) / SUM(B_GR_AMT)) * ( SUM(C_GR_AMT) / MAX(C_GR_AMT_SUM) ) RESULT2
+
+					,MAX(C_GR_AMT_SUM) C_GR_AMT_SUM
+					,MAX(B_GR_AMT_SUM) B_GR_AMT_SUM
+			   FROM
+			   (
+				SELECT
+					 M.ITEM_CD
+					,SUM(C_GR_AMT) C_GR_AMT
+					,MAX(C_GR_AMT_SUM) C_GR_AMT_SUM
+				FROM (
+						SELECT
+						  A.ITEM_CD
+						, SUM(A.GR_AMT) / SUM(A.GR_QT) C_GR_AMT
+						, MAX(B.GR_AMT_SUM) C_GR_AMT_SUM
+						FROM STOPGRDT A JOIN (
+												SELECT
+												 ITEM_CD
+												,SUM(GR_AMT) GR_AMT_SUM
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+
+												AND ITEM_CD IN (
+													SELECT ITEM_CD
+													FROM STOPGRDT
+													WHERE GATE_CD = '100'
+													AND VENDOR_CD = #{VENDOR_CD}
+													AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+													GROUP BY ITEM_CD
+												)
+												AND ITEM_CD IN (
+													SELECT ITEM_CD
+													FROM STOPGRDT
+													WHERE GATE_CD = '100'
+													AND VENDOR_CD = #{VENDOR_CD}
+													AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+													GROUP BY ITEM_CD
+												)
+												GROUP BY ITEM_CD
+												) B ON A.ITEM_CD = B.ITEM_CD
+						WHERE A.GATE_CD = '100'
+						AND A.VENDOR_CD = #{VENDOR_CD}
+						AND A.GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+						GROUP BY A.ITEM_CD
+					) M
+					GROUP BY M.ITEM_CD
+				) T1 JOIN
+				(
+
+				SELECT
+					 M.ITEM_CD
+					,SUM(B_GR_AMT) B_GR_AMT
+					,MAX(B_GR_AMT_SUM) B_GR_AMT_SUM
+				FROM (
+
+					SELECT
+					  A.ITEM_CD
+					, SUM(A.GR_AMT) / SUM(A.GR_QT) B_GR_AMT
+					, MAX(B.GR_AMT_SUM) B_GR_AMT_SUM
+					FROM STOPGRDT A JOIN (
+											SELECT
+											 ITEM_CD
+											,SUM(GR_AMT) GR_AMT_SUM
+											FROM STOPGRDT
+											WHERE GATE_CD = '100'
+											AND VENDOR_CD = #{VENDOR_CD}
+											AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+
+											AND ITEM_CD IN (
+												SELECT ITEM_CD
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+												GROUP BY ITEM_CD
+											)
+											AND ITEM_CD IN (
+												SELECT ITEM_CD
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+												GROUP BY ITEM_CD
+											)
+												GROUP BY ITEM_CD
+
+										) B ON A.ITEM_CD = B.ITEM_CD
+					WHERE A.GATE_CD = '100'
+					AND A.VENDOR_CD = #{VENDOR_CD}
+					AND A.GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+					GROUP BY A.ITEM_CD
+					) M
+					GROUP BY M.ITEM_CD
+
+				)
+				T2 ON T1.ITEM_CD = T2.ITEM_CD
+
+
+
+				GROUP BY T1.ITEM_CD
+		) T3
+
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="getWongaScore20220315" parameterType="hashmap" resultType="java.lang.String">
+		SELECT
+				CASE WHEN ((SUM(C_GR_AMT)) - (SUM(B_GR_AMT) )) = 0 THEN 0
+				ELSE
+					((SUM(C_GR_AMT)) - (SUM(B_GR_AMT) )) * 100 / (SUM(B_GR_AMT) )
+				END PER
+		FROM (
+			   SELECT
+			   		T1.ITEM_CD
+			   		,SUM(C_GR_AMT) C_GR_AMT
+			   		,SUM(B_GR_AMT) B_GR_AMT
+			   FROM
+			   (
+				SELECT
+					 M.ITEM_CD
+					,SUM(C_GR_AMT) C_GR_AMT
+				FROM (
+						SELECT
+						  A.ITEM_CD
+						, A.UNIT_PRC   C_UNIT_PRC
+						, SUM(A.GR_AMT) * SUM(A.GR_AMT) / MAX(B.GR_AMT_SUM) / SUM(A.GR_QT) C_GR_AMT
+						FROM STOPGRDT A JOIN (
+												SELECT
+												SUM(GR_AMT) GR_AMT_SUM
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+
+												AND ITEM_CD IN (
+													SELECT ITEM_CD
+													FROM STOPGRDT
+													WHERE GATE_CD = '100'
+													AND VENDOR_CD = #{VENDOR_CD}
+													AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+													GROUP BY ITEM_CD
+												)
+												AND ITEM_CD IN (
+													SELECT ITEM_CD
+													FROM STOPGRDT
+													WHERE GATE_CD = '100'
+													AND VENDOR_CD = #{VENDOR_CD}
+													AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+													GROUP BY ITEM_CD
+												)
+
+												) B ON 1 = 1
+						WHERE A.GATE_CD = '100'
+						AND A.VENDOR_CD = #{VENDOR_CD}
+						AND A.GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+						GROUP BY A.ITEM_CD,A.UNIT_PRC
+					) M
+					GROUP BY M.ITEM_CD
+				) T1 JOIN
+				(
+
+				SELECT
+					 M.ITEM_CD
+					,SUM(B_GR_AMT) B_GR_AMT
+				FROM (
+
+					SELECT
+					  A.ITEM_CD
+					, A.UNIT_PRC   B_UNIT_PRC
+					, SUM(A.GR_AMT) * SUM(A.GR_AMT) / MAX(B.GR_AMT_SUM) / SUM(A.GR_QT) B_GR_AMT
+					FROM STOPGRDT A JOIN (
+											SELECT
+											SUM(GR_AMT) GR_AMT_SUM
+											FROM STOPGRDT
+											WHERE GATE_CD = '100'
+											AND VENDOR_CD = #{VENDOR_CD}
+											AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+
+											AND ITEM_CD IN (
+												SELECT ITEM_CD
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+												GROUP BY ITEM_CD
+											)
+											AND ITEM_CD IN (
+												SELECT ITEM_CD
+												FROM STOPGRDT
+												WHERE GATE_CD = '100'
+												AND VENDOR_CD = #{VENDOR_CD}
+												AND GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+												GROUP BY ITEM_CD
+											)
+
+										  ) B ON 1 = 1
+					WHERE A.GATE_CD = '100'
+					AND A.VENDOR_CD = #{VENDOR_CD}
+					AND A.GR_DATE BETWEEN DATEADD(YY,-1,CONVERT(datetime,#{STARTDATE})) AND DATEADD(YY,-1,CONVERT(datetime,DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE}))) ))
+					GROUP BY A.ITEM_CD,A.UNIT_PRC
+					) M
+					GROUP BY M.ITEM_CD
+
+				)
+				T2 ON T1.ITEM_CD = T2.ITEM_CD
+
+
+
+				GROUP BY T1.ITEM_CD
+		) T3
+
+	</select>
+
+
+	<select id="getGrFollowScore" parameterType="hashmap" resultType="java.lang.String">
+		SELECT
+		CASE WHEN AK = 0 THEN 0
+		ELSE
+		AK * 100 / TOTAL
+		END PER
+		FROM (
+			SELECT
+			 SUM(CASE WHEN T.DELY_DATE >= T.GR_DATE THEN 1 ELSE 0 END) AK
+			,COUNT(*) TOTAL
+
+			FROM (
+				SELECT
+				 MAX(B.DELY_DATE) DELY_DATE
+				,ISNULL(MAX(A.GR_DATE),dateadd(yy, 3999, <include refid="com.sql.sysdate"/>)) GR_DATE
+				FROM STOPPODT B JOIN STOPPOHD C ON B.GATE_CD = C.GATE_CD
+				                                AND B.PO_NUM = C.PO_NUM
+				                                AND C.DEL_FLAG = '0'
+							    LEFT OUTER JOIN STOPGRDT A ON B.GATE_CD = A.GATE_CD
+							                               AND B.PO_NUM = A.PO_NUM
+							                               AND B.PO_SQ  = A.PO_SQ
+							                               AND A.DEL_FLAG = '0'
+				WHERE B.GATE_CD = '100'
+				AND B.DEL_FLAG = '0'
+				AND (
+					 B.PROGRESS_CD IN ('5200','5220')
+				     OR (B.PROGRESS_CD = '5300' AND B.CLOSE_FLAG = '0')
+					)
+				AND C.VENDOR_CD = #{VENDOR_CD}
+				AND B.DELY_DATE BETWEEN #{STARTDATE} AND DATEADD(MILLISECOND,-2,DATEADD(DD,1,CONVERT(datetime,#{CLOSEDATE})))
+				GROUP BY B.PO_NUM , B.PO_SQ
+			) T
+
+		) K
+
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<select id="doSearchEsgGubun" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			 GATE_CD
+			,EV_NUM
+			,GUBUN
+			,CONVERT(NVARCHAR, ESG_FROM) ESG_FROM
+			,CONVERT(NVARCHAR, ESG_TO)   ESG_TO
+		FROM STOCEESG
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EV_NUM = #{EV_NUM}
+
+
+
+		UNION ALL
+		SELECT
+			 #{ses.gateCd} --GATE_CD
+			,#{EV_NUM} --EV_NUM
+			,'A' --GUBUN
+			,'0'ESG_FROM
+			,'30' ESG_TO
+		<include refid="com.sql.dual"/>
+		WHERE (SELECT COUNT(*) FROM STOCEESG
+			   WHERE GATE_CD = #{ses.gateCd}
+			   AND EV_NUM = #{EV_NUM}
+			  ) = 0
+		UNION ALL
+		SELECT
+			 #{ses.gateCd} --GATE_CD
+			,#{EV_NUM} --EV_NUM
+			,'B' --GUBUN
+			,'30'ESG_FROM
+			,'70' ESG_TO
+		<include refid="com.sql.dual"/>
+		WHERE (SELECT COUNT(*) FROM STOCEESG
+			   WHERE GATE_CD = #{ses.gateCd}
+			   AND EV_NUM = #{EV_NUM}
+			  ) = 0
+		UNION ALL
+		SELECT
+			 #{ses.gateCd} --GATE_CD
+			,#{EV_NUM} --EV_NUM
+			,'C' --GUBUN
+			,'70'ESG_FROM
+			,'100' ESG_TO
+		<include refid="com.sql.dual"/>
+		WHERE (SELECT COUNT(*) FROM STOCEESG
+			   WHERE GATE_CD = #{ses.gateCd}
+			   AND EV_NUM = #{EV_NUM}
+			  ) = 0
+
+
+	</select>
+
+	<delete id="delEsgGubun" parameterType="hashmap">
+		DELETE STOCEESG
+		WHERE GATE_CD = #{ses.gateCd}
+		AND EV_NUM = #{EV_NUM}
+	</delete>
+
+	<update id="saveEsgGubun" parameterType="hashmap">
+		INSERT INTO STOCEESG (
+			 GATE_CD
+			,EV_NUM
+			,GUBUN
+			,ESG_FROM
+			,ESG_TO
+		)
+		SELECT
+			 #{ses.gateCd}  --GATE_CD
+			,#{EV_NUM} --EV_NUM
+			,#{GUBUN}       --GUBUN
+			,CONVERT(NUMERIC(13),#{ESG_FROM})    --ESG_FROM
+			,CONVERT(NUMERIC(13),#{ESG_TO})      --ESG_TO
+		<include refid="com.sql.dual"/>
+	</update>
+
+
+
+
+</mapper>

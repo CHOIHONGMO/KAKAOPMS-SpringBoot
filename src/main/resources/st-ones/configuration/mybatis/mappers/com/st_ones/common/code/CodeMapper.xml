@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.common.code.CodeMapper">
+
+    <select id="doSearchHD" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			CODH.GATE_CD,
+		    CODH.LANG_CD,
+		    CODH.CODE_TYPE,
+		    CODH.CODE_TYPE_DESC,
+		    CODH.DETAIL_DESC,
+		    CODH.CODE_TYPE_REMARK,
+		    CODH.USE_FLAG,
+		    COUNT(CODD.CODE) AS DETAIL_CNT
+		FROM STOCCODH CODH LEFT OUTER JOIN STOCCODD CODD
+			 ON (CODH.GATE_CD = CODD.GATE_CD
+			 AND CODH.CODE_TYPE = CODD.CODE_TYPE
+			 AND CODH.LANG_CD = CODD.LANG_CD
+			 AND CODD.DEL_FLAG = '0')
+		WHERE CODH.GATE_CD = #{ses.gateCd}
+		  AND CODH.DEL_FLAG = '0'
+		<if test="LANG_CD != '' and LANG_CD != null">
+		  AND CODH.LANG_CD = #{LANG_CD}
+		</if>
+		<if test="CODE_TYPE != '' and CODE_TYPE != null">
+		  AND CODH.CODE_TYPE <include refid="com.sql.likeL"/> #{CODE_TYPE} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CODE_DESC != '' and CODE_DESC != null">
+		  AND CODH.CODE_TYPE_DESC <include refid="com.sql.likeL"/> #{CODE_TYPE_DESC} <include refid="com.sql.likeR"/>
+		</if>
+		GROUP BY CODH.GATE_CD, CODH.LANG_CD, CODH.CODE_TYPE, CODH.CODE_TYPE_DESC,
+		    	 CODH.DETAIL_DESC, CODH.CODE_TYPE_REMARK, CODH.USE_FLAG
+		ORDER BY CODE_TYPE
+
+	</select>
+
+	<select id="checkHDData" parameterType="hashMap" resultType="java.lang.Integer">
+
+		SELECT
+			(CASE WHEN SUM(A.ALL_CNT) = 0 AND SUM(A.LANG_CNT) = 0 THEN 0 /* NEW INSERT */
+    	  		  WHEN SUM(A.ALL_CNT) > 0 AND SUM(A.LANG_CNT) > 0 THEN 1 /* UPDATE */
+    	  		  WHEN SUM(A.ALL_CNT) > 0 OR SUM(A.LANG_CNT) > 0 THEN 2 /* SELECT INSERT */
+    			  ELSE 3 END) CNT
+		FROM (
+		  SELECT
+		      COUNT(CODE_TYPE) AS ALL_CNT,
+		      0 AS LANG_CNT
+		    FROM STOCCODH
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND CODE_TYPE = #{CODE_TYPE}
+
+		  UNION ALL
+
+		  SELECT
+		      0 AS ALL_CNT,
+		      COUNT(CODE_TYPE) AS LANG_CNT
+		    FROM STOCCODH
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND CODE_TYPE = #{CODE_TYPE}
+		     AND LANG_CD = #{LANG_CD}
+		)A
+
+	</select>
+
+	<insert id="doInsertHD" parameterType="hashMap">
+
+		INSERT INTO STOCCODH (
+			GATE_CD
+			,CODE_TYPE
+			,LANG_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,CODE_TYPE_DESC
+			,CODE_TYPE_REMARK
+			,DETAIL_DESC
+			,USE_FLAG
+		) VALUES (
+			#{ses.gateCd}
+            ,#{CODE_TYPE}
+			,#{LANG_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{CODE_TYPE_DESC}
+			,#{CODE_TYPE_REMARK}
+			,#{DETAIL_DESC}
+			,#{USE_FLAG}
+		)
+
+	</insert>
+
+	<insert id="doSelectInsertHD" parameterType="hashMap">
+
+		INSERT INTO doSelectInsertHD (
+			GATE_CD
+			,CODE_TYPE
+			,LANG_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,CODE_TYPE_DESC
+			,CODE_TYPE_REMARK
+			,DETAIL_DESC
+			,USE_FLAG
+		)
+		(SELECT <include refid="com.sql.mtop1"/>
+				 GATE_CD
+				,CODE_TYPE
+				,#{LANG_CD}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,#{CODE_TYPE_DESC}
+				,#{CODE_TYPE_REMARK}
+				,#{DETAIL_DESC}
+				,#{USE_FLAG}
+			 FROM STOCCODH
+			WHERE GATE_CD   = #{ses.gateCd}
+			  AND CODE_TYPE = #{CODE_TYPE}
+			  <include refid="com.sql.otop1"/>
+		)
+
+	</insert>
+
+	<update id="doUpdateHD" parameterType="hashMap">
+
+		UPDATE STOCCODH SET
+			MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,CODE_TYPE_DESC = #{CODE_TYPE_DESC}
+			,CODE_TYPE_REMARK = #{CODE_TYPE_REMARK}
+			,DETAIL_DESC = #{DETAIL_DESC}
+			,USE_FLAG = #{USE_FLAG}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND CODE_TYPE = #{CODE_TYPE}
+		  AND LANG_CD = #{LANG_CD}
+		  AND DEL_FLAG = '0'
+
+	</update>
+
+	<update id="doDeleteHD" parameterType="hashMap">
+
+		UPDATE STOCCODH SET
+			DEL_FLAG = '1'
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND CODE_TYPE = #{CODE_TYPE}
+		  AND LANG_CD = #{LANG_CD}
+
+	</update>
+
+	<select id="doSearchDT" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			GATE_CD,
+			LANG_CD,
+			CODE_TYPE,
+			CODE,
+			CODE_DESC,
+			TEXT1,
+			TEXT2,
+			TEXT3,
+			TEXT4,
+			FLAG,
+			SORT_SEQ,
+			USE_FLAG,
+			'U' AS DB_FLAG
+		FROM STOCCODD
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+		<if test="CODE_TYPE_DT != '' and CODE_TYPE_DT != null">
+		  AND CODE_TYPE <include refid="com.sql.likeL"/> #{CODE_TYPE} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CODE_DT != '' and CODE_DT != null">
+		  AND CODE <include refid="com.sql.likeL"/> #{CODE} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CODE_DESC_DT != '' and CODE_DESC_DT != null">
+		  AND CODE_DESC <include refid="com.sql.likeL"/> #{CODE_DESC} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="LANG_CD_DT != '' and LANG_CD_DT != null">
+		  AND LANG_CD = #{LANG_CD_DT}
+		</if>
+		ORDER BY SORT_SEQ, UPPER(CODE)
+
+	</select>
+
+    <select id="checkDTData" parameterType="hashMap" resultType="java.lang.Integer">
+
+		SELECT
+			(CASE WHEN SUM(A.ALL_CNT) = 0 AND SUM(A.LANG_CNT) = 0 THEN 0 /* NEW INSERT */
+    	  		  WHEN SUM(A.ALL_CNT) > 0 AND SUM(A.LANG_CNT) > 0 THEN 1 /* UPDATE */
+    	  		  WHEN SUM(A.ALL_CNT) > 0 OR SUM(A.LANG_CNT) > 0 THEN 2 /* SELECT INSERT */
+    			  ELSE 3 END) CNT
+		FROM (
+		  SELECT
+		      COUNT(CODE_TYPE) AS ALL_CNT,
+		      0 AS LANG_CNT
+		    FROM STOCCODD
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND CODE_TYPE = #{CODE_TYPE}
+		     AND CODE = #{CODE}
+
+		  UNION ALL
+
+		  SELECT
+		      0 AS ALL_CNT,
+		      COUNT(CODE_TYPE) AS LANG_CNT
+		    FROM STOCCODD
+		   WHERE GATE_CD = #{ses.gateCd}
+		     AND CODE_TYPE = #{CODE_TYPE}
+		     AND CODE = #{CODE}
+		     AND LANG_CD = #{LANG_CD}
+		) A
+
+	</select>
+
+	<insert id="doInsertDT" parameterType="hashMap">
+
+		INSERT INTO STOCCODD (
+			GATE_CD,
+			CODE_TYPE,
+			CODE,
+			LANG_CD,
+			REG_DATE,
+			REG_USER_ID,
+			MOD_DATE,
+			MOD_USER_ID,
+			DEL_FLAG,
+			USE_FLAG,
+			CODE_DESC,
+			TEXT1,
+			TEXT2,
+			TEXT3,
+			TEXT4,
+			FLAG,
+			SORT_SEQ
+		) VALUES (
+			#{ses.gateCd}
+			,#{CODE_TYPE}
+			,#{CODE}
+			,#{LANG_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{USE_FLAG}
+			,#{CODE_DESC}
+			,#{TEXT1}
+			,#{TEXT2}
+			,#{TEXT3}
+			,#{TEXT4}
+			,#{FLAG}
+			,#{SORT_SEQ}
+		)
+
+	</insert>
+
+	<insert id="doSelectInsertDT" parameterType="hashMap">
+
+		INSERT INTO STOCCODD (
+			GATE_CD,
+			CODE_TYPE,
+			LANG_CD,
+			CODE,
+			REG_DATE,
+			REG_USER_ID,
+			MOD_DATE,
+			MOD_USER_ID,
+			DEL_FLAG,
+			USE_FLAG,
+			CODE_DESC,
+			TEXT1,
+			TEXT2,
+			TEXT3,
+			TEXT4,
+			FLAG,
+			SORT_SEQ
+		) (SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+				GATE_CD
+				,CODE_TYPE
+				,#{LANG_CD}
+				,CODE
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,<include refid="com.sql.sysdate"/>
+				,#{ses.userId}
+				,'0'
+				,#{USE_FLAG}
+				,#{CODE_DESC}
+				,#{TEXT1}
+				,#{TEXT2}
+				,#{TEXT3}
+				,#{TEXT4}
+				,#{FLAG}
+				,#{SORT_SEQ}
+			 FROM STOCCODD
+			WHERE GATE_CD = #{ses.gateCd}
+			  AND CODE_TYPE = #{CODE_TYPE}
+			  AND CODE = #{CODE}
+			  <if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			  </if>
+		)
+
+	</insert>
+
+	<update id="doUpdateDT" parameterType="hashMap">
+
+		UPDATE STOCCODD SET
+			MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,CODE_DESC = #{CODE_DESC}
+			,TEXT1 = #{TEXT1}
+			,TEXT2 = #{TEXT2}
+			,TEXT3 = #{TEXT3}
+			,TEXT4 = #{TEXT4}
+			,FLAG = #{FLAG}
+			,SORT_SEQ = #{SORT_SEQ}
+			,USE_FLAG = #{USE_FLAG}
+			,DEL_FLAG = '0'
+		WHERE GATE_CD = #{GATE_CD}
+		  AND CODE_TYPE = #{CODE_TYPE}
+		  AND CODE = #{CODE}
+		  AND LANG_CD = #{LANG_CD}
+
+	</update>
+
+	<update id="doDeleteDT" parameterType="hashMap">
+
+		UPDATE STOCCODD SET
+			DEL_FLAG = '1'
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND CODE_TYPE = #{CODE_TYPE}
+		  AND LANG_CD = #{LANG_CD}
+		  AND CODE = #{CODE}
+
+	</update>
+
+	<select id="getNewKey" parameterType="hashMap" resultType="string">
+	   SELECT <include refid="com.sql.stringMergeStart"/>'M'<include refid="com.sql.stringMerge"/>
+	          <include refid="com.sql.nvl"/>(<include refid="com.sql.lpad"/>((MAX(<include refid="com.sql.toNumber"/><include refid="com.sql.subStr"/>(CODE_TYPE,2,<include refid="com.sql.length"/>(CODE_TYPE))<include refid="com.sql.asNumber"/>)+1),3,'0'),'000')
+	          <include refid="com.sql.stringMergeEnd"/>
+	   FROM STOCCODH
+	   WHERE GATE_CD = #{ses.gateCd}
+	</select>
+
+	<select id="doSearchByStreet1" parameterType="hashmap" resultType="hashMap">
+
+        SELECT ZIP_CD
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(STREET_NM, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(BUILDING_NM, '')<include refid="com.sql.stringMergeEnd"/> AS ADDR
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(RI, '') <include refid="com.sql.stringMerge"/> ' '<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BON, '') <include refid="com.sql.stringMerge"/> case when JIBUN_BU IS  NULL then ' ' else '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BU, '') end<include refid="com.sql.stringMergeEnd"/> AS OLD_ADDR
+        FROM STOCZIPS
+        WHERE  1=1
+       <if test=" streetName != '' and streetName != null ">
+            AND (
+               UPPER(UP_MEON_DONG)  <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetName})) <include refid="com.sql.likeR"/>
+            OR UPPER(RI)            <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetName})) <include refid="com.sql.likeR"/>
+                 )
+       </if>
+    </select>
+
+    <select id="doSearchByStreet2" parameterType="hashmap" resultType="hashMap">
+
+        SELECT ZIP_CD
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(STREET_NM, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/>  <include refid="com.sql.nvl"/>(BUILDING_NM, '')<include refid="com.sql.stringMergeEnd"/> AS ADDR
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(RI, '') <include refid="com.sql.stringMerge"/> ' '<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BON, '') <include refid="com.sql.stringMerge"/> case when JIBUN_BU IS  NULL then ' ' else '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BU, '') end<include refid="com.sql.stringMergeEnd"/> AS OLD_ADDR
+        FROM STOCZIPS
+         WHERE 1=1
+       <if test="streetNameByDistrict != '' and streetNameByDistrict != null">
+            AND UPPER(STREET_NM) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNameByDistrict})) <include refid="com.sql.likeR"/>
+       </if>
+    </select>
+
+    <select id="doSearchByStreet3" parameterType="hashmap" resultType="hashMap">
+
+        SELECT ZIP_CD
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(STREET_NM, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(BUILDING_NM, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(DETAIL_BUILDING_NM, '')<include refid="com.sql.stringMergeEnd"/> AS ADDR
+             , <include refid="com.sql.stringMergeStart"/><include refid="com.sql.nvl"/>(SI_DO, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(SI_GUN_GU, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(UP_MEON_DONG, '') <include refid="com.sql.stringMerge"/> ' ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(RI, '') <include refid="com.sql.stringMerge"/> ' '<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BON, '') <include refid="com.sql.stringMerge"/> case when JIBUN_BU IS  NULL then ' ' else '-' <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(JIBUN_BU, '') end<include refid="com.sql.stringMergeEnd"/> AS OLD_ADDR
+          FROM STOCZIPS
+         WHERE 1=1
+       <if test=" streetNm != '' and streetNm != null ">
+             AND (
+              UPPER(BUILDING_NM) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNm})) <include refid="com.sql.likeR"/>
+           OR UPPER(DETAIL_BUILDING_NM) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNm})) <include refid="com.sql.likeR"/>
+                  )
+       </if>
+    </select>
+
+    <select id="doSearchByDistrict" parameterType="hashmap" resultType="hashMap">
+
+        SELECT ZIP_CD
+             , ADDRESS AS ADDR
+        FROM STOCZIPJ
+        WHERE 1=1
+   
+		<if test="streetNameByDistrict != '' and streetNameByDistrict != null ">
+          <![CDATA[ 
+            AND (
+               UPPER(UP_MEON_DONG) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNameByDistrict})) <include refid="com.sql.likeR"/>
+           OR  UPPER(APT_BUILDING_NM) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNameByDistrict})) <include refid="com.sql.likeR"/>
+           OR  UPPER(RI) <include refid="com.sql.likeL"/> UPPER(<include refid="com.sql.trim"/>(#{streetNameByDistrict})) <include refid="com.sql.likeR"/>
+                ) 
+           ]]>  
+        </if>
+    </select>
+
+</mapper>

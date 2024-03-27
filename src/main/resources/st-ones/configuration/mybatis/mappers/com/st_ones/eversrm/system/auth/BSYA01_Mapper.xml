@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.auth.BSYA01_Mapper">
+	
+	<!-- 시스템관리 > 권한 > 메뉴/버튼 권한설정 (BSYA_030) : 사용자 조회 -->
+    <select id="doSearch_UserList" parameterType="hashMap" resultType="hashMap">
+        SELECT USERS.USER_ID
+             , USERS.USER_ID AS USER_ID_V
+             , USERS.USER_NM AS USER_NM
+          FROM STOCUSER USERS
+         WHERE USERS.GATE_CD  = #{ses.gateCd}
+           AND USERS.DEL_FLAG = '0'
+        <if test="USER_NM != '' and USER_NM != null">
+           AND UPPER(USERS.USER_NM) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+	
+	<!-- 시스템관리 > 권한 > 메뉴/버튼 권한설정 (BSYA_030) : 직무권한 가져오기 -->
+    <select id="doSearch_CtrlList" parameterType="hashMap" resultType="hashMap">
+        SELECT BACO.CTRL_CD
+             , BACO.CTRL_NM
+             ,(CASE WHEN BACO.CTRL_CD = (SELECT CTRL_CD FROM STOCBACP
+             							  WHERE CTRL_USER_ID = #{USER_ID}
+             							    AND DEL_FLAG = '0'
+             							    AND USE_FLAG = '1'
+             							    AND CTRL_CD  = BACO.CTRL_CD) THEN '1' ELSE '0' END) AS MAPPING_YN
+          FROM STOCBACO BACO
+         WHERE BACO.GATE_CD  = #{ses.gateCd}
+           AND BACO.BUYER_CD = #{ses.companyCd}
+           AND BACO.DEL_FLAG = '0'
+           AND BACO.USE_FLAG = '1'
+         ORDER BY BACO.SORT_SQ
+    </select>
+
+    <select id="doSearch_menuTree" parameterType="hashMap" resultType="java.util.Map">
+
+        SELECT
+             C.tree AS "tree"
+            ,C.TREE_SOTRT
+            ,C.MENU_NM
+            ,C.CLS1
+            ,C.CLS2
+            ,C.CLS3
+            ,C.SCREEN_ID
+            ,C.LVL
+            ,C.SORT_SQ
+            ,C.TOP_SORT_SQ
+            ,(CASE WHEN C.USER_MAPPING_YN='0' THEN '0' ELSE '1' END) AS USER_MAPPING_YN
+            ,(CASE WHEN C.CTRL_MAPPING_YN='0' THEN '0' ELSE '1' END) AS CTRL_MAPPING_YN
+            ,(CASE WHEN C.USER_MAPPING_YN='0' THEN '0' ELSE '1' END) AS HIDDEN_USER_MAP_YN
+            ,(CASE WHEN C.CTRL_MAPPING_YN='0' THEN '0' ELSE '1' END) AS HIDDEN_CTRL_MAP_YN
+        FROM(
+            SELECT
+                B.tree
+              <if test="_databaseId == 'oracle'">
+                ,(CASE WHEN B.LVL ='1' THEN B.TOP_SORT_SQ<include refid="com.sql.stringMerge"/>B.tree<include refid="com.sql.stringMerge"/>'A00'<include refid="com.sql.stringMerge"/>'TM000000'<include refid="com.sql.stringMerge"/>'A000'<include refid="com.sql.stringMerge"/>'TM000000'
+                       WHEN B.LVL ='2' THEN B.TOP_SORT_SQ<include refid="com.sql.stringMerge"/>B.CLS1<include refid="com.sql.stringMerge"/>(CASE WHEN B.SORT_SQ<![CDATA[<]]>10 THEN 'A0'<include refid="com.sql.stringMerge"/>B.SORT_SQ ELSE 'B'<include refid="com.sql.stringMerge"/>B.SORT_SQ END)<include refid="com.sql.stringMerge"/>B.CLS2<include refid="com.sql.stringMerge"/>'A000'<include refid="com.sql.stringMerge"/>'TM000000'
+                       ELSE B.TOP_SORT_SQ<include refid="com.sql.stringMerge"/>B.CLS1<include refid="com.sql.stringMerge"/>(CASE WHEN (SELECT SORT_SQ FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = #{ses.gateCd} AND T.DEL_FLAG='0')<![CDATA[<]]>10
+                                                         THEN 'A0'<include refid="com.sql.stringMerge"/>(SELECT SORT_SQ FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = '100' AND T.DEL_FLAG='0')
+                                                         ELSE 'B'<include refid="com.sql.stringMerge"/>(SELECT SORT_SQ FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = '100' AND T.DEL_FLAG='0') END)<include refid="com.sql.stringMerge"/>B.CLS2<include refid="com.sql.stringMerge"/>(CASE WHEN B.SORT_SQ<![CDATA[<]]>10 THEN 'A00'<include refid="com.sql.stringMerge"/>B.SORT_SQ
+                                                                                                                                                                                               WHEN B.SORT_SQ<![CDATA[<]]>100 AND B.SORT_SQ<![CDATA[>]]>9 THEN 'B0'<include refid="com.sql.stringMerge"/>B.SORT_SQ
+                                                                                                                                                                                               ELSE 'C'<include refid="com.sql.stringMerge"/>B.SORT_SQ END)<include refid="com.sql.stringMerge"/>B.CLS3
+                 END) AS TREE_SOTRT
+              </if>
+              <if test="_databaseId == 'mssql'">
+                ,(CASE WHEN B.LVL ='1' THEN CONVERT(VARCHAR, B.TOP_SORT_SQ)<include refid="com.sql.stringMerge"/>B.tree<include refid="com.sql.stringMerge"/>'A00'<include refid="com.sql.stringMerge"/>'TM000000'<include refid="com.sql.stringMerge"/>'A000'<include refid="com.sql.stringMerge"/>'TM000000'
+                       WHEN B.LVL ='2' THEN CONVERT(VARCHAR, B.TOP_SORT_SQ)<include refid="com.sql.stringMerge"/>B.CLS1<include refid="com.sql.stringMerge"/>(CASE WHEN B.SORT_SQ<![CDATA[<]]>10 THEN 'A0'<include refid="com.sql.stringMerge"/>CONVERT(VARCHAR, B.SORT_SQ) ELSE 'B'<include refid="com.sql.stringMerge"/>CONVERT(VARCHAR, B.SORT_SQ) END)<include refid="com.sql.stringMerge"/>B.CLS2<include refid="com.sql.stringMerge"/>'A000'<include refid="com.sql.stringMerge"/>'TM000000'
+                       ELSE CONVERT(VARCHAR, B.TOP_SORT_SQ)<include refid="com.sql.stringMerge"/>B.CLS1<include refid="com.sql.stringMerge"/>(CASE WHEN (SELECT CONVERT(VARCHAR, CAST(SORT_SQ AS INT)) FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = #{ses.gateCd} AND T.DEL_FLAG='0')<![CDATA[<]]>10
+                                                                                                   THEN 'A0'<include refid="com.sql.stringMerge"/>(SELECT CONVERT(VARCHAR, CAST(SORT_SQ AS INT)) FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = '100' AND T.DEL_FLAG='0')
+                                                                                                   ELSE 'B'<include refid="com.sql.stringMerge"/>(SELECT CONVERT(VARCHAR, CAST(SORT_SQ AS INT)) FROM STOCMUTM T WHERE T.TMPL_MENU_CD = B.CLS2 AND T.GATE_CD = '100' AND T.DEL_FLAG='0') END)<include refid="com.sql.stringMerge"/>B.CLS2
+                                                                                                           <include refid="com.sql.stringMerge"/>(CASE WHEN B.SORT_SQ<![CDATA[<]]>10 THEN 'A00'<include refid="com.sql.stringMerge"/>CONVERT(VARCHAR, B.SORT_SQ)
+                                                                                                                               WHEN B.SORT_SQ<![CDATA[<]]>100 AND B.SORT_SQ<![CDATA[>]]>9 THEN 'B0'<include refid="com.sql.stringMerge"/>CONVERT(VARCHAR, B.SORT_SQ)
+                                                                                                                               ELSE 'C'<include refid="com.sql.stringMerge"/>CONVERT(VARCHAR, B.SORT_SQ) END)<include refid="com.sql.stringMerge"/>B.CLS3
+                 END) AS TREE_SOTRT
+              </if>
+                ,B.MENU_NM
+                ,B.CLS1
+                ,B.CLS2
+                ,B.CLS3
+                ,B.SCREEN_ID
+                ,B.LVL
+                ,B.SORT_SQ
+                ,B.TOP_SORT_SQ
+                <choose>
+                    <when test='userClickYn == "Y"'>
+                        <if test="_databaseId == 'oracle'">
+                        ,(SELECT TO_CHAR(COUNT(SCREEN_ID))
+                        </if>
+                        <if test="_databaseId == 'mssql'">
+                        ,(SELECT CONVERT(VARCHAR, COUNT(SCREEN_ID))
+                        </if>
+                            FROM STOCMJUA
+                           WHERE GATE_CD = B.GATE_CD AND DATA_TYPE='J'
+                             AND DATA_CD IN (SELECT CTRL_CD
+                                               FROM STOCBACP WHERE GATE_CD = B.GATE_CD AND CTRL_USER_ID = #{USER_ID}
+                                                AND DEL_FLAG='0' AND USE_FLAG='1')
+                             AND SCREEN_ID =B.SCREEN_ID) AS CTRL_MAPPING_YN
+
+                        <if test="_databaseId == 'oracle'">
+                        ,(SELECT TO_CHAR(COUNT(SCREEN_ID))
+                        </if>
+                        <if test="_databaseId == 'mssql'">
+                        ,(SELECT CONVERT(VARCHAR, COUNT(SCREEN_ID))
+                        </if>
+                            FROM STOCMJUA WHERE GATE_CD = B.GATE_CD AND DATA_TYPE='U'
+                             AND DATA_CD = #{USER_ID} AND SCREEN_ID =B.SCREEN_ID
+                        ) AS USER_MAPPING_YN
+                    </when>
+                    <otherwise>
+                        <choose>
+                            <when test='CtrlClickYn == "Y"'>
+                                <if test="_databaseId == 'oracle'">
+                                    ,(SELECT TO_CHAR(COUNT(SCREEN_ID)) FROM STOCMJUA WHERE GATE_CD = B.GATE_CD AND DATA_TYPE='J' AND DATA_CD = #{CTRL_CD} AND SCREEN_ID =B.SCREEN_ID) AS CTRL_MAPPING_YN
+                                </if>
+                                <if test="_databaseId == 'mssql'">
+                                    ,(SELECT CONVERT(VARCHAR, COUNT(SCREEN_ID)) FROM STOCMJUA WHERE GATE_CD = B.GATE_CD AND DATA_TYPE='J' AND DATA_CD = #{CTRL_CD} AND SCREEN_ID =B.SCREEN_ID) AS CTRL_MAPPING_YN
+                                </if>
+                                ,'0' AS USER_MAPPING_YN
+                            </when>
+                            <otherwise>
+                                ,'0' AS CTRL_MAPPING_YN
+                                ,'0' AS USER_MAPPING_YN
+                            </otherwise>
+                        </choose>
+                    </otherwise>
+                </choose>
+            FROM(
+
+                SELECT
+                      A.GATE_CD
+                    ,(CASE WHEN A.IS_FOLDER ='true' THEN A.MENU_GROUP_CD<include refid="com.sql.stringMerge"/>A.TMPL_MENU_CD
+                          ELSE A.MENU_GROUP_CD<include refid="com.sql.stringMerge"/>A.HIGH_TMPL_MENU_CD<include refid="com.sql.stringMerge"/>A.TMPL_MENU_CD END) AS tree
+                    , A.SCREEN_NM AS MENU_NM
+                    , A.MENU_GROUP_CD AS CLS1
+                    ,(CASE WHEN A.IS_FOLDER ='true' THEN A.TMPL_MENU_CD ELSE A.HIGH_TMPL_MENU_CD END) AS CLS2
+                    ,(CASE WHEN A.IS_FOLDER ='true' THEN '*' ELSE A.TMPL_MENU_CD END) AS CLS3
+                    , A.SCREEN_ID
+                    ,(CASE WHEN A.IS_FOLDER ='true' THEN 2 ELSE 3 END) AS LVL
+                <if test="_databaseId == 'oracle'">
+                    , A.SORT_SQ
+                    , A.TOP_SORT_SQ
+                </if>
+                <if test="_databaseId == 'mssql'">
+                    , CONVERT(VARCHAR, CAST(A.SORT_SQ AS INT)) AS SORT_SQ
+                    , CONVERT(VARCHAR, CAST(A.TOP_SORT_SQ AS INT)) AS TOP_SORT_SQ
+                </if>
+                FROM(
+                    SELECT
+                        MUMS.GATE_CD
+                      , MUMS.MENU_GROUP_CD
+                      , <include refid="com.sql.nvl"/>(MUMS.MENU_CD, ' ') AS MENU_CD
+                      , <include refid="com.sql.nvl"/>(MUTM.SCREEN_ID, '') AS SCREEN_ID
+                      , <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-' ELSE MUTM.SCREEN_ID END) AS SCREEN_NM
+                      , MUTM.TMPL_MENU_CD
+                      , MUTM.SORT_SQ
+                      ,(SELECT SORT_SQ FROM STOCCODD WHERE GATE_CD = MUMS.GATE_CD AND CODE_TYPE = 'M009' AND LANG_CD = #{ses.langCd} AND CODE=MUTM.MODULE_TYPE) AS TOP_SORT_SQ
+                      , <include refid="com.sql.nvl"/>((CASE WHEN MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL THEN ''
+                                     						 ELSE MUTM.HIGH_TMPL_MENU_CD END), ' ') AS HIGH_TMPL_MENU_CD
+                      ,(CASE WHEN (SELECT COUNT(SUB_TM.TMPL_MENU_CD)
+                                     FROM STOCMUMS SUB_MS
+                                    INNER JOIN STOCMUTM SUB_TM
+                                      	  ON (SUB_MS.GATE_CD  = SUB_TM.GATE_CD
+	                                      AND SUB_MS.TMPL_MENU_CD = SUB_TM.TMPL_MENU_CD
+	                                      AND SUB_TM.DEL_FLAG = '0'
+	                                      AND SUB_TM.USE_FLAG = '1')
+                                     WHERE SUB_TM.GATE_CD  = #{ses.gateCd}
+                                       AND SUB_TM.HIGH_TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+                                       AND SUB_MS.DEL_FLAG = '0'
+                                       AND SUB_MS.USE_FLAG = '1') > 0 THEN 'true'
+                              ELSE 'false' END) AS IS_FOLDER
+                    FROM STOCMUMS MUMS
+                    INNER JOIN STOCMUTM MUTM
+                      	 ON (MUMS.GATE_CD = MUTM.GATE_CD
+                         AND MUMS.TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+                         AND MUTM.DEL_FLAG = '0'
+                         AND MUTM.USE_FLAG = '1')
+                    WHERE MUMS.GATE_CD = #{ses.gateCd}
+                      AND MUTM.TMPL_MENU_GROUP_CD IN (SELECT  MUGR.TMPL_MENU_GROUP_CD
+                                                          FROM STOCMUGR MUGR JOIN STOCMUTG MUTG
+                                                           ON (MUGR.GATE_CD = MUTG.GATE_CD
+                                                           AND MUGR.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+                                                         WHERE MUGR.GATE_CD = #{ses.gateCd}
+                                                           AND MUGR.DEL_FLAG = '0'
+                                                           AND MUGR.MENU_GROUP_CD IN (  SELECT  MUGR.MENU_GROUP_CD
+                                                                                           FROM STOCAUMP AUMP
+                                                                                           LEFT JOIN STOCMUGR MUGR
+                                                                                             ON (AUMP.MENU_GROUP_CD = MUGR.MENU_GROUP_CD
+                                                                                             AND AUMP.GATE_CD = MUGR.GATE_CD
+                                                                                             AND MUGR.USE_FLAG = '1')
+                                                                                           WHERE AUMP.GATE_CD = #{ses.gateCd}
+                                                                                             AND AUMP.DEL_FLAG = '0'
+                                                                                             AND MUGR.DEL_FLAG = '0'
+                                                                                             AND AUMP.AUTH_CD ='PF0112'))
+                     AND MUMS.MENU_GROUP_CD IN (SELECT AUMP.MENU_GROUP_CD
+                                                  FROM STOCAUMP AUMP
+                                                  LEFT JOIN STOCMUGR MUGR
+                                                   ON (AUMP.MENU_GROUP_CD = MUGR.MENU_GROUP_CD
+                                                   AND AUMP.GATE_CD  = MUGR.GATE_CD
+                                                   AND MUGR.USE_FLAG = '1')
+                                                 WHERE AUMP.GATE_CD  = #{ses.gateCd}
+                                                   AND AUMP.DEL_FLAG = '0'
+                                                   AND MUGR.DEL_FLAG = '0'
+                                                   AND AUMP.AUTH_CD  = 'PF0112')
+                     AND MUMS.USE_FLAG = '1'
+                     AND MUMS.DEL_FLAG = '0'
+                 )A
+
+                UNION ALL
+
+                SELECT
+                      AUMP.GATE_CD
+                     ,AUMP.MENU_GROUP_CD AS tree
+                     ,<include refid="com.sql.dbo"/>GETCOMCODE(MUGR.GATE_CD, 'M009', MUGR.MODULE_TYPE, 0,#{ses.langCd}) AS MENU_NM
+                     ,AUMP.MENU_GROUP_CD AS CLS1
+                     ,'*' AS CLS2
+                     ,'*' AS CLS3
+                     ,AUMP.SCREEN_ID
+                     ,1 AS LVL
+                      ,AUMP.AUTH_SQ AS SORT_SQ
+                     ,(SELECT SORT_SQ FROM STOCCODD WHERE  CODE_TYPE = 'M009' AND LANG_CD   = #{ses.langCd} AND CODE=MUGR.MODULE_TYPE) AS TOP_SORT_SQ
+                FROM STOCAUMP AUMP
+                LEFT JOIN STOCMUGR MUGR
+	                 ON (AUMP.MENU_GROUP_CD = MUGR.MENU_GROUP_CD
+	                 AND AUMP.GATE_CD  = MUGR.GATE_CD
+	                 AND MUGR.USE_FLAG = '1')
+               WHERE AUMP.GATE_CD  = #{ses.gateCd}
+                 AND AUMP.DEL_FLAG = '0'
+                 AND MUGR.DEL_FLAG = '0'
+                 AND AUMP.AUTH_CD  = 'PF0112'
+          )B
+      )C
+      ORDER BY C.TREE_SOTRT
+
+    </select>
+
+    <select id="doSearch_ButtonList" parameterType="hashMap" resultType="hashMap">
+        SELECT
+          	  SCAC.SCREEN_ID
+            , SCAC.ACTION_CD
+            ,(SELECT Z.MULTI_NM
+            	FROM (SELECT MULG.MULTI_NM
+            			   , ROW_NUMBER() OVER (PARTITION BY SCREEN_ID, ACTION_CD ORDER BY MULTI_SQ DESC) AS RNUM
+		            	FROM STOCMULG MULG
+		               WHERE MULG.GATE_CD   = SCAC.GATE_CD
+		                 AND MULG.LANG_CD   = #{ses.langCd}
+		                 AND MULG.MULTI_CD  = 'SA'
+		           		 AND MULG.SCREEN_ID = SCAC.SCREEN_ID
+		           		 AND MULG.ACTION_CD = SCAC.ACTION_CD
+		           		 AND MULG.DEL_FLAG  = '0'
+					  ) Z
+			   WHERE RNUM = 1) AS ACTION_NM
+          FROM STOCSCRN SCRN
+	   	  JOIN STOCSCAC SCAC
+		       ON (SCRN.GATE_CD  = SCAC.GATE_CD
+		       AND SCRN.SCREEN_ID = SCAC.SCREEN_ID
+		       AND SCRN.GATE_CD  = SCAC.GATE_CD
+		       AND SCAC.DEL_FLAG = '0')
+         WHERE SCRN.GATE_CD   = #{ses.gateCd}
+           AND SCRN.DEL_FLAG  = '0'
+           AND SCAC.SCREEN_ID = UPPER(#{SCREEN_ID})
+    </select>
+
+    <select id="doSearch_Menu_UserList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+              MJUA.DATA_CD  AS USER_ID_V
+            , UR.USER_NM AS USER_NM
+            ,<include refid="com.sql.dbo"/>GETDEPTNAME(UR.GATE_CD, UR.COMPANY_CD, UR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+         FROM STOCMJUA MJUA
+         LEFT OUTER JOIN STOCUSER UR
+	          ON (UR.GATE_CD = MJUA.GATE_CD
+	          AND UR.USER_ID = MJUA.DATA_CD
+	          AND UR.DEL_FLAG='0')
+        WHERE MJUA.GATE_CD   = #{ses.gateCd}
+          AND MJUA.DEL_FLAG  = '0'
+          AND MJUA.SCREEN_ID = #{SCREEN_ID}
+          AND MJUA.DATA_TYPE = 'U'
+    </select>
+
+    <select id="doSearch_Menu_CtrlList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+              MJUA.DATA_CD  AS CTRL_CD
+            , BACO.CTRL_NM
+        FROM STOCMJUA MJUA
+        LEFT OUTER JOIN STOCBACO BACO
+          	 ON (BACO.GATE_CD  = MJUA.GATE_CD
+             AND BACO.BUYER_CD = #{ses.companyCd}
+             AND BACO.CTRL_CD  = MJUA.DATA_CD
+             AND BACO.DEL_FLAG = '0')
+        WHERE MJUA.GATE_CD   = #{ses.gateCd}
+          AND MJUA.DEL_FLAG  = '0'
+          AND MJUA.SCREEN_ID = #{SCREEN_ID}
+          AND MJUA.DATA_TYPE = 'J'
+    </select>
+
+    <select id="doSearch_Button_UserList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+              MBTA.DATA_CD  AS DATA_CD
+            , MBTA.DATA_CD  AS USER_ID_V
+            , UR.USER_NM AS USER_NM
+            ,<include refid="com.sql.dbo"/>GETDEPTNAME(UR.GATE_CD, UR.COMPANY_CD, UR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+          FROM STOCMBTA MBTA
+          JOIN STOCUSER UR
+	           ON (UR.GATE_CD = MBTA.GATE_CD
+	           AND UR.USER_ID = MBTA.DATA_CD
+	           AND UR.DEL_FLAG='0')
+         WHERE MBTA.GATE_CD  = #{ses.gateCd}
+           AND MBTA.DEL_FLAG = '0'
+           AND MBTA.SCREEN_ID = #{SCREEN_ID}
+           AND MBTA.ACTION_CD = #{ACTION_CD}
+           AND MBTA.DATA_TYPE = 'U'
+    </select>
+
+    <select id="doSearch_Button_CtrlList" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+           MBTA.DATA_CD  AS CTRL_CD
+          ,BACO.CTRL_NM
+        FROM STOCMBTA MBTA
+        LEFT OUTER JOIN STOCBACO BACO
+	        ON (BACO.GATE_CD  = MBTA.GATE_CD
+	        AND BACO.BUYER_CD = #{ses.companyCd}
+	        AND BACO.CTRL_CD  = MBTA.DATA_CD
+	        AND BACO.DEL_FLAG = '0')
+        WHERE MBTA.GATE_CD   = #{ses.gateCd}
+          AND MBTA.DEL_FLAG  = '0'
+          AND MBTA.SCREEN_ID = #{SCREEN_ID}
+          AND MBTA.ACTION_CD = #{ACTION_CD}
+          AND MBTA.DATA_TYPE = 'J'
+    </select>
+
+    <delete id="doDelete_Menu_Auth" parameterType="hashMap">
+
+        DELETE FROM STOCMJUA
+        WHERE GATE_CD = #{ses.gateCd}
+        AND DATA_TYPE = #{DATA_TYPE}
+        AND DATA_CD =#{DATA_CD}
+    </delete>
+
+    <insert id="doSave_Menu_Auth" parameterType="hashmap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCMJUA<include refid="com.sql.mergeAs"/>MJUA
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                     ,#{SCREEN_ID} AS SCREEN_ID
+                     ,#{DATA_TYPE} AS DATA_TYPE
+                     ,#{DATA_CD} AS DATA_CD
+                <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>TEMP
+        ON (MJUA.GATE_CD = TEMP.GATE_CD
+        AND MJUA.SCREEN_ID = TEMP.SCREEN_ID
+        AND MJUA.DATA_TYPE = TEMP.DATA_TYPE
+        AND MJUA.DATA_CD = TEMP.DATA_CD)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+            ,SCREEN_ID
+            ,DATA_TYPE
+            ,DATA_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{SCREEN_ID}
+            ,#{DATA_TYPE}
+            ,#{DATA_CD}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+        <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+
+    <update id="doSave_Button_Auth" parameterType="hashmap">
+        MERGE<include refid="com.sql.mergeInto"/>STOCMBTA<include refid="com.sql.mergeAs"/>MBTA
+        USING (SELECT #{ses.gateCd} AS GATE_CD
+                     ,#{SCREEN_ID} AS SCREEN_ID
+                     ,#{ACTION_CD} AS ACTION_CD
+                     ,#{DATA_TYPE} AS DATA_TYPE
+                     ,#{DATA_CD} AS DATA_CD
+               <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>TEMP
+        ON (MBTA.GATE_CD = TEMP.GATE_CD
+            AND MBTA.SCREEN_ID = TEMP.SCREEN_ID
+            AND MBTA.ACTION_CD = TEMP.ACTION_CD
+            AND MBTA.DATA_TYPE = TEMP.DATA_TYPE
+            AND MBTA.DATA_CD = TEMP.DATA_CD)
+        WHEN MATCHED THEN
+		   UPDATE SET
+		       MOD_DATE = <include refid="com.sql.sysdate"/>
+		      ,MOD_USER_ID = #{ses.userId}
+		WHEN NOT MATCHED THEN
+		INSERT (
+		     GATE_CD
+            ,SCREEN_ID
+            ,ACTION_CD
+            ,DATA_TYPE
+            ,DATA_CD
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+        ) VALUES (
+		  #{ses.gateCd}
+		  ,#{SCREEN_ID}
+		  ,#{ACTION_CD}
+		  ,#{DATA_TYPE}
+		  ,#{DATA_CD}
+		  ,<include refid="com.sql.sysdate"/>
+          ,#{ses.userId}
+          ,<include refid="com.sql.sysdate"/>
+          ,#{ses.userId}
+          ,'0'
+        <include refid="com.sql.mergeEnd"/>
+
+    </update>
+
+    <delete id="doDelete_Button_Auth" parameterType="hashMap">
+
+        DELETE FROM STOCMBTA
+        WHERE GATE_CD = #{ses.gateCd}
+            AND SCREEN_ID = #{SCREEN_ID}
+            AND ACTION_CD = #{ACTION_CD}
+            AND DATA_TYPE = #{DATA_TYPE}
+            AND DATA_CD = #{DATA_CD}
+    </delete>
+
+    <insert id="doSaveHistory_Menu_Auth" parameterType="hashmap">
+
+        INSERT INTO STOCMJUH (
+            GATE_CD
+            ,SCREEN_ID
+            ,DATA_TYPE
+            ,DATA_CD
+            ,SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,CH_TYPE
+            ,DEL_FLAG
+        )VALUES (
+            #{ses.gateCd}
+            ,#{SCREEN_ID}
+            ,#{DATA_TYPE}
+            ,#{DATA_CD}
+            ,<include refid="com.sql.nvl"/>((SELECT MAX(SEQ) FROM STOCMJUH WHERE GATE_CD = #{ses.gateCd}
+                                                     AND SCREEN_ID = #{SCREEN_ID}
+                                                     AND DATA_TYPE = #{DATA_TYPE}
+                                                     AND DATA_CD = #{DATA_CD}),0) +1
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,#{CH_TYPE}
+            ,'0'<include refid="com.sql.mergeEnd"/>
+    </insert>
+    
+    <insert id="doSaveHistory_Button_Auth" parameterType="hashmap">
+
+        INSERT INTO STOCMBTH (
+            GATE_CD
+            ,SCREEN_ID
+            ,ACTION_CD
+            ,DATA_TYPE
+            ,DATA_CD
+            ,SEQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,CH_TYPE
+            ,DEL_FLAG
+        )VALUES (
+            #{ses.gateCd}
+            ,#{SCREEN_ID}
+            ,#{ACTION_CD}
+            ,#{DATA_TYPE}
+            ,#{DATA_CD}
+            ,<include refid="com.sql.nvl"/>((SELECT MAX(SEQ) FROM STOCMBTH WHERE GATE_CD = #{ses.gateCd}
+                                                     AND SCREEN_ID = #{SCREEN_ID}
+                                                     AND ACTION_CD =#{ACTION_CD}
+                                                     AND DATA_TYPE = #{DATA_TYPE}
+                                                     AND DATA_CD =  #{DATA_CD}),0) +1
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            , #{CH_TYPE}
+            , '0'<include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <select id="doSearch_MenuHistory" parameterType="hashMap" resultType="hashMap">
+    
+        SELECT
+            MJUH.SCREEN_ID
+            ,<include refid="com.sql.dbo"/>GETMULTINAME(MJUH.GATE_CD, 'SC', #{ses.langCd}, '', MJUH.SCREEN_ID) AS SCREEN_NM
+            ,SEQ
+            ,<include refid="com.sql.dbo"/>GETCODENAME(MJUH.GATE_CD, 'MP012', MJUH.CH_TYPE, #{ses.langCd}) AS CH_TYPE
+            ,(CASE WHEN DATA_TYPE='J' THEN  MJUH.DATA_CD ELSE '' END) AS CTRL_CD
+            ,(CASE WHEN DATA_TYPE='J' THEN <include refid="com.sql.dbo"/>GETCTRLNAME(MJUH.GATE_CD, #{ses.companyCd},  MJUH.DATA_CD, #{ses.langCd}) ELSE '' END) AS CTRL_NM
+            ,(CASE WHEN DATA_TYPE='U' THEN  MJUH.DATA_CD ELSE '' END) AS CTRL_USER_ID
+            ,(CASE WHEN DATA_TYPE='U' THEN <include refid="com.sql.dbo"/>GETUSERNAME(MJUH.GATE_CD, MJUH.DATA_CD, #{ses.langCd}) ELSE '' END) AS USER_NM
+            , <include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(MJUH.GATE_CD, MJUH.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            , <include refid="com.sql.toDateChar"/>(MJUH.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+         FROM STOCMJUH MJUH
+         LEFT JOIN STOCUSER USR
+	          ON (MJUH.GATE_CD = USR.GATE_CD
+	          AND MJUH.DATA_CD = USR.USER_ID)
+        WHERE MJUH.GATE_CD  = #{ses.gateCd}
+          AND MJUH.DEL_FLAG = '0'
+          
+		<if test="USER_NM != '' and USER_NM != null">
+          AND UPPER( USR.USER_NM ) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND	UPPER( USR.USER_ID ) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_NM != '' and CTRL_NM != null">
+            AND MJUH.DATA_CD IN ${ctrlType}
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND UPPER(MJUH.SCREEN_ID) <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_NM != '' and SCREEN_NM != null">
+            AND UPPER(<include refid="com.sql.dbo"/>GETMULTINAME(MJUH.GATE_CD, 'SC', #{ses.langCd}, '', MJUH.SCREEN_ID)) <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY MJUH.SCREEN_ID,MJUH.DATA_TYPE, MJUH.DATA_CD, MJUH.SEQ DESC
+    </select>
+
+    <select id="doSearch_ButtonHistory" parameterType="hashMap" resultType="hashMap">
+        SELECT
+              MBTH.SCREEN_ID
+            ,<include refid="com.sql.dbo"/>GETMULTINAME(MBTH.GATE_CD, 'SC', #{ses.langCd}, '', MBTH.SCREEN_ID) AS SCREEN_NM
+            , MBTH.ACTION_CD
+            ,<include refid="com.sql.dbo"/>GETMULTINAME(MBTH.GATE_CD, 'SA', #{ses.langCd}, MBTH.ACTION_CD, MBTH.SCREEN_ID) AS ACTION_NM
+            , SEQ
+            ,<include refid="com.sql.dbo"/>GETCODENAME(MBTH.GATE_CD, 'MP012', MBTH.CH_TYPE, #{ses.langCd}) AS CH_TYPE
+            ,(CASE WHEN DATA_TYPE='J' THEN  MBTH.DATA_CD ELSE '' END) AS CTRL_CD
+            ,(CASE WHEN DATA_TYPE='J' THEN <include refid="com.sql.dbo"/>GETCTRLNAME(MBTH.GATE_CD, #{ses.companyCd},  MBTH.DATA_CD, #{ses.langCd}) ELSE '' END) AS CTRL_NM
+            ,(CASE WHEN DATA_TYPE='U' THEN  MBTH.DATA_CD ELSE '' END) AS CTRL_USER_ID
+            ,(CASE WHEN DATA_TYPE='U' THEN <include refid="com.sql.dbo"/>GETUSERNAME(MBTH.GATE_CD, MBTH.DATA_CD, #{ses.langCd}) ELSE '' END) AS USER_NM
+            ,<include refid="com.sql.dbo"/>getDeptName(USR.GATE_CD, USR.COMPANY_CD, USR.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+            ,<include refid="com.sql.dbo"/>GETUSERNAME(MBTH.GATE_CD, MBTH.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+            ,<include refid="com.sql.toDateChar"/>(MBTH.MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+        FROM STOCMBTH MBTH
+        LEFT OUTER JOIN STOCUSER USR
+          	 ON (MBTH.GATE_CD = USR.GATE_CD
+          	 AND MBTH.DATA_CD = USR.USER_ID)
+        WHERE MBTH.GATE_CD  = #{ses.gateCd}
+          AND MBTH.DEL_FLAG = '0'
+          
+		<if test="USER_NM != '' and USER_NM != null">
+          AND UPPER( USR.USER_NM ) <include refid="com.sql.likeL"/> UPPER(#{USER_NM}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND	UPPER( USR.USER_ID ) <include refid="com.sql.likeL"/> UPPER(#{USER_ID}) <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_NM != '' and CTRL_NM != null">
+            AND MBTH.DATA_CD IN ${ctrlType}
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND UPPER(MBTH.SCREEN_ID) <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_NM != '' and SCREEN_NM != null">
+            AND UPPER(<include refid="com.sql.dbo"/>GETMULTINAME(MBTH.GATE_CD, 'SC', #{ses.langCd}, '', MBTH.SCREEN_ID)) <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_CD != '' and ACTION_CD != null">
+            AND UPPER(MBTH.ACTION_CD) <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_NM != '' and ACTION_NM != null">
+            AND UPPER(<include refid="com.sql.dbo"/>GETMULTINAME(MBTH.GATE_CD, 'SA', #{ses.langCd}, MBTH.ACTION_CD, MBTH.SCREEN_ID)) <include refid="com.sql.likeL"/> #{ACTION_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        ORDER BY MBTH.SCREEN_ID, MBTH.ACTION_CD, MBTH.DATA_TYPE, MBTH.DATA_CD, MBTH.SEQ DESC
+    </select>
+</mapper>

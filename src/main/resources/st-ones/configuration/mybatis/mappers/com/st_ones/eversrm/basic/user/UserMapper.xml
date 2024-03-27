@@ -1,0 +1,1017 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.basic.user.UserMapper">
+
+    <select id="doSearchUserSup" parameterType="hashMap" resultType="hashMap">
+
+        SELECT USERS.GATE_CD
+        , USERS.USER_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM_DISPLAY
+        , USERS.DEL_FLAG
+        , USERS.USE_FLAG
+        , USERS.COMPANY_CD
+        , USERS.USER_TYPE
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) USER_NM_DISPLAY
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) USER_NM_SEARCH
+        , <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.USER_TYPE, #{ses.langCd}) AS COMPANY_NM
+        , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) as DEPT_NM
+        , <include refid="com.sql.nvl"/>(USERS.SUPER_USER_FLAG, '0') AS SUPER_USER_FLAG
+        FROM STOCUSER USERS
+        WHERE USERS.GATE_CD = #{ses.gateCd}
+        AND USERS.DEL_FLAG = '0'
+        AND USERS.USE_FLAG = '1'
+        <if test="USER_TYPE_SEARCH != '' and USER_TYPE_SEARCH != null">
+            AND USERS.USER_TYPE = #{USER_TYPE_SEARCH}
+        </if>
+        <if test="COMPANY_CD_SEARCH != '' and COMPANY_CD_SEARCH != null">
+            AND USERS.COMPANY_CD = #{COMPANY_CD_SEARCH}
+        </if>
+        <if test="USER_NM_SEARCH != '' and USER_NM_SEARCH != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID_SEARCH != '' and USER_ID_SEARCH != null">
+            AND USERS.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <!-- 	    There is no Department info with suppliers  -->
+        <!-- 	    <if test="DEPT_CD_SEARCH != ''"> -->
+        <!--             AND USERS.DEPT_CD = #{DEPT_CD_SEARCH} -->
+        <!-- 	    </if> -->
+
+        ORDER BY USERS.USER_ID
+
+    </select>
+
+    <select id="doSearchUser" parameterType="hashMap" resultType="hashMap">
+
+        SELECT USERS.GATE_CD
+        , USERS.USER_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM_DISPLAY
+        , USERS.DEL_FLAG
+        , USERS.USE_FLAG
+        , USERS.COMPANY_CD
+        , USERS.USER_TYPE
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM_DISPLAY
+        , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM_SEARCH
+        , <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.USER_TYPE, #{ses.langCd})
+        COMPANY_NM
+        , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+        , <include refid="com.sql.nvl"/>(USERS.SUPER_USER_FLAG, '0') AS SUPER_USER_FLAG
+        FROM STOCUSER USERS
+        WHERE USERS.GATE_CD = #{ses.gateCd}
+        AND USERS.DEL_FLAG = '0'
+        AND USERS.USE_FLAG = '1'
+        <if test="USER_TYPE_SEARCH != '' and USER_TYPE_SEARCH != null">
+            AND USERS.USER_TYPE = #{USER_TYPE_SEARCH}
+        </if>
+        <if test="COMPANY_NM_SEARCH != '' and COMPANY_NM_SEARCH != null">
+            AND <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.USER_TYPE,
+            #{ses.langCd}) <include refid="com.sql.likeL"/> #{COMPANY_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="USER_NM_SEARCH != '' and USER_NM_SEARCH != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="DEPT_NM_SEARCH != '' and DEPT_NM_SEARCH != null">
+            AND <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD,
+            #{ses.langCd}) <include refid="com.sql.likeL"/> #{DEPT_NM_SEARCH} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_ID_SEARCH != '' and USER_ID_SEARCH != null">
+            AND USERS.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY USERS.USER_ID
+
+    </select>
+
+    <select id="doSearchUserMulti" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+	          A.COMPANY_CD
+	        , A.COMPANY_NM
+	        , A.USER_ID
+	        , A.USER_ID AS USER_ID_V
+	        , A.USER_NM
+	        , A.USER_NM AS USER_NM_V
+	        , A.DEPT_NM
+	        , A.DEPT_CD
+	        , A.CELL_NUM
+	        , A.CELL_NUM AS CELL_NUM_V
+	        , A.EMAIL
+	        , A.EMAIL AS EMAIL_V
+        FROM(
+	        SELECT
+		          USERS.GATE_CD
+		        , USERS.COMPANY_CD
+		        , GETUSERCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.USER_TYPE, #{ses.langCd}) AS COMPANY_NM
+		        , USERS.USER_ID AS USER_ID
+		        , GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM
+		        , USERS.USER_TYPE
+		        , getUserDeptInfo(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS DEPT_NM
+		        , USERS.DEPT_CD
+		        , USERS.CELL_NUM AS CELL_NUM
+		        , USERS.EMAIL 	 AS EMAIL
+	         FROM STOCUSER USERS
+	        WHERE USERS.GATE_CD  = #{ses.gateCd}
+	          AND USERS.DEL_FLAG = '0'
+
+	        UNION ALL
+
+	        SELECT
+		          CVUR.GATE_CD
+		        , CVUR.COMPANY_CD
+		        ,(CASE WHEN CVUR.USER_TYPE='S'
+		        			THEN (SELECT VENDOR_NM FROM STOCVNGL WHERE GATE_CD='100' AND VENDOR_CD=CVUR.COMPANY_CD AND DEL_FLAG='0')
+		        	   ELSE (SELECT CUST_NM FROM STOCCUST WHERE GATE_CD='100' AND CUST_CD=CVUR.COMPANY_CD AND DEL_FLAG='0')
+		          END) AS COMPANY_NM
+		        , UPPER(TRIM(CVUR.USER_ID)) AS USER_ID
+		        , CVUR.USER_NM
+		        , CVUR.USER_TYPE
+		        , getUserDeptInfo(CVUR.GATE_CD, CVUR.USER_ID, #{ses.langCd}) AS DEPT_NM
+		        , CVUR.DEPT_CD
+		        , CVUR.CELL_NUM   AS CELL_NUM
+		        , CVUR.EMAIL 	  AS EMAIL
+	         FROM STOCCVUR CVUR
+	        WHERE CVUR.GATE_CD  = #{ses.gateCd}
+	          AND CVUR.DEL_FLAG = '0'
+        )A
+        WHERE 1=1
+        <if test="COMPANY_NM != '' and COMPANY_NM != NULL">
+			AND A.COMPANY_NM <include refid="com.sql.likeL"/> #{COMPANY_NM} <include refid="com.sql.likeR"/>
+		</if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND A.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND A.USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_IDS != '' and USER_IDS != null">
+            AND A.USER_ID in
+            <foreach collection="list" item="item" index="index" separator="," open="(" close=")">
+                #{item.value}
+            </foreach>
+        </if>
+        ORDER BY A.COMPANY_CD, A.USER_ID
+
+    </select>
+
+    <select id="doGetUser" resultType="hashMap">
+        SELECT
+            USERS.GATE_CD,
+            USERS.USER_ID,
+            USERS.USER_ID  AS                                                                                      USER_ID_ORI,
+            <include refid="com.sql.dbo"/>getGmtDate(USERS.CHANGE_DATE, #{ses.userGmt}, #{ses.systemGmt},
+                                  #{ses.dateValueFormat})
+            AS CHANGE_DATE_LAST,
+            USERS.CHANGE_USER_ID,
+            <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.CHANGE_USER_ID,
+                                   #{ses.langCd})
+            AS CHANGE_USER_NM,
+            USERS.DEL_FLAG,
+            USERS.USE_FLAG,
+            USERS.COMPANY_CD,
+            USERS.USER_TYPE,
+            USERS.WORK_TYPE,
+            USERS.USER_NM,
+            USERS.USER_NM_ENG,
+            USERS.PASSWORD,
+            USERS.PASSWORD AS PASSWORD_CHECK,
+            USERS.PASSWORD AS TMP_WORD,
+            USERS.PASSWORD AS TMP_WORD_CHK,
+            USERS.PLANT_CD,
+            USERS.DEPT_CD,
+            USERS.POSITION_NM,
+            USERS.DUTY_NM,
+            USERS.EMPLOYEE_NO,
+            (CASE WHEN <include refid="com.sql.nvl"/>(USERS.MAIL_FLAG, '0') = '1' THEN USERS.EMAIL ELSE '' END) AS EMAIL
+            <include refid="com.sql.dbo"/>GETDECTEL(USERS.TEL_NO) AS TEL_NO,
+            <include refid="com.sql.dbo"/>GETDECTEL(USERS.CELL_NO) AS CELL_NO,
+            <include refid="com.sql.dbo"/>GETDECTEL(USERS.FAX_NO) AS FAX_NO,
+            USERS.LANG_CD,
+            USERS.COUNTRY_CD,
+            USERS.GMT_CD,
+            USERS.PROGRESS_CD,
+            USERS.PW_WRONG_CNT,
+            USERS.PW_RESET_FLAG,
+            <include refid="com.sql.dbo"/>getGmtDate(USERS.PW_RESET_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PW_RESET_DATE,
+            <include refid="com.sql.dbo"/>getGmtDate(USERS.LAST_LOGIN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS LAST_LOGIN_DATE,
+            <include refid="com.sql.dbo"/>getGmtDate(USERS.LAST_LOGIN_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'hh24:mi:ss') AS LAST_LOGIN_TIME,
+            USERS.IP_ADDR,
+            <include refid="com.sql.dbo"/>GETUSERCOMPANYNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.USER_TYPE, #{ses.langCd}) AS COMPANY_NM,
+            <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM,
+            <include refid="com.sql.dbo"/>GETPLANTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.PLANT_CD, #{ses.langCd}) AS PLANT_NM,
+            'U' AS INSERT_FLAG,
+            <include refid="com.sql.nvl"/>(USERS.SUPER_USER_FLAG, '0') AS SUPER_USER_FLAG,
+            USERS.PROGRESS_CD,
+            USERS.USER_DATE_FORMAT_CD,
+            USERS.USER_NUMBER_FORMAT_CD,
+            OGCM.CUR
+        FROM STOCUSER USERS LEFT OUTER JOIN STOCOGCM OGCM
+                ON (USERS.GATE_CD = OGCM.GATE_CD
+                    AND USERS.COMPANY_CD = OGCM.BUYER_CD)
+        WHERE USERS.GATE_CD = #{ses.gateCd}
+              AND USERS.DEL_FLAG = '0'
+              AND USERS.USER_ID = #{USER_ID}
+    </select>
+
+    <select id="doGetAuProfile" parameterType="hashMap" resultType="hashMap">
+        SELECT DISTINCT
+        CASE WHEN USAP.AUTH_CD IS NOT NULL THEN '1' ELSE '0' END SELECTED
+        , AUPF.AUTH_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '') AS AUTH_NM
+        , <include refid="com.sql.dbo"/>GETMULTIDESC(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '') AS AUTH_DESC
+        , <include refid="com.sql.dbo"/>getGmtDate(USAP.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS
+        VALID_FROM_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(USAP.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS
+        VALID_TO_DATE
+        , #{USER_ID} AS USER_ID
+        , #{USER_ID} AS USER_ID_ORI
+        , AUPF.GATE_CD
+        , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M006', AUPF.USER_TYPE, '0', #{ses.langCd}) AS USER_TYPE
+        FROM STOCAUPF AUPF LEFT OUTER JOIN STOCUSAP USAP
+        ON AUPF.GATE_CD = USAP.GATE_CD
+        AND AUPF.AUTH_CD = USAP.AUTH_CD
+        AND USAP.DEL_FLAG = '0'
+        AND USAP.USER_ID = #{USER_ID}
+        WHERE 1 = 1
+        AND AUPF.GATE_CD = #{ses.gateCd}
+        AND AUPF.DEL_FLAG = '0'
+        AND AUPF.USER_TYPE= (SELECT US.USER_TYPE FROM STOCUSER US WHERE US.GATE_CD = AUPF.GATE_CD AND US.USER_ID =
+        #{USER_ID})
+        <if test='userType == "S"'>
+            AND EXISTS
+            (SELECT 'X' FROM STOCUSAP SUSAP
+            WHERE 1 = 1
+            AND AUPF.GATE_CD = SUSAP.GATE_CD
+            AND AUPF.AUTH_CD = SUSAP.AUTH_CD
+            AND SUSAP.USER_ID = #{ses.userId}
+            AND SUSAP.DEL_FLAG = '0')
+        </if>
+        ORDER BY SELECTED DESC, AUTH_CD
+    </select>
+
+    <select id="doGetAcProfile" parameterType="hashMap" resultType="hashMap">
+        SELECT DISTINCT
+        CASE WHEN USAC.ACTION_PROFILE_CD IS NOT NULL THEN '1' ELSE '0' END SELECTED
+        , ACPH.ACTION_PROFILE_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(ACPH.GATE_CD, 'AP', #{ses.langCd}, ACPH.ACTION_PROFILE_CD, '') AS PROFILE_NM
+        , <include refid="com.sql.dbo"/>GETMULTIDESC(ACPH.GATE_CD, 'AP', #{ses.langCd}, ACPH.ACTION_PROFILE_CD, '') AS AUTH_DESC
+        , <include refid="com.sql.dbo"/>getGmtDate(USAC.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS
+        VALID_FROM_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(USAC.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt},<include refid="com.sql.dateFormat"/>) AS
+        VALID_TO_DATE
+        , #{USER_ID} AS USER_ID
+        , #{USER_ID} AS USER_ID_ORI
+        , ACPH.GATE_CD
+        , <include refid="com.sql.dbo"/>GETCOMCODE(ACPH.GATE_CD, 'M006', ACPH.USER_TYPE, '0', #{ses.langCd}) AS USER_TYPE
+        FROM STOCACPH ACPH LEFT OUTER JOIN STOCUSAC USAC
+        ON ACPH.GATE_CD = USAC.GATE_CD
+        AND ACPH.ACTION_PROFILE_CD = USAC.ACTION_PROFILE_CD
+        AND USAC.DEL_FLAG = '0'
+        AND USAC.USER_ID = #{USER_ID}
+        WHERE 1 = 1
+        AND ACPH.GATE_CD = #{ses.gateCd}
+        AND ACPH.DEL_FLAG = '0'
+        <if test='userType =="S"'>
+            AND EXISTS
+            (SELECT 'X' FROM STOCUSAC SUSAC
+            WHERE 1 = 1
+            AND ACPH.GATE_CD = SUSAC.GATE_CD
+            AND ACPH.ACTION_PROFILE_CD = SUSAC.ACTION_PROFILE_CD
+            AND SUSAC.USER_ID = #{ses.userId}
+            AND SUSAC.DEL_FLAG = '0')
+        </if>
+        ORDER BY SELECTED DESC, ACTION_PROFILE_CD
+    </select>
+
+    <select id="existsUserInformation" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(USER_ID)
+        FROM STOCUSER
+        WHERE GATE_CD = #{ses.gateCd}
+              AND USER_ID = UPPER(<include refid="com.sql.trim"/> (#{USER_ID}))
+
+    </select>
+
+    <insert id="createUserInformation" parameterType="hashMap">
+
+        INSERT INTO STOCUSER (
+            GATE_CD
+            , USER_ID
+            , ADD_DATE
+            , ADD_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , COMPANY_CD
+            , USER_TYPE
+            , WORK_TYPE
+            , USER_NM
+            , USER_NM_ENG
+            , PASSWORD
+            , PLANT_CD
+            , DEPT_CD
+            , POSITION_NM
+            , DUTY_NM
+            , EMPLOYEE_NO
+            , EMAIL
+            , TEL_NO
+            , CELL_NO
+            , FAX_NO
+            , LANG_CD
+            , COUNTRY_CD
+            , SUPER_USER_FLAG
+            , PROGRESS_CD
+            , GMT_CD
+            , USER_DATE_FORMAT_CD
+            , USER_NUMBER_FORMAT_CD
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/> (#{USER_ID}))
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{USE_FLAG}
+            , #{COMPANY_CD}
+            , #{USER_TYPE}
+            , #{WORK_TYPE}
+            , #{USER_NM}
+            , #{USER_NM_ENG}
+            , <include refid="com.sql.dbo"/>SETENCPASSWORD(#{PASSWORD})
+            , #{PLANT_CD}
+            , #{DEPT_CD}
+            , #{POSITION_NM}
+            , #{DUTY_NM}
+            , #{EMPLOYEE_NO}
+            , <include refid="com.sql.dbo"/>SETENCEMAIL(#{EMAIL})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{TEL_NO})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{CELL_NO})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{FAX_NO})
+            , #{LANG_CD}
+            , #{COUNTRY_CD}
+            , #{SUPER_USER_FLAG}
+            , #{PROGRESS_CD}
+            , #{GMT_CD}
+            , #{USER_DATE_FORMAT_CD}
+            , #{USER_NUMBER_FORMAT_CD}
+        )
+
+    </insert>
+
+    <update id="updateUserInformation" parameterType="hashMap">
+
+        UPDATE STOCUSER
+        SET
+            CHANGE_DATE      = <include refid="com.sql.sysdate"/>
+            , CHANGE_USER_ID = #{ses.userId}
+        , USE_FLAG = #{USE_FLAG}
+        , COMPANY_CD = #{COMPANY_CD}
+        , USER_TYPE = #{USER_TYPE}
+        , WORK_TYPE = #{WORK_TYPE}
+        , USER_NM = #{USER_NM}
+        , USER_NM_ENG = #{USER_NM_ENG}
+        , PASSWORD = <include refid="com.sql.dbo"/>SETENCPASSWORD(#{PASSWORD})
+        , PLANT_CD = #{PLANT_CD}
+        , DEPT_CD = #{DEPT_CD}
+        , POSITION_NM = #{POSITION_NM}
+        , DUTY_NM = #{DUTY_NM}
+        , EMPLOYEE_NO = #{EMPLOYEE_NO}
+        , EMAIL = <include refid="com.sql.dbo"/>SETENCEMAIL(#{EMAIL})
+        , TEL_NO = <include refid="com.sql.dbo"/>SETENCTEL(#{TEL_NO})
+        , CELL_NO = <include refid="com.sql.dbo"/>SETENCTEL(#{CELL_NO})
+        , FAX_NO = <include refid="com.sql.dbo"/>SETENCTEL(#{FAX_NO})
+        , LANG_CD = #{LANG_CD}
+        , COUNTRY_CD = #{COUNTRY_CD}
+        , SUPER_USER_FLAG = #{SUPER_USER_FLAG}
+        , GMT_CD = #{GMT_CD}
+        , PROGRESS_CD = #{PROGRESS_CD}
+        , DEL_FLAG = '0'
+        , USER_DATE_FORMAT_CD = #{USER_DATE_FORMAT_CD}
+        , USER_NUMBER_FORMAT_CD = #{USER_NUMBER_FORMAT_CD}
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = #{USER_ID}
+
+    </update>
+
+    <update id="doResetUserInfo" parameterType="hashMap">
+
+        UPDATE STOCUSER
+        SET LAST_LOGIN_DATE = <include refid="com.sql.sysdate"/>
+        WHERE GATE_CD = #{GATE_CD}
+              AND USER_ID = UPPER(<include refid="com.sql.trim"/> (#{USER_ID_ORI}))
+
+    </update>
+
+    <update id="doSaveIssue" parameterType="hashMap">
+        UPDATE STOCUSER
+        SET CHANGE_DATE = <include refid="com.sql.sysdate"/>
+        ,CHANGE_USER_ID = #{ses.userId}
+        ,PASSWORD = <include refid="com.sql.dbo"/>SETENCPASSWORD(#{PASSWORD})
+        ,PW_WRONG_CNT = 0
+        ,PW_RESET_FLAG = '1'
+        ,PW_RESET_DATE = <include refid="com.sql.sysdate"/>
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = #{USER_ID}
+        <if test='ses.userType=="B"'>
+            AND COMPANY_CD = #{ses.companyCode}
+        </if>
+    </update>
+
+    <select id="existsUSAP" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(AUTH_CD)
+        FROM STOCUSAP
+        WHERE GATE_CD = #{GATE_CD}
+              AND USER_ID = #{USER_ID}
+              AND AUTH_CD = #{AUTH_CD}
+
+    </select>
+
+    <insert id="createUSAP" parameterType="hashMap">
+
+        INSERT INTO STOCUSAP (
+            GATE_CD
+            , USER_ID
+            , AUTH_CD
+            , ADD_DATE
+            , ADD_USER_ID
+            , CHANGE_DATE
+            , CHANGE_USER_ID
+            , DEL_FLAG
+            , VALID_FROM_DATE
+            , VALID_TO_DATE
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            , #{AUTH_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        )
+    </insert>
+
+    <update id="updateUSAP" parameterType="hashMap">
+        UPDATE STOCUSAP
+        SET
+            VALID_FROM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt},
+                                                    <include refid="com.sql.dateFormat"/>)
+        , VALID_TO_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        , CHANGE_DATE = <include refid="com.sql.sysdate"/>
+        , CHANGE_USER_ID = #{ses.userId}
+        , DEL_FLAG = '0'
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        AND AUTH_CD = #{AUTH_CD}
+    </update>
+
+    <update id="doDeleteUSAP" parameterType="hashMap">
+        UPDATE STOCUSAP
+        SET
+            CHANGE_DATE      = <include refid="com.sql.sysdate"/>
+            , CHANGE_USER_ID = #{ses.userId}
+        , DEL_FLAG = '1'
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+    </update>
+
+    <select id="existsUSAC" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT COUNT(ACTION_PROFILE_CD)
+        FROM STOCUSAC
+        WHERE GATE_CD = #{GATE_CD}
+              AND USER_ID = #{USER_ID}
+              AND ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </select>
+
+    <insert id="createUSAC" parameterType="hashMap">
+
+        INSERT INTO STOCUSAC (
+            GATE_CD
+            , USER_ID
+            , ACTION_PROFILE_CD
+            , ADD_DATE
+            , ADD_USER_ID
+            , CHANGE_DATE
+            , CHANGE_USER_ID
+            , DEL_FLAG
+            , VALID_FROM_DATE
+            , VALID_TO_DATE
+        ) VALUES (
+            #{ses.gateCd}
+            , #{USER_ID}
+            , #{ACTION_PROFILE_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        )
+    </insert>
+
+    <update id="updateUSAC" parameterType="hashMap">
+        UPDATE STOCUSAC
+        SET
+            VALID_FROM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt},
+                                                    <include refid="com.sql.dateFormat"/>)
+        , VALID_TO_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+        , CHANGE_DATE = <include refid="com.sql.sysdate"/>
+        , CHANGE_USER_ID = #{ses.userId}
+        , DEL_FLAG = '0'
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = #{USER_ID}
+        AND ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </update>
+
+    <update id="doDeleteUSAC" parameterType="hashMap">
+        UPDATE STOCUSAC
+        SET
+            CHANGE_DATE      = <include refid="com.sql.sysdate"/>
+            , CHANGE_USER_ID = #{ses.userId}
+        , DEL_FLAG = '1'
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = #{USER_ID}
+    </update>
+
+    <update id="doDeleteUserInfo" parameterType="hashMap">
+
+        UPDATE STOCUSER
+        SET
+            DEL_FLAG         = '1'
+            , CHANGE_DATE    = <include refid="com.sql.sysdate"/>
+            , CHANGE_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{GATE_CD}
+        AND USER_ID = #{USER_ID_ORI}
+
+    </update>
+
+    <select id="selectUserSearch" parameterType="hashmap" resultType="hashmap">
+
+        SELECT DISTINCT USER_TBL.USER_ID
+        , <include refid="com.sql.dbo"/>getUserName(USER_TBL.GATE_CD, USER_TBL.USER_ID, #{ses.langCd}) AS USER_NM
+        , USER_TBL.USER_TYPE
+        , USER_TBL.COMPANY_CD
+        , <include refid="com.sql.dbo"/>getUserCompanyName(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.USER_TYPE,
+        #{ses.langCd}) AS BUYER_NM
+        , <include refid="com.sql.dbo"/>getDeptName(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD, #{ses.langCd}) AS
+        DEPT_NM
+        , OGDP.DEPT_CD
+        , USER_TBL.POSITION_NM
+        , USER_TBL.DUTY_NM
+        FROM STOCUSER USER_TBL
+        LEFT JOIN STOCOGCM OGCM ON USER_TBL.COMPANY_CD = OGCM.BUYER_CD AND USER_TBL.GATE_CD = OGCM.GATE_CD AND
+        OGCM.DEL_FLAG = '0'
+        LEFT JOIN STOCOGDP OGDP ON USER_TBL.DEPT_CD = OGDP.DEPT_CD AND USER_TBL.GATE_CD = OGDP.GATE_CD AND
+        USER_TBL.COMPANY_CD = OGDP.BUYER_CD AND OGDP.DEL_FLAG = '0'
+        WHERE USER_TBL.GATE_CD = #{ses.gateCd}
+        AND USER_TBL.DEL_FLAG = '0'
+        <if test="USER_TYPE != '' and USER_TYPE != null">
+            AND USER_TBL.USER_TYPE = UPPER(<include refid="com.sql.trim"/>(#{USER_TYPE}))
+        </if>
+        <if test="BUYER_NM != '' and BUYER_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserCompanyName(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.USER_TYPE,
+            #{ses.langCd}) <include refid="com.sql.likeL"/> #{BUYER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserName(USER_TBL.GATE_CD, USER_TBL.USER_ID, #{ses.langCd})
+          <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DEPT_NM != '' and DEPT_NM != null">
+            AND <include refid="com.sql.dbo"/>getDeptName(USER_TBL.GATE_CD, USER_TBL.COMPANY_CD, USER_TBL.DEPT_CD,
+            #{ses.langCd}) <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+    <select id="xxxxdoSearchUserWorkHistoxxxryxxx" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        <include refid="com.sql.dbo"/>getGmtDate(ULOG.JOB_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>'
+        hh24:mi:ss') AS JOB_DATE
+        , ULOG.JOB_TYPE
+        , ULOG.JOB_DESC
+        , ULOG.MODULE_NM
+        , ULOG.METHOD_NM
+        , ULOG.USER_TYPE
+        , ULOG.USER_ID
+        , <include refid="com.sql.dbo"/>GETUSERNAME(ULOG.GATE_CD, ULOG.USER_ID, #{ses.langCd}) AS USER_NM
+        , ULOG.IP_ADDR
+        , ULOG.SCREEN_ID AS SCREEN_ID
+        , <include refid="com.sql.dbo"/>GETMULTINAME(ULOG.GATE_CD, 'SC', #{ses.langCd}, '', ULOG.SCREEN_ID) AS SCREEN_NM
+        , ULOG.ACTION_CD AS ACTION_CD
+        , <include refid="com.sql.dbo"/>GETMULTINAME(ULOG.GATE_CD, 'SA', #{ses.langCd}, ULOG.ACTION_CD, ULOG.SCREEN_ID) AS
+        ACTION_NM
+        , ULOG.GATE_CD
+        FROM STOCULOG ULOG JOIN STOCUSER U ON ULOG.GATE_CD=U.GATE_CD AND ULOG.USER_ID=U.USER_ID
+        WHERE ULOG.GATE_CD = #{ses.gateCd}
+        <if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null and ADD_DATE_TO != '' and ADD_DATE_TO != null">
+            AND ULOG.JOB_DATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="JOB_TYPE != '' and JOB_TYPE != null">
+            AND ULOG.JOB_TYPE = #{JOB_TYPE}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND ULOG.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_TYPE != '' and USER_TYPE != null">
+            AND ULOG.USER_TYPE = #{USER_TYPE}
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(ULOG.GATE_CD, ULOG.USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IP_ADDR != '' and IP_ADDR != null">
+            AND ULOG.IP_ADDR <include refid="com.sql.likeL"/> #{IP_ADDR} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="METHOD_NM != '' and METHOD_NM != null">
+            AND ULOG.METHOD_NM <include refid="com.sql.likeL"/> #{METHOD_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MODULE_NM != '' and MODULE_NM != null">
+            AND ULOG.MODULE_NM <include refid="com.sql.likeL"/> #{MODULE_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="JOB_DESC != '' and JOB_DESC != null">
+            AND ULOG.JOB_DESC <include refid="com.sql.likeL"/> #{JOB_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND ULOG.SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_CD != '' and ACTIOzN_CD != null">
+            AND ULOG.ACTION_CD <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY ULOG.JOB_DATE DESC
+    </select>
+
+    <select id="doSearchUserWorkHistory" parameterType="hashMap" resultType="hashMap">
+
+        SELECT A.*
+              , <include refid="com.sql.nvl"/>(A.SCREEN_URL,A.SCREEN_NMS) as SCREEN_NM
+              ,<include refid="com.sql.nvl"/>(A.STATUS1, A.STATUS2) as STATUS
+        FROM ( SELECT
+                        <if test="_databaseId == 'mssql'">CONVERT(CHAR(20), ULOG.JOB_DATE, 20)</if> <if test="_databaseId == 'oracle'">TO_CHAR(ULOG.JOB_DATE, 'YYYYMMDD HH24:MI:SS')</if>AS JOB_DATE
+                        ,ULOG.JOB_DATE AS JOBDATE
+                        ,ULOG.JOB_TYPE
+                        ,ULOG.FAIL_TYPE
+                        ,ULOG.JOB_DESC
+                        ,ULOG.MODULE_NM
+                        ,ULOG.METHOD_NM
+                        ,CASE WHEN ULOG.USER_TYPE = 'N' THEN ''
+                              ELSE ULOG.USER_TYPE END AS USER_TYPE
+                        ,ULOG.TMPL_MENU_CD
+                        ,ULOG.USER_ID
+                        ,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'MP014', ULOG.USER_STATUS, '0', #{ses.langCd}) AS STATUS1
+                        ,(SELECT <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'MP014', USR.STATUS, '0', #{ses.langCd})
+                            FROM STOCUSER USR
+                           WHERE USR.GATE_CD = ULOG.GATE_CD AND USR.USER_ID = ULOG.USER_ID AND USR.DEL_FLAG = '0') AS STATUS2
+                        ,(CASE
+                                 WHEN ULOG.USER_TYPE = 'C'
+                                 THEN
+                                          (SELECT U.USER_NM
+                                          FROM  STOCUSER U
+                                          WHERE   U.GATE_CD = ULOG.GATE_CD
+                                          AND    U.USER_ID = ULOG.USER_ID
+                                          )
+                                 ELSE
+                                       (SELECT U.USER_NM
+                                       FROM  STOCCVUR U
+                                       WHERE   U.GATE_CD = ULOG.GATE_CD
+                                       AND    U.USER_ID = ULOG.USER_ID
+                                       )
+                          END) AS USER_NM
+                        ,ULOG.IP_ADDR
+                        ,ULOG.SCREEN_ID AS SCREEN_ID
+                        , CASE WHEN ULOG.SCREEN_ID IS NOT NULL
+                               THEN
+                                          (SELECT MAX(M.MULTI_NM)
+                                          FROM  STOCMULG M
+                                          WHERE   M.GATE_CD   = ULOG.GATE_CD
+                                          AND    M.DEL_FLAG  = '0'
+                                          AND    M.MULTI_CD  = 'SC'
+                                          AND    M.LANG_CD   = #{ses.langCd}
+                                          AND    M.SCREEN_ID = ULOG.SCREEN_ID
+                                          )
+                                 ELSE
+                                       (SELECT MAX(M.MULTI_NM)
+                                       FROM  STOCMULG M
+                                       WHERE   M.GATE_CD   = ULOG.GATE_CD
+                                       AND    M.DEL_FLAG  = '0'
+                                       AND    M.MULTI_CD  = 'MT'
+                                       AND    M.LANG_CD   = #{ses.langCd}
+                                       AND    M.SCREEN_ID = ULOG.TMPL_MENU_CD
+                                       )
+                          END AS SCREEN_NMS
+                        <if test="_databaseId == 'oracle'">
+                        ,(SELECT MAX(<include refid="com.sql.dbo"/>GETCOMCODE(MUTG.GATE_CD, 'M009', MUTG.MODULE_TYPE, '0', #{ses.langCd})
+                        </if>
+                        <if test="_databaseId == 'mssql'">
+                        ,(SELECT TOP 1 (<include refid="com.sql.dbo"/>GETCOMCODE(MUTG.GATE_CD, 'M009', MUTG.MODULE_TYPE, '0', #{ses.langCd})
+                        </if>
+                                    <include refid="com.sql.stringMerge"/>'<![CDATA[>]]>'
+                                    <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd},
+                                                                          (SELECT TM.TMPL_MENU_CD
+                                                                             FROM STOCMUTM TM
+                                                                            WHERE TM.GATE_CD = MUTM.GATE_CD
+                                                                              AND TM.TMPL_MENU_CD = (
+                                                                                    CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+                                                                                         THEN ''
+                                                                                         ELSE MUTM.HIGH_TMPL_MENU_CD
+                                                                                    END)
+                                                                          ),
+                                                                          <include refid="com.sql.nvl"/>(null, '-')
+                                    )  -- GETMULTINAME
+                                    <include refid="com.sql.stringMerge"/> '<![CDATA[>]]>'
+                                    <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}
+                                                                           ,MUTM.TMPL_MENU_CD
+                                                                           ,CASE
+                                                                                    WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID    = ''
+                                                                                    THEN '-'
+                                                                                    ELSE MUTM.SCREEN_ID
+                                                                            END)
+                                ) -- MAX
+                          FROM STOCMUTM MUTM
+                          JOIN STOCMUTG MUTG
+                            ON (MUTM.GATE_CD = MUTG.GATE_CD
+                           AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+                         WHERE MUTM.GATE_CD = ULOG.GATE_CD
+                           AND MUTM.SCREEN_ID = ULOG.SCREEN_ID
+                        ) AS SCREEN_URL
+                        ,<include refid="com.sql.nvl"/>(ULOG.ACTION_CD,'Screen') AS ACTION_CD
+                        ,CASE WHEN <include refid="com.sql.nvl"/>(ULOG.ACTION_CD,'Screen') = 'Screen' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Screen',#{ses.langCd})
+                              WHEN ULOG.ACTION_CD = 'Logout' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Logout',#{ses.langCd})
+                              WHEN ULOG.ACTION_CD = 'Login' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Login',#{ses.langCd})
+                              WHEN ULOG.ACTION_CD = 'ExcelDownload' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','ExcelDownload',#{ses.langCd})
+                              WHEN ULOG.ACTION_CD = 'menuClick' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Screen',#{ses.langCd})
+                              ELSE (SELECT MAX(M.MULTI_NM)
+                                      FROM STOCMULG M
+                                     WHERE M.GATE_CD = ULOG.GATE_CD
+                                       AND M.DEL_FLAG = '0'
+                                       AND M.MULTI_CD = 'SA'
+                                       AND M.LANG_CD = #{ses.langCd}
+                                       AND M.SCREEN_ID = ULOG.SCREEN_ID
+                                       AND M.ACTION_CD = ULOG.ACTION_CD)
+                         END AS ACTION_NM
+
+                        ,ULOG.GATE_CD
+               FROM   STOCULOG ULOG
+               WHERE    ULOG.GATE_CD =#{ses.gateCd }
+               )
+               A
+        WHERE  1=1
+
+        <if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null and ADD_DATE_TO != '' and ADD_DATE_TO != null">
+            AND A.JOBDATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="JOB_TYPE != '' and JOB_TYPE != null">
+            AND A.JOB_TYPE IN ${JOB_TYPE}
+        </if>
+        <if test="FAIL_TYPE != '' and FAIL_TYPE != null">
+            AND A.FAIL_TYPE = #{FAIL_TYPE}
+        </if>
+        <if test="USER_TYPE != '' and USER_TYPE != null">
+            AND A.USER_TYPE = #{USER_TYPE}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND A.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="SEARCH_TYPE != '' and SEARCH_TYPE != null">
+            <if test="SEARCH_TYPE == 'MENU'">
+                AND A.TMPL_MENU_CD IS NOT NULL
+            </if>
+            <if test="SEARCH_TYPE == 'SCREEN'">
+                AND A.SCREEN_ID IS NOT NULL
+            </if>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IP_ADDR != '' and IP_ADDR != null">
+            AND A.IP_ADDR <include refid="com.sql.likeL"/> #{IP_ADDR} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="METHOD_NM != '' and METHOD_NM != null">
+            AND A.METHOD_NM <include refid="com.sql.likeL"/> #{METHOD_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MODULE_NM != '' and MODULE_NM != null">
+            AND A.MODULE_NM <include refid="com.sql.likeL"/> #{MODULE_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="JOB_DESC != '' and JOB_DESC != null">
+            AND A.JOB_DESC <include refid="com.sql.likeL"/> #{JOB_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND <include refid="com.sql.nvl"/>(A.SCREEN_ID, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(A.TMPL_MENU_CD, ' ') <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_CD != '' and ACTION_CD != null">
+            AND 
+                <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETMULTINAME(A.GATE_CD, 'SC', #{ses.langCd}, '', A.SCREEN_ID), ' ')
+                <include refid="com.sql.stringMerge"/>
+                <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETMULTINAME(A.GATE_CD, 'MT', #{ses.langCd}, '', A.TMPL_MENU_CD), ' ')
+              <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+        </if>
+    </select>
+
+    <select id="badu060_doSearch" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+            A.JOB_DATE AS JOB_DATE
+            ,A.USER_ID AS USER_ID
+            ,A.USER_NM  AS USER_NM
+            ,A.SCREEN_ID AS SCREEN_ID
+            ,<include refid="com.sql.nvl"/>(A.SCREEN_URL,A.SCREEN_NMS) AS SCREEN_NM
+            ,A.ACTION_CD AS ACTION_CD
+            ,A.ACTION_NM AS ACTION_NM
+            ,A.USER_TYPE AS USER_TYPE
+            ,A.IP_ADDR AS IP_ADDR
+            ,A.JOB_DESC AS JOB_DESC
+        FROM(
+        SELECT
+            <if test="_databaseId == 'mssql'">CONVERT(CHAR(20), ULOG.JOB_DATE, 20)</if> <if test="_databaseId == 'oracle'">TO_CHAR(ULOG.JOB_DATE, 'YYYYMMDD HH24:MI:SS')</if> AS JOB_DATE
+            ,ULOG.JOB_DATE AS JOBDATE
+            ,ULOG.JOB_TYPE
+            ,ULOG.FAIL_TYPE
+            ,ULOG.JOB_DESC
+            ,ULOG.MODULE_NM
+            ,ULOG.METHOD_NM
+            ,CASE WHEN ULOG.USER_TYPE = 'N' THEN '' ELSE ULOG.USER_TYPE END AS USER_TYPE
+            ,ULOG.TMPL_MENU_CD
+            ,ULOG.USER_ID AS USER_ID
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd}, 'MP014', ULOG.USER_STATUS, '0', #{ses.langCd}) AS STATUS
+            ,CASE WHEN ULOG.USER_TYPE = 'C'
+                  THEN (SELECT U.USER_NM
+                          FROM STOCUSER U
+                         WHERE U.GATE_CD = ULOG.GATE_CD
+                           AND U.USER_ID = ULOG.USER_ID)
+                  ELSE (SELECT U.USER_NM
+                          FROM STOCCVUR U
+                         WHERE U.GATE_CD = ULOG.GATE_CD
+                           AND U.USER_ID = ULOG.USER_ID)
+                  END AS USER_NM
+            ,ULOG.IP_ADDR
+            ,ULOG.SCREEN_ID AS SCREEN_ID
+            ,CASE WHEN ULOG.SCREEN_ID IS NOT NULL
+                  THEN (SELECT MAX(M.MULTI_NM)
+                          FROM STOCMULG M
+                         WHERE M.GATE_CD = ULOG.GATE_CD
+                           AND M.DEL_FLAG = '0'
+                           AND M.MULTI_CD = 'SC'
+                           AND M.LANG_CD = #{ses.langCd}
+                           AND M.SCREEN_ID = ULOG.SCREEN_ID)
+                  ELSE (SELECT MAX(M.MULTI_NM)
+                          FROM STOCMULG M
+                         WHERE M.GATE_CD = ULOG.GATE_CD
+                           AND M.DEL_FLAG = '0'
+                           AND M.MULTI_CD = 'MT'
+                           AND M.LANG_CD = #{ses.langCd}
+                           AND M.SCREEN_ID = ULOG.TMPL_MENU_CD)
+                 END AS SCREEN_NMS
+            <if test="_databaseId == 'oracle'">
+                ,(SELECT MAX(<include refid="com.sql.dbo"/>GETCOMCODE(MUTG.GATE_CD, 'M009', MUTG.MODULE_TYPE, '0', #{ses.langCd})
+            </if>
+            <if test="_databaseId == 'mssql'">
+                ,(SELECT TOP 1 (<include refid="com.sql.dbo"/>GETCOMCODE(MUTG.GATE_CD, 'M009', MUTG.MODULE_TYPE, '0', #{ses.langCd})
+            </if>
+                <include refid="com.sql.stringMerge"/>'<![CDATA[>]]>'
+                <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd}, (SELECT TM.TMPL_MENU_CD
+                                                                                             FROM STOCMUTM TM
+                                                                                            WHERE TM.GATE_CD = MUTM.GATE_CD
+                                                                                              AND TM.TMPL_MENU_CD = ( CASE WHEN (MUTM.HIGH_TMPL_MENU_CD = '' OR MUTM.HIGH_TMPL_MENU_CD IS NULL)
+                                                                                                                           THEN '' ELSE MUTM.HIGH_TMPL_MENU_CD END)), <include refid="com.sql.nvl"/>(null, '-'))  -- GETMULTINAME
+                <include refid="com.sql.stringMerge"/> '<![CDATA[>]]>'
+                <include refid="com.sql.stringMerge"/> <include refid="com.sql.dbo"/>GETMULTINAME(MUTM.GATE_CD, 'MT', #{ses.langCd} ,MUTM.TMPL_MENU_CD ,CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID    = ''
+                                                                                                                  THEN '-' ELSE MUTM.SCREEN_ID END)
+              ) -- MAX
+              FROM STOCMUTM MUTM
+              JOIN STOCMUTG MUTG
+                ON (MUTM.GATE_CD = MUTG.GATE_CD AND MUTM.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+             WHERE MUTM.GATE_CD = ULOG.GATE_CD
+               AND MUTM.SCREEN_ID = ULOG.SCREEN_ID
+             ) AS SCREEN_URL
+           ,<include refid="com.sql.nvl"/>(ULOG.ACTION_CD,'Screen') AS ACTION_CD
+
+            ,CASE WHEN <include refid="com.sql.nvl"/>(ULOG.ACTION_CD,'Screen') = 'Screen' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','menuClick',#{ses.langCd})
+                  WHEN ULOG.ACTION_CD = 'Logout' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Logout',#{ses.langCd})
+                  WHEN ULOG.ACTION_CD = 'Login' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','Login',#{ses.langCd})
+                  WHEN ULOG.ACTION_CD = 'ExcelDownload' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','ExcelDownload',#{ses.langCd})
+                  WHEN ULOG.ACTION_CD = 'menuClick' THEN <include refid="com.sql.dbo"/>GETCODENAME(#{ses.gateCd},'MP015','menuClick',#{ses.langCd})
+                  ELSE (SELECT MAX(M.MULTI_NM)
+                          FROM STOCMULG M
+                         WHERE M.GATE_CD = ULOG.GATE_CD
+                           AND M.DEL_FLAG = '0'
+                           AND M.MULTI_CD = 'SA'
+                           AND M.LANG_CD = #{ses.langCd}
+                           AND M.SCREEN_ID = ULOG.SCREEN_ID
+                           AND M.ACTION_CD = ULOG.ACTION_CD)
+                  END AS ACTION_NM
+          , ULOG.GATE_CD
+        FROM STOCULOG ULOG
+        WHERE ULOG.GATE_CD =#{ses.gateCd}
+          AND ULOG.JOB_TYPE = 'G'
+
+        )A
+        WHERE 1=1
+        <if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null and ADD_DATE_TO != '' and ADD_DATE_TO != null">
+            AND A.JOBDATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+
+        <if test="USER_TYPE != '' and USER_TYPE != null">
+            AND A.USER_TYPE = #{USER_TYPE}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND A.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="USER_NM != '' and USER_NM != null">
+            AND USER_NM <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="IP_ADDR != '' and IP_ADDR != null">
+            AND A.IP_ADDR <include refid="com.sql.likeL"/> #{IP_ADDR} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="JOB_DESC != '' and JOB_DESC != null">
+            AND A.JOB_DESC <include refid="com.sql.likeL"/> #{JOB_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SCREEN_ID != '' and SCREEN_ID != null">
+            AND <include refid="com.sql.nvl"/>(A.SCREEN_ID, ' ') <include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(A.TMPL_MENU_CD, ' ') <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="ACTION_CD != '' and ACTION_CD != null">
+            AND 
+            <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETMULTINAME(A.GATE_CD, 'SC', #{ses.langCd}, '', A.SCREEN_ID), ' ')
+            <include refid="com.sql.stringMerge"/>
+            <include refid="com.sql.nvl"/>(<include refid="com.sql.dbo"/>GETMULTINAME(A.GATE_CD, 'MT', #{ses.langCd}, '', A.TMPL_MENU_CD), ' ')
+          <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY A.JOB_DATE DESC
+    </select>
+
+    <select id="badu070_doSearch" parameterType="hashmap" resultType="hashmap">
+
+        SELECT
+            A.JOB_DATE AS JOB_DATE
+            ,A.USER_ID AS USER_ID
+            ,A.USER_NM  AS USER_NM
+            ,A.JOB_NM AS JOB_NM
+            ,A.JOB_DESC AS JOB_DESC
+            ,<include refid="com.sql.dbo"/>GETCOMCODE(A.GATE_CD, 'M006', A.USER_TYPE, '0', #{ses.langCd}) AS USER_TYPE
+            ,A.IP_ADDR AS IP_ADDR
+            ,A.ACTION_CD AS ACTION_CD
+            ,<include refid="com.sql.nvl"/>(A.STATUS1, A.STATUS2) as STATUS
+        FROM(
+            SELECT
+                <if test="_databaseId == 'mssql'">CONVERT(CHAR(20), ULOG.JOB_DATE, 20)</if> <if test="_databaseId == 'oracle'">TO_CHAR(ULOG.JOB_DATE, 'YYYYMMDD HH24:MI:SS')</if> AS JOB_DATE
+                ,ULOG.JOB_DATE AS JOBDATE
+                ,  ULOG.USER_ID AS USER_ID
+                , CASE WHEN ULOG.USER_TYPE = 'C'
+                       THEN (SELECT  U.USER_NM
+                               FROM STOCUSER U
+                              WHERE U.GATE_CD = ULOG.GATE_CD AND U.USER_ID = ULOG.USER_ID)
+                       ELSE (SELECT  U.USER_NM
+                               FROM STOCCVUR U
+                              WHERE U.GATE_CD = ULOG.GATE_CD AND U.USER_ID =  ULOG.USER_ID )
+                  END AS USER_NM
+                ,<include refid="com.sql.dbo"/>GETCOMCODE(ULOG.GATE_CD, 'M022', ULOG.JOB_TYPE, '0',#{ses.langCd}) AS JOB_NM
+                ,<include refid="com.sql.nvl"/>(ULOG.ACTION_CD,'Screen') AS ACTION_CD
+                ,<include refid="com.sql.dbo"/>GETCOMCODE(ULOG.GATE_CD, 'MP014', ULOG.USER_STATUS, '0', #{ses.langCd}) AS STATUS1
+                ,(SELECT <include refid="com.sql.dbo"/>GETCOMCODE(USR.GATE_CD, 'MP014', USR.STATUS, '0', #{ses.langCd})
+                    FROM STOCUSER USR
+                   WHERE USR.GATE_CD = ULOG.GATE_CD
+                     AND USR.USER_ID = ULOG.USER_ID
+                     AND USR.DEL_FLAG = '0') AS STATUS2
+                ,ULOG.JOB_TYPE
+                ,CASE WHEN (CASE WHEN <include refid="com.sql.nvl"/>(ULOG.JOB_DESC,'Login') ='Login' THEN 'Login' ELSE <include refid="com.sql.nvl"/>(ULOG.JOB_DESC,'Login') END) = 'LoginS' THEN <include refid="com.sql.dbo"/>GETCODENAME(ULOG.GATE_CD,'MP015','LoginS','KO')
+                      ELSE ULOG.JOB_DESC END AS JOB_DESC
+                ,CASE WHEN ULOG.USER_TYPE = 'N' THEN ''
+                      ELSE ULOG.USER_TYPE END AS USER_TYPE
+                ,ULOG.IP_ADDR
+                ,ULOG.SCREEN_ID AS SCREEN_ID
+                ,ULOG.GATE_CD
+            FROM STOCULOG ULOG
+            WHERE ULOG.GATE_CD =#{ses.gateCd}
+            <choose>
+                <when test='JOB_TYPE != "" and JOB_TYPE != null'> AND ULOG.JOB_TYPE IN ${JOB_TYPE}</when>
+                <otherwise>
+                    AND ULOG.JOB_TYPE IN ('I', 'F')
+                </otherwise>
+            </choose>
+        )A
+        WHERE 1=1
+        <if test="ADD_DATE_FROM != '' and ADD_DATE_FROM != null and ADD_DATE_TO != '' and ADD_DATE_TO != null">
+            AND A.JOBDATE BETWEEN <include refid="com.sql.toDate"/>#{ADD_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ADD_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+
+        <if test="USER_TYPE != '' and USER_TYPE != null">
+            AND A.USER_TYPE = #{USER_TYPE}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND (  A.USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/> OR  A.USER_NM <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/> )
+        </if>
+        <if test="IP_ADDR != '' and IP_ADDR != null">
+            AND A.IP_ADDR <include refid="com.sql.likeL"/> #{IP_ADDR} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="JOB_DESC != '' and JOB_DESC != null">
+            AND A.JOB_DESC <include refid="com.sql.likeL"/> #{JOB_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        ORDER BY A.JOB_DATE DESC
+    </select>
+
+</mapper>

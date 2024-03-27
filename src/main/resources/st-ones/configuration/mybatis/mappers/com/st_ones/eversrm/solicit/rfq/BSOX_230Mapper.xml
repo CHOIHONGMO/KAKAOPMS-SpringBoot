@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.solicit.rfq.BSOX_230Mapper">
+
+
+	<select id="BSOX_231_doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT
+             USERS.USER_ID
+             , <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) AS USER_NM
+             , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+             , USERS.POSITION_NM
+             , <include refid="com.sql.dbo"/>GETPLANTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.PLANT_CD,#{ses.langCd}) AS PLANT_NM
+          FROM STOCUSER USERS
+         WHERE USERS.GATE_CD = #{ses.gateCd}
+           AND USERS.DEL_FLAG = '0'
+           AND USER_TYPE = 'B'
+
+            <if test="PLANT_CD != '' and PLANT_CD != null">
+                    AND USERS.PLANT_CD <include refid="com.sql.likeL"/> #{PLANT_CD} <include refid="com.sql.likeR"/>
+            </if>
+
+            <if test="USER_NM != '' and USER_NM != null">
+                    AND <include refid="com.sql.dbo"/>GETUSERNAME(USERS.GATE_CD, USERS.USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+            </if>
+
+
+	</select>
+
+    <select id="doSearchRfqProposalOp" parameterType="hashMap" resultType="hashMap">
+		SELECT A.*
+           , CASE WHEN A.SUBMIT_TYPE = 'RFQ' OR A.SUBMIT_TYPE = 'ETC' THEN 'X'
+                   ELSE CASE WHEN EVAL_PROGRESS_CD IS NULL OR EVAL_PROGRESS_CD = '' THEN 'Y'
+                             ELSE EVAL_PROGRESS_CD
+                        END
+			END EVAL_STATUS
+		FROM (
+
+        SELECT
+        	  CASE WHEN RQHD.RFQ_OPEN_DATE IS NULL THEN '0' ELSE '1' END AS OPEN_FLAG
+            , <include refid="com.sql.dbo"/>GETRFQOPENSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) AS PROGRESS_CD
+            , RQHD.RFX_NUM
+            , RQHD.RFX_CNT
+            , RQHD.RFX_TYPE
+            , RQHD.RFX_SUBJECT
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') AS RFQ_START_DATE
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') AS RFQ_CLOSE_DATE
+
+            , <include refid="com.sql.dbo"/>GETRFXVENDORBIDDCOUNT(RQHD.GATE_CD, RQHD.RFX_NUM, RQHD.RFX_CNT) AS VENDOR_BID
+            , <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.OPEN_USER_ID, #{ses.langCd}) AS OPEN_USER_NM
+            , <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+
+            , <include refid="com.sql.dbo"/>GETPURORGNAME(RQHD.GATE_CD, RQHD.BUYER_CD, RQHD.PUR_ORG_CD, #{ses.langCd}) AS PUR_ORG_NM
+            , RQHD.PUR_ORG_CD
+            , <include refid="com.sql.dbo"/>GETDEPTNAME(RQHD.GATE_CD, RQHD.BUYER_CD, IUSER.DEPT_CD,#{ses.langCd}) AS DEPT_NM
+            , <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) AS BUYER_NM
+            , RQHD.OPEN_USER_ID
+            , RQHD.CTRL_USER_ID
+            , RQHD.GATE_CD
+
+            , RQHD.PURCHASE_TYPE
+            , RQHD.VENDOR_OPEN_TYPE
+            , RQHD.SUBMIT_TYPE
+            , RQHD.PRC_STL_TYPE
+            , <include refid="com.sql.dbo"/>GETGMTDATE( RQHD.RFQ_OPEN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}<include refid="com.sql.stringMerge"/>' hh24:mi') RFQ_OPEN_DATE
+
+            , <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(
+                    (SELECT MAX(NRQDT.PROGRESS_CD)
+                        FROM STOCRQHD NRQHD, STOCRQDT NRQDT
+                        WHERE NRQHD.GATE_CD = NRQDT.GATE_CD
+                          AND NRQHD.RFX_NUM = NRQDT.RFX_NUM
+                          AND NRQHD.RFX_CNT = NRQDT.RFX_CNT
+                          AND NRQDT.GATE_CD = RQHD.GATE_CD
+                          AND NRQDT.ORIGIN_RFX_NUM = RQHD.RFX_NUM
+                          AND NRQDT.ORIGIN_RFX_CNT = RQHD.RFX_CNT
+                          AND NRQDT.DEL_FLAG = '0'
+                          AND NRQHD.DEL_FLAG = '0'
+                      ), RQHD.RFQ_CLOSE_DATE
+               )  AS NEGO_STATUS
+             ,(SELECT MIN(PROGRESS_CD) AS PROGRESS_CD
+                 FROM STOCRQVN M JOIN STOCEVEM P ON M.GATE_CD= P.GATE_CD AND M.EV_NUM = P.EV_NUM AND P.DEL_FLAG ='0'
+                WHERE M.GATE_CD = RQHD.GATE_CD
+               	  AND M.RFX_NUM=RQHD.RFX_NUM
+               	  AND M.RFX_CNT = RQHD.RFX_CNT
+               	  AND M.DEL_FLAG = '0'
+               ) EVAL_PROGRESS_CD
+        FROM STOCRQHD RQHD
+             LEFT JOIN STOCUSER IUSER
+             ON RQHD.GATE_CD=IUSER.GATE_CD AND RQHD.CTRL_USER_ID=IUSER.USER_ID AND IUSER.DEL_FLAG = '0'
+        WHERE   RQHD.GATE_CD = #{ses.gateCd}
+            AND RQHD.DEL_FLAG = '0'
+            AND RQHD.RFX_TYPE in ('RFP', 'RFQ')
+            AND RQHD.RFX_OPEN_TYPE = 'SEL'
+      	    <!--
+        		PF0055 : 부품구매 OR 구매원가
+        		PF0054 : 일반구매
+        		부품구매 / 일반구매 구분해서 조회한다.
+ 		    -->
+ 		    <!--
+ 		    AND CASE WHEN #{ses.grantedAuthCd} = 'PF0055' or #{ses.grantedAuthCd} = 'PF0057' THEN
+ 		                  CASE WHEN RQHD.PURCHASE_TYPE = 'NORMAL' THEN '1' ELSE '0' END
+ 			         WHEN #{ses.grantedAuthCd} = 'PF0054' THEN
+ 			 	          CASE WHEN RQHD.PURCHASE_TYPE != 'NORMAL' THEN '1' ELSE '0' END
+ 			 	     ELSE '1'
+ 			    END = '1' -->
+
+            <if test="REG_DATE_FROM !='' and REG_DATE_FROM != null and REG_DATE_TO !='' and REG_DATE_TO != null">
+	            <if test='DATE_TYPE == "S"'>
+	                AND RQHD.RFQ_START_DATE
+	            </if>
+	            <if test='DATE_TYPE == "R"'>
+	                AND RQHD.REG_DATE
+	            </if>
+                <if test='DATE_TYPE == "C"'>
+                    AND RQHD.RFQ_CLOSE_DATE
+                </if>
+                BETWEEN <include refid="com.sql.toDate"/>#{REG_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REG_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+            </if>
+
+            <if test="RFX_TYPE != '' and RFX_TYPE != null">
+                    AND RQHD.RFX_TYPE = #{RFX_TYPE}
+                </if>
+            <if test="RFX_NUM != '' and RFX_NUM != null">
+                	AND RQHD.RFX_NUM <include refid="com.sql.likeL"/> #{RFX_NUM} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+                    AND RQHD.RFX_SUBJECT <include refid="com.sql.likeL"/> #{RFX_SUBJECT} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+                    AND <include refid="com.sql.dbo"/>GETRFQOPENSTATUS(RQHD.PROGRESS_CD, RQHD.RFQ_CLOSE_DATE) = #{PROGRESS_CD}
+            </if>
+            <if test="OPEN_USER_NAME != '' and OPEN_USER_NAME != null">
+                	AND <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.OPEN_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{OPEN_USER_NAME} <include refid="com.sql.likeR"/>
+            </if>
+           	<if test="OPEN_FLAG != '' and OPEN_FLAG != null">
+                    AND CASE WHEN RQHD.RFQ_OPEN_DATE IS NULL THEN '0' ELSE '1' END = #{OPEN_FLAG}
+           	</if>
+           	<if test="PURCHASE_NM != '' and PURCHASE_NM != null">
+               		AND <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{PURCHASE_NM} <include refid="com.sql.likeR"/>
+           	</if>
+           	<if test="OP_USER_NM != '' and OP_USER_NM != null">
+               		AND <include refid="com.sql.dbo"/>GETUSERNAME(RQHD.GATE_CD, RQHD.OPEN_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{OP_USER_NM} <include refid="com.sql.likeR"/>
+           	</if>
+            <if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null">
+                    AND RQHD.PURCHASE_TYPE <include refid="com.sql.likeL"/> #{PURCHASE_TYPE} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="SUBMIT_TYPE != '' and SUBMIT_TYPE != null">
+                    AND RQHD.SUBMIT_TYPE <include refid="com.sql.likeL"/> #{SUBMIT_TYPE} <include refid="com.sql.likeR"/>
+            </if>
+
+			<!-- 작성중(2300), 종합입찰진행중(2330), 가격입찰진행중(2350) 제외 -->
+           	AND <include refid="com.sql.dbo"/>GETRFQPROGRESSSTATUS(RQHD.PROGRESS_CD , RQHD.RFQ_CLOSE_DATE) NOT IN ('2300', '2330', '2350')
+		) A
+		WHERE  1 = 1
+            <if test="EVAL_STATUS != '' and EVAL_STATUS != null">
+			AND CASE WHEN A.SUBMIT_TYPE = 'RFQ' THEN 'X'
+                   ELSE CASE WHEN EVAL_PROGRESS_CD IS NULL OR EVAL_PROGRESS_CD = '' THEN 'Y'
+                             ELSE EVAL_PROGRESS_CD
+                        END
+			END = #{EVAL_STATUS}
+			</if>
+        --ORDER BY RFQ_CLOSE_DATE DESC
+        ORDER BY A.RFQ_CLOSE_DATE DESC, A.RFX_NUM DESC, A.RFX_CNT DESC
+    </select>
+
+
+
+    <select id="checkRfqOpenDate" parameterType="hashmap" resultType="java.lang.String" >
+         SELECT RFQ_OPEN_DATE
+         FROM STOCRQHD
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+    </select>
+
+    <select id="checkRfqOpenStatus" parameterType="hashMap" resultType="string">
+
+         SELECT
+             <include refid="com.sql.dbo"/>GETRFQOPENSTATUS(PROGRESS_CD, RFQ_CLOSE_DATE) AS RFQ_OPEN
+         FROM STOCRQHD
+         WHERE  GATE_CD = #{ses.gateCd}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+            AND DEL_FLAG='0'
+    </select>
+
+    <update id="doOpenRfqProposalOpen" parameterType="hashmap">
+        UPDATE STOCRQHD
+        SET
+            RFQ_OPEN_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_DATE    = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+            AND RFX_NUM = #{RFX_NUM}
+            AND RFX_CNT = #{RFX_CNT}
+            AND DEL_FLAG='0'
+    </update>
+
+    <select id="getQthdList" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		FROM STOCQTHD
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+
+	</select>
+
+    <select id="getQtdtList" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		FROM STOCQTDT
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+	</select>
+
+    <update id="upsQthd" parameterType="hashmap">
+        UPDATE STOCQTHD
+        SET QTA_AMT = #{QTA_AMT}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND QTA_NUM = #{QTA_NUM}
+    </update>
+
+    <update id="upsQtdt" parameterType="hashmap">
+        UPDATE STOCQTDT
+        SET  INVEST_AMT    = #{INVEST_AMT}
+	        ,UNIT_PRC      = #{UNIT_PRC}
+			,ITEM_AMT      = #{ITEM_AMT}
+			,Y1_UNIT_PRC   = #{Y1_UNIT_PRC}
+			,Y2_UNIT_PRC   = #{Y2_UNIT_PRC}
+			,Y3_UNIT_PRC   = #{Y3_UNIT_PRC}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND QTA_NUM = #{QTA_NUM}
+        AND QTA_SQ = #{QTA_SQ}
+    </update>
+
+    <update id="upsRqvnEvNUm" parameterType="hashmap">
+        UPDATE STOCRQVN
+        SET  EV_NUM    = #{EV_NUM}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND RFX_NUM = #{RFX_NUM}
+		AND RFX_CNT = #{RFX_CNT}
+		AND VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+	<select id="BSOX_231_getVendorList" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 A.VENDOR_CD
+			,A.RFX_NUM
+			,A.RFX_CNT
+			,'0' DEL_FLAG
+			,' ' SG_NUM
+		FROM STOCRQVN A JOIN STOCVNGL B
+			 ON A.GATE_CD = B.GATE_CD
+			AND A.VENDOR_CD = B.VENDOR_CD
+			AND CASE WHEN #{PURCHASE_TYPE} = 'NORMAL'
+					 THEN CASE WHEN <include refid="com.sql.nvl"/>(B.DEAL_SQ_CD,'') = '' THEN '1' ELSE B.DEAL_SQ_CD END
+					 ELSE '1'
+				END = #{DEAL_SQ_CD}
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.RFX_NUM = #{RFX_NUM}
+		AND A.RFX_CNT = #{RFX_CNT}
+		AND A.DEL_FLAG = '0'
+	</select>
+</mapper>

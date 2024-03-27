@@ -1,0 +1,2924 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.eContract.eContractMgt.BECM_Mapper">
+
+    <select id="doSearchContractWaitingList" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  CN.GATE_CD
+			, CN.CONT_WT_NUM
+			, CN.CONT_WT_TYPE
+			, CN.PC_TYPE
+			, '01' AS RFX_TYPE <!-- MAX(RQHD.RFX_TYPE) -->
+			, CN.EXEC_NUM
+			, CN.EXEC_CNT
+			, CN.EXEC_SUBJECT
+			, CN.EXEC_DATE
+			, CN.VENDOR_CD
+			, CN.VENDOR_NM
+			, CN.EXEC_TYPE
+			, SUM(CNDT.EXEC_AMT) AS EXEC_AMT
+			, RQHD.BS_CD
+			, BSMG.BS_NM
+			, CN.EXEC_TYPE
+			, CN.SALES_USER_NM
+			, CN.CTRL_USER_ID
+			, CN.CTRL_USER_NM
+			, MAX(CNDT.RFX_NUM) AS RFX_NUM
+			, MAX(CNDT.RFX_CNT) AS RFX_CNT
+			, NULL              AS CONT_NUM
+			, NULL              AS CONT_CNT
+			, CN.ACC_ATTR
+			, CN.SO_TYPE
+			, CN.ITEM_CLS4
+			, CN.RFX_RYQ
+		  FROM (SELECT
+					 CNHD.GATE_CD
+					,ECHB.CONT_WT_NUM
+					,ECHB.CONT_WT_TYPE
+					,CNHD.PURCHASE_TYPE AS PC_TYPE
+					<!-- rfx_type -->
+					,CNHD.RFX_TYPE AS RFX_RYQ
+					,CNHD.EXEC_NUM
+					,0 AS EXEC_CNT
+					,CNHD.EXEC_SUBJECT
+					,<include refid="com.sql.dbo"/>GETGMTDATE(CNHD.EXEC_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EXEC_DATE
+					,CNVD.VENDOR_CD AS VENDOR_CD
+					,<include refid="com.sql.dbo"/>GETVENDORNAME(CNVD.GATE_CD, CNVD.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+					<!-- exec_amt -->
+					<!-- bs_cd -->
+					<!-- bs_nm -->
+
+					,CNHD.EXEC_TYPE
+					<!-- CNHD.CTRL_USER_ID , -->
+					<!-- ECHB.CONT_WT_NUM  -->
+					,CNVD.CONT_USER_ID AS CTRL_USER_ID
+					,<include refid="com.sql.dbo"/>GETUSERNAME(CNHD.GATE_CD, (SELECT PRDT.REG_USER_ID
+															 FROM STOCCNDT CNDT
+															 JOIN STOCPRDT PRDT
+															   ON (PRDT.GATE_CD  = CNDT.GATE_CD
+															  AND PRDT.PR_NUM   = CNDT.PR_NUM
+															  AND PRDT.DEL_FLAG = '0')
+															WHERE CNDT.GATE_CD  = CNHD.GATE_CD
+															  AND CNDT.EXEC_NUM = CNHD.EXEC_NUM
+															  AND CNDT.DEL_FLAG = '0'
+															  AND ROWNUM        = 1), #{ses.langCd}) AS SALES_USER_NM
+					,<include refid="com.sql.dbo"/>GETUSERNAME(CNHD.GATE_CD, CNVD.REG_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+					,ECHB.ACC_ATTR
+					,'' as SO_TYPE
+					,'' as ITEM_CLS4
+				  FROM STOCECHB ECHB
+
+				  JOIN STOCCNVD CNVD
+					ON (CNVD.GATE_CD  = ECHB.GATE_CD
+				   AND CNVD.EXEC_NUM  = ECHB.EXEC_NUM
+				   AND CNVD.VENDOR_CD = ECHB.VENDOR_CD
+				   AND CNVD.DEL_FLAG  = '0')
+
+				  JOIN STOCCNHD CNHD
+					ON (CNHD.GATE_CD = CNVD.GATE_CD
+				   AND CNHD.EXEC_NUM = CNVD.EXEC_NUM
+				   AND CNHD.DEL_FLAG = '0')
+
+				 WHERE ECHB.GATE_CD = #{ses.gateCd}
+					AND <include refid="com.sql.nvl"/>(ECHB.DEL_FLAG, '0') = '0'
+					AND <include refid="com.sql.nvl"/>(ECHB.CONT_WT_TYPE, 'EX') = 'EX'
+					<if test="rfaDateFrom != '' and rfaDateFrom != null and rfaDateTo != '' and rfaDateTo != null">
+					  AND CNHD.EXEC_DATE BETWEEN <include refid="com.sql.toDate"/>#{rfaDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{rfaDateTo}<include refid="com.sql.dateTo"/>
+					</if>
+
+					<if test="VENDOR_CD != '' and VENDOR_CD != null">
+					  AND CNVD.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="VENDOR_NM != '' and VENDOR_NM != null">
+					  AND <include refid="com.sql.dbo"/>GETVENDORNAME(CNVD.GATE_CD, CNVD.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+					</if>
+
+					<if test="PC_TYPE != '' and PC_TYPE != null">
+					    AND CNHD.PURCHASE_TYPE = #{PC_TYPE}
+					</if>
+					<if test="RFA_NM != '' and RFA_NM != null">
+					    AND CNHD.EXEC_SUBJECT <include refid="com.sql.likeL"/> #{EXEC_SUBJECT} <include refid="com.sql.likeR"/>
+					</if>
+					<if test="CTRL_USER_NM !='' and CTRL_USER_NM !=null">
+					    AND CNVD.CONT_USER_ID IN (SELECT USER_ID
+					    							FROM STOCUSER
+												   WHERE GATE_CD = #{ses.gateCd}
+					    							 AND GETUSERNAME_ORI(GATE_CD, USER_ID, #{ses.langCd})  LIKE  #{CTRL_USER_NM}  || '%'
+					    						)
+					</if>
+				) CN
+		  JOIN STOCCNDT CNDT
+			ON (CNDT.GATE_CD   = CN.GATE_CD
+		   AND CNDT.EXEC_NUM  = CN.EXEC_NUM
+		   AND CNDT.VENDOR_CD = CN.VENDOR_CD
+		   AND CNDT.DEL_FLAG  = '0')
+		  JOIN STOCMTGL MTGL
+			ON (MTGL.GATE_CD  = CNDT.GATE_CD
+		   AND MTGL.ITEM_CD  = CNDT.ITEM_CD
+		   AND MTGL.ACC_ATTR = CN.ACC_ATTR
+		   AND MTGL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCRQHD RQHD
+			ON (CNDT.GATE_CD  = RQHD.GATE_CD
+		   AND CNDT.RFX_NUM  = RQHD.RFX_NUM
+		   AND CNDT.RFX_CNT  = RQHD.RFX_CNT
+		   AND RQHD.DEL_FLAG = '0')
+		  LEFT JOIN STOCBSMG BSMG
+			ON( BSMG.GATE_CD = RQHD.GATE_CD
+		   AND BSMG.BS_CD   = RQHD.BS_CD )
+	   WHERE 1 = 1
+		<if test="BS_CD != '' and BS_CD != null">
+		    AND RQHD.BS_CD <include refid="com.sql.likeL"/> #{BS_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="BS_NM != '' and BS_NM != null">
+		    AND BSMG.BS_NM <include refid="com.sql.likeL"/> #{BS_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+		GROUP BY CN.GATE_CD, CN.EXEC_NUM, CN.EXEC_CNT, CN.EXEC_TYPE, CN.PC_TYPE, CN.EXEC_SUBJECT
+				,CN.EXEC_DATE, CN.VENDOR_NM, CN.CTRL_USER_ID, CN.SALES_USER_NM, CN.CTRL_USER_NM, CN.VENDOR_CD, CN.CONT_WT_NUM, CN.CONT_WT_TYPE
+				,RQHD.BS_CD, BSMG.BS_NM, CN.ACC_ATTR,CN.SO_TYPE,CN.RFX_RYQ
+
+        UNION ALL
+
+		SELECT
+          ECHB.GATE_CD
+        , ECHB.CONT_WT_NUM
+        , ECHB.CONT_WT_TYPE
+        , 'SAL' AS PC_TYPE
+        <!-- , (CASE WHEN KPHD.SO_CNT = 1 THEN '01' ELSE '04' END) AS RFX_TYPE -->
+        , (CASE WHEN ECCT.CONT_NUM IS NULL THEN '01' ELSE '04' END) AS RFX_TYPE
+        , KPHD.SO_NUM AS EXEC_NUM
+        , KPHD.SO_CNT AS EXEC_CNT
+        , KPHD.SUBJECT AS EXEC_SUBJECT
+        , <include refid="com.sql.dbo"/>GETGMTDATE(KPHD.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS EXEC_DATE
+        , KPEC.VENDOR_CD
+        , <include refid="com.sql.dbo"/>GETVENDORNAME(ECHB.GATE_CD, KPEC.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+        , '' as EXEC_TYPE
+        , SUM(KPEC.ITEM_AMT) AS EXEC_AMT
+        , KPHD.BS_CD
+        , BSMG.BS_NM
+        , NULL AS EXEC_TYPE
+		,<include refid="com.sql.dbo"/>GETUSERNAME(ECHB.GATE_CD, KPHD.SALES_USER_ID, #{ses.langCd}) AS SALES_USER_NM
+        , NULL AS CTRL_USER_ID
+		,<include refid="com.sql.dbo"/>GETUSERNAME(ECHB.GATE_CD, MAX((SELECT RQHD.CTRL_USER_ID
+													 FROM STOCRQHD RQHD
+													WHERE RQHD.GATE_CD  = ECHB.GATE_CD
+													  AND RQHD.RFX_NUM  = KPEC.RFX_NUM
+													  AND RQHD.DEL_FLAG = '0'
+													  AND ROWNUM        = 1)), #{ses.langCd}) AS CTRL_USER_NM
+        , NULL AS RFX_NUM
+        , NULL AS RFX_CNT
+        , ECCT.CONT_NUM
+   		, MAX(ECCT.CONT_CNT) CONT_CNT
+   		, ECHB.ACC_ATTR
+   		, KPHD.SO_TYPE
+   		, ECHB.ITEM_CLS4
+   		, '' AS RFX_RYQ
+        FROM STOCECHB ECHB
+        JOIN STOCKPHD KPHD
+          ON (KPHD.GATE_CD  = ECHB.GATE_CD
+         AND KPHD.SO_NUM   = ECHB.EXEC_NUM
+         AND KPHD.SO_CNT   = ECHB.EXEC_CNT
+         AND KPHD.DEL_FLAG = '0')
+        JOIN STOCKPEC KPEC
+          ON (KPEC.GATE_CD   = KPHD.GATE_CD
+         AND KPEC.SO_NUM    = KPHD.SO_NUM
+         AND KPEC.SO_CNT    = KPHD.SO_CNT
+         AND KPEC.VENDOR_CD = ECHB.VENDOR_CD
+
+		 AND ((KPHD.SO_TYPE = 'IBS' AND KPEC.ITEM_CLS4 = ECHB.ITEM_CLS4) OR
+			   (KPHD.SO_TYPE = 'ITM') OR
+			   (KPHD.SO_TYPE IS NOT NULL AND KPHD.SO_TYPE NOT IN ('IBS', 'ITM') AND KPEC.ACC_ATTR = ECHB.ACC_ATTR) OR
+			   (KPHD.SO_TYPE IS NULL AND (#{ACC_ATTR} IS NULL OR KPEC.ACC_ATTR = ECHB.ACC_ATTR)))
+
+         AND KPEC.DEL_FLAG  = '0')
+
+        JOIN STOCBSMG BSMG
+          ON( BSMG.GATE_CD = KPHD.GATE_CD
+         AND BSMG.BS_CD   = KPHD.BS_CD )
+        LEFT OUTER JOIN STOCECCT ECCT
+    	  ON( ECCT.GATE_CD   = ECHB.GATE_CD
+    	 AND ECCT.SO_NUM    = ECHB.EXEC_NUM
+    	 <!-- AND ECCT.SO_CNT    = ECHB.EXEC_CNT -->
+    	 <!--
+    	 AND ECCT.ACC_ATTR  = ECHB.ACC_ATTR
+    	 AND ECCT.ITEM_CLS4 = ECHB.ITEM_CLS4
+    	  -->
+
+		 AND ((KPHD.SO_TYPE = 'IBS' AND ECCT.ITEM_CLS4 = ECHB.ITEM_CLS4) OR
+			   (KPHD.SO_TYPE = 'ITM') OR
+			   (KPHD.SO_TYPE IS NOT NULL AND KPHD.SO_TYPE NOT IN ('IBS', 'ITM') AND ECCT.ACC_ATTR = ECHB.ACC_ATTR) OR
+			   (KPHD.SO_TYPE IS NULL AND (#{ACC_ATTR} IS NULL OR ECCT.ACC_ATTR = ECHB.ACC_ATTR)))
+
+    	 AND ECCT.DEL_FLAG  = '0'
+    	)
+        WHERE ECHB.GATE_CD = #{ses.gateCd}
+        AND <include refid="com.sql.nvl"/>(ECHB.CONT_WT_TYPE, 'EX') = 'SO'
+        AND <include refid="com.sql.nvl"/>(ECHB.DEL_FLAG, '0') = '0'
+        <if test="rfaDateFrom != '' and rfaDateFrom != null and rfaDateTo != '' and rfaDateTo != null">
+          AND KPHD.SIGN_DATE BETWEEN <include refid="com.sql.toDate"/>#{rfaDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{rfaDateTo}<include refid="com.sql.dateTo"/>
+        </if>
+
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+ 			  AND KPEC.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			  AND <include refid="com.sql.dbo"/>GETVENDORNAME(KPEC.GATE_CD, KPEC.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+        <if test="PC_TYPE != '' and PC_TYPE != null">
+            AND 'SAL' = #{PC_TYPE}
+        </if>
+        <if test="RFA_NM != '' and RFA_NM != null">
+            AND KPHD.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_NM !='' and CTRL_USER_NM !=null">
+            AND KPHD.CONTRACT_USER_ID IN (SELECT USER_ID
+            FROM STOCUSER
+            WHERE GATE_CD = #{ses.gateCd}
+            AND GETUSERNAME_ORI(GATE_CD, USER_ID, #{ses.langCd})  LIKE  #{CTRL_USER_NM}
+             || '%'
+            )
+        </if>
+		<if test="BS_CD != '' and BS_CD != null">
+            AND KPHD.BS_CD <include refid="com.sql.likeL"/> #{BS_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BS_NM != '' and BS_NM != null">
+            AND BSMG.BS_NM <include refid="com.sql.likeL"/> #{BS_NM} <include refid="com.sql.likeR"/>
+        </if>
+        GROUP BY ECHB.GATE_CD, ECHB.CONT_WT_NUM, ECHB.CONT_WT_TYPE, KPHD.SO_NUM, KPHD.SO_CNT, KPHD.SUBJECT,
+        KPHD.SIGN_DATE, KPEC.VENDOR_CD, KPHD.BS_CD, KPHD.SALES_USER_ID, BSMG.BS_NM, ECCT.CONT_NUM, ECHB.ACC_ATTR, KPHD.SO_TYPE, ECHB.ITEM_CLS4
+        ORDER BY EXEC_NUM DESC, VENDOR_CD
+    </select>
+
+	<select id ="getSOEXInformation" parameterType ="hashMap" resultType ="hashMap">
+	SELECT  CNHD.EXEC_NUM
+		   ,CNHD.EXEC_SUBJECT
+	       ,<include refid="com.sql.nvl"/>(GETUSERNAME(CNHD.GATE_CD,'','KO'),'-') AS SALES_USER_NM
+	       ,0 as EXEC_CNT
+      FROM STOCCNHD CNHD
+      JOIN STOCECCT ECCT
+        ON (CNHD.GATE_CD  = ECCT.GATE_CD
+       AND CNHD.EXEC_NUM = ECCT.EXEC_NUM)
+     WHERE ECCT.GATE_CD = #{ses.gateCd}
+       AND ECCT.CONT_NUM = #{CONT_NUM}
+       AND ECCT.CONT_CNT = #{CONT_CNT}
+       AND ECCT.DEL_FLAG = '0'
+
+    UNION
+
+    SELECT KPHD.SO_NUM as EXEC_NUM
+          ,KPHD.SUBJECT as EXEC_SUBJECT
+          ,<include refid="com.sql.nvl"/>(GETUSERNAME(KPHD.GATE_CD ,KPHD.SALES_USER_ID,'KO'),'-') AS SALES_USER_NM
+          ,KPHD.SO_CNT as EXEC_CNT
+      FROM STOCKPHD KPHD
+      JOIN STOCECCT ECCT
+        ON ( KPHD.GATE_CD  = ECCT.GATE_CD
+       AND KPHD.SO_NUM = ECCT.SO_NUM
+       AND KPHD.SO_CNT = ECCT.SO_CNT)
+     WHERE ECCT.GATE_CD = #{ses.gateCd}
+       AND ECCT.CONT_NUM = #{CONT_NUM}
+       AND ECCT.CONT_CNT = #{CONT_CNT}
+       AND KPHD.DEL_FLAG = '0'
+       AND ECCT.DEL_FLAG = '0'
+	</select>
+
+	<select id ="getSOApprovalLineData" parameterType ="hashMap" resultType ="hashMap">
+	SELECT KPHD.SO_TYPE
+          ,BSMG.BS_TYPE
+          ,ECCT.CONT_NUM
+          ,ECCT.CONT_CNT
+          ,ECCT.SO_NUM
+      FROM STOCKPHD KPHD
+      JOIN STOCECCT ECCT
+        ON ( KPHD.GATE_CD  = ECCT.GATE_CD
+       AND KPHD.SO_NUM = ECCT.SO_NUM
+       AND KPHD.SO_CNT = ECCT.SO_CNT)
+      JOIN STOCBSMG BSMG
+      	ON (BSMG.GATE_CD = KPHD.GATE_CD
+	   AND BSMG.BS_CD = KPHD.BS_CD)
+     WHERE ECCT.GATE_CD =  #{ses.gateCd}
+       AND ECCT.CONT_NUM = #{CONT_NUM}
+       AND ECCT.CONT_CNT = #{CONT_CNT}
+       AND KPHD.DEL_FLAG = '0'
+       AND ECCT.DEL_FLAG = '0'
+	</select>
+
+	<select id="getSOApprovalData" parameterType="hashMap" resultType="hashMap">
+	 SELECT KPHD.SO_NUM,
+	        SCTM.BLSM_HTML,
+	        KPHD.SO_CNT
+       FROM STOCKPHD KPHD
+       JOIN STOCSCTM SCTM
+         ON ( KPHD.GATE_CD = SCTM.GATE_CD
+        AND  KPHD.APP_DOC_NUM = SCTM.APP_DOC_NUM
+        AND  KPHD.DEL_FLAG  = '0'
+        AND  KPHD.SO_NUM = #{SO_NUM}
+        AND  KPHD.SO_CNT = #{SO_CNT})
+	</select>
+
+    <select id="getExContractInformation" parameterType="hashMap" resultType="hashMap">
+
+           SELECT CNHD.GATE_CD
+           		, CNHD.EXEC_NUM
+           		, EXEC_SUBJECT CONT_DESC
+           		, CNDT.DEL_FLAG
+           		, CNDT.VENDOR_CD
+           		, SUM(CNDT.EXEC_AMT) AS SUPPLY_AMT
+             FROM STOCCNHD CNHD
+             JOIN STOCCNDT CNDT
+               ON (CNHD.GATE_CD  = CNDT.GATE_CD
+              AND CNHD.EXEC_NUM = CNDT.EXEC_NUM)
+             WHERE CNHD.GATE_CD   = #{ses.gateCd}
+               AND CNDT.EXEC_NUM  = #{EXEC_NUM}
+               AND CNDT.VENDOR_CD = #{VENDOR_CD}
+               AND CNDT.DEL_FLAG  = '0'
+             GROUP BY CNHD.GATE_CD, CNHD.EXEC_NUM,EXEC_SUBJECT, CNDT.DEL_FLAG,CNDT.VENDOR_CD
+
+	</select>
+
+    <select id="getSoContractInformation" parameterType="hashMap" resultType="hashMap">
+		   SELECT KPHD.GATE_CD
+           		 ,KPHD.SO_NUM
+                 ,KPHD.SO_CNT
+                 ,KPHD.SUBJECT   AS CONT_DESC
+                 ,KPHD.FROM_DATE AS CONT_START_DATE
+                 ,KPHD.TO_DATE   AS CONT_END_DATE
+                 ,KPHD.DEL_FLAG
+           		 ,KPHD.PRE_RATE
+                 ,KPHD.MID_RATE
+                 ,KPHD.BAL_RATE
+                 ,KPHD.COM_RATE
+                 ,KPHD.ADV_GUAR_PERCENT
+           		 ,KPHD.CONT_GUAR_PERCENT
+                 ,KPHD.WARR_GUAR_PERCENT
+                 ,KPHD.WARR_GUAR_QT
+                 ,(CASE WHEN KPHD.SO_TYPE IN ('IBS', 'ITM') THEN KPHD.SDELAY_NUME_RATE
+					    ELSE (CASE WHEN MAX(KPEC.ACC_ATTR) = '01' THEN KPHD.DELAY_NUME_RATE
+					    		   ELSE KPHD.SDELAY_NUME_RATE
+					    	   END)
+					END)         AS DELAY_NUME_RATE
+                 ,(CASE WHEN KPHD.SO_TYPE IN ('IBS', 'ITM') THEN KPHD.SDELAY_DENO_RATE
+					    ELSE (CASE WHEN MAX(KPEC.ACC_ATTR) = '01' THEN KPHD.DELAY_DENO_RATE
+					    		   ELSE KPHD.SDELAY_DENO_RATE
+					    	   END)
+					END)         AS DELAY_DENO_RATE
+           		 ,KPEC.VENDOR_CD
+                 ,SUM(KPEC.ITEM_AMT)<include refid="com.sql.stringMerge"/>'' AS SUPPLY_AMT
+             FROM STOCKPHD KPHD
+               JOIN STOCKPEC KPEC
+                 ON (KPHD.GATE_CD = KPEC.GATE_CD
+                AND KPHD.SO_NUM  = KPEC.SO_NUM
+                AND KPHD.SO_CNT  = KPEC.SO_CNT
+                    )
+              WHERE  KPHD.GATE_CD   = #{ses.gateCd}
+                AND KPHD.SO_NUM    = #{SO_NUM}
+                AND KPHD.SO_CNT    = #{SO_CNT}
+                AND KPEC.VENDOR_CD = #{VENDOR_CD}
+                AND KPEC.DEL_FLAG  ='0'
+               GROUP BY KPHD.GATE_CD, KPHD.SO_NUM, KPHD.SO_CNT, KPHD.SUBJECT, KPHD.SO_TYPE,
+               		KPHD.FROM_DATE, KPHD.TO_DATE ,KPHD.DEL_FLAG, KPHD.PRE_RATE,
+               		KPHD.MID_RATE, KPHD.BAL_RATE, KPHD.COM_RATE, KPHD.ADV_GUAR_PERCENT,
+               		KPHD.CONT_GUAR_PERCENT, KPHD.WARR_GUAR_PERCENT, KPHD.WARR_GUAR_QT,
+               		KPHD.DELAY_NUME_RATE, KPHD.DELAY_DENO_RATE, KPHD.SDELAY_NUME_RATE, KPHD.SDELAY_DENO_RATE, KPEC.VENDOR_CD
+	</select>
+
+	<select id="doSearch" parameterType="hashMap" resultType="hashMap">
+        SELECT
+        ECCT.PROGRESS_CD AS PROGRESS_CD
+        , ECCT.CONT_NUM AS CONT_NUM
+        , ECCT.CONT_CNT AS CONT_CNT
+        , ECCT.CONT_DESC AS CONT_DESC
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_START_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_END_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_END_DATE
+        , ECCT.VENDOR_CD AS VENDOR_CD
+        , <include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd},ECCT.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+        <!-- , ECCT.CONT_USER_ID AS CONT_USER_ID -->
+        , ECCT.CONT_USER_ID AS CONT_USER_ID
+        , <include refid="com.sql.dbo"/>getUserName(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd}) AS USER_NM
+        , ECCT.DATATYPEFLAG
+        , ECCT.GATE_CD AS GATE_CD
+        , ECCT.CONT_REQ_CD
+        , ECCT.MANUAL_CONT_FLAG
+        , ECCT.SIGN_STATUS
+        , ECRL.CONTRACT_TEXT_NUM
+        , ( SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD = #{ses.gateCd} AND BUYER_CD = ECCT.BUYER_CD AND PLANT_CD = ECCT.PLANT_CD ) AS PLANT_NM
+        , ECCT.PLANT_CD
+        , ECCT.BASEDATATYPE
+
+
+       	, CASE WHEN ECCT.ADV_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.ADV_INSU_STATUS IN ('P', 'S') THEN ECCT.ADV_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+		          			  WHERE GATE_CD  = ECCT.GATE_CD
+			                    AND UUID     = ECCT.GUAR_ATT_FILE_NUM
+			                    AND DEL_FLAG = '0'))
+           END AS GUR_CNT
+        , ECCT.GUAR_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.CONT_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.CONT_INSU_STATUS IN ('P', 'S') THEN ECCT.CONT_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.GUAR_PERFORM_ATT_FILE_NUM
+                                AND DEL_FLAG = '0'))
+           END AS GUR_PER_CNT
+        , ECCT.GUAR_PERFORM_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.WARR_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.WARR_INSU_STATUS IN ('P', 'S') THEN ECCT.WARR_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+						      WHERE GATE_CD  = ECCT.GATE_CD
+				                AND UUID     = ECCT.GUAR_FINISH_ATT_FILE_NUM
+				                AND DEL_FLAG = '0'))
+		   END AS GUR_FIN_CNT
+        , ECCT.GUAR_FINISH_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.PAY_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.PAY_INSU_STATUS IN ('P', 'S') THEN ECCT.PAY_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+						      WHERE GATE_CD  = ECCT.GATE_CD
+				                AND UUID     = ECCT.GUAR_PAY_ATT_FILE_NUM
+				                AND DEL_FLAG = '0'))
+		   END AS GUR_PAY_CNT
+        , ECCT.GUAR_PAY_ATT_FILE_NUM
+
+        , (SELECT
+        <if test="_databaseId == 'mssql'">
+            TOP 1
+        </if>
+        ECCF.FORM_NM
+        FROM STOCECCF ECCF
+        WHERE ECCF.GATE_CD = ECRL.GATE_CD
+        AND ECCF.FORM_NUM = ECRL.FORM_NUM
+        AND ECCF.FORM_TYPE = '100'
+        AND ECCF.DEL_FLAG = '0'
+        <if test="_databaseId == 'oracle'">
+            AND ROWNUM = 1
+        </if>
+        ) AS FORM_NM
+        <!-- , ECCT.REG_DATE -->
+        , CASE WHEN CNVD.CUR IS NULL OR CNVD.CUR = '' THEN 'KRW' ELSE CNVD.CUR END AS CUR
+        , <include refid="com.sql.dbo"/>GETAMOUNTBYCUR(CASE WHEN CNVD.CUR IS NULL OR CNVD.CUR = '' THEN 'KRW' ELSE CNVD.CUR END, ECCT.CONT_AMT) AS CONT_AMT
+        , ECCT.ATT_FILE_NUM
+        , <include refid="com.sql.dbo"/>GETGMTDATE(ECCT.BALANCE_PAY_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS BALANCE_PAY_DATE
+        , ECCT.VENDOR_EDIT_FLAG
+        , CNHD.CTRL_USER_ID
+        , KPHD.BS_CD
+        , BSMG.BS_NM
+       	, CASE WHEN (SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.VENDOR_ATT_FILE_NUM
+                                AND DEL_FLAG = '0') = 0 THEN ''
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.VENDOR_ATT_FILE_NUM
+                                AND DEL_FLAG = '0'))
+           END AS VENDOR_ATT_FILE_CNT
+        , ECCT.VENDOR_ATT_FILE_NUM
+        FROM STOCECCT ECCT LEFT JOIN STOCUSER USERD
+        ON (ECCT.GATE_CD = USERD.GATE_CD
+        AND ECCT.CONT_USER_ID = USERD.USER_ID
+        AND USERD.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCKPHD KPHD
+        ON ( ECCT.GATE_CD=KPHD.GATE_CD
+        AND ECCT.SO_NUM = KPHD.SO_NUM
+        AND ECCT.SO_CNT= KPHD.SO_CNT)
+        LEFT JOIN STOCBSMG BSMG
+        ON( BSMG.GATE_CD = KPHD.GATE_CD
+        AND BSMG.BS_CD = KPHD.BS_CD )
+        LEFT OUTER JOIN STOCECRL ECRL
+        ON (ECCT.GATE_CD = ECRL.GATE_CD
+        AND ECCT.CONT_NUM = ECRL.CONT_NUM
+        AND ECCT.CONT_CNT = ECRL.CONT_CNT
+        AND ECRL.FORM_SQ = '0'
+        AND ECRL.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCCNVD CNVD
+        ON(ECCT.GATE_CD = CNVD.GATE_CD
+        AND ECCT.EXEC_NUM = CNVD.EXEC_NUM
+        AND ECCT.VENDOR_CD = CNVD.VENDOR_CD
+        AND CNVD.DEL_FLAG = '0')
+        LEFT OUTER JOIN STOCCNHD CNHD
+        ON(ECCT.GATE_CD = CNHD.GATE_CD
+        AND ECCT.EXEC_NUM = CNHD.EXEC_NUM
+        AND CNHD.DEL_FLAG = '0')
+        WHERE ECCT.DEL_FLAG = '0'
+        AND ECCT.GATE_CD = #{ses.gateCd}
+        <!--   AND EXISTS (SELECT 'X' FROM STOCUSPL
+                       WHERE GATE_CD = ECCT.GATE_CD
+                           AND PLANT_CD = ECCT.PLANT_CD
+                         AND USER_ID = #{ses.userId}
+                         AND DEL_FLAG = '0') -->
+        <if test="DEPT_NM != '' and DEPT_NM != null and st_DEPT_NM != '' ">
+            AND <include refid="com.sql.dbo"/>getDeptName(#{ses.gateCd}, #{ses.companyCd}, USERD.DEPT_CD,
+            #{ses.langCd}) <include refid="com.sql.likeL"/> #{DEPT_NM} <include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+		    AND ECCT.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+		    AND <include refid="com.sql.dbo"/>GETVENDORNAME(ECCT.GATE_CD, ECCT.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+
+        <if test="CONT_NUM != '' and CONT_NUM != null ">
+            AND ECCT.CONT_NUM <include refid="com.sql.likeL"/> #{CONT_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_DESC != '' and CONT_DESC != null ">
+            AND ECCT.CONT_DESC <include refid="com.sql.likeL"/>#{CONT_DESC}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="addDateFrom != '' and addDateFrom != null and addDateTo != '' and addDateTo != null">
+          AND ECCT.CONT_DATE BETWEEN <include refid="com.sql.toDate"/>#{addDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{addDateTo}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            AND ECCT.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CLOSING_PROGRESS_CD != '' and CLOSING_PROGRESS_CD != null">
+            AND ECCT.CLOSING_PROGRESS_CD = #{CLOSING_PROGRESS_CD}
+        </if>
+        <if test="USER_ID != '' and USER_ID != null">
+            AND ECCT.CONT_USER_ID <include refid="com.sql.likeL"/> #{USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND UPPER(<include refid="com.sql.dbo"/>GETUSERNAME_ORI(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd})) <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CLOSING_REQ_USER_TYPE != '' and CLOSING_REQ_USER_TYPE != null">
+            AND ECCT.CLOSING_REQ_USER_TYPE = #{CLOSING_REQ_USER_TYPE}
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+            AND ECCT.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="MANUAL_CONT_FLAG != '' and MANUAL_CONT_FLAG != null">
+            AND ECCT.MANUAL_CONT_FLAG = #{MANUAL_CONT_FLAG}
+        </if>
+        <if test="CONT_REQ_CD != '' and CONT_REQ_CD != null">
+            AND ECCT.CONT_REQ_CD = #{CONT_REQ_CD}
+        </if>
+        <if test="CONTRACT_TYPE != '' and CONTRACT_TYPE != null">
+            <if test='_databaseId=="oracle"'>
+                AND (ECCT.CONT_NUM, ECCT.CONT_CNT) IN ( SELECT CONT_NUM, CONT_CNT FROM STOCECRL
+                WHERE GATE_CD = #{ses.gateCd}
+                AND FORM_NUM = #{CONTRACT_TYPE}
+                AND DEL_FLAG = '0'
+                GROUP BY CONT_NUM, CONT_CNT )
+            </if>
+            <if test='_databaseId=="mssql"'>
+                AND (ECCT.CONT_NUM <include refid="com.sql.stringMerge"/> CAST(ECCT.CONT_CNT AS NVARCHAR)) IN ( SELECT CONT_NUM <include refid="com.sql.stringMerge"/>
+                CAST(CONT_CNT AS NVARCHAR) FROM STOCECRL
+                WHERE GATE_CD = #{ses.gateCd}
+                AND FORM_NUM = #{CONTRACT_TYPE}
+                AND DEL_FLAG = '0'
+                GROUP BY CONT_NUM, CONT_CNT )
+            </if>
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND ECCT.PLANT_CD = #{PLANT_CD}
+        </if>
+        <if test="BS_CD != '' and BS_CD != null">
+            AND KPHD.BS_CD <include refid="com.sql.likeL"/> #{BS_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BS_NM != '' and BS_NM != null">
+            AND BSMG.BS_NM <include refid="com.sql.likeL"/> #{BS_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SG_NUM1 != '' and SG_NUM1 != null">
+            AND EXISTS
+            (
+            SELECT 'X'
+            FROM STOCSGVN SGVN
+            WHERE 1 = 1
+            AND SGVN.GATE_CD = ECCT.GATE_CD
+            AND SGVN.VENDOR_CD = ECCT.VENDOR_CD
+            AND SGVN.DEL_FLAG = '0'
+            AND <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, #{ses.langCd}, 1, SGVN.SG_NUM) = #{SG_NUM1}
+            )
+        </if>
+
+        <if test="SG_NUM2 != '' and SG_NUM2 != null">
+            AND EXISTS
+            (
+            SELECT 'X'
+            FROM STOCSGVN SGVN
+            WHERE 1 = 1
+            AND SGVN.GATE_CD = ECCT.GATE_CD
+            AND SGVN.VENDOR_CD = ECCT.VENDOR_CD
+            AND SGVN.DEL_FLAG = '0'
+            AND <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, #{ses.langCd}, 2, SGVN.SG_NUM) = #{SG_NUM2}
+            )
+        </if>
+        <if test="SG_NUM3 != '' and SG_NUM3 != null">
+            AND EXISTS
+            (
+            SELECT 'X'
+            FROM STOCSGVN SGVN
+            WHERE 1 = 1
+            AND SGVN.GATE_CD = ECCT.GATE_CD
+            AND SGVN.VENDOR_CD = ECCT.VENDOR_CD
+            AND SGVN.DEL_FLAG = '0'
+            AND <include refid="com.sql.dbo"/>GETSGCLASS(SGVN.GATE_CD, #{ses.langCd}, 3, SGVN.SG_NUM) = #{SG_NUM3}
+            )
+        </if>
+
+        ORDER BY ECCT.CONT_NUM DESC, ECCT.CONT_CNT DESC
+    </select>
+
+    <update id="doTerminateECHB" parameterType="hashmap">
+		UPDATE STOCECHB SET
+			 DEL_FLAG   = '1'
+			,MOD_DATE   = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+	     WHERE GATE_CD     = #{ses.gateCd}
+	       AND CONT_WT_NUM = #{CONT_WT_NUM}
+	       AND DEL_FLAG    = '0'
+	</update>
+
+    <select id="doSearchContractProgressStatus" parameterType="hashMap" resultType="hashMap">
+        SELECT ECCT.GATE_CD AS GATE_CD
+        , ECCT.BUYER_CD AS BUYER_CD
+        , <include refid="com.sql.dbo"/>getBuyerName(ECCT.GATE_CD, ECCT.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+        , ECCT.PROGRESS_CD AS PROGRESS_CD
+        , '' AS CLOSING_PROGRESS_CD
+        , '' AS CLOSING_REQ_USER_TYPE
+        , ECCT.CONT_NUM AS CONT_NUM
+        , ECCT.CONT_CNT AS CONT_CNT
+        , ECCT.CONT_DESC AS CONT_DESC
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_START_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_END_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CONT_END_DATE
+        , <include refid="com.sql.dbo"/>getGmtDate(ECCT.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SIGN_DATE
+        , ECCT.CONT_USER_ID AS CONT_USER_ID
+        , <include refid="com.sql.dbo"/>getUserName(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd}) AS CONTRACT_NM
+        , ECCT.CONT_REQ_CD AS CONT_REQ_CD
+        , ECRL.CONTRACT_TEXT_NUM
+	    , ECCT.CONT_AMT
+        , (SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD = #{ses.gateCd} AND BUYER_CD = ECCT.BUYER_CD AND PLANT_CD = ECCT.PLANT_CD) AS PLANT_NM
+
+       	, CASE WHEN ECCT.ADV_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.ADV_INSU_STATUS IN ('P', 'S') THEN ECCT.ADV_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+		          			  WHERE GATE_CD  = ECCT.GATE_CD
+			                    AND UUID     = ECCT.GUAR_ATT_FILE_NUM
+			                    AND DEL_FLAG = '0'))
+           END AS GUR_CNT
+        , ECCT.GUAR_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.CONT_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.CONT_INSU_STATUS IN ('P', 'S') THEN ECCT.CONT_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.GUAR_PERFORM_ATT_FILE_NUM
+                                AND DEL_FLAG = '0'))
+           END AS GUR_PER_CNT
+        , ECCT.GUAR_PERFORM_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.WARR_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.WARR_INSU_STATUS IN ('P', 'S') THEN ECCT.WARR_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+						      WHERE GATE_CD  = ECCT.GATE_CD
+				                AND UUID     = ECCT.GUAR_FINISH_ATT_FILE_NUM
+				                AND DEL_FLAG = '0'))
+		   END AS GUR_FIN_CNT
+        , ECCT.GUAR_FINISH_ATT_FILE_NUM
+
+       	, CASE WHEN ECCT.PAY_GUAR_FLAG = '0' THEN ''
+       		   WHEN ECCT.PAY_INSU_STATUS IN ('P', 'S') THEN ECCT.PAY_GUAR_NUM
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				   			   FROM STOCATCH
+						      WHERE GATE_CD  = ECCT.GATE_CD
+				                AND UUID     = ECCT.GUAR_PAY_ATT_FILE_NUM
+				                AND DEL_FLAG = '0'))
+		   END AS GUR_PAY_CNT
+        , ECCT.GUAR_PAY_ATT_FILE_NUM
+
+        , ECCT.ADV_GUAR_FLAG
+    	, ECCT.CONT_GUAR_FLAG
+    	, ECCT.WARR_GUAR_FLAG
+        , ECCT.DATATYPEFLAG
+        , ECCT.BASEDATATYPE
+       	, CASE WHEN (SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.VENDOR_ATT_FILE_NUM
+                                AND DEL_FLAG = '0') = 0 THEN ''
+    	   	   ELSE TO_CHAR((SELECT COUNT(*)
+				               FROM STOCATCH
+		                      WHERE GATE_CD  = ECCT.GATE_CD
+                                AND UUID     = ECCT.VENDOR_ATT_FILE_NUM
+                                AND DEL_FLAG = '0'))
+           END AS VENDOR_ATT_FILE_CNT
+        , ECCT.VENDOR_ATT_FILE_NUM
+        FROM STOCECCT ECCT
+        LEFT OUTER JOIN STOCECRL ECRL
+        ON (ECCT.GATE_CD = ECRL.GATE_CD
+        AND ECCT.CONT_NUM = ECRL.CONT_NUM
+        AND ECCT.CONT_CNT = ECRL.CONT_CNT
+        AND ECRL.FORM_SQ = '0'
+        AND ECRL.DEL_FLAG = '0')
+        WHERE ECCT.VENDOR_CD = #{ses.companyCd}
+        AND ECCT.PROGRESS_CD > '4200'
+        AND ECCT.DEL_FLAG = '0'
+        AND ECCT.MANUAL_CONT_FLAG = '0'
+        AND ECCT.GATE_CD = #{ses.gateCd}
+        <if test="BUYER_CD != '' and BUYER_CD != null">
+            AND ECCT.BUYER_CD = #{BUYER_CD}
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+            AND ECCT.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CONT_DESC != '' and CONT_DESC != null">
+            AND ECCT.CONT_DESC <include refid="com.sql.likeL"/>#{CONT_DESC}<include refid="com.sql.likeR"/>
+        </if>
+        <if test="addDateFrom != '' and addDateFrom != null and addDateTo != '' and addDateTo != null">
+          AND ECCT.CONT_DATE BETWEEN <include refid="com.sql.toDate"/>#{addDateFrom}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{addDateTo}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test="USER_NM != '' and USER_NM != null">
+            AND <include refid="com.sql.dbo"/>getUserName(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd})
+          <include refid="com.sql.likeL"/> #{USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CLOSING_PROGRESS_CD != '' and CLOSING_PROGRESS_CD != null">
+            AND ECCT.CLOSING_PROGRESS_CD = #{CLOSING_PROGRESS_CD}
+        </if>
+        <if test="CLOSING_REQ_USER_TYPE != '' and CLOSING_REQ_USER_TYPE != null">
+            AND ECCT.CLOSING_REQ_USER_TYPE = #{CLOSING_REQ_USER_TYPE}
+        </if>
+        <if test="CONT_REQ_CD != '' and CONT_REQ_CD != null">
+            AND ECCT.CONT_REQ_CD = #{CONT_REQ_CD}
+        </if>
+        <if test='summary == "Y"'>
+            AND ECCT.PROGRESS_CD IN ('4210', '4230')
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+            AND ECCT.PLANT_CD = #{PLANT_CD}
+        </if>
+		ORDER BY ECCT.CONT_NUM DESC, ECCT.CONT_CNT DESC
+    </select>
+
+    <select id="getSignStatus" resultType="string">
+        SELECT SIGN_STATUS
+          FROM STOCECCT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="getMainForm" parameterType="hashMap" resultType="hashMap">
+        SELECT GATE_CD
+              ,FORM_TEXT_NUM
+          FROM STOCECCF
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="getAdditionalFormList" parameterType="hashMap" resultType="hashMap">
+        SELECT ECCR.GATE_CD
+        ,ECCR.FORM_NUM
+        ,ECCR.REL_FORM_NUM
+        ,ECCR.REL_FORM_SQ
+        ,ECCF2.FORM_NM
+        ,ECCR.REQUIRE_FLAG
+        ,ECCF2.FORM_TEXT_NUM
+        FROM STOCECCF ECCF JOIN STOCECCR ECCR
+        ON (ECCF.GATE_CD = ECCR.GATE_CD
+        AND ECCF.FORM_NUM = ECCR.FORM_NUM) JOIN STOCECCF ECCF2
+        ON (ECCR.GATE_CD = ECCF2.GATE_CD
+        AND ECCR.REL_FORM_NUM = ECCF2.FORM_NUM)
+        WHERE ECCF.GATE_CD = #{ses.gateCd}
+        <choose>
+            <when test="additionalFormList != '' and additionalFormList != null and additionalFormList.size() > 0">
+                AND ECCR.FORM_NUM IN
+                <foreach collection="additionalFormList" open="(" close=")" item="abc" separator=",">'${abc.FORM_NUM}'
+                </foreach>
+                AND ECCR.REL_FORM_SQ IN
+                <foreach collection="additionalFormList" open="(" close=")" item="abc" separator=",">
+                    '${abc.REL_FORM_SQ}'
+                </foreach>
+            </when>
+            <otherwise>
+                /* AND ECCR.REL_FORM_SQ IN ('') */
+            </otherwise>
+        </choose>
+        AND ECCF.DEL_FLAG = '0'
+        AND ECCR.DEL_FLAG = '0'
+        ORDER BY ECCR.FORM_NUM ASC, ECCR.REL_FORM_SQ ASC
+    </select>
+
+
+    <insert id="doInsertECCT">
+        INSERT INTO STOCECCT (
+         GATE_CD
+        ,CONT_NUM
+        ,CONT_CNT
+        ,REG_DATE
+        ,REG_USER_ID
+        ,MOD_DATE
+        ,MOD_USER_ID
+        ,DEL_FLAG
+        ,BUYER_CD
+        ,CONT_DESC
+        ,CONT_DATE
+        ,CONT_START_DATE
+        ,CONT_END_DATE
+        ,CONT_USER_ID
+        ,ATT_FILE_NUM
+        ,BUYER_ATT_FILE_NUM
+        ,RFQ_ATT_FILE_NUM
+        ,BIZ_ATT_FILE_NUM
+        ,SC_ATT_FILE_NUM
+        ,ETC_ATT_FILE_NUM
+        ,VENDOR_ATT_FILE_NUM
+        ,APP_DOC_NUM
+        ,APP_DOC_CNT
+        ,ADV_GUAR_FLAG
+        ,ADV_GUAR_PERCENT
+        ,ADV_VAT_FLAG
+        ,ADV_GUAR_AMT
+        ,CONT_GUAR_FLAG
+        ,CONT_GUAR_PERCENT
+        ,CONT_VAT_FLAG
+        ,CONT_GUAR_AMT
+        ,WARR_GUAR_FLAG
+        ,WARR_GUAR_PERCENT
+        ,WARR_VAT_FLAG
+        ,WARR_GUAR_AMT
+        ,WARR_GUAR_QT
+        ,SIGN_STATUS
+        ,VENDOR_CD
+        ,SUPPLY_AMT
+        ,VAT_FLAG
+        ,VAT_AMT
+        ,CONT_AMT
+        ,DOC_TYPE
+        ,SIGN_DATE
+        ,PROGRESS_CD
+        ,EXEC_NUM
+        ,APPROVAL_FLAG
+        ,VENDOR_PIC_USER_NM
+        ,MANUAL_CONT_FLAG
+        ,CONT_REQ_CD
+        ,CONT_REQ_RMK
+        ,PLANT_CD
+        ,VENDOR_EDIT_FLAG
+        ,DELY_TERMS_DESC
+        ,DELY_PLACE
+        ,PAY_TERMS_DESC
+        ,DELAY_NUME_RATE
+        ,DELAY_DENO_RATE
+        ,DELAY_AMT
+        ,STAMP_DUTY_FLAG
+        ,STAMP_DUTY_AMT
+        ,STAMP_DUTY_INIT_AMT
+        ,DATATYPEFLAG
+        ,SO_NUM
+        ,SO_CNT
+        ,BASEDATATYPE
+        ,ADV_INSU_STATUS
+        ,CONT_INSU_STATUS
+        ,WARR_INSU_STATUS
+	    ,PAY_GUAR_FLAG
+        ,PAY_INSU_STATUS
+	    ,PAY_GUAR_AMT
+        ,CONT_WT_NUM
+        ,ACC_ATTR
+        ,ITEM_CLS4
+        ,PRE_RATE
+        ,MID_RATE
+        ,BAL_RATE
+        ,COM_RATE
+        ,VENDOR_CONF_FLAG
+        ,ALLOWANCE_RATE
+        ) VALUES (
+        #{ses.gateCd}
+        ,#{CONT_NUM}
+        ,#{CONT_CNT}
+        ,<include refid="com.sql.sysdate"/>
+        ,#{ses.userId}
+        ,<include refid="com.sql.sysdate"/>
+        ,#{ses.userId}
+        ,'0'
+        ,#{BUYER_CD}
+        ,#{CONT_DESC}
+        ,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        ,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        ,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+        <!-- ,#{CONT_USER_ID} -->
+        ,#{CONT_USER_ID}
+        ,#{ATT_FILE_NUM}
+        ,#{BUYER_ATT_FILE_NUM}
+        ,#{RFQ_ATT_FILE_NUM}
+        ,#{BIZ_ATT_FILE_NUM}
+        ,#{SC_ATT_FILE_NUM}
+        ,#{ETC_ATT_FILE_NUM}
+        ,#{VENDOR_ATT_FILE_NUM}
+        <!--
+        ,#{APP_DOC_NUM}
+        ,CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END
+         -->
+        ,null
+        ,null
+        ,<include refid="com.sql.nvl"/>(#{ADV_GUAR_FLAG}, 0)
+        ,CASE WHEN #{ADV_GUAR_PERCENT} = '' THEN NULL ELSE #{ADV_GUAR_PERCENT} END
+        ,#{ADV_VAT_FLAG}
+        ,CASE WHEN #{ADV_GUAR_AMT} = '' THEN NULL ELSE #{ADV_GUAR_AMT} END
+        ,<include refid="com.sql.nvl"/>(#{CONT_GUAR_FLAG}, 0)
+        ,CASE WHEN #{CONT_GUAR_PERCENT} = '' THEN NULL ELSE #{CONT_GUAR_PERCENT} END
+        ,#{CONT_VAT_FLAG}
+        ,CASE WHEN #{CONT_GUAR_AMT} = '' THEN NULL ELSE #{CONT_GUAR_AMT} END
+        ,<include refid="com.sql.nvl"/>(#{WARR_GUAR_FLAG}, 0)
+        ,CASE WHEN #{WARR_GUAR_PERCENT} = '' THEN NULL ELSE #{WARR_GUAR_PERCENT} END
+        ,#{WARR_VAT_FLAG}
+        ,CASE WHEN #{WARR_GUAR_AMT} = '' THEN NULL ELSE #{WARR_GUAR_AMT} END
+        ,CASE WHEN #{WARR_GUAR_QT} = '' THEN NULL ELSE #{WARR_GUAR_QT} END
+        ,#{SIGN_STATUS}
+        ,#{VENDOR_CD}
+        ,CASE WHEN #{SUPPLY_AMT} = '' THEN NULL ELSE #{SUPPLY_AMT} END
+        ,#{VAT_FLAG}
+        ,CASE WHEN #{VAT_AMT} = '' THEN NULL ELSE #{VAT_AMT} END
+        ,CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END
+        ,#{DOC_TYPE}
+        <choose>
+            <when test='APPROVAL_FLAG == "0"'>,<include refid="com.sql.sysdate"/></when>
+            <otherwise>,null</otherwise>
+        </choose>
+        ,#{PROGRESS_CD}
+        ,#{EXEC_NUM}
+        ,#{APPROVAL_FLAG}
+        ,#{VENDOR_PIC_USER_NM}
+        ,#{MANUAL_CONT_FLAG}
+        ,#{CONT_REQ_CD}
+
+        ,#{CONT_REQ_RMK}
+        ,#{PLANT_CD}
+        ,#{VENDOR_EDIT_FLAG}
+        ,#{DELY_TERMS_DESC}
+        ,#{DELY_PLACE}
+        ,#{PAY_TERMS_DESC}
+        ,#{DELAY_NUME_RATE}
+        ,#{DELAY_DENO_RATE}
+        ,#{DELAY_AMT}
+        ,#{STAMP_DUTY_FLAG}
+        ,#{STAMP_DUTY_AMT}
+        ,#{STAMP_DUTY_AMT} <!-- stamp_duty_init_amt -->
+        ,#{DATATYPEFLAG}
+        ,#{SO_NUM}
+        ,#{SO_CNT}
+        ,#{baseDataType}
+        ,CASE WHEN #{ADV_GUAR_FLAG}  = '1' THEN 'T' ELSE null END
+        ,CASE WHEN #{CONT_GUAR_FLAG} = '1' THEN 'T' ELSE null END
+        ,CASE WHEN #{WARR_GUAR_FLAG} = '1' THEN 'T' ELSE null END
+		,<include refid="com.sql.nvl"/>(#{PAY_GUAR_FLAG}, 0)
+        ,CASE WHEN #{PAY_GUAR_FLAG} = '1' THEN 'W' ELSE null END
+	    ,#{PAY_GUAR_AMT}
+        ,#{CONT_WT_NUM}
+        ,#{ACC_ATTR}
+        ,#{ITEM_CLS4}
+        ,#{PRE_RATE}
+        ,#{MID_RATE}
+        ,#{BAL_RATE}
+        ,#{COM_RATE}
+        ,#{VENDOR_CONF_FLAG}
+        ,#{ALLOWANCE_RATE}
+        )
+    </insert>
+
+    <update id="doUpdateECCT">
+        UPDATE STOCECCT SET
+               MOD_DATE            = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID         = #{ses.userId}
+              ,BUYER_CD            = #{BUYER_CD}
+              ,CONT_DESC           = #{CONT_DESC}
+              ,CONT_DATE           = <include refid="com.sql.dbo"/>setGmtDate(replace(#{CONT_START_DATE},'-',''), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+              ,CONT_START_DATE     = <include refid="com.sql.dbo"/>setGmtDate(replace(#{CONT_START_DATE},'-',''), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+              ,CONT_END_DATE       = <include refid="com.sql.dbo"/>setGmtDate(replace(#{CONT_END_DATE},'-',''), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+              ,CONT_USER_ID        = #{CONT_USER_ID}
+              ,ATT_FILE_NUM        = #{ATT_FILE_NUM}
+              ,BUYER_ATT_FILE_NUM  = #{BUYER_ATT_FILE_NUM}
+              ,RFQ_ATT_FILE_NUM	   = #{RFQ_ATT_FILE_NUM}
+              ,BIZ_ATT_FILE_NUM	   = #{BIZ_ATT_FILE_NUM}
+              ,SC_ATT_FILE_NUM     = #{SC_ATT_FILE_NUM}
+              ,ETC_ATT_FILE_NUM    = #{ETC_ATT_FILE_NUM}
+              <!-- 	,VENDOR_ATT_FILE_NUM = #{VENDOR_ATT_FILE_NUM} -->
+              <!--
+              ,APP_DOC_NUM         = #{APP_DOC_NUM}
+              ,APP_DOC_CNT         = CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END
+               -->
+              ,ADV_GUAR_FLAG       = <include refid="com.sql.nvl"/>(#{ADV_GUAR_FLAG}, 0)
+              ,ADV_GUAR_PERCENT    = CASE WHEN #{ADV_GUAR_PERCENT} = '' THEN NULL ELSE #{ADV_GUAR_PERCENT} END
+              ,ADV_VAT_FLAG        = #{ADV_VAT_FLAG}
+              ,ADV_GUAR_AMT        = CASE WHEN #{ADV_GUAR_AMT} = '' THEN NULL ELSE #{ADV_GUAR_AMT} END
+              ,CONT_GUAR_FLAG      = <include refid="com.sql.nvl"/>(#{CONT_GUAR_FLAG}, 0)
+              ,CONT_GUAR_PERCENT   = CASE WHEN #{CONT_GUAR_PERCENT} = '' THEN NULL ELSE #{CONT_GUAR_PERCENT} END
+              ,CONT_VAT_FLAG       = #{CONT_VAT_FLAG}
+              ,CONT_GUAR_AMT       = CASE WHEN #{CONT_GUAR_AMT} = '' THEN NULL ELSE #{CONT_GUAR_AMT} END
+              ,WARR_GUAR_FLAG      = <include refid="com.sql.nvl"/>(#{WARR_GUAR_FLAG}, 0)
+              ,WARR_GUAR_PERCENT   = CASE WHEN #{WARR_GUAR_PERCENT} = '' THEN NULL ELSE #{WARR_GUAR_PERCENT} END
+              ,WARR_VAT_FLAG       = #{WARR_VAT_FLAG}
+              ,WARR_GUAR_AMT       = CASE WHEN #{WARR_GUAR_AMT} = '' THEN NULL ELSE #{WARR_GUAR_AMT} END
+              ,WARR_GUAR_QT        = CASE WHEN #{WARR_GUAR_QT} = '' THEN NULL ELSE #{WARR_GUAR_QT} END
+              ,SIGN_STATUS         = #{SIGN_STATUS}
+              ,VENDOR_CD           = #{VENDOR_CD}
+              ,SUPPLY_AMT          = CASE WHEN #{SUPPLY_AMT} = '' THEN NULL ELSE #{SUPPLY_AMT} END
+              ,VAT_FLAG            = #{VAT_FLAG}
+              ,VAT_AMT             = CASE WHEN #{VAT_AMT} = '' THEN NULL ELSE #{VAT_AMT} END
+              ,CONT_AMT            = CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END
+              ,DOC_TYPE            = #{DOC_TYPE}
+              ,SIGN_DATE           = #{SIGN_DATE}
+              ,PROGRESS_CD         = #{PROGRESS_CD}
+              ,EXEC_NUM            = #{EXEC_NUM}
+              ,APPROVAL_FLAG       = #{APPROVAL_FLAG}
+              ,MANUAL_CONT_FLAG    = #{MANUAL_CONT_FLAG}
+              ,CONT_REQ_CD         = #{CONT_REQ_CD}
+              ,CONT_REQ_RMK        = #{CONT_REQ_RMK}
+              ,PLANT_CD            = #{PLANT_CD}
+              ,VENDOR_EDIT_FLAG    = #{VENDOR_EDIT_FLAG}
+              ,DELY_TERMS_DESC     = #{DELY_TERMS_DESC}
+              ,DELY_PLACE          = #{DELY_PLACE}
+              ,PAY_TERMS_DESC      = #{PAY_TERMS_DESC}
+              ,DELAY_NUME_RATE     = #{DELAY_NUME_RATE}
+              ,DELAY_DENO_RATE     = #{DELAY_DENO_RATE}
+              ,DELAY_AMT           = #{DELAY_AMT}
+              ,STAMP_DUTY_FLAG     = #{STAMP_DUTY_FLAG}
+              ,STAMP_DUTY_AMT      = #{STAMP_DUTY_AMT}
+              ,STAMP_DUTY_INIT_AMT = #{STAMP_DUTY_AMT}
+              ,SO_NUM              = #{SO_NUM}
+              ,SO_CNT              = #{SO_CNT}
+              ,ADV_INSU_STATUS     = CASE WHEN #{ADV_GUAR_FLAG}  = '1'  THEN 'T' ELSE null END
+              ,CONT_INSU_STATUS    = CASE WHEN #{CONT_GUAR_FLAG} = '1'  THEN 'T' ELSE null END
+              ,WARR_INSU_STATUS    = CASE WHEN #{WARR_GUAR_FLAG} = '1'  THEN 'T' ELSE null END
+              ,PAY_GUAR_FLAG       = <include refid="com.sql.nvl"/>(#{PAY_GUAR_FLAG}, 0)
+              ,PAY_INSU_STATUS     = CASE WHEN #{PAY_GUAR_FLAG} = '1' THEN 'W' ELSE null END
+              ,PAY_GUAR_AMT        = #{PAY_GUAR_AMT}
+              <!-- ,ACC_ATTR            = #{ACC_ATTR}  :최초 insert data 유지 -->
+              <!-- ,ITEM_CLS4           = #{ITEM_CLS4} :최초 insert data 유지 -->
+	          ,PRE_RATE            = #{PRE_RATE}
+    	      ,MID_RATE            = #{MID_RATE}
+        	  ,BAL_RATE            = #{BAL_RATE}
+	          ,COM_RATE            = #{COM_RATE}
+	          ,ALLOWANCE_RATE      = #{ALLOWANCE_RATE}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND CONT_NUM = #{CONT_NUM}
+        AND CONT_CNT = #{CONT_CNT}
+        AND DEL_FLAG = '0'
+     </update>
+
+    <insert id="doInsertKPEC">
+		INSERT INTO STOCKPEC (
+		     GATE_CD
+			,KPEC_NUM
+		    ,KPEC_SQ
+		    ,REG_DATE
+		    ,REG_USER_ID
+		    ,MOD_DATE
+		    ,MOD_USER_ID
+		    ,DEL_FLAG
+		    ,VENDOR_CD
+		    ,ITEM_CD
+		    ,ITEM_DESC
+		    ,ITEM_SPEC
+		    ,PO_QT
+		    ,UNIT_CD
+		    ,UNIT_PRC
+		    ,ITEM_AMT
+			,ACC_ATTR
+			,ITEM_CLS4
+		    ,YEAR_PRC_YN
+		    ,STOCK_ITEM_YN
+		    ,SO_NUM
+		    ,SO_CNT
+		    ,CONT_YN
+		    ,CONT_NUM
+		    ,CONT_CNT
+		    ,RFX_NUM
+		    ,RFX_CNT
+		    ,RFX_SQ
+		    ,DELY_YM
+			,DELETABLE_YN
+
+		) VALUES (
+		     #{ses.gateCd}
+			,#{KPEC_NUM}
+		    ,#{KPEC_SQ}
+		    ,<include refid="com.sql.sysdate"/>
+		    ,#{ses.userId}
+		    ,<include refid="com.sql.sysdate"/>
+		    ,#{ses.userId}
+		    ,'0'
+		    ,#{VENDOR_CD}
+		    ,#{ITEM_CD}
+		    ,#{ITEM_DESC}
+		    ,#{ITEM_SPEC}
+		    ,#{PO_QT}
+		    ,#{UNIT_CD}
+		    ,#{UNIT_PRC}
+		    ,#{ITEM_AMT}
+			,#{ACC_ATTR}
+			,#{ITEM_CLS4}
+		    ,#{YEAR_PRC_YN}
+		    ,#{STOCK_ITEM_YN}
+		    ,#{SO_NUM}
+		    ,#{SO_CNT}
+		    ,#{CONT_YN}
+		    ,#{CONT_NUM}
+		    ,#{CONT_CNT}
+		    ,#{RFX_NUM}
+		    ,#{RFX_CNT}
+		    ,#{RFX_SQ}
+		    ,<include refid="com.sql.subStr"/>(#{DELY_YM},0,6)
+		    ,#{DELETABLE_YN}
+
+		)
+	</insert>
+
+    <update id="doUpdateKPEC_DELY_YM">
+	 UPDATE STOCKPEC
+		SET CONT_NUM     = #{CONT_NUM}
+		   ,CONT_CNT     = #{CONT_CNT}
+		   ,DELY_YM      = #{DELY_YM}
+		   ,MOD_DATE     = <include refid="com.sql.sysdate"/>
+		   ,MOD_USER_ID  = #{ses.userId}
+	  WHERE GATE_CD  = #{ses.gateCd}
+	    AND KPEC_NUM = #{KPEC_NUM}
+   		AND KPEC_SQ  = #{KPEC_SQ}
+		AND DEL_FLAG = '0'
+	</update>
+
+	<update id="doUpdateKPEC_UNIT_PRC">
+	 UPDATE STOCKPEC
+		SET UNIT_PRC     = #{UNIT_PRC}
+		   ,MOD_DATE     = <include refid="com.sql.sysdate"/>
+		   ,MOD_USER_ID  = #{ses.userId}
+	  WHERE GATE_CD  = #{ses.gateCd}
+	    AND KPEC_NUM = #{KPEC_NUM}
+   		AND KPEC_SQ  = #{KPEC_SQ}
+		AND DEL_FLAG = '0'
+	</update>
+
+
+    <!-- 	<update id="doUpdateCNHD_DELY_YM">
+         UPDATE  STOCCNDT SET
+             MOD_DATE            = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID         = #{ses.userId}
+            ,DUE_DATE			 =  TO_DATE( #{DELY_YM},'YYYY-MM')
+         WHERE GATE_CD=#{ses.gateCd}
+            AND EXEC_NUM = #{EXEC_NUM}
+               AND EXEC_SQ  = #{EXEC_SQ}
+            AND DEL_FLAG = '0'
+        </update>  -->
+
+    <select id="getDataOfDONU" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			 <include refid="com.sql.nvl"/>(DONU.DOC_SQ, 0) AS DOC_SQ
+			,KPEC.CONT_NUM
+			,KPEC.CONT_CNT
+		  FROM STOCKPEC KPEC LEFT OUTER JOIN STOCDONU DONU
+		   ON (KPEC.GATE_CD = DONU.GATE_CD
+		   AND KPEC.CONT_NUM = DONU.CONT_NUM
+		   AND KPEC.CONT_CNT = DONU.CONT_CNT)
+		 WHERE KPEC.GATE_CD = #{ses.gateCd}
+	       AND KPEC.CONT_NUM = #{CONT_NUM}
+		   AND KPEC.DEL_FLAG = '0'
+	  </select>
+
+    <insert id="insertDONUData" parameterType="hashMap">
+
+        INSERT INTO STOCDONU (
+        GATE_CD
+        <if test='_databaseId == "oracle"'>,DOC_SQ</if>
+        ,CONT_NUM
+        ,CONT_CNT
+        ) VALUES (
+        #{ses.gateCd}
+        <if test='_databaseId == "oracle"'>,SEQ_STOCDONU.NEXTVAL</if>
+        ,#{CONT_NUM}
+        ,#{CONT_CNT}
+        )
+    </insert>
+
+    <update id="doUpdateKPEC">
+
+	  UPDATE STOCKPEC SET
+  		 CONT_CNT    = #{CONT_CNT}
+  		,CONT_NUM    = #{CONT_NUM}
+  		,MOD_DATE    = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID = #{ses.userId}
+  	   WHERE GATE_CD   = #{ses.gateCd}
+	     AND SO_NUM    = #{SO_NUM}
+	     AND VENDOR_CD = #{VENDOR_CD}
+	     AND DEL_FLAG  = '0'
+
+	</update>
+
+    <delete id="doDeleteKPEC">
+        UPDATE STOCKPEC SET
+             DEL_FLAG = '1'
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND KPEC_NUM = #{KPEC_NUM}
+   		   AND KPEC_SQ  = #{KPEC_SQ}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </delete>
+
+
+    <delete id="doDeleteECCT">
+        UPDATE STOCECCT SET
+             DEL_FLAG = '1'
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </delete>
+
+    <select id="doSelectMainContractTextNo" resultType="string">
+        SELECT CONTRACT_TEXT_NUM
+          FROM STOCECRL
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND FORM_SQ  = '0'
+           AND DEL_FLAG = '0'
+    </select>
+
+    <select id="doSelelect_Sign_ContractTextNo" resultType="string">
+       SELECT  ECCT.CONT_CNT
+			 , ECRL.FORM_NUM
+			 , ECRL.CONTRACT_TEXT_NUM
+			 , ECCT.CONT_USER_ID
+             , ECRL.FORM_NUM AS REL_FORM_NUM
+		     , ECRL.REQUIRE_FLAG
+			 , CONT_USER_ID
+		  FROM STOCECCT ECCT
+		  LEFT OUTER JOIN STOCECRL ECRL
+		    ON (ECCT.GATE_CD = ECRL.GATE_CD
+		   AND ECCT.CONT_NUM = ECRL.CONT_NUM
+		   AND ECCT.CONT_CNT = ECRL.CONT_CNT
+		   AND ECRL.FORM_SQ = '0'
+		   AND ECRL.DEL_FLAG = '0')
+		 WHERE ECCT.GATE_CD  = #{ses.gateCd}
+		   AND ECCT.APP_DOC_NUM= #{APP_DOC_NUM}
+		   AND ECCT.APP_DOC_CNT= #{APP_DOC_CNT}
+		   AND ECCT.DEL_FLAG = '0'
+   </select>
+
+
+    <select id="doCountECRL" parameterType="hashMap" resultType="int">
+        SELECT COUNT(GATE_CD)
+          FROM STOCECRL
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = 1
+           AND FORM_NUM = #{FORM_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <insert id="doInsertECRL">
+        INSERT INTO STOCECRL (
+             GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,REQUIRE_FLAG
+			,FORM_SQ
+			,CONTRACT_TEXT_NUM
+			,FORM_CHECK_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+			,#{CONT_NUM}
+			,#{CONT_CNT}
+			,#{FORM_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{REQUIRE_FLAG}
+			,CASE WHEN #{FORM_SQ} = '' THEN NULL ELSE #{FORM_SQ} END
+			,#{CONTRACT_TEXT_NUM}
+			,#{FORM_CHECK_FLAG}
+        )
+    </insert>
+
+    <insert id="doInsertAddECRL">
+        INSERT INTO STOCECRL (
+             GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,REQUIRE_FLAG
+			,FORM_SQ
+			,CONTRACT_TEXT_NUM
+			,FORM_CHECK_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+			,#{CONT_NUM}
+			,#{CONT_CNT}
+			,#{REL_FORM_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{REQUIRE_FLAG}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(FORM_SQ), 0)+1
+                FROM STOCECRL
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND CONT_NUM = #{CONT_NUM}
+                 AND CONT_CNT = #{CONT_CNT})
+			,#{CONTRACT_TEXT_NUM}
+			,#{FORM_CHECK_FLAG}
+        )
+    </insert>
+
+    <update id="doUpdateECRL">
+        UPDATE STOCECRL SET
+			 FORM_NUM          = #{FORM_NUM}
+			,MOD_DATE          = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID       = #{ses.userId}
+			,DEL_FLAG          = '0'
+			,CONTRACT_TEXT_NUM = #{CONTRACT_TEXT_NUM}
+			,FORM_CHECK_FLAG   = #{FORM_CHECK_FLAG}
+	     WHERE GATE_CD  = #{ses.gateCd}
+	       AND CONT_NUM = #{CONT_NUM}
+	       AND CONT_CNT = #{CONT_CNT}
+	       AND FORM_SQ  = #{FORM_SQ}
+	       AND DEL_FLAG = '0'
+    </update>
+
+    <!-- if FORM_SQ is 1, it means main contract form, therefore don't delete it. -->
+    <update id="doDeleteAddECRL">
+        DELETE FROM STOCECRL
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+           AND FORM_SQ != '0'
+    </update>
+
+    <update id="doDeleteECRL">
+        UPDATE STOCECRL SET
+            DEL_FLAG = '1'
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="doCountDONU" parameterType="hashMap" resultType="int">
+        SELECT COUNT(GATE_CD)
+          FROM STOCDONU
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND EXEC_NUM = #{EXEC_NUM}
+    </select>
+
+    <insert id="doInsertDONU">
+        INSERT INTO STOCDONU (
+        <if test="_databaseId == 'oracle'">
+            DOC_SQ,
+        </if>
+        GATE_CD, CONT_NUM, CONT_CNT )
+        VALUES
+        (
+        <if test="_databaseId == 'oracle'">
+            SEQ_STOCDONU.NEXTVAL,
+        </if>
+        #{ses.gateCd},
+        #{CONT_NUM},
+        CASE WHEN #{CONT_CNT} = '' THEN NULL ELSE #{CONT_CNT} END)
+    </insert>
+
+    <update id="doUpdateDONU">
+        UPDATE STOCDONU SET
+               CONT_NUM = #{CONT_NUM}
+              ,CONT_CNT = CASE WHEN #{CONT_CNT} = '' THEN NULL ELSE #{CONT_CNT} END
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND EXEC_NUM = #{EXEC_NUM}
+    </update>
+
+    <update id="doDeleteDONUByExecNo">
+        UPDATE STOCDONU SET
+               CONT_NUM = null
+              ,CONT_CNT = null
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND EXEC_NUM = #{EXEC_NUM}
+    </update>
+
+    <update id="doDeleteDONUByContNo">
+        UPDATE STOCDONU SET
+               CONT_NUM = null
+              ,CONT_CNT = null
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+    </update>
+
+    <select id="doSelectContractInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT  ECCT.GATE_CD
+		       ,ECCT.CONT_NUM
+		       ,ECCT.CONT_CNT
+		       ,ECCT.BUYER_CD
+		       ,<include refid="com.sql.dbo"/>GETBUYERNAME(ECCT.GATE_CD, ECCT.BUYER_CD, #{ses.langCd}) AS BUYER_NM
+		       ,ECCT.CONT_DESC
+		       ,<include refid="com.sql.dbo"/>GETGMTDATE(ECCT.CONT_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CONT_DATE
+		       ,<include refid="com.sql.dbo"/>GETGMTDATE(ECCT.CONT_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CONT_START_DATE
+		       ,<include refid="com.sql.dbo"/>GETGMTDATE(ECCT.CONT_END_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS CONT_END_DATE
+		       , ECCT.CONT_USER_ID AS CONT_USER_ID
+		       ,<include refid="com.sql.dbo"/>GETUSERNAME(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd}) AS CONT_USER_NM
+		       ,<include refid="com.sql.dbo"/>GETUSERINFO(ECCT.GATE_CD, ECCT.CONT_USER_ID, 'EMAIL') AS CONT_USER_EMAIL
+		       ,(SELECT DEPT_CD FROM STOCUSER WHERE GATE_CD = ECCT.GATE_CD AND USER_ID = ECCT.CONT_USER_ID AND DEL_FLAG='0') AS DEPT_CD
+		       ,ECCT.ATT_FILE_NUM AS BUYER_ATT_FILE_NUM
+		       ,ECCT.VENDOR_ATT_FILE_NUM
+		       ,ECCT.APP_DOC_NUM
+		       ,ECCT.APP_DOC_CNT
+		       ,ECCT.ADV_GUAR_FLAG
+		       ,ECCT.ADV_GUAR_PERCENT
+		       ,ECCT.ADV_GUAR_AMT
+		       ,ECCT.ADV_VAT_FLAG
+		       ,ECCT.CONT_GUAR_FLAG
+		       ,ECCT.CONT_GUAR_PERCENT
+		       ,ECCT.CONT_GUAR_AMT
+		       ,ECCT.CONT_VAT_FLAG
+		       ,ECCT.WARR_GUAR_FLAG
+		       ,ECCT.WARR_GUAR_PERCENT
+		       ,ECCT.WARR_GUAR_AMT
+		       ,ECCT.WARR_GUAR_QT
+		       ,ECCT.WARR_VAT_FLAG
+		       ,ECCT.SIGN_STATUS
+		       ,ECCT.VENDOR_CD
+		       ,<include refid="com.sql.dbo"/>GETVENDORNAME(ECCT.GATE_CD, ECCT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		       ,ECCT.SUPPLY_AMT
+		       ,ECCT.VAT_FLAG
+		       ,ECCT.VAT_AMT
+		       ,ECCT.CONT_AMT
+		       ,ECCT.DOC_TYPE
+		       ,ECCT.SIGN_DATE
+		       ,ECCT.PROGRESS_CD
+		       ,ECCT.EXEC_NUM
+		       ,ECCT.APPROVAL_FLAG
+		       ,ECCT.VENDOR_PIC_USER_NM
+		       ,ECRL.CONTRACT_TEXT_NUM
+		       ,ECCF.FORM_NUM
+		       ,ECCT.DELY_TERMS_DESC
+		       ,(SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+		          FROM STOCECSV
+		         WHERE GATE_CD = ECCT.GATE_CD
+		           AND CONT_NUM = ECCT.CONT_NUM
+		           AND CONT_CNT = ECCT.CONT_CNT
+		           AND FORM_NUM = ECCF.FORM_NUM
+		           AND SIGN_ID = ECCT.CONT_USER_ID) AS BUYER_SIGN_DATE
+		       ,(SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+		          FROM STOCECSV
+		         WHERE GATE_CD = ECCT.GATE_CD
+		           AND CONT_NUM = ECCT.CONT_NUM
+		           AND CONT_CNT = ECCT.CONT_CNT
+		           AND FORM_NUM = ECCF.FORM_NUM
+		           AND ECCT.VENDOR_CD = (SELECT COMPANY_CD FROM STOCUSER WHERE GATE_CD = #{ses.gateCd} AND USER_ID = SIGN_ID)
+		        ) AS VENDOR_SIGN_DATE
+		       ,ECCT.VENDOR_EDIT_FLAG
+		       ,ECCT.CONT_REQ_CD
+		       ,ECCT.MANUAL_CONT_FLAG
+		       ,ECCT.DELY_PLACE
+		       ,GETCODENAME(#{ses.gateCd},'M163',ECCT.CONT_REQ_CD,'KO') as CONT_REQ_NM
+	      	   ,GETCODENAME(#{ses.gateCd},'M162',ECCT.MANUAL_CONT_FLAG,'KO') as MANUAL_CONT_NM
+		       ,ECCT.PAY_TERMS_DESC
+			   ,ECCT.DELY_TERMS_DESC
+			   ,ECCT.VENDOR_CONF_FLAG
+			   ,ECCT.BASEDATATYPE
+		  FROM STOCECCT ECCT
+		  LEFT OUTER JOIN STOCECRL ECRL
+		    ON (ECCT.GATE_CD = ECRL.GATE_CD
+		   AND ECCT.CONT_NUM = ECRL.CONT_NUM
+		   AND ECCT.CONT_CNT = ECRL.CONT_CNT
+		   AND ECRL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCECCF ECCF
+		    ON (ECRL.GATE_CD = ECCF.GATE_CD
+		   AND ECRL.FORM_NUM = ECCF.FORM_NUM)
+         WHERE ECCT.GATE_CD   = #{ses.gateCd}
+           AND ECCT.CONT_NUM  = #{CONT_NUM}
+           AND ECCT.CONT_CNT  = #{CONT_CNT}
+           AND ECCF.FORM_TYPE = '100'
+		   AND ECCT.DEL_FLAG  = '0'
+    </select>
+
+    <select id="doSelectContractFileInfo" resultType="hashMap">
+    	SELECT ATCH.FILE_NM
+    		  ,ATCH.REAL_FILE_NM
+			  ,ATCH.FILE_PATH
+			  ,ATCH.UUID_SQ
+		  FROM STOCECCT ECCT
+		  JOIN STOCATCH ATCH
+			ON ( ECCT.ATT_FILE_NUM = ATCH.UUID
+			     OR ECCT.RFQ_ATT_FILE_NUM = ATCH.UUID
+                 OR ECCT.BIZ_ATT_FILE_NUM = ATCH.UUID
+                 OR ECCT.SC_ATT_FILE_NUM = ATCH.UUID
+                 OR ECCT.ETC_ATT_FILE_NUM = ATCH.UUID
+                )
+         WHERE ECCT.GATE_CD   = #{ses.gateCd}
+		   AND ECCT.CONT_NUM  = #{CONT_NUM}
+           AND ECCT.CONT_CNT  = #{CONT_CNT}
+           AND ECCT.DEL_FLAG  = '0'
+           AND ATCH.DEL_FLAG  = '0'
+	</select>
+
+	<select id="doSelectAdditionalContractInfo" resultType="hashMap">
+		SELECT ECRL.GATE_CD,
+		       <include refid="com.sql.nvl"/>(ECRL.FORM_CHECK_FLAG, '0') AS SELECTED,
+		       ECRL.CONT_NUM,
+		       ECRL.CONT_CNT,
+		       ECRL.FORM_NUM,
+		       ECRL.FORM_NUM AS REL_FORM_NUM,
+		       ECCF.FORM_NM,
+		       ECRL.CONTRACT_TEXT_NUM AS FORM_TEXT_NUM,
+		       ECRL.REQUIRE_FLAG,
+		       ECRL.FORM_SQ
+		  FROM STOCECRL ECRL
+		  LEFT OUTER JOIN STOCECCF ECCF
+		    ON (ECRL.GATE_CD = ECCF.GATE_CD
+		   AND ECRL.FORM_NUM = ECCF.FORM_NUM
+		   AND ECCF.DEL_FLAG = '0')
+		 WHERE ECRL.GATE_CD    = #{ses.gateCd}
+		   AND ECRL.CONT_NUM   = #{CONT_NUM}
+		   AND ECCF.FORM_TYPE != '100'
+		   AND ECCF.DEL_FLAG   = '0'
+		ORDER BY FORM_SQ ASC
+    </select>
+
+    <select id="doSearchAdditionalForm" parameterType="hashMap" resultType="hashMap">
+        SELECT
+		       --ECRL.CONT_NUM,
+		       --ECRL.CONT_CNT,
+		       (SELECT OECRL.FORM_NUM FROM STOCECRL OECRL
+		       WHERE OECRL.GATE_CD = ECRL.GATE_CD
+		       		AND OECRL.CONT_NUM = ECRL.CONT_NUM
+		       		AND OECRL.CONT_CNT = ECRL.CONT_CNT
+		       		AND OECRL.FORM_SQ = 0 ) AS FORM_NUM,
+		       ECRL.FORM_NUM AS REL_FORM_NUM,
+		       ECCF.FORM_NM AS REL_FORM_NM,
+		       ECRL.CONTRACT_TEXT_NUM,
+		       ECCF.FORM_TEXT_NUM,
+		       ECRL.REQUIRE_FLAG,
+		       ECRL.FORM_SQ AS REL_FORM_SQ,
+		       ECRL.FORM_CHECK_FLAG
+		  FROM STOCECRL ECRL
+		  LEFT OUTER JOIN STOCECCF ECCF
+		    ON (ECRL.GATE_CD = ECCF.GATE_CD
+		   AND ECRL.FORM_NUM = ECCF.FORM_NUM
+		   AND ECCF.DEL_FLAG = '0')
+		 WHERE ECRL.GATE_CD    = #{ses.gateCd}
+		   AND ECRL.CONT_NUM   = #{CONT_NUM}
+		   AND ECRL.CONT_CNT   = #{CONT_CNT}
+		   --AND ECCF.FORM_TYPE != '100'
+		   AND ECRL.DEL_FLAG   = '0'
+		   AND ECRL.FORM_SQ   != 0
+		ORDER BY FORM_SQ ASC
+    </select>
+
+
+    <select id="doSelectContractRejectInfo" resultType="hashMap">
+        SELECT
+        	   GATE_CD
+        	  ,CONT_NUM
+        	  ,CONT_CNT
+        	  ,REJECT_SQ
+		      ,<include refid="com.sql.dbo"/>getGmtDate(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REJECT_DATE
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, REG_USER_ID, #{ses.langCd}) as REJECTER_NM
+              ,REJECT_RMK
+          FROM STOCECRJ
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+         ORDER BY REJECT_SQ DESC
+    </select>
+
+
+    <select id="getContractInformation" resultType="hashMap">
+        SELECT ECCT.CONT_NUM
+              ,ECCT.CONT_DESC
+              ,ECCT.CONT_CNT
+              ,<include refid="com.sql.nvl"/>(ECCT.SUPPLY_AMT, 0) * (<include refid="com.sql.nvl"/>(ECCT.COM_RATE, 0) / 100) AS COM_RATE_AMT
+              ,ECCT.VENDOR_CD
+              ,(SELECT IRS_NUM FROM STOCVNGL WHERE GATE_CD = ECCT.GATE_CD AND VENDOR_CD = ECCT.VENDOR_CD) AS IRS_NUM
+              ,<include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_DATE, 'GMT+09:00', 'GMT+09:00', 'yyyy-MM-dd') AS CONT_DATE
+              ,<include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_START_DATE, 'GMT+09:00', 'GMT+09:00', 'yyyy-MM-dd') AS CONT_START_DATE
+              ,<include refid="com.sql.dbo"/>getGmtDate(ECCT.CONT_END_DATE, 'GMT+09:00', 'GMT+09:00', 'yyyy-MM-dd') AS CONT_END_DATE
+              ,ECCT.CONT_AMT
+              ,ECCT.SUPPLY_AMT
+              ,ECCT.VAT_FLAG
+              ,ECCT.VAT_AMT
+              ,ECCT.ADV_GUAR_FLAG
+              ,ECCT.ADV_GUAR_AMT
+              ,<include refid="com.sql.nvl"/>(ECCT.ADV_GUAR_PERCENT, 0)  as ADV_GUAR_PERCENT
+              ,ECCT.ADV_VAT_FLAG
+              ,ECCT.CONT_GUAR_FLAG
+              ,ECCT.CONT_GUAR_AMT
+              ,<include refid="com.sql.nvl"/>(ECCT.CONT_GUAR_PERCENT, 0) as CONT_GUAR_PERCENT
+              ,ECCT.CONT_VAT_FLAG
+              ,ECCT.WARR_GUAR_FLAG
+              ,ECCT.WARR_VAT_FLAG
+              ,ECCT.WARR_GUAR_AMT
+              ,<include refid="com.sql.nvl"/>(ECCT.WARR_GUAR_PERCENT, 0) as WARR_GUAR_PERCENT
+              ,<include refid="com.sql.nvl"/>(ECCT.WARR_GUAR_QT,'0')     as WARR_GUAR_QT
+              ,ECCT.EXEC_NUM
+		      ,ECRL.CONTRACT_TEXT_NUM
+		      ,<include refid="com.sql.dbo"/>GETVENDORNAME(ECCT.GATE_CD, ECCT.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		      , ECCT.CONT_USER_ID AS CONT_USER_ID
+		      ,<include refid="com.sql.dbo"/>GETUSERNAME(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd}) AS CONT_USER_NM
+		      ,<include refid="com.sql.dbo"/>GETUSERNAME(ECCT.GATE_CD, ECCT.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			  ,ECCT.BUYER_CD
+		      ,ECCT.CONT_REQ_CD
+		      ,GETCODENAME(#{ses.gateCd},'M163',ECCT.CONT_REQ_CD,'KO') as CONT_REQ_NM
+		      ,ECCT.MANUAL_CONT_FLAG
+		      ,GETCODENAME(#{ses.gateCd},'M162',ECCT.MANUAL_CONT_FLAG,'KO') as MANUAL_CONT_NM
+		      ,<include refid="com.sql.subStr"/>(ECCF.FORM_NM,1,4) AS FORM_NM
+		      ,<include refid="com.sql.nvl"/>(ECCT.DELAY_DENO_RATE,'0') as DELAY_DENO_RATE
+		      , <include refid="com.sql.nvl"/>(ECCT.DELAY_NUME_RATE,0) as DELAY_NUME_RATE
+			  ,ECRL.FORM_NUM AS CONTRACT_TYPE
+		      ,ECCT.PAY_TERMS_DESC
+		      ,ECCT.DELY_TERMS_DESC
+		      ,ECCT.PROGRESS_CD
+		      , ECCT.REG_USER_ID AS REG_USER_ID
+		      ,ECCT.ATT_FILE_NUM
+		      ,ECCT.BUYER_ATT_FILE_NUM
+		      ,ECCT.RFQ_ATT_FILE_NUM
+			  ,ECCT.BIZ_ATT_FILE_NUM
+			  ,ECCT.SC_ATT_FILE_NUM
+			  ,ECCT.ETC_ATT_FILE_NUM
+		  	  ,ECCT.VENDOR_ATT_FILE_NUM
+		  	  ,ECCT.SIGN_STATUS
+		  	  ,(SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+		          FROM STOCECSV
+		         WHERE GATE_CD = ECCT.GATE_CD
+		           AND CONT_NUM = ECCT.CONT_NUM
+		           AND CONT_CNT = ECCT.CONT_CNT
+		           AND FORM_NUM = ECCF.FORM_NUM
+		           AND SIGN_ID = ECCT.CONT_USER_ID) AS BUYER_SIGN_DATE
+		      ,(SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})
+		          FROM STOCECSV
+		         WHERE GATE_CD = ECCT.GATE_CD
+		           AND CONT_NUM = ECCT.CONT_NUM
+		           AND CONT_CNT = ECCT.CONT_CNT
+		           AND FORM_NUM = ECCF.FORM_NUM
+		           AND ECCT.VENDOR_CD = (SELECT COMPANY_CD FROM STOCCVUR WHERE GATE_CD = #{ses.gateCd} AND USER_ID =  SIGN_ID)
+		        ) AS VENDOR_SIGN_DATE
+		      , ECRL.FORM_NUM AS MAIN_FORM_NUM
+		      , ECCT.APP_DOC_NUM
+		      , ECCT.APP_DOC_CNT
+		      , ECCT.PLANT_CD
+		      , ECCT.CONT_REQ_RMK
+		      , ECCT.VENDOR_EDIT_FLAG
+		      , <include refid="com.sql.nvl"/>(ECCT.DELY_PLACE,' ')    as DELY_PLACE
+	          , ECCT.STAMP_DUTY_FLAG
+          	  , <include refid="com.sql.nvl"/>(ECCT.STAMP_DUTY_AMT, 0) as STAMP_DUTY_AMT
+          	  , ECCT.STAMP_ATT_FILE_NUM
+      	  	  , ECCT.STAMP_DUTY_NUM
+      	  	  , ECCT.DELAY_AMT
+          	  , ECCT.SO_CNT AS EXEC_CNT
+          	  , ECCT.ADV_INSU_STATUS
+          	  , ECCT.CONT_INSU_STATUS
+          	  , ECCT.WARR_INSU_STATUS
+          	  , ECCT.ADV_GUAR_NUM
+          	  , ECCT.CONT_GUAR_NUM
+          	  , ECCT.WARR_GUAR_NUM
+          	  , ECCT.SO_NUM
+          	  , ECCT.SO_CNT
+          	  , <include refid="com.sql.nvl"/>(ECCT.PRE_RATE,'0') as PRE_RATE
+          	  , <include refid="com.sql.nvl"/>(ECCT.MID_RATE,'0') as MID_RATE
+          	  , <include refid="com.sql.nvl"/>(ECCT.BAL_RATE,'0') as BAL_RATE
+          	  , <include refid="com.sql.nvl"/>(ECCT.COM_RATE,'0') as COM_RATE
+          	  , ECCT.ACC_ATTR
+          	  , ECCT.ITEM_CLS4
+          	  , <include refid="com.sql.nvl"/>((SELECT SO_TYPE
+          	  		   FROM STOCKPHD
+          	  		  WHERE GATE_CD = ECCT.GATE_CD
+          	  		    AND SO_NUM  = ECCT.SO_NUM
+          	  		    AND SO_CNT  = ECCT.SO_CNT), '') as SO_TYPE
+          	  , ECCT.BASEDATATYPE
+          	  , CNHD.RFX_TYPE
+          	  , ECCT.ALLOWANCE_RATE
+          FROM STOCECCT ECCT
+		  LEFT OUTER JOIN STOCECRL ECRL
+			  ON (ECCT.GATE_CD = ECRL.GATE_CD
+			  AND ECCT.CONT_NUM = ECRL.CONT_NUM
+			  AND ECCT.CONT_CNT = ECRL.CONT_CNT
+			  AND ECRL.FORM_SQ = '0'
+			  AND ECRL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCECCF ECCF
+		    ON (ECRL.GATE_CD = ECCF.GATE_CD
+		   AND ECRL.FORM_NUM = ECCF.FORM_NUM)
+		  LEFT OUTER JOIN STOCCNHD CNHD
+		    ON (ECCT.GATE_CD = CNHD.GATE_CD
+	       AND ECCT.EXEC_NUM = CNHD.EXEC_NUM)
+         WHERE ECCT.GATE_CD  = #{ses.gateCd}
+           AND ECCT.CONT_NUM = #{CONT_NUM}
+           AND ECCT.CONT_CNT = #{CONT_CNT}
+           AND ECCT.DEL_FLAG = '0'
+    </select>
+
+    <select id="doSelectContractKPECInfo" resultType="hashMap">
+        SELECT KPEC.ITEM_CD
+        	  ,KPEC.ITEM_DESC
+        	  ,KPEC.ITEM_SPEC
+        	  ,KPEC.PO_QT
+        	  ,KPEC.UNIT_CD
+        	  ,KPEC.UNIT_PRC
+        	  ,KPEC.ITEM_AMT
+        	  ,<include refid="com.sql.nvl"/>(KPEC.DELY_YM, PODT.DELY_YM) AS DELY_YM
+        	  ,KPEC.KPEC_NUM
+        	  ,KPEC.KPEC_SQ
+        	  ,KPEC.CONT_NUM
+        	  ,KPEC.CONT_CNT
+        	  ,KPEC.SO_NUM
+        	  ,KPEC.SO_CNT
+        	  ,KPEC.ACC_ATTR
+        	  ,KPEC.ITEM_CLS4
+          FROM STOCKPEC KPEC
+          LEFT OUTER JOIN STOCKPHD KPHD
+            ON (KPHD.GATE_CD = KPEC.GATE_CD
+           AND KPHD.SO_NUM  = KPEC.SO_NUM
+           AND KPHD.SO_CNT  = KPEC.SO_CNT)
+          LEFT OUTER JOIN (SELECT KPEC_NUM
+          						 ,KPEC_SQ
+          						 ,MAX(TO_CHAR(DUE_DATE, 'YYYYMM')) AS DELY_YM
+          					 FROM STOCPODT
+          					WHERE GATE_CD = #{ses.gateCd}
+							<if test="VENDOR_CD != null and VENDOR_CD !='' ">
+					           AND VENDOR_CD = #{VENDOR_CD}
+					        </if>
+					        <if test="SO_NUM != null and SO_NUM !='' and SO_CNT != null and SO_CNT !='' ">
+					           AND SO_NUM = #{SO_NUM}
+					           AND SO_CNT = #{SO_CNT}
+					        </if>
+					          AND DEL_FLAG = '0'
+					        GROUP BY KPEC_NUM, KPEC_SQ
+                ) PODT
+            ON (PODT.KPEC_NUM = KPEC.KPEC_NUM
+           AND PODT.KPEC_SQ  = KPEC.KPEC_SQ)
+         WHERE KPEC.GATE_CD     = #{ses.gateCd}
+		<if test="VENDOR_CD != null and VENDOR_CD !='' ">
+           AND KPEC.VENDOR_CD = #{VENDOR_CD}
+        </if>
+        <if test="CONT_NUM != null and CONT_NUM !='' and (SO_NUM == null or SO_NUM =='') ">
+           AND KPEC.CONT_NUM = #{CONT_NUM}
+           AND KPEC.CONT_CNT = #{CONT_CNT}
+        </if>
+        <if test="SO_NUM != null and SO_NUM !='' and (CONT_NUM == null or CONT_NUM =='') ">
+           AND KPEC.SO_NUM   = #{SO_NUM}
+           AND KPEC.SO_CNT   = #{SO_CNT}
+        </if>
+   		<if test="CONT_NUM != null and CONT_NUM !='' and SO_NUM != null and SO_NUM !='' ">
+	        <choose>
+    	        <when test="baseDataType != null and baseDataType != '' and baseDataType == 'contract' and SO_TYPE == 'SIN' and CONT_REQ_CD == '04'">
+	            </when>
+    	        <otherwise>
+		           AND ((KPEC.CONT_NUM = #{CONT_NUM} AND KPEC.CONT_CNT = #{CONT_CNT}) OR (KPEC.CONT_NUM IS NULL AND KPEC.CONT_CNT IS NULL))
+	            </otherwise>
+    	    </choose>
+           AND KPEC.SO_NUM   = #{SO_NUM}
+           AND KPEC.SO_CNT   = #{SO_CNT}
+
+        </if>
+    	   AND ((KPHD.SO_TYPE = 'IBS' AND KPEC.ITEM_CLS4 = #{ITEM_CLS4}) OR
+    	   		(KPHD.SO_TYPE = 'ITM') OR
+    	   		(KPHD.SO_TYPE IS NOT NULL AND KPHD.SO_TYPE NOT IN ('IBS', 'ITM') AND KPEC.ACC_ATTR = #{ACC_ATTR}) OR
+    	   		(KPHD.SO_TYPE IS NULL AND (#{ACC_ATTR} IS NULL OR KPEC.ACC_ATTR = #{ACC_ATTR})))
+           AND KPEC.DEL_FLAG = '0'
+    </select>
+
+	<select id="doSelectContractKPPUInfo" parameterType="hashmap" resultType="hashMap">
+			SELECT	KPPU.PURCHASE_SQ
+				,	REGEXP_REPLACE(KPPU.PLAN_YM, '([0-9]{4})([0-9]{2})', '\1-\2') PLAN_YM
+				,	KPPU.TRADE_TYPE CB_TRADE_TYPE
+				,	KPPU.TRADE_TYPE
+				,	(SELECT	CODE_DESC
+					   FROM	STOCCODD
+					  WHERE	GATE_CD   = KPPU.GATE_CD
+						AND DEL_FLAG  = '0'
+						AND CODE_TYPE = 'SC0058'
+						AND LANG_CD   = #{ses.langCd}
+						AND CODE      = KPPU.TRADE_TYPE) as TRADE_TYPE_NM
+				,	KPPU.VENDOR_CD
+				,	VNGL.VENDOR_NM
+				,	KPPU.PLAN_STATUS
+				,	KPPU.ACC_ATTR
+				,	(SELECT	CODE_DESC
+					   FROM	STOCCODD
+					  WHERE	GATE_CD   = KPPU.GATE_CD
+						AND DEL_FLAG  = '0'
+						AND CODE_TYPE = 'M036'
+						AND LANG_CD   = #{ses.langCd}
+						AND CODE      = KPPU.VAT_CD) as VAT_CD
+				,	KPPU.SUPPLY_AMT
+				,	(SELECT	CODE_DESC
+					   FROM	STOCCODD
+					  WHERE	GATE_CD   = KPPU.GATE_CD
+						AND DEL_FLAG  = '0'
+						AND CODE_TYPE = 'SC0056'
+						AND LANG_CD   = #{ses.langCd}
+						AND CODE      = KPPU.PAY_TERMS) as PAY_TERMS
+				,	KPPU.COLLECT_DIV
+				,	KPPU.TAX_NUM
+			FROM	STOCKPPU KPPU
+
+			LEFT OUTER JOIN STOCVNGL VNGL
+			ON(		KPPU.GATE_CD = VNGL.GATE_CD
+			AND		KPPU.VENDOR_CD = VNGL.VENDOR_CD)
+
+			WHERE	KPPU.GATE_CD  = #{ses.gateCd}
+			AND		KPPU.SO_NUM   = #{SO_NUM}
+			AND		KPPU.SO_CNT   = #{SO_CNT}
+			AND		KPPU.DEL_FLAG = '0'
+			ORDER BY KPPU.PURCHASE_SQ
+	</select>
+
+	<select id ="doSelect_stamp_duty_AMT" resultType="hashMap">
+		SELECT
+			   <include refid="com.sql.nvl"/>((SELECT MAX(TO_NUMBER(TEXT1))
+					  FROM STOCCODD
+			 	 	 WHERE GATE_CD   = #{ses.gateCd}
+					   AND CODE_TYPE = 'SC0213'
+					   AND LANG_CD   = #{ses.langCd}
+					   AND USE_FLAG  = '1'
+					   <![CDATA[ AND TO_NUMBER(CODE) < TO_NUMBER(#{SUPPLY_AMT}) ]]>
+					   AND DEL_FLAG  = '0' ), 0)                                  AS STAMP_DUTY_AMT
+			  ,<include refid="com.sql.nvl"/>((SELECT SUM(STAMP_DUTY_AMT)
+					  FROM STOCECCT
+			 	 	 WHERE GATE_CD   = #{ses.gateCd}
+			 	 	   AND CONT_NUM  = #{CONT_NUM}
+			 	 	   <![CDATA[ AND CONT_CNT < #{CONT_CNT} ]]>
+		 		 	   AND DEL_FLAG  = '0'), 0)                                   AS SUM_STAMP_DUTY_AMT
+		  <include refid="com.sql.dual"/>
+    </select>
+
+    <select id="doSelectContractCNHDInfo" resultType="hashMap">
+      SELECT  CNDT.ITEM_CD
+			, CNDT.ITEM_DESC
+			, CNDT.ITEM_SPEC
+			, CNDT.EXEC_QT  AS PO_QT
+		    , CNDT.UNIT_CD
+    		, CNDT.UNIT_PRC
+    		, CNDT.EXEC_AMT AS ITEM_AMT
+    		, CNDT.DUE_DATE AS DELY_YM
+    		, CNDT.VENDOR_CD
+    		, CNDT.RFX_SQ
+    		, CNDT.RFX_CNT
+    		, CNDT.RFX_NUM
+    		,'0' PRE_RATE
+            ,'0' MID_RATE
+            ,'0' BAL_RATE
+            ,'0' COM_RATE
+            ,'0' ADV_GUAR_PERCENT
+            ,'0' CONT_GUAR_PERCENT
+            ,'0' WARR_GUAR_PERCENT
+            , CNDT.EXEC_NUM
+            , CNDT.EXEC_SQ
+            , MTGL.ACC_ATTR
+            , ''           AS ITEM_CLS4
+            , ''           AS SO_TYPE
+        FROM STOCCNDT CNDT
+        JOIN STOCMTGL MTGL
+          ON (MTGL.GATE_CD  = CNDT.GATE_CD
+         AND MTGL.ITEM_CD  = CNDT.ITEM_CD
+         AND MTGL.ACC_ATTR = #{ACC_ATTR})
+	   WHERE CNDT.GATE_CD   = #{ses.gateCd}
+         AND CNDT.EXEC_NUM  = #{EXEC_NUM}
+         AND CNDT.VENDOR_CD = #{VENDOR_CD}
+         AND CNDT.DEL_FLAG  = '0'
+    </select>
+
+ 	<select id="getBuyerInformation" resultType="hashMap">
+		SELECT BUYER_NM                                        AS BUYER_NM
+		      , ADDR                        AS BUYER_ADDR
+		      ,(CASE WHEN 'EN' = #{ses.langCd} THEN
+		      			   CEO_USER_NM_ENG
+		             ELSE  CEO_USER_NM
+		         END)                                          AS BUYER_CEO_NM
+		      , IRS_NUM                    AS BUYER_IRS_NUM
+		      , TEL_NUM                     AS BUYER_TEL_NUM
+
+		      ,COMPANY_REG_NUM                                 AS COMPANY_REG_NUM
+		      ,COMPANY_REG_NUM                                 AS CEO_REG_NUM
+		      , ZIP_CD                     AS ZIP_CD
+		      ,'_SIIS'                                         AS SGIC_CERT_NO
+		  FROM STOCOGCM
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND BUYER_CD = #{BUYER_CD}
+		   AND DEL_FLAG = '0'
+
+<!--
+	     SELECT
+	           OGPL.BUYER_NM AS BUYER_NM
+	        ,  OGPL.ADDR  AS BUYER_ADDR
+	        ,  OGPL.CEO_USER_NM AS BUYER_CEO_NM
+	        , OGPL.IRS_NUM AS BUYER_IRS_NUM
+	        ,  OGPL.TEL_NUM  AS BUYER_TEL_NUM
+	    FROM STOCOGPL OGPL
+	    WHERE OGPL.GATE_CD = #{ses.gateCd}
+	      AND BUYER_CD = #{BUYER_CD}
+	      AND PLANT_CD = #{PLANT_CD}
+	      AND DEL_FLAG = '0'
+ -->
+    </select>
+
+    <select id="getVendorInformation" resultType="hashMap">
+        SELECT VENDOR_NM
+		      , ADDR         as VENDOR_ADDR
+		      , CEO_USER_NM as VENDOR_CEO_NM
+		      ,IRS_NUM                          as VENDOR_IRS_NUM
+		      ,GETVNGLRANK(IRS_NUM) 		    as IRS_RANK
+		      , REP_TEL_NUM  as VENDOR_TEL_NUM
+		      ,<include refid="com.sql.nvl"/>(COMPANY_REG_NUM,IRS_NUM)  as COMPANY_REG_NUM
+              ,REG_TYPE
+              ,BUSINESS_TYPE
+              ,INDUSTRY_TYPE
+              ,FOUNDATION_DATE
+              ,EMP_CNT
+              ,TOT_FUND
+              ,SALES_AMT
+              ,PARTNER_TYPE
+              ,<include refid="com.sql.nvl"/>(SUBCON_YN, 0) AS SUBCON_YN
+
+              ,null AS VENDOR_CEO_REG_NUM
+              ,null AS VENDOR_ZIP_CD
+              ,null AS VENDOR_USER_NM
+              ,null AS VENDOR_DIVISION
+              ,null AS VENDOR_MOBILE_NUM
+              ,null AS VENDOR_EMAIL
+          FROM STOCVNGL
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG  = '0'
+    </select>
+
+    <select id="getProcessConditions" resultType="hashMap">
+        SELECT GATE_CD,
+               CONT_NUM,
+               CONT_CNT,
+               CONT_DESC,
+               BUYER_CD,
+               PROGRESS_CD,
+               '' AS CLOSING_PROGRESS_CD,
+               SIGN_STATUS,
+               CONT_USER_ID,
+               <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, CONT_USER_ID, #{ses.langCd}) AS CTRL_USER_NM,
+               VENDOR_CD,
+               VENDOR_PIC_USER_NM
+          FROM STOCECCT
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <update id="updateECCT_SO">
+        UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,SO_NUM      = #{SO_NUM}
+            ,SO_CNT      = #{SO_CNT}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+    <update id="updateECCT_EX">
+         UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,EXEC_NUM    = #{EXEC_NUM}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+    <update id="doUpdateStatusOfECCT">
+        UPDATE STOCECCT SET
+              PROGRESS_CD            = #{PROGRESS_CD}
+             ,STAMP_DUTY_NUM         = #{STAMP_DUTY_NUM}
+             ,STAMP_ATT_FILE_NUM     = #{STAMP_ATT_FILE_NUM}
+             ,MOD_DATE                = <include refid="com.sql.sysdate"/>
+             ,MOD_USER_ID             = #{ses.userId}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="doCountECSV" resultType="int">
+        SELECT COUNT(GATE_CD)
+          FROM STOCECSV
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND FORM_NUM = #{FORM_NUM}
+           AND SIGN_ID  = #{SIGN_ID}
+    </select>
+
+    <select id="doSelectECSV" resultType="hashMap">
+        SELECT CONT_NUM,
+	           CONT_CNT,
+	           FORM_NUM,
+	           SIGN_ID,
+	           SIGN_VALUE
+          FROM STOCECSV
+         WHERE GATE_CD = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+         <if test="SIGN_ID != null">
+           AND SIGN_ID  = #{SIGN_ID}
+         </if>
+
+    </select>
+    <insert id="doInsertECSV">
+        INSERT INTO STOCECSV (
+             GATE_CD
+            ,SIGN_ID
+            ,CONT_NUM
+            ,CONT_CNT
+            ,FORM_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,SIGN_DATE
+            ,SIGN_VALUE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{SIGN_ID}
+            ,#{CONT_NUM}
+            ,#{CONT_CNT}
+            ,#{FORM_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{SIGN_VALUE}
+        )
+    </insert>
+
+    <update id="doUpdateECSV">
+        UPDATE STOCECSV SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{SIGN_ID}
+            ,SIGN_DATE   = <include refid="com.sql.sysdate"/>
+            ,SIGN_VALUE  = #{SIGN_VALUE}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND FORM_NUM = #{FORM_NUM}
+           AND SIGN_ID =  #{SIGN_ID}
+    </update>
+
+    <delete id="doDeleteECSV">
+        DELETE FROM STOCECSV
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+          AND CONT_CNT = #{CONT_CNT}
+          AND SIGN_ID  = #{SIGN_ID}
+    </delete>
+
+    <update id="doUpdateForClosingType">
+        UPDATE STOCECCT SET
+         CLOSING_TYPE        = #{CLOSING_TYPE}
+        ,CLOSING_PROGRESS_CD = #{CLOSING_PROGRESS_CD}
+        ,MOD_DATE            = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID         = #{ses.userId}
+        <choose>
+            <when test="CLOSING_PROGRESS_CD == 100">
+                ,CLOSING_REQ_USER_TYPE = #{CLOSING_REQ_USER_TYPE}
+                ,CLOSING_REQ_USER_ID   = #{ses.userId}
+                ,CLOSING_REQ_DATE      = <include refid="com.sql.sysdate"/>
+            </when>
+            <otherwise>
+                ,CLOSING_PROCESS_DATE    = <include refid="com.sql.sysdate"/>
+                ,CLOSING_PROCESS_USER_ID = #{ses.userId}
+            </otherwise>
+        </choose>
+        <if test="PROGRESS_CD != null">,PROGRESS_CD = #{PROGRESS_CD}</if>
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+          AND CONT_CNT = #{CONT_CNT}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <insert id="doInsertECRJ" parameterType="hashMap">
+        INSERT INTO STOCECRJ (
+             GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,REJECT_SQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,REJECT_RMK
+		) VALUES (
+		     #{ses.gateCd}
+		    ,#{CONT_NUM}
+            ,#{CONT_CNT}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(REJECT_SQ), 0)+1
+                FROM STOCECRJ
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND CONT_NUM = #{CONT_NUM}
+                 AND CONT_CNT = #{CONT_CNT})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,#{REJECT_RMK}
+		)
+    </insert>
+
+    <!-- G/W 전자결재 상신시 SIGN_STATUS='T'로 변경함 -->
+    <!-- 결재가 상신 완료되면 APRV_RESULT에서 P로 변경함 -->
+    <update id="doUpdateApproval">
+        UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,APP_DOC_NUM = #{APP_DOC_NUM}
+            ,APP_DOC_CNT = CASE WHEN #{APP_DOC_CNT} = '' THEN '0' ELSE #{APP_DOC_CNT} END
+            ,SIGN_STATUS = 'T'
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id ="doUpdate_INSU_STATUS" >
+    	 UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,PROGRESS_CD = #{PROGRESS_CD}
+            <if test="ADV_INSU_STATUS != null and ADV_INSU_STATUS != ''">
+            ,ADV_INSU_STATUS = #{ADV_INSU_STATUS}
+            </if>
+            <if test="CONT_INSU_STATUS != null and CONT_INSU_STATUS != ''">
+            ,CONT_INSU_STATUS = #{CONT_INSU_STATUS}
+            </if>
+            <if test="WARR_INSU_STATUS != null and WARR_INSU_STATUS != ''">
+            ,WARR_INSU_STATUS = #{WARR_INSU_STATUS}
+            </if>
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id ="doUpdateProgressCD" >
+    	 UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+
+    </update>
+
+    <update id ="doUpdateCont_REQ_CD" >
+    	 UPDATE STOCECCT SET
+             MOD_DATE    = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,CONT_REQ_CD = #{CONT_REQ_CD}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="doUpdateApprovalInformation">
+        UPDATE STOCECCT SET
+         APP_DOC_NUM = #{APP_DOC_NUM}
+        ,APP_DOC_CNT = CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END
+        ,PROGRESS_CD = #{PROGRESS_CD}
+        <!-- ,SIGN_STATUS = #{SIGN_STATUS} 2015.12.17 daguri -->
+        ,SIGN_STATUS = #{SIGN_STATUS}
+        ,MOD_DATE    = <include refid="com.sql.sysdate"/>
+        ,MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+          AND CONT_CNT = #{CONT_CNT}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <update id="doUpdateContractAfterApproval">
+        UPDATE STOCECCT SET
+        SIGN_STATUS  = #{signStatus}
+        <if test="progressCd != null">
+        ,PROGRESS_CD = #{progressCd}
+        </if>
+        ,MOD_USER_ID = #{ses.userId}
+        ,MOD_DATE    = <include refid="com.sql.sysdate"/>
+        WHERE 1=1
+          AND APP_DOC_NUM = #{appDocNum}
+          AND APP_DOC_CNT = #{appDocCnt}
+    </update>
+
+    <select id="getEcNumByApproval" parameterType="hashmap" resultType="hashMap">
+		SELECT CONT_NUM
+			  ,CONT_CNT
+			  , CONT_USER_ID AS CONT_USER_ID
+			  ,BASEDATATYPE
+			  ,VENDOR_CD
+			  ,SO_NUM
+			  ,SO_CNT
+			  ,EXEC_NUM
+		  FROM STOCECCT
+		 WHERE GATE_CD     = #{ses.gateCd}
+		   AND APP_DOC_NUM = #{APP_DOC_NUM}
+		   AND APP_DOC_CNT = #{APP_DOC_CNT}
+	</select>
+    <update id="updateSignStatus">
+        UPDATE STOCECCT
+        SET SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E"'>
+            ,SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        <if test='SIGN_STATUS == "R"'>
+            ,SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        <if test="PROGRESS_CD != null">
+            ,PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        ,MOD_USER_ID = #{ses.userId}
+        ,MOD_DATE    = <include refid="com.sql.sysdate"/>
+        WHERE GATE_CD     = #{ses.gateCd}
+          AND APP_DOC_NUM = #{APP_DOC_NUM}
+          AND APP_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+
+    <select id="searchUserList" resultType="hashMap">
+        SELECT USERD.USER_ID
+          FROM STOCECCT ECCT
+        	LEFT JOIN STOCUSER USERD
+			 ON (ECCT.GATE_CD   = USERD.GATE_CD
+			 AND ECCT.VENDOR_CD = USERD.COMPANY_CD
+			 AND USERD.DEL_FLAG    = '0')
+         WHERE ECCT.GATE_CD  = #{ses.gateCd}
+           AND ECCT.APP_DOC_NUM = #{APP_DOC_NUM}
+           AND ECCT.APP_DOC_CNT = #{APP_DOC_CNT}
+           AND ECCT.DEL_FLAG = '0'
+    </select>
+
+    <select id="searchVendorList" resultType="hashMap">
+        SELECT VENDOR_CD
+          FROM STOCECCT
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+           AND APP_DOC_CNT = #{APP_DOC_CNT}
+           AND DEL_FLAG = '0'
+    </select>
+
+
+    <select id="searchSignList" resultType="hashMap">
+        SELECT ECCT.CONT_NUM
+			, ECCT.CONT_CNT
+			, ECRL.FORM_NUM
+			, ECRL.CONTRACT_TEXT_NUM
+			, ECRL.FORM_NUM AS REL_FORM_NUM
+			, ECCT.CONT_USER_ID
+			, ECCT.GATE_CD
+		FROM STOCECCT ECCT
+			LEFT OUTER JOIN STOCECRL ECRL
+			  ON (ECCT.GATE_CD = ECRL.GATE_CD
+			  AND ECCT.CONT_NUM = ECRL.CONT_NUM
+			  AND ECCT.CONT_CNT = ECRL.CONT_CNT
+			  AND ECRL.FORM_SQ != '0'
+			  AND ECRL.DEL_FLAG = '0')
+		WHERE ECCT.GATE_CD  = #{ses.gateCd}
+		 AND ECCT.CONT_NUM = #{CONT_NUM}
+		 AND ECCT.CONT_CNT = #{CONT_CNT}
+		AND ECCT.DEL_FLAG = '0'
+		AND ECCT.MANUAL_CONT_FLAG = '0'
+    </select>
+
+    <select id="searchSignList2" resultType="hashMap">
+       SELECT  ECCT.CONT_CNT
+       	 	 , ECCT.CONT_NUM
+			 , ECRL.FORM_NUM
+			 , ECRL.CONTRACT_TEXT_NUM
+			 , ECRL.FORM_NUM AS REL_FORM_NUM
+		     , ECCF.FORM_NM AS REL_FORM_NM
+             , ECRL.REQUIRE_FLAG
+			 , ECCT.CONT_USER_ID AS CONT_USER_ID
+			 , ECCT.ATT_FILE_NUM
+			 , ECCT.GATE_CD
+		  FROM STOCECCT ECCT
+		  LEFT OUTER JOIN STOCECRL ECRL
+		    ON (ECCT.GATE_CD = ECRL.GATE_CD
+		   AND ECCT.CONT_NUM = ECRL.CONT_NUM
+		   AND ECCT.CONT_CNT = ECRL.CONT_CNT
+		   AND ECRL.FORM_SQ = '0'
+		   AND ECRL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCECCF ECCF
+            ON (ECRL.GATE_CD = ECCF.GATE_CD
+           AND ECRL.FORM_NUM = ECCF.FORM_NUM
+           AND ECCF.DEL_FLAG = '0')
+		 WHERE ECCT.GATE_CD  = #{ses.gateCd}
+		 AND ECCT.CONT_NUM = #{CONT_NUM}
+		 AND ECCT.CONT_CNT = #{CONT_CNT}
+		 AND ECCT.DEL_FLAG = '0'
+		 AND ECCT.MANUAL_CONT_FLAG = '0'
+    </select>
+
+<!-- 	 SELECT ECCT.CONT_NUM
+			, ECCT.CONT_CNT
+			, ECRL.FORM_NUM
+			, ECRL.CONTRACT_TEXT_NUM
+			, CONT_USER_ID
+		FROM STOCECCT ECCT
+			LEFT OUTER JOIN STOCECRL ECRL
+			  ON (ECCT.GATE_CD = ECRL.GATE_CD
+			  AND ECCT.CONT_NUM = ECRL.CONT_NUM
+			  AND ECCT.CONT_CNT = ECRL.CONT_CNT
+			  AND ECRL.FORM_SQ = '0'
+			  AND ECRL.DEL_FLAG = '0')
+		WHERE ECCT.GATE_CD  = #{ses.gateCd}
+		AND ECCT.CONT_NUM = #{CONT_NUM}
+		AND ECCT.CONT_CNT = #{CONT_CNT}
+		AND ECCT.DEL_FLAG = '0'
+		AND ECCT.MANUAL_CONT_FLAG = '0'
+		  -->
+
+    <select id="doCountUSAP" resultType="int">
+        SELECT COUNT(GATE_CD)
+          FROM STOCUSAP
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{USER_ID}
+           AND AUTH_CD = #{AUTH_CD}
+           AND DEL_FLAG = '0'
+    </select>
+
+    <insert id="insertBvendorUSAP" parameterType="hashMap">
+        INSERT INTO STOCUSAP (
+             GATE_CD
+			,USER_ID
+			,AUTH_CD
+			,DEL_FLAG
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,VALID_FROM_DATE
+			,VALID_TO_DATE
+		) VALUES (
+		     #{ses.gateCd}
+		    ,UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            ,#{AUTH_CD}
+            ,'0'
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,'99991231'
+		)
+    </insert>
+
+    <delete id="deleteBvendorUSAP">
+        UPDATE STOCUSAP SET
+             DEL_FLAG		= '1'
+            ,MOD_DATE       = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID    = #{ses.userId}
+         WHERE GATE_CD  	= #{ses.gateCd}
+           AND USER_ID 		= UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+           AND AUTH_CD 		!= #{AUTH_CD}
+           AND DEL_FLAG 	= '0'
+    </delete>
+
+    <update id="updateVendorType">
+        UPDATE STOCVNGL SET
+             VENDOR_TYPE 	= 'B'
+            ,MOD_USER_ID 	= #{ses.userId}
+            ,MOD_DATE    	= <include refid="com.sql.sysdate"/>
+         WHERE GATE_CD  	= #{ses.gateCd}
+           AND VENDOR_CD	= #{VENDOR_CD}
+    </update>
+
+    <insert id="doInsertECHB">
+        INSERT INTO STOCECHB (
+             GATE_CD
+            ,CONT_WT_NUM
+            ,REG_DATE
+            ,EXEC_NUM
+            ,VENDOR_CD
+            ,PLANT_CD
+            ,DEL_FLAG
+            ,CONT_WT_TYPE
+            ,EXEC_CNT
+            ,ACC_ATTR
+            ,ITEM_CLS4
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{CONT_WT_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{EXEC_NUM}
+            ,#{VENDOR_CD}
+            ,#{PLANT_CD}
+            ,'0'
+            ,CASE WHEN <include refid="com.sql.subStr"/>(#{EXEC_NUM},1,2) = 'EX' THEN 'EX' ELSE 'SO' END
+            ,#{EXEC_CNT}
+            ,#{ACC_ATTR}
+            ,#{ITEM_CLS4}
+        )
+    </insert>
+
+    <delete id="doDeleteECHB">
+
+		UPDATE STOCECHB SET
+			 DEL_FLAG    = '1'
+			,MOD_DATE    = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+	     WHERE GATE_CD     = #{ses.gateCd}
+	       AND CONT_WT_NUM = #{CONT_WT_NUM}
+	       AND DEL_FLAG    = '0'
+    </delete>
+
+    <select id="getContractKeyFromApprovalKey" resultType="hashMap">
+        SELECT GATE_CD, CONT_NUM, CONT_CNT
+          FROM STOCECCT
+         WHERE GATE_CD     = #{ses.gateCd}
+           AND APP_DOC_NUM = #{appDocNum}
+           AND APP_DOC_CNT = #{appDocCnt}
+           AND DEL_FLAG    = '0'
+    </select>
+
+    <insert id="doIncreaseECCT">
+        INSERT INTO STOCECCT (
+             GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,BUYER_CD
+			,CONT_DESC
+			,CONT_DATE
+			,CONT_START_DATE
+			,CONT_END_DATE
+			,CONT_USER_ID
+			,ATT_FILE_NUM
+			,VENDOR_ATT_FILE_NUM
+			,APP_DOC_NUM
+        	,APP_DOC_CNT
+			,ADV_GUAR_FLAG
+			,ADV_GUAR_PERCENT
+			,ADV_VAT_FLAG
+			,ADV_GUAR_AMT
+			,CONT_GUAR_FLAG
+			,CONT_GUAR_PERCENT
+			,CONT_VAT_FLAG
+			,CONT_GUAR_AMT
+			,WARR_GUAR_FLAG
+			,WARR_GUAR_PERCENT
+			,WARR_VAT_FLAG
+			,WARR_GUAR_AMT
+			,WARR_GUAR_QT
+			,SIGN_STATUS
+			,VENDOR_CD
+			,SUPPLY_AMT
+			,VAT_FLAG
+			,VAT_AMT
+			,CONT_AMT
+			,DOC_TYPE
+			,SIGN_DATE
+			,PROGRESS_CD
+			,SO_NUM
+			,SO_CNT
+			,EXEC_NUM
+			,APPROVAL_FLAG
+			,VENDOR_PIC_USER_NM
+			,MANUAL_CONT_FLAG
+			,CONT_REQ_CD
+			,DELAY_AMT
+			,PRE_RATE
+			,MID_RATE
+			,BAL_RATE
+			,COM_RATE
+			,ALLOWANCE_RATE
+        )
+		SELECT
+			GATE_CD
+			,CONT_NUM
+			,#{VCONT_CNT}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,BUYER_CD
+			,CONT_DESC
+			,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			,<include refid="com.sql.dbo"/>setGmtDate(#{CONT_END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			,CONT_USER_ID
+			,#{BUYER_ATT_FILE_NUM}
+			,#{VENDOR_ATT_FILE_NUM}
+			,null
+        	,null
+			,ADV_GUAR_FLAG
+			,ADV_GUAR_PERCENT
+			,ADV_VAT_FLAG
+			,ADV_GUAR_AMT
+			,CONT_GUAR_FLAG
+			,CONT_GUAR_PERCENT
+			,CONT_VAT_FLAG
+			,CONT_GUAR_AMT
+			,WARR_GUAR_FLAG
+			,WARR_GUAR_PERCENT
+			,WARR_VAT_FLAG
+			,WARR_GUAR_AMT
+			,WARR_GUAR_QT
+			,''
+			,VENDOR_CD
+			,#{SUPPLY_AMT}
+			,VAT_FLAG
+			,#{VAT_AMT}
+			,#{CONT_AMT}
+			,DOC_TYPE
+			,''
+			,#{PROGRESS_CD}
+			,#{SO_NUM}
+			,#{SO_CNT}
+			,EXEC_NUM
+			,APPROVAL_FLAG
+			,VENDOR_PIC_USER_NM
+			,MANUAL_CONT_FLAG
+			,#{CONT_REQ_CD}
+			,#{DELAY_AMT}
+			,#{PRE_RATE}
+			,#{MID_RATE}
+			,#{BAL_RATE}
+			,#{COM_RATE}
+			,#{ALLOWANCE_RATE}
+		FROM STOCECCT
+		WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+          AND CONT_CNT = #{CONT_CNT}
+          AND DEL_FLAG = '0'
+
+    </insert>
+
+
+    <insert id="doIncreaseECRL">
+        INSERT INTO STOCECRL (
+             GATE_CD
+			,CONT_NUM
+			,CONT_CNT
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,REQUIRE_FLAG
+			,FORM_SQ
+			,CONTRACT_TEXT_NUM
+			,FORM_CHECK_FLAG
+        )
+        SELECT
+        	GATE_CD
+			,CONT_NUM
+			,#{VCONT_CNT}
+			,FORM_NUM
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,REQUIRE_FLAG
+			,FORM_SQ
+			,CONTRACT_TEXT_NUM
+			,FORM_CHECK_FLAG
+        FROM STOCECRL
+		WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+          AND CONT_CNT = #{CONT_CNT}
+          AND DEL_FLAG = '0'
+
+    </insert>
+
+    <select id="doNextContCntECCT" resultType="int">
+        SELECT MAX(CONT_CNT) + 1
+         FROM STOCECCT
+		WHERE GATE_CD  = #{ses.gateCd}
+          AND CONT_NUM = #{CONT_NUM}
+    </select>
+
+    <!-- 출력을 위한 계약서 Contents 가져오기 -->
+	<select id="getContractContents" parameterType="hashmap" resultType="hashMap">
+         SELECT GATE_CD
+			, EXEC_NUM
+			, EXEC_SUBJECT
+			, GETGMTDATE(EXEC_DATE, 'GMT+09:00', 'GMT+09:00', <include refid="com.sql.dateFormat"/>) AS EXEC_DATE
+			, CTRL_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			, RMK_TEXT_NUM
+			, ATT_FILE_NUM
+			, APP_DOC_NUM
+			, APP_DOC_CNT
+			, <include refid="com.sql.nvl"/>(SIGN_STATUS,'T') SIGN_STATUS
+			, SIGN_DATE
+        FROM STOCCNHD
+        WHERE DEL_FLAG = '0'
+        AND GATE_CD = #{ses.gateCd}
+        <if test="EXEC_NUM !='' and EXEC_NUM !=null">
+            AND EXEC_NUM = #{EXEC_NUM}
+        </if>
+        <if test="appDocNum !='' and appDocNum !=null">
+            AND APP_DOC_NUM = #{appDocNum}
+        </if>
+        <if test="appDocCnt !='' and appDocCnt !=null">
+            AND APP_DOC_CNT = #{appDocCnt}
+        </if>
+
+    </select>
+
+    <select id="getContUserTelNum" parameterType="hashmap" resultType="hashMap">
+		SELECT  USRD.TEL_NUM  as TEL_NUM
+		 	  , ECCT.CONT_USER_ID AS CONT_USER_ID
+              ,<include refid="com.sql.dbo"/>getUserName(ECCT.GATE_CD, ECCT.CONT_USER_ID, #{ses.langCd}) AS CONT_USER_NM
+ 			  ,<include refid="com.sql.dbo"/>GETUSERINFO(ECCT.GATE_CD, ECCT.CONT_USER_ID, 'EMAIL') AS CONT_USER_EMAIL
+    		  , USRD.CELL_NUM  AS CELL_NUM
+		 FROM STOCECCT ECCT
+		 LEFT OUTER JOIN STOCUSER USRD
+		   ON (ECCT.GATE_CD = USRD.GATE_CD
+		  AND ECCT.CONT_USER_ID = USRD.USER_ID
+		  AND USRD.DEL_FLAG = '0')
+		WHERE ECCT.GATE_CD  = #{ses.gateCd}
+		  AND ECCT.CONT_NUM = #{CONT_NUM}
+		  AND ECCT.CONT_CNT = #{CONT_CNT}
+    </select>
+
+     <select id="getVendorUserList" resultType="hashMap">
+        SELECT
+			 GATE_CD
+			,COMPANY_CD AS VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME('100', COMPANY_CD, #{ses.langCd}) AS VENDOR_NM
+			,<include refid="com.sql.dbo"/>GETVENDORNAME('100', COMPANY_CD, #{ses.langCd}) AS VENDOR_NMs
+			,USER_NM AS USER_NM
+			,EMAIL AS EMAIL
+			,TEL_NUM AS TEL_NUM
+			,CELL_NUM AS CELL_NUM
+			,USER_NM AS HIDD_USER_NM
+			,EMAIL AS HIDD_EMAIL
+			,TEL_NUM AS HIDD_TEL_NUM
+			,CELL_NUM AS HIDD_CELL_NUM
+			,USER_ID
+		  FROM STOCCVUR
+		 WHERE GATE_CD = #{ses.gateCd}
+	  	   AND COMPANY_CD = #{VENDOR_CD}
+	  	   AND USER_ID = #{ses.userId}
+	       AND DEL_FLAG = '0'
+		 ORDER BY COMPANY_CD, USER_ID
+    </select>
+
+    <!-- 계약서 프린트를 위한 참조정보 조회 -->
+    <select id="doSearchPrint" parameterType="hashmap" resultType="hashMap">
+         SELECT ECCT.CONT_NUM
+		  	,	ECCT.CONT_CNT
+		    ,	<include refid="com.sql.dbo"/>GETCOMCODE(ECCT.GATE_CD,'M090',ECCT.PROGRESS_CD,'0',#{ses.langCd}) AS PROGRESS_CD
+
+		    ,	<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd}, ECCT.VENDOR_CD, #{ses.langCd})        AS VENDOR_NM
+		    ,	<include refid="com.sql.nvl"/>((SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS')
+				          FROM STOCECSV
+				         WHERE GATE_CD  = ECCT.GATE_CD
+				           AND CONT_NUM = ECCT.CONT_NUM
+				           AND CONT_CNT = ECCT.CONT_CNT
+				           AND FORM_NUM = ECCF.FORM_NUM
+				           AND ECCT.VENDOR_CD = (SELECT COMPANY_CD FROM STOCUSER WHERE GATE_CD = #{ses.gateCd} AND USER_ID = SIGN_ID)
+				       ),' ') AS VENDOR_SIGN_DATE
+
+		    ,	<include refid="com.sql.dbo"/>getBuyerName(ECCT.GATE_CD, ECCT.BUYER_CD, #{ses.langCd})           AS BUYER_NM
+		    ,	<include refid="com.sql.nvl"/>((SELECT <include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd HH24:MI:SS')
+				          FROM STOCECSV
+				         WHERE GATE_CD  = ECCT.GATE_CD
+				           AND CONT_NUM = ECCT.CONT_NUM
+				           AND CONT_CNT = ECCT.CONT_CNT
+				           AND FORM_NUM = ECCF.FORM_NUM
+				           AND SIGN_ID  = ECCT.CONT_USER_ID
+				       ),' ') AS BUYER_SIGN_DATE
+		  FROM STOCECCT ECCT
+		  LEFT OUTER JOIN STOCECRL ECRL
+		    ON (ECCT.GATE_CD = ECRL.GATE_CD
+		   AND ECCT.CONT_NUM = ECRL.CONT_NUM
+		   AND ECCT.CONT_CNT = ECRL.CONT_CNT
+		   AND ECRL.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCECCF ECCF
+		    ON (ECRL.GATE_CD = ECCF.GATE_CD
+		   AND ECRL.FORM_NUM = ECCF.FORM_NUM)
+         WHERE ECCT.GATE_CD   = #{ses.gateCd}
+           AND ECCT.CONT_NUM  = #{CONT_NUM}
+           AND ECCT.CONT_CNT  = #{CONT_CNT}
+           AND ECCF.FORM_TYPE = '100'
+		   AND ECCT.DEL_FLAG  = '0'
+    </select>
+
+    <update id="SECM_010_doGurSave" parameterType="hashmap">
+		UPDATE STOCECCT
+		   SET MOD_DATE                  = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID               = #{ses.userId}
+			 , GUAR_ATT_FILE_NUM         = #{GUAR_ATT_FILE_NUM}
+		     , GUAR_PERFORM_ATT_FILE_NUM = #{GUAR_PERFORM_ATT_FILE_NUM}
+		     , GUAR_PAY_ATT_FILE_NUM     = #{GUAR_PAY_ATT_FILE_NUM}
+		     , GUAR_FINISH_ATT_FILE_NUM  = #{GUAR_FINISH_ATT_FILE_NUM}
+		     , VENDOR_ATT_FILE_NUM       = #{VENDOR_ATT_FILE_NUM}
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+           AND CONT_CNT = #{CONT_CNT}
+	</update>
+
+    <update id="BECM_050_doSave" parameterType="hashmap">
+		UPDATE STOCECCT
+		   SET MOD_DATE                  = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID               = #{ses.userId}
+			 , BALANCE_PAY_DATE          = #{BALANCE_PAY_DATE}
+			 , GUAR_ATT_FILE_NUM         = #{GUAR_ATT_FILE_NUM}
+			 , GUAR_PERFORM_ATT_FILE_NUM = #{GUAR_PERFORM_ATT_FILE_NUM}
+			 , GUAR_PAY_ATT_FILE_NUM     = #{GUAR_PAY_ATT_FILE_NUM}
+			 , GUAR_FINISH_ATT_FILE_NUM  = #{GUAR_FINISH_ATT_FILE_NUM}
+			 , VENDOR_ATT_FILE_NUM       = #{VENDOR_ATT_FILE_NUM}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CONT_NUM = #{CONT_NUM}
+		   AND CONT_CNT = #{CONT_CNT}
+	</update>
+
+    <select id="getPaymentInfo" parameterType="hashmap" resultType="hashmap">
+
+        SELECT A.PAY_SQ ,
+        A.PAY_CNT_TYPE ,
+        <include refid="com.sql.dbo"/>GETCOMCODE(A.GATE_CD, 'M097', A.PAY_CNT_TYPE, '0', #{ses.langCd}) AS PAY_CNT_TYPE_TEXT ,
+        A.PAY_PERCENT ,
+        <if test='_databaseId=="oracle"'>
+            TO_NUMBER(A.PAY_AMT) AS PAY_AMT ,
+        </if>
+        <if test='_databaseId=="mssql"'>
+            CONVERT(INT, A.PAY_AMT) AS PAY_AMT ,
+        </if>
+        A.PAY_METHOD_TYPE ,
+        <include refid="com.sql.dbo"/>GETCOMCODE(A.GATE_CD, 'M018', A.PAY_METHOD_TYPE, '0', #{ses.langCd}) AS PAY_METHOD_TYPE_TEXT
+        ,
+        A.PAY_METHOD_NM ,
+        <include refid="com.sql.dbo"/>GETGMTDATE( A.PAY_DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS
+        PAY_DUE_DATE
+        FROM STOCCNPY A
+        WHERE A.GATE_CD = #{ses.gateCd}
+        AND A.EXEC_NUM = #{EXEC_NUM}
+        AND A.VENDOR_CD = #{VENDOR_CD}
+        AND A.DEL_FLAG = '0'
+        ORDER BY A.PAY_SQ
+
+    </select>
+
+    <select id="doSelectChangeContractFileInfo" resultType="hashMap">
+	<![CDATA[
+    	SELECT
+				(CASE WHEN OLD_UUID_SQ != NEW_UUID_SQ THEN '0'
+				      ELSE '1'
+				  END) AS CHANGE_FLAG
+			   ,<include refid="com.sql.nvl"/>(OLD_FILE_NM,'-') AS OLD_FILE_NM
+			   ,<include refid="com.sql.nvl"/>(NEW_FILE_NM,'-') AS NEW_FILE_NM
+    	  FROM (
+    			SELECT
+					   MAX(OLD_UUID_SQ) AS OLD_UUID_SQ
+					  ,MAX(REPLACE(REPLACE(REPLACE(OLD_FILE_NM, '</X><X>,', ', '), '<X>,' , ''), '</X>', '')) AS OLD_FILE_NM
+					  ,MAX(NEW_UUID_SQ) AS NEW_UUID_SQ
+					  ,MAX(REPLACE(REPLACE(REPLACE(NEW_FILE_NM, '</X><X>,', ', '), '<X>,' , ''), '</X>', '')) AS NEW_FILE_NM
+		    	  FROM (
+						SELECT
+							   <include refid="com.sql.subStr"/>(XMLAgg(XMLElement(x, ',', UUID_SQ) ORDER BY UUID_SQ).extract('//text()'), 2) AS OLD_UUID_SQ
+							  ,<include refid="com.sql.subStr"/>(XMLAgg(XMLElement(x, ',', real_file_nm) ORDER BY UUID_SQ), 0)                AS OLD_FILE_NM
+							  ,'' AS NEW_UUID_SQ
+							  ,'' AS NEW_FILE_NM
+	    		  		  FROM STOCATCH
+		    	  		 WHERE GATE_CD  = #{ses.gateCd}
+    		  			   AND UUID     = #{OLD_ATT_FILE_NUM}
+    			  		   AND DEL_FLAG = '0'
+
+			    	    UNION ALL
+
+						SELECT
+							   '' AS OLD_UUID_SQ
+							  ,'' AS OLD_FILE_NM
+							  ,<include refid="com.sql.subStr"/>(XMLAgg(XMLElement(x, ',', UUID_SQ) ORDER BY UUID_SQ).extract('//text()'), 2) AS NEW_UUID_SQ
+							  ,<include refid="com.sql.subStr"/>(XMLAgg(XMLElement(x, ',', real_file_nm) ORDER BY UUID_SQ), 0)                AS NEW_FILE_NM
+		    	  		  FROM STOCATCH
+    		  			 WHERE GATE_CD  = #{ses.gateCd}
+    			  		   AND UUID     = #{NEW_ATT_FILE_NUM}
+    			  		   AND DEL_FLAG = '0'
+
+	    	  	   )
+    	  	   )
+	]]>
+	</select>
+
+	<select id ="doSelect_pay_guar_AMT" resultType="hashMap">
+		SELECT
+			   <include refid="com.sql.nvl"/>((SELECT SUM(PAY_GUAR_AMT)
+					  FROM STOCECCT
+			 	 	 WHERE GATE_CD   = #{ses.gateCd}
+			 	 	   AND CONT_NUM  = #{CONT_NUM}
+			 	 	   <![CDATA[ AND CONT_CNT < #{CONT_CNT} ]]>
+		 		 	   AND DEL_FLAG  = '0'), 0)                AS SUM_PAY_GUAR_AMT
+			  ,MONTHS_BETWEEN(last_day(TO_DATE(#{CONT_END_DATE}, 'YYYYMMDD')), last_day(TO_DATE(#{CONT_START_DATE}, 'YYYYMMDD'))) + 1 AS MONTH_CNT
+		  <include refid="com.sql.dual"/>
+    </select>
+
+	<!-- rename p03032_copyAttFile to common_copyAttFile -->
+	<insert id="common_copyAttFile" parameterType="hashMap">
+
+		INSERT INTO STOCATCH (
+		     GATE_CD
+		    ,UUID
+		    ,UUID_SQ
+		    ,FILE_NM
+		    ,FILE_PATH
+		    ,FILE_SIZE
+		    ,FILE_EXTENSION
+		    ,REAL_FILE_NM
+		    ,BIZ_TYPE
+		    ,REG_DATE
+		    ,REG_USER_ID
+		    ,MOD_DATE
+		    ,MOD_USER_ID
+		    ,FILE_SQ
+		    ,DEL_FLAG
+		    ,ENC_FLAG
+		)(SELECT
+			 GATE_CD
+		    ,#{NEW_UUID}
+		    ,UUID_SQ
+		    ,FILE_NM
+		    ,FILE_PATH
+		    ,FILE_SIZE
+		    ,FILE_EXTENSION
+		    ,REAL_FILE_NM
+		    ,#{BIZ_TYPE}
+		    ,REG_DATE
+		    ,REG_USER_ID
+		    ,MOD_DATE
+		    ,MOD_USER_ID
+		    ,FILE_SQ
+		    ,DEL_FLAG
+		    ,ENC_FLAG
+		   FROM STOCATCH
+		  WHERE GATE_CD  = #{ses.gateCd}
+		    AND UUID     = #{OLD_UUID}
+		    AND DEL_FLAG = '0')
+
+	</insert>
+
+    <update id="doUpdatePOHD">
+        UPDATE STOCPOHD
+		   SET SIGN_STATUS = 'E'
+			  ,MOD_DATE    = <include refid="com.sql.sysdate"/>
+			  ,MOD_USER_ID = #{ses.userId}
+	     WHERE GATE_CD   = #{ses.gateCd}
+	       AND VENDOR_CD = #{VENDOR_CD}
+		   <if test="BASEDATATYPE != null and BASEDATATYPE !='' and BASEDATATYPE == 'soContract'">
+		       AND SO_NUM   = #{SO_NUM}
+		       AND SO_CNT   = #{SO_CNT}
+		   </if>
+		   <if test="BASEDATATYPE != null and BASEDATATYPE !='' and BASEDATATYPE == 'exContract'">
+		   	   AND PO_NUM   = (SELECT MAX(PO_NUM)
+								 FROM STOCPODT
+								WHERE GATE_CD  = #{ses.gateCd}
+								  AND EXEC_NUM = #{EXEC_NUM}
+								  AND DEL_FLAG = '0')
+		   </if>
+		   <if test="BASEDATATYPE != null and BASEDATATYPE !='' and BASEDATATYPE == 'contract' and SO_NUM != null and SO_NUM !='' ">
+		       AND SO_NUM   = #{SO_NUM}
+		       AND SO_CNT   = #{SO_CNT}
+		   </if>
+	       AND DEL_FLAG = '0'
+    </update>
+
+</mapper>

@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.cont.CT0400Mapper">
+
+    <select id="getContPoReadyList" resultType="hashmap">
+		SELECT
+		 A.PUR_ORG_CD
+		,A.RFX_NUM
+		,A.RFX_CNT
+		,A.RFX_SUBJECT
+		,A.VENDOR_OPEN_TYPE
+		,A.VENDOR_SLT_TYPE
+		,A.PRC_SLT_TYPE
+		,<include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.CTRL_USER_ID, #{ses.langCd}) CTRL_USER_NM
+		,A.SHIPPER_TYPE
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		,B.QTA_NUM
+		,A.CUR
+		,A.RFX_TO_DATE
+		,A.RFX_DATE
+		,A.CTRL_USER_ID
+		,B.VENDOR_CD
+		,A.BUYER_CD
+		,A.CS_PR_DIV
+		,<include refid="com.sql.nvl"/>(C.ECDTCNT,0) ECDTCNT
+	   FROM STOPRQHD A JOIN STOPQTHD B ON A.GATE_CD = B.GATE_CD
+	                                   AND A.BUYER_CD = B.BUYER_CD
+	                                   AND A.RFX_NUM = B.RFX_NUM
+	                                   AND A.RFX_CNT = B.RFX_CNT
+	                                   AND B.DEL_FLAG = '0'
+				   LEFT OUTER JOIN (SELECT COUNT(*) AS ECDTCNT
+						 , ECDT.GATE_CD
+						 , ECDT.RFX_NUM
+						 , ECDT.RFX_CNT
+					  FROM STOCECDT ECDT
+					 WHERE ECDT.DEL_FLAG = '0'
+				  GROUP BY ECDT.GATE_CD, ECDT.RFX_NUM, ECDT.RFX_CNT) C ON (C.GATE_CD = A.GATE_CD AND C.RFX_NUM = A.RFX_NUM AND C.RFX_CNT = A.RFX_CNT)
+	   WHERE A.GATE_CD = #{ses.gateCd}
+	   AND A.PROGRESS_CD = '2500' -- 선정완료된건만
+	   AND EXISTS (
+			SELECT '1' FROM STOPQTDT
+			WHERE GATE_CD = B.GATE_CD
+			AND BUYER_CD = B.BUYER_CD
+			AND QTA_NUM = B.QTA_NUM
+			AND SLT_FLAG = '1'
+
+	   )
+	   AND A.PR_REQ_TYPE IN ('01','03')
+
+	   AND NOT EXISTS (
+			SELECT '1' FROM STOPPODT
+			WHERE GATE_CD = A.GATE_CD
+--			AND RFX_NUM = A.RFX_NUM
+--			AND RFX_CNT = A.RFX_CNT
+			AND QTA_NUM = B.QTA_NUM
+			AND DEL_FLAG = '0'
+	   )
+	   AND NOT EXISTS (
+			SELECT '1' FROM STOCECDT
+			WHERE GATE_CD = A.GATE_CD
+--			AND RFX_NUM = A.RFX_NUM
+--			AND RFX_CNT = A.RFX_CNT
+			AND QTA_NUM = B.QTA_NUM
+			AND DEL_FLAG = '0'
+	   )
+
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+
+        <if test="RFX_NUM != '' and RFX_NUM != null">
+            AND A.RFX_NUM <include refid="com.sql.likeL"/>#{RFX_NUM}<include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="VENDOR_CD != '' and VENDOR_CD != null">
+			AND B.VENDOR_CD = #{VENDOR_CD}
+        </if>
+
+        <if test="RFX_DATE_FROM != '' and RFX_DATE_FROM != null">
+           AND RFX_FROM_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{RFX_DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+
+        <if test="RFX_DATE_TO != '' and RFX_DATE_TO != null">
+           AND RFX_TO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{RFX_DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+			AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+        </if>
+
+        <if test="RFX_SUBJECT != '' and RFX_SUBJECT != null">
+            AND A.RFX_SUBJECT <include refid="com.sql.likeL"/>#{RFX_SUBJECT}<include refid="com.sql.likeR"/>
+        </if>
+
+        <if test="VENDOR_OPEN_TYPE != '' and VENDOR_OPEN_TYPE != null">
+			AND A.VENDOR_OPEN_TYPE = #{VENDOR_OPEN_TYPE}
+        </if>
+        <if test="VENDOR_SLT_TYPE != '' and VENDOR_SLT_TYPE != null">
+			AND A.VENDOR_SLT_TYPE = #{VENDOR_SLT_TYPE}
+        </if>
+
+
+	</select>
+
+
+
+
+    <select id="getContPoDetailList" resultType="hashmap">
+		SELECT
+			 A.PUR_ORG_CD
+			,A.CONT_NUM
+			,C.PO_NUM
+			,C.PO_SQ
+			,D.PO_DATE
+			,A.SHIPPER_TYPE
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,C.ITEM_CD
+			,C.ITEM_DESC
+			,C.ITEM_SPEC
+			,C.PO_QT
+			,C.UNIT_CD
+			,C.CUR
+			,C.UNIT_PRC
+			,C.PO_AMT
+			,CASE WHEN C.CLOSE_FLAG = '1' THEN '종결' ELSE '미종결' END CLOSE_FLAG
+
+
+			,<include refid="com.sql.dbo"/>GETGRQTYAMT(C.PO_NUM,C.PO_SQ,'QT') GR_QTY
+			,<include refid="com.sql.dbo"/>GETGRQTYAMT(C.PO_NUM,C.PO_SQ,'AMT') GR_AMT
+			,(
+		        SELECT
+		        		<include refid="com.sql.nvl"/>(GR_AMT,0)
+		        FROM STOPGRHD A JOIN STOPGRDT B ON A.GATE_CD = B.GATE_CD
+		                                          AND A.GR_NUM = B.GR_NUM
+		        WHERE  B.PO_NUM  = C.PO_NUM
+		        AND   B.PO_SQ     = C.PO_SQ
+		        AND   A.SIGN_STATUS = 'E'
+		        AND   A.DEL_FLAG = '0'
+		        AND   B.DEL_FLAG = '0'
+				AND   A.GR_NUM = (
+				        SELECT
+				        		MAX(A.GR_NUM)
+				        FROM STOPGRHD A JOIN STOPGRDT B ON A.GATE_CD = B.GATE_CD
+				                                          AND A.GR_NUM = B.GR_NUM
+				        WHERE  B.PO_NUM  = C.PO_NUM
+				        AND   B.PO_SQ     = C.PO_SQ
+				        AND   A.SIGN_STATUS = 'E'
+				        AND   A.DEL_FLAG = '0'
+				        AND   B.DEL_FLAG = '0'
+				)
+			  ) F_GR_AMT
+			,C.PO_QT - <include refid="com.sql.dbo"/>GETGRQTYAMT(C.PO_NUM,C.PO_SQ,'QT') REMAIN_QTY
+			,C.PO_AMT - <include refid="com.sql.dbo"/>GETGRQTYAMT(C.PO_NUM,C.PO_SQ,'AMT')  REMAIN_AMT
+			,((C.PO_QT - (SELECT  <include refid="com.sql.nvl"/>(SUM(GR_QT),0)  FROM STOPGRDT WHERE PO_NUM=C.PO_NUM AND PO_SQ=C.PO_SQ AND DEL_FLAG='0')) / C.PO_QT) * 100 REMAIN_PER
+
+			,C.DELY_DATE RD_DATE
+			,C.PR_NUM
+			,C.RFX_NUM
+			,C.RFX_CNT
+			,B.QTA_NUM
+			,D.BUYER_CD
+
+
+			,D.PROGRESS_CD
+			,D.RECEIPT_YN
+
+			,<include refid="com.sql.dbo"/>GETINVQTY(C.PO_NUM, C.PO_SQ) AS INV_QT --검수요청수량
+			,CASE WHEN C.CLOSE_FLAG = '1' THEN 0
+			 ELSE (<include refid="com.sql.nvl"/>(C.AFTER_PO_QT, C.PO_QT) - <include refid="com.sql.dbo"/>GETGRQTYAMT(C.PO_NUM, C.PO_SQ,'QT') - <include refid="com.sql.dbo"/>GETINVQTY(C.PO_NUM, C.PO_SQ)) END AS TEMP_QT --검수요청잔량
+
+		FROM STOCECCT A JOIN STOCECDT B ON A.GATE_CD = B.GATE_CD
+										AND A.CONT_NUM = B.CONT_NUM
+										AND A.CONT_CNT = B.CONT_CNT
+										AND B.DEL_FLAG = '0'
+									            JOIN STOPPODT C ON B.GATE_CD = C.GATE_CD
+																AND B.CONT_NUM = C.CONT_NUM
+																AND B.CONT_CNT = C.CONT_CNT
+																AND B.CONT_SQ = C.CONT_SQ
+																AND C.DEL_FLAG = '0'
+											    JOIN STOPPOHD D ON C.GATE_CD = D.GATE_CD
+											                    AND C.PO_NUM = D.PO_NUM
+											                    AND D.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+
+		AND A.DEL_FLAG = '0'
+
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND A.CONT_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND A.CONT_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test=" VENDOR_NM != '' and VENDOR_NM != null">
+            AND GETCOMPANYNAME( A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test=" VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null">
+           AND A.CONT_NUM <include refid="com.sql.likeL"/> #{CONT_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PO_NUM != '' and PO_NUM != null">
+           AND D.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null ">
+            AND A.CONT_DESC <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+           AND A.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+
+		   AND CASE WHEN A.RECEIPT_YN IS NULL OR A.RECEIPT_YN = '' THEN 'T'
+			      WHEN A.RECEIPT_YN = '1' THEN 'A'
+			      WHEN A.RECEIPT_YN = '0' THEN 'R'
+			   END = #{RECEIPT_YN}
+
+
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CONT_USER_ID = #{CTRL_USER_ID}
+        </if>
+
+
+		UNION ALL
+		SELECT
+			 A.PUR_ORG_CD
+			,null CONT_NUM
+			,B.PO_NUM
+			,B.PO_SQ
+			,A.PO_DATE
+			,A.SHIPPER_TYPE
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) VENDOR_NM
+			,B.ITEM_CD
+			,B.ITEM_DESC
+			,B.ITEM_SPEC
+			,B.PO_QT
+			,B.UNIT_CD
+			,B.CUR
+			,B.UNIT_PRC
+			,B.PO_AMT
+			,CASE WHEN B.CLOSE_FLAG = '1' THEN '종결' ELSE '미종결' END CLOSE_FLAG
+
+			,(SELECT <include refid="com.sql.nvl"/>(SUM(GR_QT),0) FROM STOPGRDT WHERE PO_NUM=B.PO_NUM AND PO_SQ=B.PO_SQ AND DEL_FLAG='0'   ) GR_QTY
+			,(SELECT <include refid="com.sql.nvl"/>(SUM(GR_AMT),0) FROM STOPGRDT WHERE PO_NUM=B.PO_NUM AND PO_SQ=B.PO_SQ AND DEL_FLAG='0'  ) GR_AMT
+			,(SELECT <include refid="com.sql.nvl"/>(GR_AMT,0) FROM STOPGRDT K
+			  WHERE PO_NUM=B.PO_NUM
+			  AND PO_SQ=B.PO_SQ
+			  AND DEL_FLAG='0'
+			  AND GR_NUM = (
+					SELECT MAX(GR_NUM) FROM STOPGRDT
+					WHERE PO_NUM = K.PO_NUM
+					AND PO_SQ = K.PO_SQ
+			  	)
+			  ) F_GR_AMT
+			,B.PO_QT - (SELECT <include refid="com.sql.nvl"/>(SUM(GR_QT),0)   FROM STOPGRDT WHERE PO_NUM=B.PO_NUM AND PO_SQ=B.PO_SQ AND DEL_FLAG='0') REMAIN_QTY
+			,B.PO_AMT - (SELECT <include refid="com.sql.nvl"/>(SUM(GR_AMT),0) FROM STOPGRDT WHERE PO_NUM=B.PO_NUM AND PO_SQ=B.PO_SQ AND DEL_FLAG='0') REMAIN_AMT
+			,((B.PO_QT - (SELECT <include refid="com.sql.nvl"/>(SUM(GR_QT),0)  FROM STOPGRDT WHERE PO_NUM=B.PO_NUM AND PO_SQ=B.PO_SQ AND DEL_FLAG='0')) / B.PO_QT) * 100 REMAIN_PER
+
+
+
+			,B.DELY_DATE RD_DATE
+			,B.PR_NUM
+			,B.RFX_NUM
+			,B.RFX_CNT
+			,B.QTA_NUM
+			,A.BUYER_CD
+
+			,A.PROGRESS_CD
+			,A.RECEIPT_YN
+			,<include refid="com.sql.dbo"/>GETINVQTY(B.PO_NUM, B.PO_SQ) AS INV_QT --검수요청수량
+			,CASE WHEN B.CLOSE_FLAG = '1' THEN 0
+				  ELSE (<include refid="com.sql.nvl"/>(B.AFTER_PO_QT, B.PO_QT) - <include refid="com.sql.dbo"/>GETGRQTYAMT(B.PO_NUM, B.PO_SQ,'QT') - <include refid="com.sql.dbo"/>GETINVQTY(B.PO_NUM, B.PO_SQ)) END AS TEMP_QT --검수요청잔량
+
+		FROM STOPPOHD A JOIN STOPPODT B ON  A.GATE_CD = B.GATE_CD
+					                    AND A.PO_NUM = B.PO_NUM
+					                    AND B.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+        AND A.DEL_FLAG = '0'
+		AND A.CS_PR_DIV IN ('A','B')
+		AND EXISTS ( SELECT '1'
+					 FROM STOPPODT
+					 WHERE GATE_CD = A.GATE_CD
+					 AND PO_NUM = A.PO_NUM
+					 AND DEL_FLAG='0'
+					 AND CONT_NUM IS NULL
+		)
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND A.PO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND A.PO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test=" VENDOR_NM != '' and VENDOR_NM != null">
+            AND GETCOMPANYNAME( A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test=" VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null">
+        </if>
+        <if test="PO_NUM != '' and PO_NUM != null">
+           AND A.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null ">
+            AND A.PO_SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+           AND A.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+        </if>
+
+    </select>
+
+
+
+    <select id="getContPoList" resultType="hashmap">
+		SELECT DISTINCT
+		    'A' STYPE
+			,A.PUR_ORG_CD
+			,A.SIGN_STATUS
+			,A.PROGRESS_CD
+			,CASE WHEN A.RECEIPT_YN = '1' THEN '접수' WHEN A.RECEIPT_YN = '0' THEN '반려' ELSE '미접수' END RECEIPT_YN
+			,null CONSULT_YN
+			,A.CONTRACT_FORM_TYPE
+			,A.CONT_NUM
+			,D.PO_NUM
+			,A.CONT_CNT
+			,A.CONT_DESC SUBJECT
+			,A.CUR
+			,<include refid="com.sql.nvl"/>(D.PO_AMT,A.CONT_AMT) AMT
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,D.PO_DATE
+			,A.BUYER_SIGN_DATE
+			,A.SUPPLY_SIGN_DATE
+			,CONT_USER_ID CTRL_USER_ID
+			,<include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.CONT_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			,D.SIGN_STATUS SIGN_STATUS2
+			,A.REJECT_RMK
+
+
+			,(CASE WHEN (SELECT COUNT(*) FROM STOCECCT SUB
+			              WHERE SUB.GATE_CD = A.GATE_CD
+			                AND SUB.CONT_NUM = A.CONT_NUM
+			                AND SUB.CONT_CNT = A.CONT_CNT + 1
+			                AND SUB.DEL_FLAG = '0') <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) AS NEXT_CONT_CNT_FLAG
+
+
+		FROM STOCECCT A JOIN STOCECDT B ON A.GATE_CD = B.GATE_CD
+										AND A.CONT_NUM = B.CONT_NUM
+										AND A.CONT_CNT = B.CONT_CNT
+										AND B.DEL_FLAG = '0'
+									 JOIN STOPPODT C ON B.GATE_CD = C.GATE_CD
+																AND B.CONT_NUM = C.CONT_NUM
+																AND B.CONT_CNT = C.CONT_CNT
+																AND B.CONT_SQ = C.CONT_SQ
+																AND C.DEL_FLAG = '0'
+									 JOIN STOPPOHD D ON C.GATE_CD = D.GATE_CD
+											                    AND C.PO_NUM = D.PO_NUM
+											                    AND D.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+
+		AND A.CONTRACT_FORM_TYPE = '03'
+
+		AND A.DEL_FLAG = '0'
+
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND A.CONT_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND A.CONT_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test=" VENDOR_NM != '' and VENDOR_NM != null">
+            AND GETCOMPANYNAME( A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test=" VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null">
+           AND A.CONT_NUM <include refid="com.sql.likeL"/> #{CONT_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PO_NUM != '' and PO_NUM != null">
+           AND D.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null ">
+            AND A.CONT_DESC <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+           AND A.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+
+		   AND CASE WHEN A.RECEIPT_YN IS NULL OR A.RECEIPT_YN = '' THEN 'T'
+			      WHEN A.RECEIPT_YN = '1' THEN 'A'
+			      WHEN A.RECEIPT_YN = '0' THEN 'R'
+			   END = #{RECEIPT_YN}
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CONT_USER_ID = #{CTRL_USER_ID}
+        </if>
+		UNION ALL
+
+
+
+		SELECT DISTINCT
+		    'A' STYPE
+			,A.PUR_ORG_CD
+			,A.SIGN_STATUS
+			,A.PROGRESS_CD
+			,CASE WHEN A.RECEIPT_YN = '1' THEN '접수' WHEN A.RECEIPT_YN = '0' THEN '반려' ELSE '미접수' END RECEIPT_YN
+			,null CONSULT_YN
+			,A.CONTRACT_FORM_TYPE
+			,A.CONT_NUM
+			,D.PO_NUM
+			,A.CONT_CNT
+			,A.CONT_DESC SUBJECT
+			,A.CUR
+			,<include refid="com.sql.nvl"/>(D.PO_AMT,A.CONT_AMT) AMT
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,D.PO_DATE
+			,A.BUYER_SIGN_DATE
+			,A.SUPPLY_SIGN_DATE
+			,CONT_USER_ID CTRL_USER_ID
+			,<include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.CONT_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			,D.SIGN_STATUS SIGN_STATUS2
+			,A.REJECT_RMK
+
+
+			,(CASE WHEN (SELECT COUNT(*) FROM STOCECCT SUB
+			              WHERE SUB.GATE_CD = A.GATE_CD
+			                AND SUB.CONT_NUM = A.CONT_NUM
+			                AND SUB.CONT_CNT = A.CONT_CNT + 1
+			                AND SUB.DEL_FLAG = '0') <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) AS NEXT_CONT_CNT_FLAG
+
+
+		FROM STOCECCT A JOIN STOCECDT B ON A.GATE_CD = B.GATE_CD
+										AND A.CONT_NUM = B.CONT_NUM
+										AND A.CONT_CNT = B.CONT_CNT
+										AND B.DEL_FLAG = '0'
+									 LEFT OUTER JOIN STOPPODT C ON B.GATE_CD = C.GATE_CD
+																AND B.CONT_NUM = C.CONT_NUM
+																AND B.CONT_CNT = C.CONT_CNT
+																AND B.CONT_SQ = C.CONT_SQ
+																AND C.DEL_FLAG = '0'
+									 LEFT OUTER JOIN STOPPOHD D ON C.GATE_CD = D.GATE_CD
+											                    AND C.PO_NUM = D.PO_NUM
+											                    AND D.DEL_FLAG = '0'
+
+		WHERE A.GATE_CD = #{ses.gateCd}
+
+		AND A.CONTRACT_FORM_TYPE = '02'
+
+		AND A.DEL_FLAG = '0'
+
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND A.CONT_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND A.CONT_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test=" VENDOR_NM != '' and VENDOR_NM != null">
+            AND GETCOMPANYNAME( A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test=" VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null">
+           AND A.CONT_NUM <include refid="com.sql.likeL"/> #{CONT_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PO_NUM != '' and PO_NUM != null">
+           AND D.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null ">
+            AND A.CONT_DESC <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+           AND A.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+
+		   AND CASE WHEN A.RECEIPT_YN IS NULL OR A.RECEIPT_YN = '' THEN 'T'
+			      WHEN A.RECEIPT_YN = '1' THEN 'A'
+			      WHEN A.RECEIPT_YN = '0' THEN 'R'
+			   END = #{RECEIPT_YN}
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CONT_USER_ID = #{CTRL_USER_ID}
+        </if>
+
+
+
+
+
+
+		UNION ALL
+		SELECT DISTINCT
+		    'B' STYPE
+			,A.PUR_ORG_CD
+			,A.SIGN_STATUS
+			,A.PROGRESS_CD
+			,CASE WHEN A.RECEIPT_YN = '200' THEN '접수'
+			      WHEN A.RECEIPT_YN = '100' THEN '반려'
+			      ELSE '미접수' END
+			 RECEIPT_YN
+			,null CONSULT_YN -- 협의데이터유무
+			,null CONTRACT_FORM_TYPE
+			,null CONT_NUM
+			,A.PO_NUM
+			,null CONT_CNT
+			,A.PO_SUBJECT SUBJECT
+			,A.CUR
+			,A.PO_AMT AMT
+			,A.VENDOR_CD
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+			,A.PO_DATE
+			,null BUYER_SIGN_DATE
+			,null SUPPLY_SIGN_DATE
+			,A.CTRL_USER_ID
+			,<include refid="com.sql.dbo"/>GETUSERNAME(A.GATE_CD, A.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+			,A.SIGN_STATUS SIGN_STATUS2
+			,A.REJECT_RMK
+
+
+
+			,'N' NEXT_CONT_CNT_FLAG
+
+
+		FROM STOPPOHD A
+		WHERE A.GATE_CD = #{ses.gateCd}
+        AND A.DEL_FLAG = '0'
+		AND A.CS_PR_DIV IN ('A','B')
+		AND EXISTS ( SELECT '1'
+					 FROM STOPPODT
+					 WHERE GATE_CD = A.GATE_CD
+					 AND PO_NUM = A.PO_NUM
+					 AND DEL_FLAG='0'
+					 AND CONT_NUM IS NULL
+		)
+        <if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+            AND A.PUR_ORG_CD IN
+            <foreach item="item" index="index" collection="PUR_ORG_CD_LIST" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+        <if test="DATE_FROM != '' and DATE_FROM != null">
+           AND A.PO_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/> #{DATE_FROM}<include refid="com.sql.dateFrom"/>
+        </if>
+        <if test="DATE_TO != '' and DATE_TO != null">
+           AND A.PO_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/> #{DATE_TO}<include refid="com.sql.dateTo"/>
+        </if>
+        <if test=" VENDOR_NM != '' and VENDOR_NM != null">
+            AND GETCOMPANYNAME( A.GATE_CD, A.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test=" VENDOR_CD != '' and VENDOR_CD != null">
+           AND A.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CONT_NUM != '' and CONT_NUM != null">
+          AND A.PO_NUM IS NULL --계약번호로 조회시 PO에서는 조회가 안되게 처리...
+        </if>
+        <if test="PO_NUM != '' and PO_NUM != null">
+           AND A.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null ">
+            AND A.PO_SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+           AND A.SIGN_STATUS = #{SIGN_STATUS}
+        </if>
+        <if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+           AND A.PROGRESS_CD = #{PROGRESS_CD}
+        </if>
+        <if test="CTRL_USER_ID != '' and CTRL_USER_ID != null">
+           AND A.CTRL_USER_ID = #{CTRL_USER_ID}
+        </if>
+
+
+        <if test="RECEIPT_YN != '' and RECEIPT_YN != null">
+		   AND CASE WHEN A.RECEIPT_YN = '0' THEN 'T'
+			      WHEN A.RECEIPT_YN = '200' THEN 'A'
+			      WHEN A.RECEIPT_YN = '100' THEN 'R'
+			   END = #{RECEIPT_YN}
+        </if>
+
+    </select>
+
+    <insert id="cancelPohd" parameterType="hashmap">
+		UPDATE STOPPOHD
+		   SET DEL_FLAG = '1'
+		     , MOD_DATE = <include refid="com.sql.sysdate"/>
+		     , MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND PO_NUM = #{PO_NUM}
+	</insert>
+    <insert id="cancelPodt" parameterType="hashmap">
+		UPDATE STOPPODT
+		   SET DEL_FLAG = '1'
+		     , MOD_DATE = <include refid="com.sql.sysdate"/>
+		     , MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND PO_NUM = #{PO_NUM}
+	</insert>
+
+
+
+
+
+
+</mapper>

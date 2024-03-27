@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.SOG_020_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT A.*
+          FROM (
+                SELECT POHD.PO_TYPE AS PURCHASE_TYPE
+                      ,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, 'GMT+09:00', 'GMT+09:00', <include refid="com.sql.dateFormat"/>) AS PO_CREATE_DATE
+                      ,POPY.PO_NUM
+                      ,POPY.PAY_SQ
+                      ,POHD.SUBJECT AS SUBJECT
+                      ,POHD.CUR
+                      ,POHD.PO_AMT
+                      ,POPY.PAY_CNT_TYPE
+                      ,POPY.PAY_CNT
+                      ,<include refid="com.sql.dbo"/>GETGMTDATE(POPY.PAY_DUE_DATE, 'GMT+09:00', 'GMT+09:00', <include refid="com.sql.dateFormat"/>) AS PAY_DUE_DATE
+                      ,POPY.PAY_PERCENT
+                      ,POPY.PAY_AMT
+                      ,POPY.PAY_METHOD_TYPE
+                      ,POHD.INSPECT_USER_ID
+                      ,<include refid="com.sql.dbo"/>GETUSERNAME(POPY.GATE_CD, POHD.INSPECT_USER_ID, #{ses.langCd}) AS INSPECT_USER_NM
+                      ,POHD.CTRL_USER_ID
+                      ,<include refid="com.sql.dbo"/>GETUSERNAME(POPY.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+                      ,(SELECT <include refid="com.sql.nvl"/>(SUM(IVDT.ITEM_AMT), 0)
+                          FROM STOCIVDT IVDT
+                          JOIN STOCIVGH IVGH
+                          ON (IVDT.GATE_CD = IVGH.GATE_CD
+                          AND IVDT.INV_NUM = IVGH.INV_NUM
+                          AND IVDT.PAY_SQ = IVGH.PAY_SQ
+                          AND IVGH.DEL_FLAG = '0')
+                         WHERE IVDT.GATE_CD = POPY.GATE_CD
+                           AND IVDT.PO_NUM = POPY.PO_NUM
+                           AND IVDT.PAY_SQ = POPY.PAY_SQ
+                           AND POPY.DEL_FLAG = '0'
+                           AND IVGH.PROGRESS_CD IN ('50', '100', '700')) AS ACC_INV_AMT
+                  FROM STOCPOPY POPY
+                  JOIN STOCPOHD POHD
+                   ON (POPY.GATE_CD = POHD.GATE_CD
+                   AND POPY.PO_NUM = POHD.PO_NUM
+                   AND POHD.DEL_FLAG = '0')
+                 WHERE POPY.GATE_CD = #{ses.gateCd}
+                   AND POHD.VENDOR_CD = #{ses.companyCd}
+                   AND POHD.DELIVERY_TYPE = 'PI'
+
+
+                   AND (POHD.PO_CREATE_TYPE IN ('DRAFT', 'PR') OR (POHD.PO_CREATE_TYPE = 'MANUAL' --AND POHD.PO_TYPE NOT IN ('AS', 'NEW', 'DC', 'ISP')
+                   ))
+
+
+                   AND POPY.DEL_FLAG = '0'
+                   AND POHD.VENDOR_RECEIPT_STATUS = '200'
+                   <if test="COMBO_DATE != '' and COMBO_DATE != null">
+                       <if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null ">
+                           <choose>
+                               <when test="COMBO_DATE == 'PO_CREATE_DATE' ">
+                                   AND POHD.PO_CREATE_DATE
+                               </when>
+                               <when test="COMBO_DATE == 'PAY_DUE_DATE' ">
+                                   AND POPY.PAY_DUE_DATE
+                               </when>
+                           </choose>
+                       </if>
+                       BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+                   </if>
+                   <if test="PLANT_CD != null and PLANT_CD != ''">
+                       AND EXISTS (SELECT 1
+                                     FROM STOCPODT
+                                    WHERE GATE_CD = POHD.GATE_CD
+                                      AND PO_NUM = POHD.PO_NUM
+                                      AND PLANT_CD = #{PLANT_CD}
+                                      AND DEL_FLAG = '0')
+                   </if>
+                   <if test="PO_NUM != null and PO_NUM != ''">
+                       AND POHD.PO_NUM = #{PO_NUM}
+                   </if>
+                   <if test="SUBJECT != null and SUBJECT != ''">
+                       AND POHD.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+                   </if>
+                   <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+                       AND POHD.PO_TYPE = #{PURCHASE_TYPE}
+                   </if>
+                   <if test="PAY_METHOD != null and PAY_METHOD != ''">
+                       AND POPY.PAY_METHOD_TYPE = #{PAY_METHOD}
+                   </if>
+        ) A
+        WHERE A.PAY_AMT > A.ACC_INV_AMT
+        ORDER BY A.PO_NUM DESC, A.PAY_SQ
+    </select>
+
+</mapper>

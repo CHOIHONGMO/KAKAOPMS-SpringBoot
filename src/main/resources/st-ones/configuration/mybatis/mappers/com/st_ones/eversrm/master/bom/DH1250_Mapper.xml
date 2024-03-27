@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH1250_Mapper">
+	<select id="doSearchBom" parameterType="hashmap" resultType="hashMap">
+		WITH BOMTREE AS (
+		 SELECT
+			   A.ITEM_CD
+			  ,A.ITEM_DESC
+			  ,A.EO_NO
+			  ,A.EO_DATE
+			  ,A.BOM_ID
+			  ,A.PARENT_BOM_ID
+			  ,A.TOP_ITEM_CD
+			  ,1 LEVEL
+			  ,A.BOM_SQ
+			  ,A.ITEM_QT
+			  ,A.MATERIAL_SPEC
+			  ,A.TOP_ITEM_CD
+			  ,A.BOM_REV ITEM_REVSION
+			  ,A.BOM_REV
+		 FROM <include refid="com.sql.dbo"/>STOCBOMM A
+		 WHERE A.BOM_ID IN (SELECT BOM_ID
+		 					  FROM <include refid="com.sql.dbo"/>STOCBOMM
+		 					 WHERE ITEM_CD = #{ITEM_CD}
+		 					 <if test="MAT_CD != '' and MAT_CD != null">
+		 					   AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+		 					 </if>
+							)
+		   AND A.BOM_REV = (SELECT max(BOM_REV)
+							  FROM STOCBOMM
+							 WHERE BOM_ID = A.BOM_ID
+							<if test="MAT_CD != '' and MAT_CD != null">
+							   AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+							</if>
+							)
+
+		 AND A.DEL_FLAG = '0'
+		-- WHERE PARENT_BOM_ID IS NULL
+		 UNION ALL
+		 SELECT
+			   B.ITEM_CD
+			  ,B.ITEM_DESC
+			  ,B.EO_NO
+			  ,B.EO_DATE
+			  ,B.BOM_ID
+			  ,B.PARENT_BOM_ID
+			  ,B.TOP_ITEM_CD
+			  ,LEVEL + 1
+			  ,B.BOM_SQ
+			  ,B.ITEM_QT
+			  ,B.MATERIAL_SPEC
+			  ,B.TOP_ITEM_CD
+			  ,B.BOM_REV ITEM_REVSION
+			  ,B.BOM_REV
+		 FROM <include refid="com.sql.dbo"/>STOCBOMM B
+		 JOIN BOMTREE C
+		   ON B.PARENT_BOM_ID = C.BOM_ID
+		  AND B.DEL_FLAG = '0'
+
+		)
+		SELECT BOMTREE.ITEM_CD
+			  ,BOMTREE.ITEM_DESC
+			  ,BOMTREE.EO_NO
+			  ,<include refid="com.sql.dbo"/> getGmtDate(BOMTREE.EO_DATE, #{ses.userGmt}, #{ses.userGmt}, <include refid="com.sql.dateFormat"/>) EO_DATE
+			  ,ITEM_QT
+			  ,MATERIAL_SPEC
+				,CASE WHEN LEVEL = 1 THEN '●' ELSE '' END  A
+				,CASE WHEN LEVEL = 2 THEN '●' ELSE '' END  B
+				,CASE WHEN LEVEL = 3 THEN '●' ELSE '' END  C
+				,CASE WHEN LEVEL = 4 THEN '●' ELSE '' END  D
+				,CASE WHEN LEVEL = 5 THEN '●' ELSE '' END  E
+				,CASE WHEN LEVEL = 6 THEN '●' ELSE '' END  F
+				,CASE WHEN LEVEL = 7 THEN '●' ELSE '' END  G
+				,CASE WHEN LEVEL = 8 THEN '●' ELSE '' END  H
+				,CASE WHEN LEVEL = 9 THEN '●' ELSE '' END  I
+				,CASE WHEN LEVEL = 10 THEN '●' ELSE '' END  K
+			,TOP_ITEM_CD
+			,ITEM_REVSION
+			,MTGL.UNIT_CD
+		  FROM BOMTREE JOIN STOCMTGL MTGL ON BOMTREE.ITEM_CD = MTGL.ITEM_CD AND MTGL.GATE_CD = #{ses.gateCd}
+		 WHERE BOM_REV = (SELECT MAX(K.BOM_REV)
+							FROM <include refid="com.sql.dbo"/>STOCBOMM K
+						   WHERE K.BOM_ID = BOMTREE.BOM_ID
+							 AND DEL_FLAG = '0')
+		ORDER BY TOP_ITEM_CD,LEVEL,BOM_SQ
+	</select>
+
+	<select id="searchBomItem" parameterType="hashmap" resultType="hashMap">
+
+		WITH BOMTREE AS (
+			 SELECT
+				   A.ITEM_CD
+				  ,A.ITEM_DESC
+				  ,A.EO_NO
+				  ,A.EO_DATE
+				  ,A.BOM_ID
+				  ,A.PARENT_BOM_ID
+				  ,A.TOP_ITEM_CD
+				  ,1 AS LEVEL_VAL
+				  ,A.BOM_SQ
+				  ,A.ITEM_QT
+				  ,A.MATERIAL_SPEC
+				  ,A.BOM_REV AS ITEM_REVSION
+				  ,A.BOM_REV
+				  ,A.MAT_CD
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+			 					  FROM <include refid="com.sql.dbo"/>STOCBOMM
+			 					 WHERE ITEM_CD = #{ITEM_CD}
+		 					 <if test="MAT_CD != '' and MAT_CD != null">
+			 					   AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+							 </if>
+								)
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+								  FROM STOCBOMM
+			 					 WHERE BOM_ID = A.BOM_ID
+		 					 <if test="MAT_CD != '' and MAT_CD != null">
+			 					   AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+							 </if>
+								)
+			 AND A.DEL_FLAG = '0'
+			 UNION ALL
+			 SELECT
+				   B.ITEM_CD
+				  ,B.ITEM_DESC
+				  ,B.EO_NO
+				  ,B.EO_DATE
+				  ,B.BOM_ID
+				  ,B.PARENT_BOM_ID
+				  ,B.TOP_ITEM_CD
+				  ,2 AS LEVEL_VAL
+				  ,B.BOM_SQ
+				  ,B.ITEM_QT
+				  ,B.MATERIAL_SPEC
+				  ,B.BOM_REV AS ITEM_REVSION
+				  ,B.BOM_REV
+				  ,B.MAT_CD
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM B
+			WHERE B.DEL_FLAG = '0'
+			)
+			SELECT BOMTREE.ITEM_CD
+				  ,BOMTREE.ITEM_DESC
+				  ,BOMTREE.MATERIAL_SPEC
+				  ,MTGL.UNIT_CD
+		      	  ,MTGL.MAKER
+				  ,BOMTREE.MAT_CD MAT_GROUP
+				  ,MTGL.MAT_TYPE
+			      ,<include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS1,'1')
+			       <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS2,'2')
+			       <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS3,'3')
+			       <include refid="com.sql.stringMerge"/>'>'<include refid="com.sql.stringMerge"/><include refid="com.sql.dbo"/>GETITEMCLASS(#{ses.gateCd}, MTGL.ITEM_CLS4,'4') AS ITEM_CLS_NM
+		          ,INFO.BUYER_CD
+		          ,INFO.PLANT_CD
+		          ,INFO.VENDOR_CD
+				  ,<include refid="com.sql.dbo"/> GETVENDORNAME(INFO.GATE_CD, INFO.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				  ,INFO.CUR
+				  ,INFO.UNIT_PRC
+				  ,ITEM_QT
+				  ,CASE WHEN LEVEL_VAL = 1 THEN '●' ELSE '' END  A
+				  ,CASE WHEN LEVEL_VAL = 2 THEN '●' ELSE '' END  B
+				  ,CASE WHEN LEVEL_VAL = 3 THEN '●' ELSE '' END  C
+				  ,CASE WHEN LEVEL_VAL = 4 THEN '●' ELSE '' END  D
+				  ,CASE WHEN LEVEL_VAL = 5 THEN '●' ELSE '' END  E
+				  ,CASE WHEN LEVEL_VAL = 6 THEN '●' ELSE '' END  F
+				  ,CASE WHEN LEVEL_VAL = 7 THEN '●' ELSE '' END  G
+				  ,CASE WHEN LEVEL_VAL = 8 THEN '●' ELSE '' END  H
+				  ,CASE WHEN LEVEL_VAL = 9 THEN '●' ELSE '' END  I
+				  ,CASE WHEN LEVEL_VAL = 10 THEN '●' ELSE '' END  K
+				  ,BOMTREE.EO_NO
+				  ,<include refid="com.sql.dbo"/> getGmtDate(BOMTREE.EO_DATE, #{ses.userGmt}, #{ses.userGmt}, <include refid="com.sql.dateFormat"/>)  AS EO_DATE
+				  ,TOP_ITEM_CD
+				  ,ITEM_REVSION
+			  FROM BOMTREE
+		    JOIN STOCMTGL MTGL
+		         ON (BOMTREE.ITEM_CD = MTGL.ITEM_CD
+		         AND MTGL.GATE_CD = #{ses.gateCd}
+		         AND MTGL.PROGRESS_CD = 'E'
+		         AND <include refid="com.sql.nvl"/>(MTGL.ORDER_HALT_FLAG, '0') = '0'
+		         AND MTGL.DEL_FLAG = '0')
+		    LEFT JOIN STOCINFO INFO
+		         ON (MTGL.GATE_CD = INFO.GATE_CD
+			     AND MTGL.ITEM_CD = INFO.ITEM_CD
+			<![CDATA[
+				AND INFO.VALID_FROM_DATE <= <include refid="com.sql.sysdate"/>
+				AND INFO.VALID_TO_DATE >= <include refid="com.sql.sysdate"/>
+			]]>
+			<if test="PUR_ORG_CD != '' and PUR_ORG_CD != null">
+				AND INFO.PUR_ORG_CD = #{PUR_ORG_CD}
+			</if>
+		 	<!-- 구매유형(PURCHASE_TYPE)이 해외MRO가 아닌 경우 협력회사가 존재하면 INFO와 JOIN한다. -->
+		 	<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		     	<if test="PURCHASE_TYPE != '' and PURCHASE_TYPE != null and PURCHASE_TYPE != 'OMRO'">
+		       AND INFO.PLANT_CD IN (SELECT PLANT_CD FROM STOCUSPL
+			 						  WHERE GATE_CD = #{ses.gateCd}
+			   							AND DEL_FLAG = '0'
+		            					AND USE_FLAG = '1'
+		            					AND USER_ID = #{ses.userId})
+    		   AND INFO.VENDOR_CD = #{VENDOR_CD}
+    		   	</if>
+		 	</if>
+				AND <include refid="com.sql.nvl"/>(INFO.TERMINATE_FLAG, '0') = '0'
+				AND INFO.DEL_FLAG = '0')
+		    LEFT JOIN STOCVNGL VNGL
+		         ON (INFO.GATE_CD = VNGL.GATE_CD
+		         AND INFO.VENDOR_CD = VNGL.VENDOR_CD
+		         AND VNGL.DEL_FLAG = '0'
+		         AND VNGL.VENDOR_TYPE = 'B') <!-- 단가는 승인업체만 조회함 -->
+			 WHERE BOM_REV = (SELECT MAX(K.BOM_REV)
+								FROM <include refid="com.sql.dbo"/>STOCBOMM K
+							   WHERE K.BOM_ID = BOMTREE.BOM_ID
+								 AND DEL_FLAG = '0')
+			ORDER BY TOP_ITEM_CD, LEVEL_VAL, BOM_SQ
+	</select>
+</mapper>
+

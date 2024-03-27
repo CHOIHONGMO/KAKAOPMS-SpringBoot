@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.basic.qna.QnaMapper">
+
+     <select id="doSearchQnaList" parameterType="hashMap" resultType="hashMap">
+		SELECT ROWNUM as RNUM
+			 , QNAH.GATE_CD
+			 , QNAH.QNA_NUM
+		 	 , QNAH.QNA_TYPE
+			-- , QNAH.PARENT_QNA_NUM
+			 , case when SECRET_FLAG = '1' then '[비밀글]' else '' end || (<include refid="com.sql.lpad"/>(' ', (LEVEL-1)*4) ||  QNAH.SUBJECT) AS SUBJECT
+			 , <include refid="com.sql.dbo"/>getGmtDate(QNAH.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+			 , QNAH.VIEW_CNT
+			 , <include refid="com.sql.dbo"/>GETUSERNAME(QNAH.GATE_CD, QNAH.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			 ,  QNAH.REG_USER_ID AS REG_USER_ID
+			 , QNAH.ATT_FILE_NUM
+		 	 , QNAH.QNA_TEXT_NUM
+		 	 , <include refid="com.sql.dbo"/>getGmtDate(QNAH.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd') ||' ~ '|| <include refid="com.sql.dbo"/>getGmtDate(QNAH.END_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd') AS VIEWDATE --게시기간
+		 	 , <include refid="com.sql.dbo"/>getGmtDate(QNAH.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-mm-dd hh24:mi') AS MOD_DATE
+			 ,CASE WHEN (SELECT COUNT(*)
+				 FROM STOCATCH
+				 WHERE GATE_CD = #{ses.gateCd}
+				 AND UUID = QNAH.ATT_FILE_NUM
+				 AND DEL_FLAG = '0')  <![CDATA[<]]> 1 THEN '' else '1' end ATT_FILE_CNT
+
+		 FROM STOCQNAH QNAH LEFT JOIN STOCUSER USERS
+		  ON (QNAH.REG_USER_ID = USERS.USER_ID
+		  AND QNAH.GATE_CD = USERS.GATE_CD
+		  AND USERS.DEL_FLAG = '0')
+		 WHERE QNAH.GATE_CD = #{ses.gateCd}
+		   AND QNAH.DEL_FLAG = '0'
+		<if test="SUBJECT != '' and SUBJECT != null">
+			AND SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="TEXT_CONTENTS != '' and TEXT_CONTENTS != null">
+			AND QNAH.QNA_TEXT_NUM IN (SELECT TEXT_NUM FROM STOCTXTD <include refid="com.sql.noLock"/> WHERE TEXT_CONTENTS <include refid="com.sql.likeL"/> #{TEXT_CONTENTS} <include refid="com.sql.likeR"/>)
+		</if>
+		 <if test="START_DATE != '' and START_DATE != null">
+			 AND <![CDATA[ QNAH.START_DATE >= <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		 </if>
+		 <if test="END_DATE != '' and END_DATE != null">
+			 AND <![CDATA[ QNAH.END_DATE <= <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		 </if>
+		 <if test="QNA_TYPE !='' and QNA_TYPE != null">
+			 AND QNAH.QNA_TYPE = UPPER(<include refid="com.sql.trim"/>(#{QNA_TYPE}))
+		 </if>
+		 START WITH PARENT_QNA_NUM is null
+		 CONNECT BY PRIOR QNA_NUM = PARENT_QNA_NUM
+		 ORDER SIBLINGS BY QNA_NUM DESC, PARENT_QNA_NUM
+
+
+    </select>
+
+   <insert id="doInsertQna" parameterType="hashMap" >
+
+        INSERT
+        INTO   STOCQNAH ( GATE_CD
+             , QNA_NUM
+             , PARENT_QNA_NUM
+             , REG_DATE
+             , REG_USER_ID
+		  	 , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , QNA_TYPE
+             , START_DATE
+             , END_DATE
+             , VIEW_CNT
+             , QNA_TEXT_NUM
+             , ATT_FILE_NUM
+             , SECRET_FLAG
+             , SUBJECT)
+        VALUES  (#{ses.gateCd}
+             , #{QNA_NUM}
+             , CASE WHEN #{PARENT_QNA_NUM} = '' THEN NULL ELSE #{PARENT_QNA_NUM} END
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{QNA_TYPE}
+             , <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , 0
+             , #{QNA_TEXT_NUM}
+             , #{ATT_FILE_NUM}
+             , #{SECRET_FLAG}
+             , #{SUBJECT})
+
+    </insert>
+
+    <select id="doReviewQna"  parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  A.*
+		    , <include refid="com.sql.dbo"/>getGmtDate(A.START_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})  AS START_DATE
+            , <include refid="com.sql.dbo"/>getGmtDate(A.END_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat})  AS END_DATE
+			, A.REG_USER_NM || ' / ' ||  <include refid="com.sql.dbo"/>getGmtDate(A.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-mm-dd hh24:mi') AS REG_INFO
+			, QNAH.SECRET_FLAG AS ROOT_SECRET_FLAG
+		FROM (
+			SELECT  QNAH.GATE_CD
+				 , QNAH.QNA_NUM
+				 , QNAH.PARENT_QNA_NUM
+				 , QNAH.SUBJECT
+				 , QNAH.QNA_TYPE
+				 , QNAH.START_DATE
+				 , QNAH.END_DATE
+				 , QNAH.ATT_FILE_NUM
+				 , QNAH.QNA_TEXT_NUM
+				 , QNAH.VIEW_CNT
+				 , QNAH.MOD_DATE
+				 , QNAH.REG_DATE
+				 , <include refid="com.sql.toDateChar"/>(QNAH.REG_DATE, 'YYYY-MM-DD') AS REG_DATE_QNA
+				 , <include refid="com.sql.dbo"/>GETUSERNAME(QNAH.GATE_CD, QNAH.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+				 ,  QNAH.REG_USER_ID AS REG_USER_ID
+				 , QNAH.SECRET_FLAG
+				 , CONNECT_BY_ROOT QNAH.QNA_NUM AS ROOT_QNA_NUM
+			  FROM STOCQNAH QNAH
+			  LEFT JOIN STOCUSER USERS
+			   ON (QNAH.REG_USER_ID = USERS.USER_ID
+			   AND QNAH.GATE_CD = USERS.GATE_CD)
+			 WHERE QNAH.GATE_CD = #{ses.gateCd}
+			   AND QNAH.DEL_FLAG = '0'
+			   AND QNAH.QNA_NUM = #{QNA_NUM}
+			START WITH QNAH.PARENT_QNA_NUM is null
+			CONNECT BY PRIOR QNAH.QNA_NUM = QNAH.PARENT_QNA_NUM
+		) A, STOCQNAH QNAH
+		WHERE A.GATE_CD = QNAH.GATE_CD
+		  AND A.ROOT_QNA_NUM = QNAH.QNA_NUM
+		  AND QNAH.DEL_FLAG = '0'
+
+    </select>
+
+     <update id="doDeleteQna" parameterType="hashMap">
+
+        UPDATE STOCQNAH
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   QNA_NUM = #{QNA_NUM}
+
+    </update>
+
+    <update id="doUpdateQna" parameterType="hashMap">
+
+        UPDATE STOCQNAH
+        SET    PARENT_QNA_NUM = CASE WHEN #{PARENT_QNA_NUM} = '' THEN NULL ELSE #{PARENT_QNA_NUM} END
+             , QNA_TEXT_NUM = #{QNA_TEXT_NUM}
+             , SUBJECT = #{SUBJECT}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , QNA_TYPE = #{QNA_TYPE}
+             ,START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             ,END_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+             , SECRET_FLAG = #{SECRET_FLAG}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   QNA_NUM = #{QNA_NUM}
+
+    </update>
+
+    <update id="doUpdateHITQna" parameterType="hashMap">
+
+        UPDATE STOCQNAH
+        SET    VIEW_CNT = VIEW_CNT + 1
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   QNA_NUM = #{QNA_NUM}
+
+    </update>
+
+</mapper>

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.purchase.prMgt.prReceipt.BPRR_010_Mapper">
+
+<!--     picAppointment.jsp - BPR_160   -->
+
+    <select id="doSearchPicAppointment" parameterType="hashMap" resultType="hashMap">
+
+		 SELECT PRHD.BUYER_REQ_CD
+			  , PRDT.PLANT_CD
+              , PRHD.PR_TYPE
+			  , PRHD.PR_NUM
+			  , PRHD.SUBJECT
+              , <include refid="com.sql.dbo"/>GETUSERNAME(PRDT.GATE_CD, PRDT.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+              , PRDT.CTRL_USER_ID
+              , PRDT.PROGRESS_CD
+              , <include refid="com.sql.dbo"/>GETGMTDATE(PRHD.REQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REQ_DATE
+			  , <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD, PRHD.REQ_USER_ID, #{ses.langCd}) AS REQ_USER_NM
+			  , PRDT.ITEM_CD
+			  ,	PRDT.ITEM_DESC
+			  , PRDT.ITEM_SPEC
+			  , PRDT.PR_QT			  
+			  , PRDT.UNIT_CD
+			  , PRHD.CUR
+			  , PRDT.UNIT_PRC AS T_UNIT_PRC
+	          , PRDT.PR_AMT
+			  , <include refid="com.sql.dbo"/>GETGMTDATE(PRDT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DUE_DATE
+			  , PRHD.GATE_CD
+			  , PRDT.PR_SQ
+              , PRDT.CTRL_CD
+              ,(SELECT CTRL_NM FROM STOCBACO
+                 WHERE GATE_CD = PRDT.GATE_CD
+                   AND CTRL_CD = PRDT.CTRL_CD
+                   AND DEL_FLAG = '0') AS CTRL_NM
+		  FROM STOCPRHD PRHD LEFT JOIN STOCOGCM OGCM
+                ON (PRHD.GATE_CD = OGCM.GATE_CD
+                AND PRHD.BUYER_REQ_CD = OGCM.BUYER_CD
+                AND OGCM.REAL_BUYER_CD = #{ses.companyCd}
+                AND OGCM.DEL_FLAG = '0')
+         	JOIN STOCPRDT PRDT
+                ON (PRHD.GATE_CD = PRDT.GATE_CD
+                AND PRHD.PR_NUM =  PRDT.PR_NUM
+                AND PRDT.DEL_FLAG = '0')
+         WHERE PRHD.GATE_CD = #{ses.gateCd}
+           AND PRHD.DEL_FLAG = '0'
+           AND PRHD.SIGN_STATUS = 'E' <!-- 결재승인 -->
+           AND PRHD.PR_TYPE NOT IN ('DC','ISP') <!-- 구매유형이 "품의,투자품의(M136_ISP)"인 건은 제외(업무진행관리에서 진행함) -->
+           AND PRDT.PROGRESS_CD = '2100' <!--  M062_2100 : 구매대기 -->
+ 		   <!-- 구매담당자의 가능 플랜트 구매건만 조회하도록 함 -->
+	       AND EXISTS (SELECT 'X' FROM STOCUSPL WHERE GATE_CD = PRHD.GATE_CD 
+	  		           AND PLANT_CD = PRDT.PLANT_CD AND USER_ID = #{ses.userId} AND DEL_FLAG = '0')
+
+        <if test="REQ_DATE_FROM !='' and REQ_DATE_FROM !=null and REQ_DATE_TO !='' and REQ_DATE_TO !=null">
+           AND PRHD.REQ_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_DATE_FROM}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{REQ_DATE_TO}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+        <if test="PLANT_CD != '' and PLANT_CD != null">
+           AND PRDT.PLANT_CD = #{PLANT_CD}
+        </if>
+        <if test="PR_NUM != '' and PR_NUM != null">
+            AND PRHD.PR_NUM <include refid="com.sql.likeL"/> #{PR_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PR_TYPE != '' and PR_TYPE != null">
+            AND PRHD.PR_TYPE = #{PR_TYPE}
+        </if>
+        <if test="SUBJECT != '' and SUBJECT != null">
+            AND PRHD.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_USER_ID != '' and REQ_USER_ID != null">
+           AND UPPER(PRHD.REQ_USER_ID) <include refid="com.sql.likeL"/> #{REQ_USER_ID} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="REQ_USER_NM != '' and REQ_USER_NM != null">
+           AND <include refid="com.sql.dbo"/>GETUSERNAME(PRHD.GATE_CD,PRHD.REQ_USER_ID,#{ses.langCd}) <include refid="com.sql.likeL"/> #{REQ_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="BUYER_FLAG eq 'Y'.toString()">
+            AND PRDT.CTRL_USER_ID IS NOT NULL
+        </if>
+        <if test="BUYER_FLAG eq 'N'.toString()">
+            AND PRDT.CTRL_USER_ID IS NULL OR PRDT.CTRL_USER_ID = ''
+        </if>
+        <if test="CTRL_CD != '' and CTRL_CD != null">
+            AND PRDT.CTRL_CD <include refid="com.sql.likeL"/> #{CTRL_CD} <include refid="com.sql.likeR"/>
+        </if>
+	   ORDER BY PRHD.REQ_DATE DESC, PRDT.PR_NUM DESC, PRDT.ITEM_CD
+    </select>
+
+	<select id="checkAssignPicAppointment" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM STOCPRDT
+        WHERE GATE_CD = #{GATE_CD}
+	        AND PR_NUM = #{PR_NUM}
+	        AND PR_SQ  = #{PR_SQ}
+	        AND PROGRESS_CD > '2100'
+	        AND DEL_FLAG = '0'
+    </select>  
+
+    <update id="doAssignPicAppointment" parameterType="hashmap">
+        UPDATE STOCPRDT SET
+               DEL_FLAG = '0'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , CTRL_USER_ID = #{BUYER_CD}
+<!--            , PROGRESS_CD = '2200'  Trieu's note: Assigning PIC can not change PRDT.PROGRESS_CD, otherwise PIC can not reject the PR using BPR_170 Pr Receipt -->
+        WHERE GATE_CD = #{GATE_CD}
+            AND PR_NUM = #{PR_NUM}
+            AND PR_SQ = #{PR_SQ}
+    </update>
+
+</mapper>

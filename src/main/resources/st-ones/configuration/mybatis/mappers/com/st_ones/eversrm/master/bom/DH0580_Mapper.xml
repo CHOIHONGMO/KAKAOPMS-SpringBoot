@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0580_Mapper">
+
+
+	<select id="chkItem" parameterType="hashmap" resultType="hashMap">
+		SELECT * FROM STOCMTGL
+		WHERE GATE_CD = #{ses.gateCd}
+		AND DEL_FLAG = '0'
+		AND (
+			ITEM_CD = #{ITEM_CD}
+			OR 
+			ITEM_CD = #{CM_ITEM_CD}
+		)
+		
+	</select>
+
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT 
+		 A.ITEM_CD
+		,B.ITEM_DESC ITEM_NM
+		,B.PREV_MAT_PRC
+		,A.PLANT_CD
+		,A.CM_ITEM_CD
+		,C.ITEM_DESC CM_ITEM_NM
+		,A.PRE_CM_PRC
+		,A.CM_PRC
+		,A.ITEM_QT
+		,A.MAT_GROUP
+		,A.VENDOR_CD
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},A.VENDOR_CD,#{ses.langCd}) VENDOR_NM
+		,A.CM_VENDOR_CD
+		,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},A.CM_VENDOR_CD,#{ses.langCd}) CM_VENDOR_NM
+		FROM STOCMTCM A JOIN STOCMTGL B ON A.GATE_CD = B.GATE_CD AND A.ITEM_CD = B.ITEM_CD
+		                JOIN STOCMTGL C ON A.GATE_CD = C.GATE_CD AND A.CM_ITEM_CD = C.ITEM_CD
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.DEL_FLAG ='0'
+        <if test="ITEM_CD != null and ITEM_CD != ''">
+            AND A.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+        </if>
+	    <if test="PLANT_CD !='' and PLANT_CD !=null">
+	        AND A.PLANT_CD = #{PLANT_CD}
+	    </if>
+
+	</select>
+	
+
+    <update id="saveMatm" parameterType="hashMap">
+         MERGE STOCMTCM AS A
+         USING (
+         	SELECT #{ses.gateCd} GATE_CD,#{ITEM_CD} ITEM_CD,#{PLANT_CD} PLANT_CD, #{CM_ITEM_CD} CM_ITEM_CD
+         	,#{VENDOR_CD} VENDOR_CD, #{CM_VENDOR_CD} CM_VENDOR_CD
+         	,#{MAT_GROUP} MAT_GROUP         	
+         	
+         	
+         ) AS B
+            ON (A.GATE_CD = B.GATE_CD
+            AND A.ITEM_CD = B.ITEM_CD
+            AND A.PLANT_CD = B.PLANT_CD
+            AND A.CM_ITEM_CD = B.CM_ITEM_CD
+            AND A.VENDOR_CD = B.VENDOR_CD
+            AND A.CM_VENDOR_CD = B.CM_VENDOR_CD
+            AND A.MAT_GROUP = B.MAT_GROUP            
+         )
+          WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , PRE_CM_PRC = #{PRE_CM_PRC}
+             , CM_PRC = #{CM_PRC}
+             , DEL_FLAG = '0'
+             , ITEM_QT = #{ITEM_QT}
+          WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			,ITEM_CD
+			,PLANT_CD
+			,CM_ITEM_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PRE_CM_PRC
+			,CM_PRC
+			,ITEM_QT
+			
+			,VENDOR_CD
+			,CM_VENDOR_CD
+			,MAT_GROUP			
+			
+        ) VALUES (
+              #{ses.gateCd}
+            , #{ITEM_CD}
+            , #{PLANT_CD}
+            , #{CM_ITEM_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{PRE_CM_PRC}
+            , #{CM_PRC}
+            , #{ITEM_QT}
+			,#{VENDOR_CD}
+			,#{CM_VENDOR_CD}
+			,#{MAT_GROUP}            
+        <include refid="com.sql.mergeEnd"/>
+
+	</update>	
+    <update id="delMatm" parameterType="hashMap">
+        UPDATE STOCMTCM
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+           AND ITEM_CD = #{ITEM_CD}
+           AND PLANT_CD = #{PLANT_CD}
+           AND CM_ITEM_CD = #{CM_ITEM_CD}
+           
+           AND VENDOR_CD = #{VENDOR_CD}
+           AND CM_VENDOR_CD = #{CM_VENDOR_CD}
+           AND MAT_GROUP = #{MAT_GROUP}           
+    </update>
+	
+</mapper>

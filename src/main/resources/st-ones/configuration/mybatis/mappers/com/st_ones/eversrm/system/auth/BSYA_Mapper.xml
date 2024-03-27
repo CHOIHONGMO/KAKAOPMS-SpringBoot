@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.system.auth.BSYA_Mapper">
+
+    <select id="doSearchAuthProfileManagement" parameterType="hashMap" resultType="hashMap">
+
+         SELECT
+              A.GATE_CD
+            , A.AUTH_CD
+            , A.REG_DATE
+            , A.REG_USER_NM AS REG_USER_ID
+            , A.AUTH_NM
+            , A.AUTH_DESC
+            , A.MAIN_MODULE_TYPE
+            , A.MAIN_MODULE_TYPE  MAIN_MODULE_TYPE2
+            , A.MODULE_TYPE_NM
+            , A.INSERT_FLAG
+            , A.USER_TYPE
+           , ('') AS SCREEN_NM_IMG
+         FROM
+             (SELECT AUPF.AUTH_CD
+                  , AUPF.GATE_CD
+                  , <include refid="com.sql.dbo"/>getGmtDate(AUPF.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+                  , AUPF.REG_USER_ID
+                  , <include refid="com.sql.dbo"/>GETMULTINAME(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '')  AS AUTH_NM
+                  , <include refid="com.sql.dbo"/>GETMULTIDESC(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '')  AS AUTH_DESC
+                  , AUPF.MAIN_MODULE_TYPE
+                  , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M009', AUPF.MAIN_MODULE_TYPE, 0, #{ses.langCd})  AS MODULE_TYPE_NM
+                  ,( SELECT USER_NM FROM STOCUSER WHERE GATE_CD=  #{ses.gateCd} AND USER_ID= AUPF.REG_USER_ID ) REG_USER_NM
+                  , 'U' AS INSERT_FLAG
+                  , AUPF.USER_TYPE
+                  , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M006', AUPF.USER_TYPE, 0, #{ses.langCd})  AS USER_TYPE_NM
+            FROM STOCAUPF AUPF 
+            LEFT JOIN STOCUSER USERS 
+             ON (AUPF.REG_USER_ID = USERS.USER_ID
+             AND AUPF.GATE_CD = USERS.GATE_CD)
+            WHERE AUPF.GATE_CD = #{ses.gateCd}
+              AND AUPF.DEL_FLAG = '0'
+           ) A
+        WHERE 1=1   
+        <if test="MODULE_TYPE_NM !='' and MODULE_TYPE_NM != null">  
+            AND A.MAIN_MODULE_TYPE <include refid="com.sql.likeL"/> #{MAIN_MODULE_TYPE} <include refid="com.sql.likeR"/>
+        </if>  
+        <if test="AUTH_NM !='' and AUTH_NM != null">  
+            AND A.AUTH_NM <include refid="com.sql.likeL"/> #{AUTH_NM} <include refid="com.sql.likeR"/>
+        </if>              
+    </select>
+
+    <select id="checkAuthCode" parameterType="hashmap" resultType="int">
+        SELECT count(*) 
+        FROM STOCAUPF
+        WHERE GATE_CD = #{ses.gateCd}
+            AND AUTH_CD = #{AUTH_CD} 
+            AND DEL_FLAG = '0'
+    </select>
+    
+    <select id="getDepartmentTree" parameterType="hashmap" resultType="hashmap">
+        SELECT DEPT_CD as "id"
+             , DEPT_NM as "text"
+             , PARENT_DEPT_CD as "parentId"
+             , BUYER_CD as "value"
+             , '' as "icon"
+        FROM STOCOGDP    
+        WHERE GATE_CD = #{ses.gateCd}
+              AND DEL_FLAG = '0'
+              AND BUYER_CD = #{BUYER_CD}
+    </select>   
+    
+    <select id="listUserByDept" parameterType="hashmap" resultType="hashMap">
+
+        SELECT
+              USERS.GATE_CD
+            , OGDP.DEPT_CD
+            , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd})  AS DEPT_NM
+            , USERS.USER_ID
+            , USERS.USER_NM
+            , USAP.AUTH_CD
+            , USAP.AUTH_CD AS AUTH_CD_ORI
+            , <include refid="com.sql.dbo"/>GETMULTINAME(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '')  AS AUTH_NM
+            , (SELECT COUNT(ACTION_PROFILE_CD)
+               FROM STOCUSAC USAC
+               WHERE USAC.GATE_CD = USERS.GATE_CD
+                 AND USAC.USER_ID = USERS.USER_ID
+                 AND USAC.DEL_FLAG = '0') AS SCR_ACT_PROFILE_CNT
+           -- , (0) AS SCR_ACT_PROFILE_CNT_IMAGE
+         --   , 'U' AS INSERT_FLAG
+            , <include refid="com.sql.dbo"/>getGmtDate(USAP.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+            , <include refid="com.sql.dbo"/>getGmtDate(USAP.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+        FROM STOCUSER USERS JOIN STOCOGDP OGDP ON 
+                (USERS.GATE_CD = OGDP.GATE_CD AND
+                 USERS.COMPANY_CD = OGDP.BUYER_CD AND
+                 USERS.DEPT_CD = OGDP.DEPT_CD AND
+             OGDP.DEL_FLAG = '0') LEFT JOIN STOCUSAP USAP ON 
+                (USAP.GATE_CD = USERS.GATE_CD AND
+                 USAP.USER_ID = USERS.USER_ID AND
+                 USAP.DEL_FLAG = '0') LEFT JOIN STOCAUPF AUPF ON
+                (AUPF.GATE_CD = USAP.GATE_CD AND
+                 AUPF.AUTH_CD = USAP.AUTH_CD AND
+                 AUPF.DEL_FLAG = '0')
+        WHERE 1 = 1 
+          AND USERS.GATE_CD = #{ses.gateCd}
+          AND USERS.COMPANY_CD = #{BUYER_CD} 
+          AND USERS.DEPT_CD = #{DEPT_CD} 
+          AND USERS.DEL_FLAG = '0'    
+        ORDER BY
+            <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) ,
+            USERS.USER_NM, AUPF.AUTH_CD
+
+    </select>  
+
+    <select id="listSTOCUSAC" parameterType="hashmap" resultType="hashMap">
+         SELECT USAC.GATE_CD
+              , USAC.USER_ID
+              , USAC.ACTION_PROFILE_CD
+              , USAC.ACTION_PROFILE_CD AS ACT_PROFILE_CD_ORI
+              , <include refid="com.sql.dbo"/>getGmtDate(USAC.VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE
+              , <include refid="com.sql.dbo"/>getGmtDate(USAC.VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+              , <include refid="com.sql.dbo"/>GETMULTINAME(USAC.GATE_CD, 'AP', #{ses.langCd}, USAC.ACTION_PROFILE_CD, '')  AS ACTION_PROFILE_NM
+              , 'U' AS INSERT_FLAG
+        FROM STOCUSAC USAC
+            LEFT JOIN STOCACPH ACPH ON USAC.ACTION_PROFILE_CD = ACPH.ACTION_PROFILE_CD AND USAC.GATE_CD = ACPH.GATE_CD 
+        WHERE  USAC.GATE_CD = #{ses.gateCd}
+           AND USAC.DEL_FLAG = '0'
+           AND ACPH.DEL_FLAG = '0'
+           AND USAC.USER_ID = #{USER_ID}
+    </select> 
+          
+    <select id="existsSTOCUSAC" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(ACTION_PROFILE_CD)
+        FROM STOCUSAC
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   USER_ID = #{USER_ID}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </select> 
+
+    <select id="existsSTOCUSAP" parameterType="hashMap" resultType="java.lang.Integer">   
+        SELECT COUNT(AUTH_CD)
+        FROM STOCUSAP
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   USER_ID = #{USER_ID}
+        AND   AUTH_CD = #{AUTH_CD}
+    </select> 
+           
+    <insert id="createSTOCUSAC" parameterType="hashMap">       
+        INSERT
+        INTO   STOCUSAC ( GATE_CD
+             , USER_ID
+             , ACTION_PROFILE_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , VALID_FROM_DATE
+             , VALID_TO_DATE
+             )
+        VALUES  (#{ses.gateCd}
+             , #{USER_ID}
+             , #{ACTION_PROFILE_CD}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+             , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+             )
+    </insert>  
+
+    <update id="updateSTOCUSAC" parameterType="hashMap">   
+        UPDATE STOCUSAC
+        SET  ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+           , VALID_FROM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+           , VALID_TO_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+           , DEL_FLAG = '0'           
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   USER_ID = #{USER_ID}
+        AND   ACTION_PROFILE_CD = #{ACTION_PROFILE_CD}
+    </update>  
+              
+    <update id="deleteSTOCUSAC" parameterType="hashMap">  
+        UPDATE STOCUSAC
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   USER_ID = #{USER_ID}
+        AND   ACTION_PROFILE_CD = #{ACT_PROFILE_CD_ORI}
+    </update>    
+    
+    <insert id="createSTOCUSAP" parameterType="hashMap">         
+        INSERT
+        INTO   STOCUSAP ( GATE_CD
+             , USER_ID
+             , AUTH_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , VALID_FROM_DATE
+             , VALID_TO_DATE
+             )
+        VALUES  (#{ses.gateCd}
+             , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+             , #{AUTH_CD}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+             , <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+             )
+    </insert>  
+
+    <update id="updateSTOCUSAP" parameterType="hashMap">   
+        UPDATE STOCUSAP
+        SET  AUTH_CD = #{AUTH_CD}
+           , VALID_FROM_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+           , VALID_TO_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+           , DEL_FLAG = '0'          
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        AND   AUTH_CD = #{AUTH_CD_ORI}
+    </update>  
+              
+    <update id="deleteSTOCUSAP" parameterType="hashMap">  
+        UPDATE STOCUSAP
+        SET  DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{GATE_CD}
+        AND   USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+        AND   AUTH_CD = #{AUTH_CD_ORI}
+    </update>    
+
+    
+    <select id="checkAuthProfileManagement" parameterType="hashMap" resultType="java.lang.Integer">
+	        SELECT COUNT(AUTH_CD) AS CNT
+	          FROM STOCAUPF
+	         WHERE GATE_CD = #{ses.gateCd}
+	           AND AUTH_CD = #{AUTH_CD}
+    </select>    
+
+   <insert id="doInsertAuthProfileManagement" parameterType="hashMap">
+        INSERT INTO ${TABLE_NM} ( 
+               GATE_CD
+             , AUTH_CD
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , MAIN_MODULE_TYPE
+             , USER_TYPE
+        ) VALUES  (
+               #{ses.gateCd}
+             , #{AUTH_CD} 
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{MAIN_MODULE_TYPE}
+             , #{USER_TYPE}
+        )
+    </insert>  
+    
+    <update id="doUpdateAuthProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM} SET
+             MAIN_MODULE_TYPE = #{MAIN_MODULE_TYPE}
+           , USER_TYPE = #{USER_TYPE}
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+           , DEL_FLAG = '0'          
+         WHERE GATE_CD = #{ses.gateCd}
+           AND AUTH_CD = #{AUTH_CD}
+    </update>
+    
+    <update id="doDeleteAuthProfileManagement" parameterType="hashMap">
+        UPDATE ${TABLE_NM} SET
+             DEL_FLAG = '1'
+           , MOD_DATE = <include refid="com.sql.sysdate"/>
+           , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{GATE_CD}
+           AND AUTH_CD = #{AUTH_CD}
+    </update> 
+    
+<!--        menu   Authorization mapping     -->
+
+    <select id="doSearchLMenuAuthMapping" parameterType="hashMap" resultType="hashMap"> 
+
+         SELECT A.GATE_CD
+            , A.MENU_GROUP_CD
+            , A.AUTH_CD
+            , A.AUTH_SQ
+            , <include refid="com.sql.dbo"/>getGmtDate(<include refid="com.sql.sysdate"/> , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+            , A.AUTH_MAPPING_TYPE
+            , A.MODULE_TYPE
+            , A.MENU_GROUP_NM
+            , A.MAIN_MODULE_TYPE
+            , A.INSERT_FLAG
+            , A.MODULE_TYPE_NM
+            , A.MAIN_MODULE_TYPE_NM
+            , A.REG_USER_NM
+        FROM
+            (SELECT AUMP.GATE_CD
+                 , AUMP.MENU_GROUP_CD
+                 , AUMP.AUTH_CD
+                 , AUMP.AUTH_SQ
+                 , AUMP.REG_DATE
+                 , AUMP.AUTH_MAPPING_TYPE
+                 , MUGR.MODULE_TYPE
+                 , <include refid="com.sql.dbo"/>GETCOMCODE(MUGR.GATE_CD, 'M009', MUGR.MODULE_TYPE, 0,#{ses.langCd}) AS MODULE_TYPE_NM
+                 , <include refid="com.sql.dbo"/>GETMULTINAME(AUMP.GATE_CD, 'MG',#{ses.langCd}, AUMP.MENU_GROUP_CD, '') AS MENU_GROUP_NM
+                 , <include refid="com.sql.dbo"/>GETMULTINAME(AUMP.GATE_CD, 'MG',#{ses.langCd}, AUMP.MENU_GROUP_CD, '')  AS MENU_GROUP_NM_L
+                 , AUPF.MAIN_MODULE_TYPE
+                 , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M009', AUPF.MAIN_MODULE_TYPE, 0,#{ses.langCd}) AS MAIN_MODULE_TYPE_NM
+                 , 'U' AS INSERT_FLAG                         
+                  ,( SELECT USER_NM FROM STOCUSER WHERE GATE_CD=  #{ses.gateCd} AND USER_ID= MUGR.MOD_USER_ID ) REG_USER_NM
+              FROM STOCAUMP AUMP LEFT JOIN STOCUSER USERS 
+               ON (AUMP.REG_USER_ID = USERS.USER_ID
+               AND AUMP.GATE_CD = USERS.GATE_CD) 
+              LEFT JOIN STOCAUPF AUPF 
+               ON (AUMP.AUTH_CD = AUPF.AUTH_CD
+               AND AUMP.GATE_CD = AUPF.GATE_CD) 
+              LEFT JOIN STOCMUGR MUGR
+               ON (AUMP.MENU_GROUP_CD = MUGR.MENU_GROUP_CD
+               AND AUMP.GATE_CD = MUGR.GATE_CD
+               AND MUGR.USE_FLAG = '1')          
+             WHERE AUMP.GATE_CD = #{ses.gateCd}
+               AND AUMP.DEL_FLAG = '0'
+               AND AUPF.DEL_FLAG = '0'
+               AND MUGR.DEL_FLAG = '0'
+            ) A
+        WHERE 1=1
+         <if test="AUTH_CD !='' and AUTH_CD != null">
+          AND A.AUTH_CD <include refid="com.sql.likeL"/> #{AUTH_CD} <include refid="com.sql.likeR"/>
+         </if>        
+         <if test="MENU_GROUP_NM_L !='' and MENU_GROUP_NM_L != null">  
+          AND A.MENU_GROUP_NM_L <include refid="com.sql.likeL"/> #{MENU_GROUP_NM_L} <include refid="com.sql.likeR"/>
+         </if>
+        ORDER BY A.AUTH_SQ ASC
+            
+    </select>
+    
+    <select id="doSearchRMenuAuthMapping" parameterType="hashMap" resultType="hashMap">    
+
+         SELECT 
+              A.MENU_GROUP_CD
+            , A.MENU_GROUP_NM
+            , A.MODULE_TYPE
+            , A.MODULE_TYPE_NM
+        FROM
+            (SELECT MUGR.GATE_CD
+                 , MUGR.MENU_GROUP_CD
+                 , <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'MG', #{ses.langCd}, MUGR.MENU_GROUP_CD, '') AS MENU_GROUP_NM
+                 , <include refid="com.sql.dbo"/>GETMULTINAME(MUGR.GATE_CD, 'MG', #{ses.langCd}, MUGR.MENU_GROUP_CD, '') AS MENU_GROUP_NM_R
+                 , MUGR.MODULE_TYPE
+                 , <include refid="com.sql.dbo"/>GETCOMCODE(MUGR.GATE_CD,'M009',MUGR.MODULE_TYPE,0,#{ses.langCd}) AS MODULE_TYPE_NM
+                 , 'U' AS INSERT_FLAG
+                FROM STOCMUGR MUGR JOIN STOCMUTG MUTG
+                ON (MUGR.GATE_CD = MUTG.GATE_CD
+                AND MUGR.TMPL_MENU_GROUP_CD = MUTG.TMPL_MENU_GROUP_CD)
+                LEFT OUTER JOIN STOCUSER UR ON
+                (MUGR.GATE_CD = UR.GATE_CD AND
+                MUGR.REG_USER_ID = UR.USER_ID AND
+                UR.DEL_FLAG = '0')
+             WHERE MUGR.GATE_CD = #{ses.gateCd}
+               AND MUGR.DEL_FLAG = '0'
+               AND MUGR.USE_FLAG = '1'
+            <if test="MODULE_TYPE !='' and MODULE_TYPE != null">  
+                AND MUGR.MODULE_TYPE = #{MODULE_TYPE}
+            </if>  
+            ) A
+        WHERE 1=1
+        <if test="MENU_GROUP_NM_R !='' and MENU_GROUP_NM_R != null">  
+            AND A.MENU_GROUP_NM_R <include refid="com.sql.likeL"/> #{MENU_GROUP_NM_R} <include refid="com.sql.likeR"/>
+        </if>  
+	
+	</select>   
+ 
+     <select id="checkMenuAuthMapping" parameterType="hashMap" resultType="java.lang.Integer">
+            SELECT COUNT(AUTH_CD)
+	        FROM STOCAUMP
+	        WHERE  GATE_CD = #{ses.gateCd}
+	        AND   AUTH_CD = #{AUTH_CD}
+	        AND   AUTH_SQ = #{AUTH_SQ}
+    </select>   
+    
+    <insert id="doInsertMenuAuthMapping" parameterType="hashMap">      
+       <selectKey resultType="int" order="BEFORE"  keyProperty="AUTH_SQ_MAX" > 
+           SELECT (<include refid="com.sql.nvl"/>(MAX(AUTH_SQ)+1,1)) AS AUTH_SQ_MAX
+             FROM ${TABLE_NM}
+            WHERE GATE_CD = #{ses.gateCd}
+              AND AUTH_CD = #{AUTH_CD}
+        </selectKey> 
+       
+        INSERT INTO ${TABLE_NM} (
+               GATE_CD
+             , AUTH_CD
+             , AUTH_SQ
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , AUTH_MAPPING_TYPE
+             , MENU_GROUP_CD
+        ) VALUES (
+               #{ses.gateCd}
+             , #{AUTH_CD}
+             , #{AUTH_SQ_MAX}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , #{AUTH_MAPPING_TYPE}
+             , #{MENU_GROUP_CD}
+        )
+    </insert>  
+    
+    <update id="doDeleteMenuAuthMapping" parameterType="hashMap">
+       UPDATE ${TABLE_NM} SET
+            DEL_FLAG = '1'
+          , MOD_DATE = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{GATE_CD}
+           AND AUTH_CD = #{AUTH_CD}
+           AND AUTH_SQ = #{AUTH_SQ}
+    </update> 
+
+
+<!--             Authorization profile code       -->
+
+    <select id="doSearchAuthProfileCode" parameterType="hashMap" resultType="hashMap">
+         SELECT A.GATE_CD, A.AUTH_CD
+            , A.REG_DATE
+            , A.REG_USER_ID
+            , A.AUTH_NM
+            , A.AUTH_DESC
+            , A.MAIN_MODULE_TYPE
+            , A.MODULE_TYPE_NM
+            , A.REG_USER_NM
+            , A.INSERT_FLAG
+            , A.USER_TYPE
+            , A.USER_TYPE_NM
+            ,('') AS SCREEN_NM_IMG
+            ,(0) AS SCREEN_NM_IMG_IMAGE
+         FROM
+             (SELECT AUPF.AUTH_CD
+                  , AUPF.GATE_CD
+                  , AUPF.REG_DATE
+                  , AUPF.REG_USER_ID
+                  , <include refid="com.sql.dbo"/>GETMULTINAME(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '')  AS AUTH_NM
+                  , <include refid="com.sql.dbo"/>GETMULTIDESC(AUPF.GATE_CD, 'AU', #{ses.langCd}, AUPF.AUTH_CD, '')  AS AUTH_DESC
+                  , AUPF.MAIN_MODULE_TYPE
+                  , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M009', AUPF.MAIN_MODULE_TYPE, 0, #{ses.langCd})  AS MODULE_TYPE_NM
+                  
+                  ,( SELECT USER_NM FROM STOCUSER WHERE GATE_CD=  #{ses.gateCd} AND USER_ID= AUPF.REG_USER_ID ) REG_USER_NM                  
+                  
+                  , 'U' AS INSERT_FLAG
+                  , AUPF.USER_TYPE
+                  , <include refid="com.sql.dbo"/>GETCOMCODE(AUPF.GATE_CD, 'M006', AUPF.USER_TYPE, 0, #{ses.langCd})   AS USER_TYPE_NM
+            FROM STOCAUPF AUPF 
+            LEFT JOIN STOCUSER USERS 
+             ON (AUPF.REG_USER_ID = USERS.USER_ID
+             AND AUPF.GATE_CD = USERS.GATE_CD)
+            WHERE AUPF.GATE_CD = #{ses.gateCd}
+              AND AUPF.DEL_FLAG = '0'
+           ) A
+        WHERE 1=1   
+        <if test="MODULE_TYPE_NM !='' and MODULE_TYPE_NM != null">  
+            AND A.MODULE_TYPE_NM <include refid="com.sql.likeL"/> #{MODULE_TYPE_NM} <include refid="com.sql.likeR"/>
+        </if>  
+        <if test="AUTH_NM !='' and AUTH_NM != null">  
+            AND A.AUTH_NM <include refid="com.sql.likeL"/> #{AUTH_NM} <include refid="com.sql.likeR"/>
+        </if>              
+    </select>
+
+    <select id="doSearchLScreenActionAuthMapping" parameterType="hashMap" resultType="hashMap">
+        SELECT
+            SC.AUTH_CD, SC.AUTH_SQ,
+            SC.AUTH_MAPPING_TYPE, SC.SCREEN_ID,
+            SC.ACTION_CD, SC.MODULE_TYPE,
+            SC.SCREEN_NM, SC.ACTION_NM,
+            SC.INSERT_FLAG, SC.GATE_CD
+        FROM(
+           SELECT AUMP.GATE_CD
+             , AUMP.AUTH_CD
+             , AUMP.AUTH_SQ
+             , AUMP.AUTH_MAPPING_TYPE
+             , AUMP.SCREEN_ID
+             , AUMP.ACTION_CD
+             , SCRN.MODULE_TYPE
+             , <include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID)  AS SCREEN_NM
+             , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID)  AS ACTION_NM
+             , 'U' AS INSERT_FLAG              
+         FROM STOCAUMP AUMP LEFT JOIN STOCSCRN SCRN
+          ON (AUMP.SCREEN_ID = SCRN.SCREEN_ID 
+          AND AUMP.GATE_CD = SCRN.GATE_CD) LEFT JOIN STOCSCAC SCAC
+          ON (AUMP.SCREEN_ID = SCAC.SCREEN_ID 
+          AND AUMP.ACTION_CD = SCAC.ACTION_CD 
+          AND AUMP.GATE_CD = SCAC.GATE_CD)          
+        WHERE AUMP.GATE_CD = #{ses.gateCd}
+          AND AUMP.DEL_FLAG = '0'
+          AND SCRN.DEL_FLAG = '0'
+          AND SCAC.DEL_FLAG = '0'
+          AND AUMP.AUTH_MAPPING_TYPE = 'SCAC'
+            ) SC
+            WHERE 1 = 1
+            <if test="AUTH_CD !='' and AUTH_CD != null">
+                AND SC.AUTH_CD <include refid="com.sql.likeL"/> #{AUTH_CD} <include refid="com.sql.likeR"/>
+            </if>
+            <if test="SCREEN_NM !='' and SCREEN_NM != null">  
+                AND SC.SCREEN_NM <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+            </if>
+   </select>   
+
+    <select id="doSearchRScreenActionAuthMapping" parameterType="hashMap" resultType="hashMap">
+        SELECT
+            SC.SCREEN_ID, SC.ACTION_CD,
+            SC.ACTION_NM, SC.DESCRIPTION,
+            SC.SCREEN_NM, SC.MODULE_TYPE,
+            SC.INSERT_FLAG, SC.GATE_CD
+        FROM (
+            SELECT SCAC.GATE_CD
+             , SCAC.SCREEN_ID
+             , SCAC.ACTION_CD
+             , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID)  AS ACTION_NM
+             , <include refid="com.sql.dbo"/>GETMULTIDESC(SCAC.GATE_CD, 'SA', #{ses.langCd}, SCAC.ACTION_CD, SCAC.SCREEN_ID)  AS DESCRIPTION
+             , <include refid="com.sql.dbo"/>GETMULTINAME(SCAC.GATE_CD, 'SC', #{ses.langCd}, '', SCAC.SCREEN_ID)  AS SCREEN_NM
+             , SCRN.MODULE_TYPE
+             , 'U' AS INSERT_FLAG             
+          FROM STOCSCRN SCRN
+          LEFT JOIN STOCSCAC SCAC 
+           ON (SCRN.SCREEN_ID = SCAC.SCREEN_ID
+           AND SCRN.GATE_CD = SCAC.GATE_CD)   
+         WHERE SCRN.GATE_CD = #{ses.gateCd}
+           AND SCRN.DEL_FLAG = '0'
+           AND SCAC.DEL_FLAG = '0'
+           AND NOT EXISTS (SELECT DISTINCT AUTH_CD, SCREEN_ID, ACTION_CD FROM STOCAUMP AUMP 
+                            WHERE AUMP.GATE_CD = #{ses.gateCd}
+                              AND AUMP.DEL_FLAG = '0'
+                              AND AUMP.AUTH_MAPPING_TYPE = 'SCAC'
+                              AND AUMP.SCREEN_ID = SCAC.SCREEN_ID
+                              AND AUMP.ACTION_CD = SCAC.ACTION_CD)
+            ) SC
+            WHERE 1 = 1
+            <if test="actionValue !=''">
+                <if test="actionType !=''"> 
+                    <if test="actionType==1">
+                          AND SC.SCREEN_NM <include refid="com.sql.likeL"/> #{SCREEN_NM} <include refid="com.sql.likeR"/>
+                    </if>
+                    <if test="actionType==2">
+                         AND SC.SCREEN_ID <include refid="com.sql.likeL"/> #{SCREEN_ID} <include refid="com.sql.likeR"/>
+                    </if>
+                    <if test="actionType==3">
+                         AND SC.ACTION_NM <include refid="com.sql.likeL"/> #{ACTION_NM} <include refid="com.sql.likeR"/>
+                    </if>
+                    <if test="actionType==4">
+                        AND SC.ACTION_CD <include refid="com.sql.likeL"/> #{ACTION_CD} <include refid="com.sql.likeR"/>
+                    </if>
+                </if>
+            </if>
+    </select> 
+
+   <insert id="doInsertScreenActionAuthMapping" parameterType="hashMap">
+       <selectKey resultType="int" order="BEFORE" keyProperty="AUTH_SQ_MAX" > 
+           SELECT (<include refid="com.sql.nvl"/>(MAX(AUTH_SQ)+1,1)) AS AUTH_SQ_MAX
+                 FROM ${TABLE_NM}
+                 WHERE GATE_CD = #{ses.gateCd}
+                   AND AUTH_CD = #{AUTH_CD}
+       </selectKey> 
+       
+       INSERT INTO ${TABLE_NM} (
+               GATE_CD
+             , AUTH_CD
+             , AUTH_SQ
+             , REG_DATE
+             , REG_USER_ID
+             , MOD_DATE
+             , MOD_USER_ID
+             , DEL_FLAG
+             , AUTH_MAPPING_TYPE
+             , SCREEN_ID
+             , ACTION_CD
+        ) VALUES (
+               #{ses.gateCd}
+             , #{AUTH_CD}
+             , #{AUTH_SQ_MAX}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , <include refid="com.sql.sysdate"/>
+             , #{ses.userId}
+             , '0'
+             , 'SCAC'
+             , #{SCREEN_ID}
+             , #{ACTION_CD}
+        )
+    </insert>  
+
+    <update id="doDeleteScreenActionAuthMapping" parameterType="hashMap">
+        UPDATE ${TABLE_NM} SET
+            DEL_FLAG = '1'
+          , MOD_DATE = <include refid="com.sql.sysdate"/>
+          , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{GATE_CD}
+           AND AUTH_CD = #{AUTH_CD}
+           AND AUTH_SQ = #{AUTH_SQ}
+    </update>  
+                                        
+ </mapper>   

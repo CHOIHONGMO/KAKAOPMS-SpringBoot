@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.execEval.eval.SRM_440_Mapper">
+	<select id="SRM_440_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT	 V.YEAR
+				,V.VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, V.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,NULL AS BUSINESS_TYPE
+				,(CASE WHEN V.MIN_DATE IS NOT NULL THEN '200' WHEN V.PLAN_DATE IS NOT NULL THEN '100' ELSE '50' END) AS PROGRESS_CD
+				,(SELECT ES.EV_SCORE FROM STOCEVES ES INNER JOIN STOCEVEM EM ON ES.EV_NUM = EM.EV_NUM AND ES.GATE_CD = EM.GATE_CD WHERE EM.COMPLETE_DATE = V.MIN_DATE AND ES.VENDOR_CD = V.VENDOR_CD) AS EV_SCORE
+				,<include refid="com.sql.dbo"/>GETGMTDATE(V.PLAN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS PLAN_DATE
+				,<include refid="com.sql.dbo"/>GETGMTDATE(V.MIN_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS RESULT_DATE
+				,V.POINT 						AS IMP_POINT
+				,V.MEASURE 						AS IMP_MEASURE
+				,V.IMP_FINISH_CNT 				AS IMP_COMPLETE
+				,(CASE WHEN V.POINT = 0 THEN 0 ELSE (V.IMP_FINISH_CNT/V.POINT*100) END) AS IMP_COMPLETE_RATE
+				,V.VAL_FINISH_CNT 				AS VAL_COMPLETE
+				,(CASE WHEN V.POINT = 0 THEN 0 ELSE (V.VAL_FINISH_CNT/V.POINT*100) END) AS VAL_COMPLETE_RATE
+				,(CASE WHEN V.MIN_DATE = V.MAX_DATE THEN (SELECT ES.EV_SCORE FROM STOCEVES ES INNER JOIN STOCEVEM EM ON ES.EV_NUM = EM.EV_NUM AND ES.GATE_CD = EM.GATE_CD WHERE EM.COMPLETE_DATE = V.MAX_DATE AND ES.VENDOR_CD = V.VENDOR_CD) ELSE NULL END) AS VAL_RE_EVAL_SCORE
+				,V.ATT_FILE_NUM
+				,(SELECT COUNT(*)
+				   FROM STOCATCH
+				  WHERE GATE_CD = #{ses.gateCd}
+				    AND UUID = V.ATT_FILE_NUM
+				    AND DEL_FLAG = '0') AS ATT_FILE_CNT
+				,V.EV_PLAN_USER_ID
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, V.EV_PLAN_USER_ID, #{ses.langCd}) AS EV_PLAN_USER_NM
+				,(SELECT EV_CTRL_USER_ID FROM STOCEVEM EM WHERE EM.GATE_CD = V.GATE_CD AND EM.COMPLETE_DATE = V.MIN_DATE) AS EV_RESULT_USER_ID
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, (SELECT EV_CTRL_USER_ID FROM STOCEVEM EM WHERE EM.GATE_CD = V.GATE_CD AND EM.COMPLETE_DATE = V.MIN_DATE), #{ses.langCd}) AS EV_RESULT_USER_NM
+				,V.REMARK
+		  FROM	(SELECT	VG.*
+		  			   ,(SELECT COUNT(*) FROM STOCEVRH WHERE VENDOR_CODE = VG.VENDOR_CD AND DEL_FLAG = '0' AND DATEPART(yy, RH_DATE) = #{YEAR}   ) AS POINT
+					   ,(SELECT COUNT(*) FROM STOCEVRH WHERE VENDOR_CODE = VG.VENDOR_CD AND DEL_FLAG = '0' AND DATEPART(yy, RH_DATE) = #{YEAR} AND PROGRESS_CD > '200' ) AS MEASURE
+		  			   ,(SELECT MAX(EM.COMPLETE_DATE) 
+				           FROM STOCEVES ES
+				     INNER JOIN STOCEVEM EM
+				             ON (EM.EV_NUM   = ES.EV_NUM AND EM.GATE_CD = ES.GATE_CD)
+				          WHERE ES.VENDOR_CD = VG.VENDOR_CD
+				            AND ES.DEL_FLAG  = '0'
+				            AND DATEPART(yy, EM.COMPLETE_DATE) = VG.YEAR
+				            AND EM.EV_TYPE   = 'ROUTINE') AS MAX_DATE
+					   ,(SELECT MIN(EM.COMPLETE_DATE) 
+				           FROM STOCEVES ES
+				     INNER JOIN STOCEVEM EM
+				             ON (EM.EV_NUM   = ES.EV_NUM AND EM.GATE_CD = ES.GATE_CD)
+				          WHERE ES.VENDOR_CD = VG.VENDOR_CD
+				            AND ES.DEL_FLAG  = '0'
+				            AND DATEPART(yy, EM.COMPLETE_DATE) = VG.YEAR
+				            AND EM.EV_TYPE   = 'ROUTINE') AS MIN_DATE
+		           FROM	STOCEVVG VG
+		          WHERE	VG.GATE_CD 			 = #{ses.gateCd}
+		            AND	VG.DEL_FLAG 		 = '0'
+		  		) V
+		 WHERE	V.YEAR				 		 = #{YEAR}
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+			AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},V.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND (CASE WHEN V.MIN_DATE IS NOT NULL THEN '200' WHEN V.PLAN_DATE IS NOT NULL THEN '100' ELSE '50' END) = #{PROGRESS_CD}
+		</if>
+	  ORDER BY	V.MAX_DATE DESC
+	</select>
+	
+	
+	<insert id="SRM_440_doSave" parameterType="hashmap">
+		UPDATE 	 STOCEVVG
+		   SET	 PLAN_DATE 			= #{PLAN_DATE}
+		  <if test="IMP_COMPLETE != '' and IMP_COMPLETE != null">
+		   		,IMP_FINISH_CNT 	= #{IMP_COMPLETE}
+		  </if>
+		  <if test="VAL_COMPLETE != '' and VAL_COMPLETE != null">
+		   		,VAL_FINISH_CNT 	= #{VAL_COMPLETE}
+		  </if>
+		  		,ATT_FILE_NUM		= #{ATT_FILE_NUM}
+		   		,EV_PLAN_USER_ID 	= #{EV_PLAN_USER_ID}
+		   		,REMARK 			= #{REMARK}
+		 WHERE	 GATE_CD 			= #{ses.gateCd}
+		   AND	 VENDOR_CD 			= #{VENDOR_CD}
+		   AND	 YEAR 				= #{YEAR}
+	</insert>
+</mapper>

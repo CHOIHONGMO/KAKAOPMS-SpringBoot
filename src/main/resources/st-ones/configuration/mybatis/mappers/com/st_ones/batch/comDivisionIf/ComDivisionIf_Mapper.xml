@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.comDivisionIf.ComDivisionIf_Mapper">
+
+    <select id="getComDivisionList" parameterType="hashMap" resultType="hashmap">
+
+        SELECT
+			  HOUSE_CODE
+			, COMPANY_CODE
+			, DIVISION_CODE
+			, PLANT_CODE
+			, SEQ
+			, NAME_LOC
+			, NAME_ENG
+			, ADDRESS_LOC
+			, ADDRESS_ENG
+			, COUNTRY
+			, CITY_CODE
+			, DEPT
+			, LOGISTICS_AREA
+			, ZIP_CODE
+			, IRS_NO
+			, BIZ_NAME_LOC
+			, BIZ_NAME_ENG
+			, CONV_CODE
+			, STATUS
+			, ADD_DATE
+			, ADD_TIME
+			, ADD_USER_ID
+			, CHANGE_DATE
+			, CHANGE_TIME
+			, CHANGE_USER_ID
+			, PR_LOCATION
+			, STRAGE_TYPE
+			, BUSINESS_TYPE
+			, INDUSTRY_TYPE
+			, CEO_NAME_LOC
+			, PHONE_NO
+			, FAX_NO
+		 FROM ICOMOGPL_IF
+		WHERE HOUSE_CODE = #{ses.gateCd}
+		  AND IF_FLAG    = '0'
+		ORDER BY SEQ
+    </select>
+
+    <insert id="setComDivisionOGDP" parameterType="hashMap">
+
+        MERGE<include refid="com.sql.mergeInto"/>STOCOGDP<include refid="com.sql.mergeAs"/>OGDP
+        USING (SELECT #{ses.gateCd}    AS GATE_CD
+	                , (CASE WHEN #{COMPANY_CODE} = '26' THEN #{ses.manageCd} ELSE #{COMPANY_CODE} END)  AS BUYER_CD
+	                , #{DIVISION_CODE} AS PLANT_CD
+	                , #{PLANT_CODE}    AS DIVISION_CD
+	                , '*' AS DEPT_CD
+	                , '*' AS PART_CD
+	           <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+	         ON (OGDP.GATE_CD  = B.GATE_CD
+	         AND OGDP.BUYER_CD = B.BUYER_CD
+	         AND OGDP.PLANT_CD = B.PLANT_CD
+	         AND OGDP.DIVISION_CD = B.DIVISION_CD
+	         AND OGDP.DEPT_CD  = B.DEPT_CD
+	         AND OGDP.PART_CD  = B.PART_CD)
+        WHEN MATCHED THEN
+        UPDATE SET
+             MOD_DATE = (CASE WHEN #{CHANGE_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                              ELSE TO_DATE(#{CHANGE_DATE}<include refid="com.sql.stringMerge"/>#{CHANGE_TIME}, 'YYYYMMDD HH24MISS')
+                         END)
+            ,MOD_USER_ID = <include refid="com.sql.nvl"/>(#{CHANGE_USER_ID}, MOD_USER_ID)
+            ,DEL_FLAG = (CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)
+            ,DEPT_NM = <include refid="com.sql.nvl"/>(#{NAME_LOC}, DEPT_NM)
+            ,DEPT_NM_ENG = <include refid="com.sql.nvl"/>(#{NAME_ENG}, DEPT_NM_ENG)
+            ,ADDR = <include refid="com.sql.nvl"/>(#{ADDRESS_LOC}, ADDR)
+            ,ADDR_ENG = <include refid="com.sql.nvl"/>(#{ADDRESS_ENG}, ADDR_ENG)
+            ,DEPT_IRS_NUM = <include refid="com.sql.nvl"/>(#{IRS_NO}, DEPT_IRS_NUM)
+            ,DEPT_CEO_BUSINESS_TYPE = <include refid="com.sql.nvl"/>(#{BUSINESS_TYPE}, DEPT_CEO_BUSINESS_TYPE)
+            ,DEPT_CEO_INDUSTRY_TYPE = <include refid="com.sql.nvl"/>(#{INDUSTRY_TYPE}, DEPT_CEO_INDUSTRY_TYPE)
+            ,DEPT_CEO_NM = <include refid="com.sql.nvl"/>(#{CEO_NAME_LOC}, DEPT_CEO_NM)
+            ,TEL_NUM = <include refid="com.sql.nvl"/>(#{PHONE_NO}, TEL_NUM)
+            ,FAX_NUM = <include refid="com.sql.nvl"/>(#{FAX_NO}, FAX_NUM)
+        WHEN NOT MATCHED THEN
+        INSERT (
+             GATE_CD
+			,BUYER_CD
+			,PLANT_CD
+			,DIVISION_CD
+			,DEPT_CD
+			,PART_CD
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,DEPT_NM
+			,DEPT_NM_ENG
+			,PARENT_DEPT_CD
+			,ADDR
+			,ADDR_ENG
+			,TEL_NUM
+			,FAX_NUM
+			,DEPT_CHIEF_NM
+			,DEPT_TYPE
+			,ACC_CODE
+			,LVL
+			,INDEPT
+			,TEAM_LEADER_USER_ID
+			,SEQ
+			,DIVISION_YN
+			,DEPT_IRS_NUM
+			,DEPT_CEO_NM
+			,DEPT_CEO_BUSINESS_TYPE
+			,DEPT_CEO_INDUSTRY_TYPE
+			,MANAGE_ID
+			,APPROVE_USE_FLAG
+        ) VALUES (
+             #{ses.gateCd}
+			,(CASE WHEN #{COMPANY_CODE} = '26' THEN #{ses.manageCd} ELSE #{COMPANY_CODE} END)
+			,#{DIVISION_CODE}
+			,#{PLANT_CODE}
+			,'*'   --DEPT_CD
+			,'*'   --PART_CD
+			,(CASE WHEN #{ADD_DATE} = '' THEN <include refid="com.sql.sysdate"/>
+                   ELSE TO_DATE(#{ADD_DATE}<include refid="com.sql.stringMerge"/>#{ADD_TIME}, 'YYYYMMDD HH24MISS')
+              END)
+			,#{ADD_USER_ID}
+			,(CASE WHEN #{STATUS} = 'D' THEN '1' ELSE '0' END)   --DEL_FLAG
+			,#{NAME_LOC}
+			,#{NAME_ENG}
+			,'*'   --PARENT_DEPT_CD
+			,#{ADDRESS_LOC}
+			,#{ADDRESS_ENG}
+			,#{PHONE_NO}
+			,#{FAX_NO}
+			,''    --DEPT_CHIEF_NM
+			,'100' --DEPT_TYPE
+			,''    --IACC_CODE
+			,'1'   --LVL
+			,''    --INDEPT
+			,''    --TEAM_LEADER_USER_ID
+			,''    --SEQ
+			,'1'   --DIVISION_YN
+			,#{IRS_NO}
+			,#{CEO_NAME_LOC}
+			,#{BUSINESS_TYPE}
+			,#{INDUSTRY_TYPE}
+			,''    --MANAGE_ID
+			,'0'   --APPROVE_USE_FLAG
+        <include refid="com.sql.mergeEnd"/>
+
+    </insert>
+	
+	<!-- ICOMOGPL_IF: 인터페이스 결과 Update (0: 고객요청, 1: 접수) -->
+    <update id="doUpdateIfResultDivision" parameterType="hashMap">
+		
+		UPDATE ICOMOGPL_IF
+  		   SET IF_FLAG = '1'
+  		 WHERE HOUSE_CODE    = #{HOUSE_CODE}
+		   AND COMPANY_CODE  = #{COMPANY_CODE}
+		   AND DIVISION_CODE = #{DIVISION_CODE}
+		   AND PLANT_CODE    = #{PLANT_CODE}
+		   AND SEQ = #{SEQ}
+		   
+    </update>
+
+</mapper>

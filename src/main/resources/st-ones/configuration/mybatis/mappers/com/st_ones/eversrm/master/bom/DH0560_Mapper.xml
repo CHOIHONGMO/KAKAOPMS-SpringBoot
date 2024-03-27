@@ -1,0 +1,1654 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH0560_Mapper">
+
+	<select id="doSearch2" parameterType="hashmap" resultType="hashMap">
+			WITH BOMTREE AS (
+			 SELECT
+				   A.ITEM_CD
+				  ,A.ITEM_DESC
+				  ,A.EO_NO
+				  ,A.EO_DATE
+				  ,A.BOM_ID
+				  ,A.PARENT_BOM_ID
+				  ,A.TOP_ITEM_CD
+				  ,1 LEVEL
+				  ,A.BOM_SQ
+				  ,A.ITEM_QT
+				  ,A.MATERIAL_SPEC
+				  ,A.BOM_REV ITEM_REVSION
+				  ,A.BOM_REV
+				  ,A.MAT_CD
+				  ,CONVERT(VARCHAR(2000), A.BOM_ID+' > ') AS SORT
+				  ,A.GR_FLAG
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+									FROM STOCBOMM S
+								   WHERE S.BOM_ID = A.BOM_ID
+								     AND S.DEL_FLAG = '0'
+								<if test="ITEM_CD != '' and ITEM_CD != null">
+								     AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="MAT_CD != '' and MAT_CD != null">
+								     AND S.MAT_CD = #{MAT_CD}
+								     AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+								</if>
+								<if test="ITEM_CD == '' and MAT_CD == ''">
+									 AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+								</if>
+								)
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+									FROM STOCBOMM S
+								   WHERE S.BOM_ID = A.BOM_ID
+								     AND S.DEL_FLAG = '0'
+								<if test="ITEM_CD != '' and ITEM_CD != null">
+								     AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="MAT_CD != '' and MAT_CD != null">
+								     AND S.MAT_CD = #{MAT_CD}
+								     AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+								</if>
+								<if test="ITEM_CD == '' and MAT_CD == ''">
+									 AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+								</if>
+								)		 
+			 
+			 AND A.DEL_FLAG = '0'
+			-- WHERE PARENT_BOM_ID IS NULL
+			 UNION ALL
+			 SELECT
+				   B.ITEM_CD
+				  ,B.ITEM_DESC
+				  ,B.EO_NO
+				  ,B.EO_DATE
+				  ,B.BOM_ID
+				  ,B.PARENT_BOM_ID
+				  ,B.TOP_ITEM_CD
+				  ,LEVEL + 1
+				  ,B.BOM_SQ
+				  ,B.ITEM_QT
+				  ,B.MATERIAL_SPEC
+				  ,B.BOM_REV ITEM_REVSION
+				  ,B.BOM_REV
+				  ,B.MAT_CD
+				  ,CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+				  ,B.GR_FLAG
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM B
+			 JOIN BOMTREE C 
+			   ON B.PARENT_BOM_ID = C.BOM_ID
+			  AND B.DEL_FLAG = '0'
+			)
+			SELECT  
+			       MAX(CASE WHEN LEVEL=1 THEN BOMTREE.BOM_ID ELSE null END) BOM_ID
+				  ,MAX(CASE WHEN LEVEL=1 THEN BOMTREE.ITEM_CD ELSE null END) ITEM_CD
+				  ,MAX(CASE WHEN LEVEL=1 THEN BOMTREE.ITEM_DESC ELSE null END) ITEM_DESC
+				  ,MAX(CASE WHEN LEVEL=1 THEN BOMTREE.ITEM_QT ELSE null END) ITEM_QT
+				  ,'●'  A
+				  ,''  B
+				  ,''  C
+				  ,''  D
+				  ,''  E
+				  ,''  F
+				  ,''  G
+				  ,''  H
+				  ,''  I
+				  ,''  K
+
+				,TOP_ITEM_CD
+				,BOMTREE.MAT_CD
+				,'' VENDOR_CD
+				,'' VENDOR_NM
+				,MAX(MASTER.CUR) CUR 
+
+			    ,SUM(T.UNIT_PRC)  SETTLE_PRICE
+			    ,SUM(C.TRGT_PRC) TARGET_PRICE
+			    ,SUM(<include refid="com.sql.nvl"/>(W.UNIT_PRC,0)) FST_PRICE 
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE1,0) ) PRICE1
+				,0 PRICE1_CHA
+				,'' PRICE1_SAYU
+			
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE2,0) ) PRICE2
+				,0 PRICE2_CHA
+				,'' PRICE2_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE3,0) ) PRICE3
+				,0 PRICE3_CHA
+				,'' PRICE3_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE4,0) ) PRICE4
+				,0 PRICE4_CHA
+				,'' PRICE4_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE5,0) ) PRICE5
+				,0 PRICE5_CHA
+				,'' PRICE5_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE6,0) ) PRICE6
+				,0 PRICE6_CHA
+				,'' PRICE6_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE7,0) ) PRICE7
+				,0 PRICE7_CHA
+				,'' PRICE7_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE8,0) ) PRICE8
+				,0 PRICE8_CHA
+				,'' PRICE8_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE9,0) ) PRICE9
+				,0 PRICE9_CHA
+				,'' PRICE9_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE10,0) ) PRICE10
+				,0 PRICE10_CHA
+				,'' PRICE10_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE11,0) ) PRICE11
+				,0 PRICE11_CHA
+				,'' PRICE11_SAYU
+
+				,SUM(<include refid="com.sql.nvl"/>(P2.PRICE12,0) ) PRICE12
+				,0 PRICE12_CHA
+				,'' PRICE12_SAYU
+	
+	
+			  FROM BOMTREE JOIN STOCMTGL MTGL ON BOMTREE.ITEM_CD = MTGL.ITEM_CD 
+			  								  AND MTGL.GATE_CD = #{ses.gateCd}
+											<if test="ITEM_GROUP != '' and ITEM_GROUP != null">
+			  								  AND ITEM_CLS1 = #{ITEM_GROUP}
+											</if>
+			  LEFT OUTER JOIN STOCBOMC C ON C.GATE_CD =  #{ses.gateCd}
+										    AND BOMTREE.ITEM_CD = C.ITEM_CD
+											AND C.DEL_FLAG = '0'
+	
+			  LEFT OUTER JOIN (
+				SELECT DISTINCT
+			  	 G.ITEM_CD
+			  	,G.VENDOR_CD		    
+			    ,M.CUR
+			 	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			  					JOIN STOCCNVD M ON G.GATE_CD = M.GATE_CD
+			  									AND G.EXEC_NUM = M.EXEC_NUM
+			  									AND G.VENDOR_CD = M.VENDOR_CD
+			  									AND M.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			        AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>
+			    	<![CDATA[ <= #{TO_DATE} ]]>
+			  	
+			  	AND K.EXEC_TYPE IN ('O','U','G') 
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+			  ) MASTER ON BOMTREE.ITEM_CD = MASTER.ITEM_CD
+	
+			 LEFT OUTER JOIN (
+			 	SELECT
+			 	 T.ITEM_CD
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112)   THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE1
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE2
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE3
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE4
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE5
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE6
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE7
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE8
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE9
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE10
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE11
+				,SUM(CASE WHEN convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112) >= CONVERT(NVARCHAR(20), T.VALID_FROM_DATE, 112) AND CONVERT(NVARCHAR(20), T.VALID_TO_DATE, 112) >= convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112)  THEN <include refid="com.sql.nvl"/>(T.UNIT_PRC,0) ELSE 0 END) PRICE12
+			 	FROM STOCINFO T
+				WHERE T.GATE_CD = #{ses.gateCd}
+				AND T.VALID_FROM_DATE <![CDATA[ <= #{TO_DATE} ]]>
+				AND T.DEL_FLAG = '0'
+				GROUP BY T.ITEM_CD
+			) P2 ON BOMTREE.ITEM_CD = P2.ITEM_CD
+	
+			  LEFT OUTER JOIN (
+			  	SELECT 
+				 G.ITEM_CD
+			  	,G.VENDOR_CD
+			  	,G.UNIT_PRC
+			  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}	
+			    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		    
+			     <![CDATA[ <= #{TO_DATE} ]]>
+			  	AND K.EXEC_TYPE IN ('G')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+				AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>			
+				 = (
+				  	SELECT 
+					MAX(
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>				
+					)
+				  	FROM STOCCNHD K1 JOIN STOCCNDT G1 ON K1.GATE_CD = G1.GATE_CD
+				  									AND K1.EXEC_NUM = G1.EXEC_NUM
+				  									AND G1.DEL_FLAG = '0'
+				    WHERE K1.GATE_CD = #{ses.gateCd}
+				    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			   
+				    <![CDATA[ <= #{TO_DATE} ]]>
+				  	AND K1.EXEC_TYPE IN ('G')
+				  	AND K1.DEL_FLAG = '0'
+					AND K1.SIGN_STATUS='E'
+				  	AND G1.ITEM_CD = G.ITEM_CD
+				)
+			  	GROUP BY G.ITEM_CD,G.VENDOR_CD,G.UNIT_PRC
+			  ) T ON BOMTREE.ITEM_CD = T.ITEM_CD 
+	
+			  LEFT OUTER JOIN (
+			  	SELECT 
+				 G.ITEM_CD
+			  	,G.VENDOR_CD
+			  	,G.UNIT_PRC
+			  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		    
+			     <![CDATA[ <= #{TO_DATE} ]]>
+			  	AND K.EXEC_TYPE IN ('U')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+				AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>			
+				 = (
+				  	SELECT
+					MIN(G1.VALID_FROM_DATE)
+				  	FROM STOCCNHD K1 JOIN STOCCNDT G1 ON K1.GATE_CD = G1.GATE_CD
+				  									AND K1.EXEC_NUM = G1.EXEC_NUM
+				  									AND G1.DEL_FLAG = '0'
+				    WHERE K1.GATE_CD = #{ses.gateCd}
+				    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			    
+				     <![CDATA[ <= #{TO_DATE} ]]>
+				  	AND K1.EXEC_TYPE IN ('U')
+				  	AND K1.DEL_FLAG = '0'
+					AND K1.SIGN_STATUS='E'
+				  	AND G1.ITEM_CD = G.ITEM_CD
+				)
+			  	GROUP BY G.ITEM_CD,G.VENDOR_CD,G.UNIT_PRC
+			  ) W ON BOMTREE.ITEM_CD = W.ITEM_CD 
+			 WHERE BOMTREE.BOM_REV = (SELECT MAX(K.BOM_REV) 
+										FROM <include refid="com.sql.dbo"/>STOCBOMM K
+									   WHERE K.BOM_ID = BOMTREE.BOM_ID
+										 AND DEL_FLAG = '0'
+								     )
+			   AND BOMTREE.GR_FLAG = '1'
+						     
+			GROUP BY <include refid="com.sql.subStr"/>(SORT,1,   CHARINDEX('>',SORT) -2)
+		    --,BOMTREE.ITEM_CD,BOMTREE.ITEM_DESC
+		    ,TOP_ITEM_CD,BOMTREE.MAT_CD
+			ORDER BY <include refid="com.sql.subStr"/>(SORT,1,   CHARINDEX('>',SORT) -2)	
+	</select>
+
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+			WITH BOMTREE AS (
+			 SELECT
+				   A.ITEM_CD
+				  ,A.ITEM_DESC
+				  ,A.EO_NO
+				  ,A.EO_DATE
+				  ,A.BOM_ID
+				  ,A.PARENT_BOM_ID
+				  ,A.TOP_ITEM_CD
+				  ,1 LEVEL
+				  ,A.BOM_SQ
+				  ,A.ITEM_QT
+				  ,A.MATERIAL_SPEC
+				  ,A.BOM_REV ITEM_REVSION
+				  ,A.BOM_REV
+				  ,A.MAT_CD
+				  , CONVERT(VARCHAR(2000), A.BOM_ID) AS SORT
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+									FROM STOCBOMM S
+								   WHERE S.BOM_ID = A.BOM_ID
+								     AND S.DEL_FLAG = '0'
+								<if test="ITEM_CD != '' and ITEM_CD != null">
+								     AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="MAT_CD != '' and MAT_CD != null">
+								     AND S.MAT_CD = #{MAT_CD}
+								     AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+								</if>
+								<if test="ITEM_CD == '' and MAT_CD == ''">
+									 AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+								</if>
+								)
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+									FROM STOCBOMM S
+								   WHERE S.BOM_ID = A.BOM_ID
+								     AND S.DEL_FLAG = '0'
+								<if test="ITEM_CD != '' and ITEM_CD != null">
+								     AND S.ITEM_CD <include refid="com.sql.likeL"/> #{ITEM_CD} <include refid="com.sql.likeR"/>
+								</if>
+								<if test="MAT_CD != '' and MAT_CD != null">
+								     AND S.MAT_CD = #{MAT_CD}
+								     AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '') 
+								</if>
+								<if test="ITEM_CD == '' and MAT_CD == ''">
+									 AND (S.PARENT_BOM_ID IS NULL or S.PARENT_BOM_ID = '')
+								</if>
+								)		 
+			 
+			 AND A.DEL_FLAG = '0'
+			-- WHERE PARENT_BOM_ID IS NULL
+			 UNION ALL
+			 SELECT
+				   B.ITEM_CD
+				  ,B.ITEM_DESC
+				  ,B.EO_NO
+				  ,B.EO_DATE
+				  ,B.BOM_ID
+				  ,B.PARENT_BOM_ID
+				  ,B.TOP_ITEM_CD
+				  ,LEVEL + 1
+				  ,B.BOM_SQ
+				  ,B.ITEM_QT
+				  ,B.MATERIAL_SPEC
+				  ,B.BOM_REV ITEM_REVSION
+				  ,B.BOM_REV
+				  ,B.MAT_CD
+				  , CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM B
+			 JOIN BOMTREE C 
+			   ON B.PARENT_BOM_ID = C.BOM_ID
+			  AND B.DEL_FLAG = '0'
+			 
+			)
+			SELECT  
+				   BOMTREE.ITEM_CD
+				  ,BOMTREE.ITEM_DESC
+				  ,ITEM_QT
+				  ,CASE WHEN LEVEL = 1 THEN '●' ELSE '' END  A
+				  ,CASE WHEN LEVEL = 2 THEN '●' ELSE '' END  B
+				  ,CASE WHEN LEVEL = 3 THEN '●' ELSE '' END  C
+				  ,CASE WHEN LEVEL = 4 THEN '●' ELSE '' END  D
+				  ,CASE WHEN LEVEL = 5 THEN '●' ELSE '' END  E
+				  ,CASE WHEN LEVEL = 6 THEN '●' ELSE '' END  F
+				  ,CASE WHEN LEVEL = 7 THEN '●' ELSE '' END  G
+				  ,CASE WHEN LEVEL = 8 THEN '●' ELSE '' END  H
+				  ,CASE WHEN LEVEL = 9 THEN '●' ELSE '' END  I
+				  ,CASE WHEN LEVEL = 10 THEN '●' ELSE '' END  K
+				  ,TOP_ITEM_CD
+				  ,BOMTREE.MAT_CD
+	
+	
+	
+				,MASTER.VENDOR_CD
+				,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},MASTER.VENDOR_CD,#{ses.langCd}) VENDOR_NM
+				,MASTER.CUR
+	
+	
+				,MAX(T.UNIT_PRC) SETTLE_PRICE -- 입찰가
+				
+				,MAX(<include refid="com.sql.nvl"/>(W.UNIT_PRC,0)) FST_PRICE
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END ) PRICE1
+				,0 PRICE1_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE1_SAYU
+				
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE2
+				,0 PRICE2_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE2_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END  ) PRICE3
+				,0 PRICE3_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE3_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END  ) PRICE4
+				,0 PRICE4_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE4_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END  ) PRICE5
+				,0 PRICE5_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE5_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END  ) PRICE6
+				,0 PRICE6_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE6_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE7
+				,0 PRICE7_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE7_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE8
+				,0 PRICE8_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE8_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE9
+				,0 PRICE9_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE9_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE10
+				,0 PRICE10_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END )  PRICE10_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE11
+				,0 PRICE11_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE11_SAYU
+	
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112),1,6) = P.MONTH THEN <include refid="com.sql.nvl"/>(P.UNIT_PRC,0) ELSE 0 END )  PRICE12
+				,0 PRICE12_CHA
+				,MAX(  CASE WHEN <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112),1,6) = P.MONTH THEN P.CHANGE_REASON_CD ELSE '' END  ) PRICE12_SAYU
+	
+				,LEVEL,BOM_SQ
+				
+				,MAX(BOMC.TRGT_PRC) TARGET_PRICE 
+	
+	
+	
+	
+			  FROM BOMTREE JOIN STOCMTGL MTGL ON BOMTREE.ITEM_CD = MTGL.ITEM_CD 
+			  								  AND MTGL.GATE_CD = #{ses.gateCd}
+											<if test="ITEM_GROUP != '' and ITEM_GROUP != null">
+			  								  AND ITEM_CLS1 = #{ITEM_GROUP}
+											</if>
+			  LEFT OUTER JOIN (
+				SELECT DISTINCT
+			  	 G.ITEM_CD
+			  	,G.VENDOR_CD		    
+			    ,M.CUR
+			 	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			  					JOIN STOCCNVD M ON G.GATE_CD = M.GATE_CD
+			  									AND G.EXEC_NUM = M.EXEC_NUM
+			  									AND G.VENDOR_CD = M.VENDOR_CD
+			  									AND M.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			        AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>
+			    	<![CDATA[ <= #{TO_DATE} ]]>
+			  	
+			  	AND K.EXEC_TYPE IN ('O','U','G')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+			  ) MASTER ON BOMTREE.ITEM_CD = MASTER.ITEM_CD
+			  
+	
+			  LEFT OUTER JOIN (
+			  	SELECT 
+			  	 <include refid="com.sql.subStr"/>(CONVERT(NVARCHAR(20), 
+			  	 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		  	 
+			  	 
+			  	 , 112),1,6) MONTH
+			  	,G.ITEM_CD
+			  	,G.VENDOR_CD
+			  	,G.UNIT_PRC
+			  	,CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+			  	 ELSE 
+			  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+			  	  WHERE GATE_CD = K.GATE_CD
+			  	  AND BUYER_CD  = K.BUYER_CD
+			  	  AND PLANT_CD  = G.PLANT_CD
+			  	  AND ITEM_CD   = G.ITEM_CD
+			  	  AND DEL_FLAG ='0'
+			  	 )
+			  	 END  CHANGE_REASON_CD
+			  	,K.BUYER_CD
+			  	,G.PLANT_CD
+			  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			    AND
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if> <![CDATA[ <= #{TO_DATE} ]]>
+			  	AND K.EXEC_TYPE IN ('O','U')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+				AND 
+				
+			        G.EXEC_NUM		
+				 = (
+				  	SELECT 
+					MAX(
+					G1.EXEC_NUM
+					)
+				  	FROM STOCCNHD K1 JOIN STOCCNDT G1 ON K1.GATE_CD = G1.GATE_CD
+				  									AND K1.EXEC_NUM = G1.EXEC_NUM
+				  									AND G1.DEL_FLAG = '0'
+				    WHERE K1.GATE_CD = #{ses.gateCd}
+				    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			    
+				    <![CDATA[ <= #{TO_DATE} ]]>
+				  	AND K1.EXEC_TYPE IN ('O','U')
+				  	AND K1.DEL_FLAG = '0'
+					AND K1.SIGN_STATUS='E'
+				  	AND <include refid="com.sql.subStr"/>(CONVERT(NVARCHAR(20),  
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			  	
+				  	, 112),1,6) = <include refid="com.sql.subStr"/>(CONVERT(NVARCHAR(20),  
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>			  	
+				  	, 112),1,6)
+				  	AND G1.ITEM_CD = G.ITEM_CD
+				)
+			  	GROUP BY <include refid="com.sql.subStr"/>(CONVERT(NVARCHAR(20),  
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		  	
+			  	, 112),1,6), G.ITEM_CD,G.VENDOR_CD,G.UNIT_PRC ,K.GATE_CD ,K.BUYER_CD,G.PLANT_CD ,K.EXEC_TYPE ,G.CHANGE_REASON_NM 
+			  ) P ON MASTER.ITEM_CD = P.ITEM_CD 
+			  	  AND MASTER.VENDOR_CD = P.VENDOR_CD
+	
+			  LEFT OUTER JOIN STOCBOMC BOMC ON BOMC.GATE_CD = #{ses.gateCd}
+				  AND BOMC.BUYER_CD  = P.BUYER_CD
+				  AND BOMC.PLANT_CD  = P.PLANT_CD
+				  AND BOMC.ITEM_CD   = P.ITEM_CD
+	
+	
+			  LEFT OUTER JOIN (
+			  	SELECT 
+				 G.ITEM_CD
+			  	,G.VENDOR_CD
+			  	,G.UNIT_PRC
+			  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		    
+			     <![CDATA[ <= #{TO_DATE} ]]>
+			  	AND K.EXEC_TYPE IN ('G')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+				AND 
+			        G.EXEC_NUM	
+				 = (
+				  	SELECT 
+					MAX(
+			        G1.EXEC_NUM	
+					)
+				  	FROM STOCCNHD K1 JOIN STOCCNDT G1 ON K1.GATE_CD = G1.GATE_CD
+				  									AND K1.EXEC_NUM = G1.EXEC_NUM
+				  									AND G1.DEL_FLAG = '0'
+				    WHERE K1.GATE_CD = #{ses.gateCd}
+				    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			   
+				    <![CDATA[ <= #{TO_DATE} ]]>
+				  	AND K1.EXEC_TYPE IN ('G')
+				  	AND K1.DEL_FLAG = '0'
+					AND K1.SIGN_STATUS='E'
+				  	AND G1.ITEM_CD = G.ITEM_CD
+				)
+			  	GROUP BY G.ITEM_CD,G.VENDOR_CD,G.UNIT_PRC
+			  ) T ON MASTER.ITEM_CD = T.ITEM_CD 
+			  	  AND MASTER.VENDOR_CD = T.VENDOR_CD
+	
+			  LEFT OUTER JOIN (
+			  	SELECT 
+				 G.ITEM_CD
+			  	,G.VENDOR_CD
+			  	,G.UNIT_PRC
+			  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+			  									AND K.EXEC_NUM = G.EXEC_NUM
+			  									AND G.DEL_FLAG = '0'
+			    WHERE K.GATE_CD = #{ses.gateCd}
+			    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G.VALID_FROM_DATE
+		            </if>		    
+			     BETWEEN #{FROM_DATE} AND #{TO_DATE}
+			  	AND K.EXEC_TYPE IN ('U')
+			  	AND K.DEL_FLAG = '0'
+				AND K.SIGN_STATUS='E'
+				AND 
+			        G.EXEC_NUM		
+				 = (
+				  	SELECT
+					MIN(G1.EXEC_NUM)
+				  	FROM STOCCNHD K1 JOIN STOCCNDT G1 ON K1.GATE_CD = G1.GATE_CD
+				  									AND K1.EXEC_NUM = G1.EXEC_NUM
+				  									AND G1.DEL_FLAG = '0'
+				    WHERE K1.GATE_CD = #{ses.gateCd}
+				    AND 
+			        <if test='DATE_TYPE == "A"'>
+		                 G1.SAP_SO_DATE
+		            </if>		    
+		            <if test='DATE_TYPE == "B"'>
+		                 G1.VALID_FROM_DATE
+		            </if>			    
+				     <![CDATA[ <= #{TO_DATE} ]]>
+				  	AND K1.EXEC_TYPE IN ('U')
+				  	AND K1.DEL_FLAG = '0'
+					AND K1.SIGN_STATUS='E'
+				  	AND G1.ITEM_CD = G.ITEM_CD
+				)
+			  	GROUP BY G.ITEM_CD,G.VENDOR_CD,G.UNIT_PRC
+			  ) W ON MASTER.ITEM_CD = W.ITEM_CD 
+			  	  AND MASTER.VENDOR_CD = W.VENDOR_CD
+			 WHERE BOM_REV = (SELECT MAX(K.BOM_REV) 
+								FROM <include refid="com.sql.dbo"/>STOCBOMM K
+							    WHERE K.BOM_ID = BOMTREE.BOM_ID
+								AND DEL_FLAG = '0'
+						     )
+			GROUP BY 
+			       BOMTREE.ITEM_CD
+				  ,BOMTREE.ITEM_DESC
+				  ,ITEM_QT
+				  ,LEVEL
+				  ,TOP_ITEM_CD
+				  ,BOMTREE.MAT_CD
+				  ,MASTER.VENDOR_CD
+				  ,MASTER.CUR
+				  ,BOM_SQ
+				  ,SORT
+				  
+			ORDER BY SORT
+		
+	</select>
+	
+
+
+
+	<select id="doSearchBomUnderITem" parameterType="hashmap" resultType="hashMap">
+
+			WITH BOMTREE AS (
+			 SELECT
+				   A.ITEM_CD
+				  ,A.ITEM_DESC
+				  ,A.EO_NO
+				  ,A.EO_DATE
+				  ,A.BOM_ID
+				  ,A.PARENT_BOM_ID
+				  ,A.TOP_ITEM_CD
+				  ,1 LEVEL
+				  ,A.BOM_SQ
+				  ,A.ITEM_QT
+				  ,A.MATERIAL_SPEC
+				  ,A.BOM_REV ITEM_REVSION
+				  ,A.BOM_REV
+				  ,A.MAT_CD
+				  , CONVERT(VARCHAR(2000), A.BOM_ID) AS SORT
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID = #{BOM_ID}
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+									FROM STOCBOMM S
+								   WHERE S.BOM_ID = A.BOM_ID
+								     AND S.DEL_FLAG = '0'
+								)		 
+			 AND A.DEL_FLAG = '0'
+			 UNION ALL
+			 SELECT
+				   B.ITEM_CD
+				  ,B.ITEM_DESC
+				  ,B.EO_NO
+				  ,B.EO_DATE
+				  ,B.BOM_ID
+				  ,B.PARENT_BOM_ID
+				  ,B.TOP_ITEM_CD
+				  ,LEVEL + 1
+				  ,B.BOM_SQ
+				  ,B.ITEM_QT
+				  ,B.MATERIAL_SPEC
+				  ,B.BOM_REV ITEM_REVSION
+				  ,B.BOM_REV
+				  ,B.MAT_CD
+				  , CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+			 FROM <include refid="com.sql.dbo"/>STOCBOMM B
+			 JOIN BOMTREE C 
+			   ON B.PARENT_BOM_ID = C.BOM_ID
+			  AND B.DEL_FLAG = '0'
+			 
+			)
+			SELECT  
+			BOMTREE.ITEM_CD	
+		    FROM BOMTREE JOIN STOCMTGL MTGL ON BOMTREE.ITEM_CD = MTGL.ITEM_CD 
+			  								  AND MTGL.GATE_CD = #{ses.gateCd}
+	</select>
+	
+	
+	<select id="doSearchMegerReasonNm" parameterType="hashmap" resultType="hashMap">
+
+		<if test='_databaseId=="oracle"'>
+
+			SELECT
+				STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+			        AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE1_SAYU
+	
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END 
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE2_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE3_SAYU		   		
+		   		
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE4_SAYU		   		
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE5_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE6_SAYU		   		
+		   			   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE7_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE8_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE9_SAYU		   			   		
+
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE10_SAYU
+
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE11_SAYU		   	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE12_SAYU
+
+		</if>
+		
+		<if test='_databaseId=="mssql"'>
+
+			SELECT
+				STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+			        AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE1_SAYU
+	
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END 
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 1, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE2_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 2, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE3_SAYU		   		
+		   		
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 3, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE4_SAYU		   		
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 4, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE5_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 5, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE6_SAYU		   		
+		   			   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 6, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE7_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 7, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE8_SAYU	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 8, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE9_SAYU		   			   		
+
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 9, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE10_SAYU
+
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 10, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE11_SAYU		   	
+		   		
+				,STUFF((
+					 SELECT DISTINCT
+				  	 ','+CASE WHEN K.EXEC_TYPE IN ('O','S','U') THEN G.CHANGE_REASON_NM 
+				  	 ELSE 
+				  	 (SELECT COST_REDU_RMK FROM STOCBOMC
+				  	  WHERE GATE_CD = K.GATE_CD
+				  	  AND BUYER_CD  = K.BUYER_CD
+				  	  AND PLANT_CD  = G.PLANT_CD
+				  	  AND ITEM_CD   = G.ITEM_CD
+				  	  AND DEL_FLAG ='0'
+				  	 )
+				  	 END  
+				  	FROM STOCCNHD K JOIN STOCCNDT G ON K.GATE_CD = G.GATE_CD
+				  									AND K.EXEC_NUM = G.EXEC_NUM
+				  									AND G.DEL_FLAG = '0'
+					WHERE K.GATE_CD = #{ses.gateCd}
+					AND
+					<include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 0, 
+				        <if test='DATE_TYPE == "A"'>
+			                 G.SAP_SO_DATE
+			            </if>		    
+			            <if test='DATE_TYPE == "B"'>
+			                 G.VALID_FROM_DATE
+			            </if>					
+					), 112),1,6) = <include refid="com.sql.subStr"/>(convert(varchar(8), dateadd(MONTH, 11, #{FROM_DATE}), 112),1,6)
+				  	AND K.EXEC_TYPE IN ('O','U')
+				  	AND K.DEL_FLAG = '0'
+					AND K.SIGN_STATUS='E'
+					AND G.ITEM_CD IN
+					(<foreach collection="ITEM_CD_LIST" item="item" index="index" separator="UNION ALL">
+						SELECT #{item.ITEM_CD}
+					</foreach>)
+				FOR XML PATH('')
+		   		),1,1,'') AS PRICE12_SAYU
+
+		</if>
+		
+	</select>	
+	
+</mapper>

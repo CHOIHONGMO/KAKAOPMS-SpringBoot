@@ -1,0 +1,707 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.MY01.MY01_Mapper">
+
+	<select id="my01001_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+       		  ROW_NUMBER() OVER( ORDER BY NOTC.REG_DATE DESC, NOTC.NOTICE_NUM DESC) AS ROW_NUM
+       	  	, NOTC.NOTICE_NUM
+       		, NOTC.USER_TYPE
+	       	, NOTC.SUBJECT
+			, <include refid="com.sql.toDateChar"/>(NOTC.REG_DATE, 'YYYY-MM-DD') as REG_DATE
+			,<include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'YYYY-MM-DD') <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'YYYY-MM-DD') AS NOTICE_DATE
+			, NOTC.REG_USER_ID AS REG_USER_ID
+			, <include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NAME
+			, NOTC.ATT_FILE_NUM AS ATTACH_FILE_NO
+			, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) END AS ATTACH_FILE_NO_DISPLAY
+			, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+														   WHERE GATE_CD = #{ses.gateCd}
+															 AND UUID = NOTC.ATT_FILE_NUM
+															 AND DEL_FLAG = '0') <![CDATA[>]]> 0
+				  THEN '0' ELSE '1' END AS ATTACH_FILE_NO_DISPLAY_IMAGE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, NOTC.GATE_CD
+			, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		  FROM STOCNOTC NOTC
+		 WHERE NOTC.GATE_CD  = #{ses.gateCd}
+		   AND NOTC.DEL_FLAG = '0'
+		   AND NOTC.NOTICE_TYPE = 'PCN'
+
+		<if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+		   AND (NOTC.START_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}<include refid="com.sql.dateFrom"/> AND NOTC.START_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{ADD_TO_DATE}<include refid="com.sql.dateTo"/>
+             OR NOTC.END_DATE   <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}<include refid="com.sql.dateFrom"/> AND NOTC.END_DATE   <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{ADD_TO_DATE}<include refid="com.sql.dateTo"/>)
+		</if>
+		<if test="USER_TYPE != '' and USER_TYPE != null ">
+		   AND NOTC.USER_TYPE = #{USER_TYPE}
+		</if>
+		<choose>
+			<when test="ADD_USER_ID != '' and ADD_USER_ID != null">
+		   AND NOTC.REG_USER_ID = #{ADD_USER_ID}
+			</when>
+			<otherwise>
+				<if test="ADD_USER_NAME != '' and ADD_USER_NAME != null">
+		   AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{ADD_USER_NAME} <include refid="com.sql.likeR"/>
+				</if>
+			</otherwise>
+		</choose>
+
+	</select>
+	
+	<update id="my01001_doDelete" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET
+			 DEL_FLAG = '1'
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<select id="my01002_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  NOTC.SUBJECT
+			, NOTC.NOTICE_NUM
+			, NOTC.NOTICE_TEXT_NUM
+			, NOTC.USER_TYPE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, <include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'yyyyMMdd') as START_DATE
+			, <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'yyyyMMdd') as END_DATE
+			, <include refid="com.sql.toDateChar"/>(NOTC.REG_DATE, 'YYYY-MM-DD') <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> UR.USER_NM AS REG_USER_NAME
+			, NOTC.REG_USER_ID
+			, UR.USER_NM AS REG_USER_NAME
+			, NOTC.ATT_FILE_NUM
+			, <include refid="com.sql.nvl"/>(NOTC.ANN_FLAG, '0') AS ANN_FLAG
+		 FROM STOCNOTC NOTC LEFT JOIN STOCUSER UR
+		      ON (NOTC.GATE_CD = UR.GATE_CD
+		      AND NOTC.REG_USER_ID = UR.USER_ID)
+		WHERE NOTC.GATE_CD = #{ses.gateCd}
+		  AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+
+	</select>
+
+	<update id="my01002_doSaveCount" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET
+        	VIEW_CNT = #{VIEW_CNT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<insert id="my01002_doInsert" parameterType="hashMap">
+
+     	INSERT INTO STOCNOTC (
+     		  GATE_CD
+			, NOTICE_NUM
+			, SUBJECT
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, START_DATE
+			, END_DATE
+			, USER_TYPE
+			, ATT_FILE_NUM
+			, NOTICE_TEXT_NUM
+			, NOTICE_TYPE
+			, ANN_FLAG
+		) VALUES (
+			  #{ses.gateCd}
+			, #{NOTICE_NUM}
+			, #{SUBJECT}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{START_DATE}
+			, #{END_DATE}
+			, #{USER_TYPE}
+			, #{ATT_FILE_NUM}
+			, #{NOTICE_TEXT_NUM}
+			, 'PCN'
+			, <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+		)
+
+     </insert>
+
+     <update id="my01002_doUpdate" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET
+        	  MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+            , SUBJECT = #{SUBJECT}
+            , USER_TYPE = #{USER_TYPE}
+            , START_DATE = #{START_DATE}
+			, END_DATE = #{END_DATE}
+            , NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+            , ATT_FILE_NUM = #{ATT_FILE_NUM}
+            , ANN_FLAG = <include refid="com.sql.nvl"/>(#{ANN_FLAG}, '0')
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<select id="my01003_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  ROW_NUMBER() OVER( ORDER BY NOTC.FIXED_TOP_FLAG ASC, NOTC.REG_DATE DESC, NOTC.NOTICE_NUM DESC) AS ROW_NUM
+       		, NOTC.VENDOR_CD
+       		, VNGL.VENDOR_NM
+	       	, NOTC.SUBJECT
+			, NOTC.REG_USER_ID
+			,<include refid="com.sql.toDateChar"/>(NOTC.REG_DATE, 'YYYY-MM-DD') as REG_DATE
+			,<include refid="com.sql.dbo"/>GETUSERNAME(NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			,<include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'YYYY-MM-DD') <include refid="com.sql.stringMerge"/> ' ~ ' <include refid="com.sql.stringMerge"/> <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'YYYY-MM-DD') AS NOTICE_DATE
+			, NOTC.ATT_FILE_NUM AS ATT_FILE_NUM
+			, CASE WHEN <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM) = 0 THEN NULL
+				   ELSE <include refid="com.sql.dbo"/>GETFILECOUNT(NOTC.GATE_CD, NOTC.ATT_FILE_NUM)
+			  END AS ATT_FILE_NUM_ICON
+			, CASE WHEN NOTC.ATT_FILE_NUM IS NOT NULL AND (SELECT COUNT(*) FROM STOCATCH
+														    WHERE GATE_CD  = #{ses.gateCd}
+															  AND UUID     = NOTC.ATT_FILE_NUM
+															  AND DEL_FLAG = '0') <![CDATA[>]]> 0
+				   THEN '0' ELSE '1'
+			  END AS ATT_FILE_NUM_ICON_IMAGE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, NOTC.NOTICE_NUM
+		 FROM STOCNOTC NOTC
+		 LEFT JOIN STOCVNGL VNGL
+		      ON (NOTC.GATE_CD  = VNGL.GATE_CD
+		      AND NOTC.VENDOR_CD = VNGL.VENDOR_CD
+		      AND VNGL.DEL_FLAG = '0')
+		WHERE NOTC.GATE_CD  = #{ses.gateCd}
+		  AND NOTC.DEL_FLAG = '0'
+		  AND NOTC.NOTICE_TYPE = 'PCI' -- 클레임게시판
+
+		<if test="ADD_FROM_DATE != '' and ADD_FROM_DATE != null and ADD_TO_DATE != '' and ADD_TO_DATE != null">
+		  AND NOTC.REG_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{ADD_FROM_DATE}, 'YYYYMMDD HH24:MI:SS')
+		  AND NOTC.REG_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{ADD_TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+		</if>
+		<if test="REG_USER_NM != '' and REG_USER_NM != null">
+		  AND <include refid="com.sql.dbo"/>GETUSERNAME( NOTC.GATE_CD, NOTC.REG_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{REG_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  AND NOTC.VENDOR_CD = #{VENDOR_CD}
+		</if>
+		<if test="VENDOR_NM != '' and VENDOR_NM != null">
+		  AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+
+		ORDER BY NOTC.FIXED_TOP_FLAG
+		       , NOTC.REG_DATE DESC
+		       , NOTC.NOTICE_NUM DESC
+	</select>
+
+	<update id="my01003_doDelete" parameterType="hashMap">
+
+		UPDATE STOCNOTC SET
+			 DEL_FLAG = '1'
+            ,MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+	</update>
+
+	<select id="my01004_doSearchNoticeInfo" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  NOTC.SUBJECT
+			, NOTC.NOTICE_NUM
+			, NOTC.NOTICE_TEXT_NUM
+			, NOTC.USER_TYPE
+			, <include refid="com.sql.nvl"/>(NOTC.VIEW_CNT, 0) AS VIEW_CNT
+			, <include refid="com.sql.toDateChar"/>(NOTC.START_DATE, 'yyyyMMdd') as START_DATE
+			, <include refid="com.sql.toDateChar"/>(NOTC.END_DATE, 'yyyyMMdd') as END_DATE
+			, <include refid="com.sql.toDateChar"/>(NOTC.REG_DATE, 'YYYY-MM-DD') <include refid="com.sql.stringMerge"/> ' / ' <include refid="com.sql.stringMerge"/> UR.USER_NM AS REG_USER_NM
+			, NOTC.REG_USER_ID
+			, NOTC.ATT_FILE_NUM
+			, NOTC.VENDOR_CD
+			, VNGL.VENDOR_NM
+
+
+		  FROM STOCNOTC NOTC
+		  LEFT JOIN STOCUSER UR
+		       ON (NOTC.GATE_CD = UR.GATE_CD
+		       AND NOTC.REG_USER_ID = UR.USER_ID)
+		  LEFT JOIN STOCVNGL VNGL
+		       ON (NOTC.GATE_CD  = VNGL.GATE_CD
+		       AND NOTC.VENDOR_CD = VNGL.VENDOR_CD
+		       AND VNGL.DEL_FLAG = '0')
+		 WHERE NOTC.GATE_CD = #{ses.gateCd}
+		   AND NOTC.NOTICE_NUM = #{NOTICE_NUM}
+
+	</select>
+
+	<update id="my01004_doSaveCount" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET
+        	VIEW_CNT = #{VIEW_CNT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<insert id="my01004_doInsert" parameterType="hashMap">
+
+     	INSERT INTO STOCNOTC (
+     		 GATE_CD
+			,NOTICE_NUM
+			,SUBJECT
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,START_DATE
+			,END_DATE
+			,USER_TYPE
+			,ATT_FILE_NUM
+			,NOTICE_TEXT_NUM
+			,NOTICE_TYPE
+			,BUYER_CD
+			,VENDOR_CD
+		) VALUES (
+			 #{ses.gateCd}
+			,#{NOTICE_NUM}
+			,#{SUBJECT}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{START_DATE}
+			,#{END_DATE}
+			,#{USER_TYPE}
+			,#{ATT_FILE_NUM}
+			,#{NOTICE_TEXT_NUM}
+			,'PCI'
+			,#{BUYER_CD}
+			,#{VENDOR_CD}
+		)
+
+
+     </insert>
+
+     <update id="my01004_doUpdate" parameterType="hashMap">
+
+        UPDATE STOCNOTC SET
+        	 MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,SUBJECT = #{SUBJECT}
+            ,USER_TYPE = #{USER_TYPE}
+            ,START_DATE = #{START_DATE}
+			,END_DATE = #{END_DATE}
+            ,NOTICE_TEXT_NUM = #{NOTICE_TEXT_NUM}
+            ,ATT_FILE_NUM = #{ATT_FILE_NUM}
+            ,BUYER_CD = #{BUYER_CD}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND NOTICE_NUM = #{NOTICE_NUM}
+
+    </update>
+
+	<select id="my01005_doSearchG" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 DM.DELY_NM
+			,DM.RECIPIENT_NM
+			,DM.RECIPIENT_DEPT_NM
+			,DM.RECIPIENT_TEL_NUM
+			,DM.RECIPIENT_CELL_NUM
+			,DM.RECIPIENT_EMAIL
+			,DM.DELY_ZIP_CD
+			,DM.DELY_ADDR_1
+			,DM.DELY_ADDR_2
+			,DM.DELY_RMK
+			,DM.CUST_CD
+			,DM.USER_ID
+			,DM.SEQ
+		  FROM STOCCUDM DM
+		 WHERE DM.GATE_CD = #{ses.gateCd}
+		   AND DM.CUST_CD = #{CUST_CD}
+		   AND DM.USER_ID = #{USER_ID}
+		   AND DM.DEL_FLAG = '0'
+		 ORDER BY DM.SEQ
+
+	</select>
+
+	<update id="my01005_doSaveG" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCCUDM<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD
+				     ,#{CUST_CD} AS CUST_CD
+				     ,#{USER_ID} AS USER_ID
+				     ,CONVERT(INT, <include refid="com.sql.nvl"/>(#{SEQ}, '999')) AS SEQ
+			     <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+		ON (A.GATE_CD = B.GATE_CD
+		AND A.CUST_CD = B.CUST_CD
+		AND A.USER_ID = B.USER_ID
+		AND A.SEQ = B.SEQ)
+
+		WHEN MATCHED THEN
+		UPDATE SET
+			DELY_NM = #{DELY_NM},
+			RECIPIENT_NM = #{RECIPIENT_NM},
+			RECIPIENT_DEPT_NM = #{RECIPIENT_DEPT_NM},
+			RECIPIENT_TEL_NUM = #{RECIPIENT_TEL_NUM},
+			RECIPIENT_CELL_NUM = #{RECIPIENT_CELL_NUM},
+			RECIPIENT_EMAIL = #{RECIPIENT_EMAIL},
+			DELY_ZIP_CD = #{DELY_ZIP_CD},
+			DELY_ADDR_1 = #{DELY_ADDR_1},
+			DELY_ADDR_2 = #{DELY_ADDR_2},
+			DELY_RMK = #{DELY_RMK},
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			 GATE_CD
+			,CUST_CD
+			,USER_ID
+			,SEQ
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,DELY_NM
+			,RECIPIENT_NM
+			,RECIPIENT_DEPT_NM
+			,RECIPIENT_TEL_NUM
+			,RECIPIENT_CELL_NUM
+			,RECIPIENT_EMAIL
+			,DELY_ZIP_CD
+			,DELY_ADDR_1
+			,DELY_ADDR_2
+			,DELY_RMK
+		) VALUES (
+			 #{ses.gateCd}
+			,#{CUST_CD}
+			,#{USER_ID}
+			,(SELECT <include refid="com.sql.nvl"/>(MAX(SEQ)+1, 1) FROM STOCCUDM WHERE GATE_CD = #{ses.gateCd} AND CUST_CD = #{CUST_CD} AND USER_ID = #{USER_ID})
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{DELY_NM}
+			,#{RECIPIENT_NM}
+			,#{RECIPIENT_DEPT_NM}
+			,#{RECIPIENT_TEL_NUM}
+			,#{RECIPIENT_CELL_NUM}
+			,#{RECIPIENT_EMAIL}
+			,#{DELY_ZIP_CD}
+			,#{DELY_ADDR_1}
+			,#{DELY_ADDR_2}
+			,#{DELY_RMK}
+		<include refid="com.sql.mergeEnd"/>
+
+	</update>
+
+	<update id="my01005_doDeleteG" parameterType="hashMap">
+
+		UPDATE STOCCUDM SET
+			 DEL_FLAG = '1'
+			,MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND CUST_CD = #{CUST_CD}
+		   AND USER_ID = #{USER_ID}
+		   AND SEQ = #{SEQ}
+
+	</update>
+
+	<select id="my01006_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			 DM.DELY_NM
+			,DM.RECIPIENT_NM
+			,DM.RECIPIENT_NM AS HIDDEN_RECIPIENT_NM
+			,DM.RECIPIENT_DEPT_NM
+			,DM.RECIPIENT_TEL_NUM
+			,DM.RECIPIENT_TEL_NUM AS HIDDEN_RECIPIENT_TEL_NUM
+			,DM.RECIPIENT_CELL_NUM
+			,DM.RECIPIENT_CELL_NUM AS HIDDEN_RECIPIENT_CELL_NUM
+			,DM.RECIPIENT_EMAIL
+			,DM.RECIPIENT_EMAIL AS HIDDEN_RECIPIENT_EMAIL
+			,DM.DELY_ZIP_CD
+			,DM.DELY_ADDR_1
+			,DM.DELY_ADDR_2
+			,DM.DELY_RMK
+			,DM.CUST_CD
+			,DM.USER_ID
+			,DM.SEQ
+		  FROM STOCCUDM DM
+		 WHERE DM.GATE_CD = #{ses.gateCd}
+		   AND DM.CUST_CD = #{CUST_CD}
+		   AND DM.USER_ID = #{USER_ID}
+		   AND DM.DEL_FLAG = '0'
+		 <if test="DELY_NM != '' and DELY_NM != null">
+		   AND DM.DELY_NM <include refid="com.sql.likeL"/> #{DELY_NM} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="RECIPIENT_NM != '' and RECIPIENT_NM != null">
+		   AND DM.RECIPIENT_NM <include refid="com.sql.likeL"/> #{RECIPIENT_NM} <include refid="com.sql.likeR"/>
+		 </if>
+
+		 ORDER BY DM.RECIPIENT_NM, DM.SEQ
+
+	</select>
+
+	<select id="my01007_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  DELY_NM AS DELY_NM
+			, '선택' AS SELECTED
+			, RECIPIENT_NM AS RECIPIENT_NM
+			, RECIPIENT_NM AS HIDDEN_DELY_RECIPIENT_NM
+			, '('<include refid="com.sql.stringMerge"/>DELY_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/>DELY_ADDR_1<include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/><include refid="com.sql.nvl"/>(DELY_ADDR_2,'') AS DELY_ADDR
+			, RECIPIENT_TEL_NUM AS DELY_RECIPIENT_TEL_NUM
+			, RECIPIENT_TEL_NUM AS HIDDEN_DELY_RECIPIENT_TEL_NUM
+			, RECIPIENT_FAX_NUM AS DELY_RECIPIENT_FAX_NUM
+			, RECIPIENT_FAX_NUM AS HIDDEN_DELY_RECIPIENT_FAX_NUM
+			, RECIPIENT_CELL_NUM AS RECIPIENT_CELL_NUM
+			, RECIPIENT_CELL_NUM AS HIDDEN_DELY_RECIPIENT_CELL_NUM
+			, RECIPIENT_EMAIL AS RECIPIENT_EMAIL
+			, RECIPIENT_EMAIL AS HIDDEN_DELY_RECIPIENT_EMAIL
+			, DELY_RMK AS DELY_RMK
+			, RECIPIENT_DEPT_NM AS DELY_RECIPIENT_DEPT_NM
+			, DELY_ZIP_CD AS DELY_ZIP_CD
+			, DELY_ADDR_1 AS DELY_ADDR_1
+			, DELY_ADDR_2 AS DELY_ADDR_2
+			, CUST_CD AS CUST_CD
+			, SEQ AS CSDM_SEQ
+			, USE_FLAG
+			, SEQ
+
+		FROM STOCCSDM
+       WHERE GATE_CD = #{ses.gateCd}
+		 AND CUST_CD = #{CUST_CD}
+ 	     AND DEL_FLAG = '0'
+ 	     AND USE_FLAG = '1'
+		 <if test="DELY_NM != '' and DELY_NM != null">
+		   AND DELY_NM <include refid="com.sql.likeL"/> #{DELY_NM} <include refid="com.sql.likeR"/>
+		 </if>
+		 <if test="RECIPIENT_NM != '' and RECIPIENT_NM != null">
+		   AND RECIPIENT_NM <include refid="com.sql.likeL"/> #{RECIPIENT_NM} <include refid="com.sql.likeR"/>
+		 </if>
+		 ORDER BY SEQ, DELY_NM
+	</select>
+
+	<select id="my01008_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		       A.CUBL_NM AS CUBL_NM
+		     , A.COMPANY_NM AS CUBL_COMPANY_NM
+		     , '('<include refid="com.sql.stringMerge"/>A.CUBL_ZIP_CD<include refid="com.sql.stringMerge"/>') '<include refid="com.sql.stringMerge"/> A.CUBL_ADDR1 <include refid="com.sql.stringMerge"/>' '<include refid="com.sql.stringMerge"/> <include refid="com.sql.nvl"/>(A.CUBL_ADDR2,'') AS CUBL_ADDR
+		     , A.CEO_USER_NM AS CUBL_CEO_USER_NM
+		     , A.CEO_USER_NM AS HIDDEN_CUBL_CEO_USER_NM
+		     , A.IRS_NUM AS CUBL_IRS_NUM
+		     , A.BUSINESS_TYPE AS CUBL_BUSINESS_TYPE
+		     , A.INDUSTRY_TYPE AS CUBL_INDUSTRY_TYPE
+		     , A.CUBL_BANK_NM AS CUBL_BANK_NM
+		     , A.CUBL_ACCOUNT_NUM AS CUBL_ACCOUNT_NUM
+		     , A.CUBL_ACCOUNT_NM AS CUBL_ACCOUNT_NM
+		     , A.CUBL_ACCOUNT_NM AS HIDDEN_CUBL_ACCOUNT_NM
+		     , A.CUBL_USER_NM AS CUBL_USER_NM
+		     , A.CUBL_USER_NM AS HIDDEN_CUBL_USER_NM
+		     , A.CUBL_USER_TEL_NUM AS CUBL_USER_TEL_NUM
+		     , A.CUBL_USER_TEL_NUM AS HIDDEN_CUBL_USER_TEL_NUM
+		     , A.CUBL_USER_FAX_NUM AS CUBL_USER_FAX_NUM
+		     , A.CUBL_USER_FAX_NUM AS HIDDEN_CUBL_USER_FAX_NUM
+		     , A.CUBL_USER_CELL_NUM AS CUBL_USER_CELL_NUM
+		     , A.CUBL_USER_CELL_NUM AS HIDDEN_CUBL_USER_CELL_NUM
+		     , A.CUBL_USER_EMAIL AS CUBL_USER_EMAIL
+		     , A.CUBL_USER_EMAIL AS HIDDEN_CUBL_USER_EMAIL
+		     , A.CUST_CD AS CUST_CD
+		     , A.CUBL_SQ AS CUBL_SQ
+		  FROM STOCCUBL A
+		 WHERE A.GATE_CD  = #{ses.gateCd}
+		   AND A.CUST_CD  = #{CUST_CD}
+		   AND A.DEL_FLAG = '0'
+		   AND A.USE_FLAG = '1'
+	 <if test="CUBL_NM != '' and CUBL_NM != null">
+	   	   AND A.CUBL_NM <include refid="com.sql.likeL"/> #{CUBL_NM} <include refid="com.sql.likeR"/>
+	 </if>
+	 <if test="CUBL_COMPANY_NM != '' and CUBL_COMPANY_NM != null">
+	       AND A.COMPANY_NM <include refid="com.sql.likeL"/> #{COMPANY_NM} <include refid="com.sql.likeR"/>
+	 </if>
+
+	 <if test="PLANT_CD != '' and PLANT_CD != null">
+	   	   AND A.PLANT_CD = #{PLANT_CD}
+	 </if>
+	 <if test="CUST_CD != '' and CUST_CD != null">
+	   	   AND A.CUST_CD = #{CUST_CD}
+	 </if>
+
+	     ORDER BY A.CUBL_SQ, A.CUBL_NM
+   	</select>
+
+	<select id="my01010_doSearch" parameterType="hashMap" resultType="hashMap">
+
+		SELECT USER_ID
+			 , TPL_NO
+			 , TPL_NM
+             ,(SELECT COUNT(VENDOR_CD) FROM STOCVNTD
+                WHERE GATE_CD  = A.GATE_CD
+                  AND USER_ID  = A.USER_ID
+                  AND TPL_NO   = A.TPL_NO
+                  AND DEL_FLAG = '0') AS VENDOR_CNT
+             , TPL_RMK
+		  FROM STOCVNTH A
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND USER_ID  = #{ses.userId}
+		   AND DEL_FLAG = '0'
+		 <if test="TPL_NM_L != '' and TPL_NM_L != null">
+	   	   AND TPL_NM <include refid="com.sql.likeL"/>#{TPL_NM_L}<include refid="com.sql.likeR"/>
+		 </if>
+		 ORDER BY TPL_NM ASC
+  	</select>
+
+	<select id="my01010_doSearchD" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			A.GATE_CD,
+			A.USER_ID,
+			A.TPL_NO,
+			A.TPL_SQ,
+			A.DEL_FLAG,
+			A.VENDOR_CD,
+			A.TPL_RMK,
+			VNGL.VENDOR_NM,
+			VNGL.MAKER_NM,
+			VNGL.IRS_NO,
+			VNGL.CEO_USER_NM,
+			VNGL.BUSINESS_TYPE,
+			getCodeName(VNGL.GATE_CD, 'MP063', VNGL.GROUP_YN, #{ses.langCd}) AS GROUP_YN,
+			VNGL.CREDIT_CD,
+			VNGL.MAJOR_ITEM_NM,
+			<include refid="com.sql.dbo"/>getSgInfoByVendor(VNGL.GATE_CD, VNGL.VENDOR_CD, 'NM')  AS SG_TXT
+		  FROM STOCVNTD A
+		  LEFT JOIN STOCVNGL VNGL
+		  	   ON (A.GATE_CD  = VNGL.GATE_CD
+		  	   AND A.VENDOR_CD = VNGL.VENDOR_CD
+		       AND VNGL.DEL_FLAG = '0')
+		 WHERE A.GATE_CD  = #{ses.gateCd}
+		   AND A.USER_ID  = #{ses.userId}
+		   AND A.TPL_NO   = #{TPL_NO}
+		   AND A.DEL_FLAG = '0'
+		 ORDER BY VNGL.VENDOR_NM ASC
+  	</select>
+
+  	<!-- 관심업체 Header 등록 -->
+  	<update id="my01010_doSave" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCVNTH<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD
+				     ,#{ses.userId} AS USER_ID
+				     ,#{TPL_NO} AS TPL_NO
+			     <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			ON (A.GATE_CD = B.GATE_CD
+			AND A.TPL_NO  = B.TPL_NO
+			AND A.USER_ID = B.USER_ID)
+		WHEN MATCHED THEN
+		UPDATE SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{USER_ID}
+			, TPL_NM = #{TPL_NM}
+			, TPL_RMK = #{TPL_RMK}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			GATE_CD,
+			USER_ID,
+			TPL_NO,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			TPL_NM,
+			TPL_RMK
+		) VALUES (
+			#{ses.gateCd},
+			#{USER_ID},
+			#{TPL_NO},
+			<include refid="com.sql.sysdate"/>,
+			#{USER_ID},
+			'0',
+			#{TPL_NM},
+			#{TPL_RMK}
+		<include refid="com.sql.mergeEnd"/>
+
+	</update>
+
+	<!-- 관심업체 상세정보 등록 -->
+	<update id="my01010_doSaveD" parameterType="hashMap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCVNTD<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD
+				     ,#{ses.userId} AS USER_ID
+				     ,#{TPL_NO} AS TPL_NO
+				     ,#{TPL_SQ} AS TPL_SQ
+			     <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			ON (A.GATE_CD = B.GATE_CD
+			AND A.TPL_NO  = B.TPL_NO
+			AND A.TPL_SQ  = B.TPL_SQ
+			AND A.USER_ID = B.USER_ID)
+		WHEN MATCHED THEN
+		UPDATE SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, VENDOR_CD = #{VENDOR_CD}
+			, TPL_RMK = #{TPL_RMK}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			A.GATE_CD,
+			A.USER_ID,
+			A.TPL_NO,
+			A.TPL_SQ,
+			A.REG_DATE,
+			A.REG_USER_ID,
+			A.DEL_FLAG,
+			A.VENDOR_CD,
+			A.TPL_RMK
+		) VALUES (
+			#{ses.gateCd},
+			#{ses.userId},
+			#{TPL_NO},
+			(SELECT <include refid="com.sql.nvl"/>(MAX(TPL_SQ),0)+1
+			   FROM STOCVNTD
+			  WHERE GATE_CD = #{ses.gateCd}
+			    AND USER_ID = #{ses.userId}
+				AND TPL_NO  = #{TPL_NO}),
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{VENDOR_CD},
+			#{TPL_RMK}
+		<include refid="com.sql.mergeEnd"/>
+	</update>
+
+	<update id="my01010_doDelete" parameterType="hashMap">
+        UPDATE STOCVNTH
+           SET DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{USER_ID}
+           AND TPL_NO  = #{TPL_NO}
+    </update>
+
+	<update id="my01010_doDeleteD" parameterType="hashMap">
+        UPDATE STOCVNTD
+           SET DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = #{USER_ID}
+           AND TPL_NO  = #{TPL_NO}
+		<if test="TPL_SQ != '' and TPL_SQ != null">
+           AND TPL_SQ  = #{TPL_SQ}
+		</if>
+    </update>
+
+
+</mapper>

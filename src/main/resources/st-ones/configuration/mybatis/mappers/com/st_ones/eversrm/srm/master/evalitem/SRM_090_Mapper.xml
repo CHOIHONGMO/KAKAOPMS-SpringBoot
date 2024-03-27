@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.master.evalitem.SRM_090_Mapper">
+
+    <select id="doSearchEvalItemMgt" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	 EVIM.EV_ITEM_NUM
+	        ,EVIM.EV_ITEM_KIND_CD
+	        ,EVIM.EV_ITEM_TYPE_CD
+	        ,<include refid="com.sql.dbo"/>GETCOMCODE(EVIM.GATE_CD,
+	        	CASE EVIM.EV_ITEM_KIND_CD WHEN 'E' THEN 'M114' ELSE 'M113' END
+	        	,EVIM.EV_ITEM_TYPE_CD, '0', #{ses.langCd}) AS EV_ITEM_TYPE_NM
+	        ,EVIM.EV_ITEM_METHOD_CD
+	        ,EVIM.SCALE_TYPE_CD
+	        ,EVIM.EV_ITEM_SUBJECT
+	        ,EVIM.EV_ITEM_CONTENTS
+	        ,(SELECT COUNT(*) FROM STOCEVID WHERE EV_ITEM_NUM = EVIM.EV_ITEM_NUM AND DEL_FLAG ='0' ) AS SCALE_COUNT
+	        ,<include refid="com.sql.dbo"/>getGmtDate(EVIM.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS MOD_DATE
+	        --,EVIM.MOD_USER_ID
+	        , <include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EVIM.MOD_USER_ID,#{ses.langCd}) AS MOD_USER_NM
+	        ,GATE_CD
+	        ,QTY_ITEM_CD
+		FROM STOCEVIM EVIM
+		WHERE EVIM.GATE_CD = #{ses.gateCd}
+			AND EVIM.DEL_FLAG = '0'
+			AND EVIM.CREATE_TYPE_CD = 'S'
+			--AND EVIM.EV_ITEM_DIV_CD IN ('SITE', 'EXEC')
+		<if test="EV_ITEM_KIND_CD != '' and EV_ITEM_KIND_CD != null">
+			AND EVIM.EV_ITEM_KIND_CD   = #{EV_ITEM_KIND_CD}
+		</if>
+		<if test="EV_ITEM_TYPE_CD != '' and EV_ITEM_TYPE_CD != null">
+			AND EVIM.EV_ITEM_TYPE_CD   = #{EV_ITEM_TYPE_CD}
+		</if>
+		<if test="EV_ITEM_METHOD_CD != '' and EV_ITEM_METHOD_CD != null">
+			AND EVIM.EV_ITEM_METHOD_CD = #{EV_ITEM_METHOD_CD}
+		</if>
+		<if test="EV_ITEM_SUBJECT != '' and EV_ITEM_SUBJECT != null">
+			AND UPPER(EVIM.EV_ITEM_SUBJECT) <include refid="com.sql.likeL"/> #{EV_ITEM_SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="EV_ITEM_CONTENTS != '' and EV_ITEM_CONTENTS != null">
+			AND UPPER(EVIM.EV_ITEM_CONTENTS) <include refid="com.sql.likeL"/> #{EV_ITEM_CONTENTS} <include refid="com.sql.likeR"/>
+		</if>
+		ORDER BY EVIM.EV_ITEM_KIND_CD, EVIM.EV_ITEM_TYPE_CD, EVIM.EV_ITEM_METHOD_CD, EVIM.SCALE_TYPE_CD
+    </select>
+
+    <select id="doSearchEvalItemMgtDetail" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	 EVID.EV_ID_ORDER
+			,EVID.EV_ID_CONTENTS
+			,EVID.EV_ID_SCORE
+	        ,EVID.EV_ID_SQ
+	        ,EVID.EV_ITEM_NUM
+	        ,EVID.GATE_CD
+	        ,'U' AS INSERT_FLAG
+		FROM STOCEVID EVID
+		WHERE GATE_CD = #{ses.gateCd}
+			AND DEL_FLAG = '0'
+			AND EVID.EV_ITEM_NUM = #{EV_ITEM_NUM}
+	   ORDER BY EVID.EV_ID_ORDER
+    </select>
+
+
+    <select id="doSearchEvalItemMgtDetail2" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+        	 EVID.EV_ID_ORDER
+			,EVID.EV_ID_CONTENTS
+			,EVID.FROM_VALUE
+			,EVID.FROM_CONDITION_CD
+			,EVID.TO_VALUE
+			,EVID.TO_CONDITION_CD
+			,EVID.EV_ID_SCORE
+	        ,EVID.EV_ID_SQ
+	        ,EVID.EV_ITEM_NUM
+	        ,EVID.GATE_CD
+	        ,'U' AS INSERT_FLAG
+		FROM STOCEVID EVID
+		WHERE GATE_CD = #{ses.gateCd}
+			AND DEL_FLAG = '0'
+			AND EVID.EV_ITEM_NUM = #{EV_ITEM_NUM}
+	   ORDER BY EVID.EV_ID_ORDER
+    </select>
+
+
+
+    <insert id="doInsertEvalItemMgtMaster" parameterType="hashMap">
+        INSERT INTO STOCEVIM (
+	        GATE_CD
+	        ,EV_ITEM_NUM
+	        ,REG_DATE
+	        ,REG_USER_ID
+	        ,MOD_DATE
+	        ,MOD_USER_ID
+	        ,DEL_FLAG
+
+	        ,EV_ITEM_DIV_CD
+			,SI_RA_TYPE
+			,AXIS_CD
+			,EV_ITEM_TYPE_CD
+			,EV_ITEM_SUBJECT
+			,EV_ITEM_CONTENTS
+			,EV_ITEM_KIND_CD
+			,EV_ITEM_METHOD_CD
+			,SCALE_TYPE_CD
+            ,QTY_ITEM_CD
+            ,CREATE_TYPE_CD
+        ) VALUES (
+            #{ses.gateCd}
+            ,#{EV_ITEM_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+			,#{EV_ITEM_KIND_CD_R}
+			,NULL
+			,NULL
+			,#{EV_ITEM_TYPE_CD_R}
+			,#{EV_ITEM_SUBJECT_R}
+			,#{EV_ITEM_CONTENTS_R}
+			,#{EV_ITEM_KIND_CD_R}
+			,#{EV_ITEM_METHOD_CD_R}
+			,#{SCALE_TYPE_CD_R}
+			,#{QTY_ITEM_CD}
+			,'S'
+        )
+    </insert>
+
+    <insert id="doInsertEvalItemMgtDetail" parameterType="hashMap">
+    	<selectKey keyProperty="idSeq" resultType="int" order="BEFORE">
+            SELECT <include refid="com.sql.nvl"/>(MAX(EV_ID_SQ), 0)+1 AS EV_ID_SQ FROM STOCEVID
+            WHERE EV_ITEM_NUM = #{EV_ITEM_NUM}
+              AND GATE_CD = #{ses.gateCd}
+        </selectKey>
+        INSERT INTO STOCEVID (
+	        GATE_CD
+	        ,EV_ITEM_NUM
+	    	,EV_ID_SQ
+	        ,REG_DATE
+	        ,REG_USER_ID
+	        ,MOD_DATE
+	        ,MOD_USER_ID
+	        ,DEL_FLAG
+	        ,EV_ID_ORDER
+			,EV_ID_CONTENTS
+			,EV_ID_SCORE
+			,PASS_FAIL_CD
+			,EV_ID_METHOD
+			,FROM_VALUE
+			,FROM_CONDITION_CD
+			,TO_VALUE
+			,TO_CONDITION_CD
+
+	   	)VALUES(
+	   		#{ses.gateCd}
+            ,#{EV_ITEM_NUM}
+            ,#{idSeq}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+	        ,#{EV_ID_ORDER}
+			,#{EV_ID_CONTENTS}
+			,#{EV_ID_SCORE}
+			,#{PASS_FAIL_CD}
+			,#{EV_ID_METHOD}
+			,#{FROM_VALUE}
+			,#{FROM_CONDITION_CD}
+			,#{TO_VALUE}
+			,#{TO_CONDITION_CD}
+	     )
+	</insert>
+
+	<update id="doUpdateEvalItemMgtMaster" parameterType="hashmap">
+        UPDATE STOCEVIM
+        SET
+			  MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+	        ,EV_ITEM_DIV_CD    = #{EV_ITEM_KIND_CD_R}
+			,SI_RA_TYPE          = NULL
+			,AXIS_CD           = NULL
+			,EV_ITEM_TYPE_CD   = #{EV_ITEM_TYPE_CD_R}
+			,EV_ITEM_SUBJECT     = #{EV_ITEM_SUBJECT_R}
+			,EV_ITEM_CONTENTS    = #{EV_ITEM_CONTENTS_R}
+			,EV_ITEM_KIND_CD   = #{EV_ITEM_KIND_CD_R}
+			,EV_ITEM_METHOD_CD = #{EV_ITEM_METHOD_CD_R}
+			,SCALE_TYPE_CD     = #{SCALE_TYPE_CD_R}
+			,QTY_ITEM_CD = #{QTY_ITEM_CD}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+
+    </update>
+
+	<update id="doUpdateEvalItemMgtDetail" parameterType="hashmap">
+        UPDATE STOCEVID
+        SET  EV_ID_ORDER = #{EV_ID_ORDER}
+			,EV_ID_CONTENTS = #{EV_ID_CONTENTS}
+			,EV_ID_SCORE = #{EV_ID_SCORE}
+			,PASS_FAIL_CD = #{PASS_FAIL_CD}
+			,EV_ID_METHOD = #{EV_ID_METHOD}
+			,FROM_VALUE = #{FROM_VALUE}
+			,FROM_CONDITION_CD = #{FROM_CONDITION_CD}
+			,TO_VALUE = #{TO_VALUE}
+			,TO_CONDITION_CD = #{TO_CONDITION_CD}
+
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+          AND EV_ID_SQ = #{EV_ID_SQ}
+    </update>
+
+    <update id="doDeleteEvalItemMgtMaster" parameterType="hashmap">
+        UPDATE STOCEVIM
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+    </update>
+
+    <update id="doDeleteEvalItemMgtDetail" parameterType="hashmap">
+        UPDATE STOCEVID
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+          AND EV_ID_SQ = #{EV_ID_SQ}
+    </update>
+
+    <update id="doDeleteEvalItemMgtAllDetail" parameterType="hashmap">
+        UPDATE STOCEVID
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+    </update>
+
+    <select id="doCheckEvalItemMgtDetail" parameterType="hashMap" resultType="int">
+    	SELECT COUNT(*) FROM STOCEVID
+    	WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+          AND DEL_FLAG = '0'
+
+    </select>
+
+    <select id="doCheckInTemplateItemWeight" parameterType="hashMap" resultType="int">
+    	SELECT COUNT(*) FROM STOCEVTD
+    	WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+          AND DEL_FLAG = '0'
+
+    </select>
+
+</mapper>

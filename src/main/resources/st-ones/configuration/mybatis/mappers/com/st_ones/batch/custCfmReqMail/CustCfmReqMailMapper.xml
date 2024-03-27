@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.custCfmReqMail.CustCfmReqMailMapper">
+
+	<select id="doCustCfmReqMail" resultType="hashMap">
+		SELECT
+			  APAR.GATE_CD
+			, APAR.CUST_CD
+			, MAX(CUST.CUST_NM) AS CUST_NM
+			,<include refid="com.sql.subStr"/>(MAX(APAR.CLOSING_YEAR_MONTH), 5, 2) AS CLOSING_MONTH
+			,(CASE WHEN MAX(CVUR.MAIL_FLAG) = '1' THEN MAX(CVUR.EMAIL) ELSE '' END) AS EMAIL
+			, MAX(CVUR.USER_ID) AS USER_ID
+			, MAX(CVUR.USER_NM) AS USER_NM
+			, MAX(APAR.CLOSING_NO) AS CLOSING_NO
+		  FROM STOCAPAR APAR
+		  JOIN STOCCUST CUST
+			   ON (APAR.GATE_CD  = CUST.GATE_CD
+			   AND APAR.CUST_CD  = CUST.CUST_CD
+			   AND CUST.DEL_FLAG = '0')
+		  JOIN STOCCVUR CVUR
+			   ON (APAR.GATE_CD  = CVUR.GATE_CD
+			   AND CUST.CUST_CD  = CVUR.COMPANY_CD
+			   AND CVUR.FINANCIAL_FLAG = '1'	-- 마감 및 정산권한 사용자(고객사)
+			   AND CVUR.DEL_FLAG = '0')
+		 WHERE APAR.GATE_CD  = #{ses.gateCd}
+		   AND APAR.DEL_FLAG = '0'
+		   AND <include refid="com.sql.nvl"/>(APAR.CUST_CONFIRM_FLAG, '0') = '0'		-- 고객사 확정여부
+  		   AND <include refid="com.sql.sysdate"/> - APAR.CLOSE_DATE <![CDATA[>=]]> 2	-- 마감일자 D+2일 지난 마감건
+		GROUP BY APAR.GATE_CD, APAR.CUST_CD
+	</select>
+
+</mapper>

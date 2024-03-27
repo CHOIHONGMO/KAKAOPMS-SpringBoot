@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.master.evalTemplate.SRM_100_Mapper">
+
+<!-- SRM_100 -->
+    <select id="doSearchLeftGrid" parameterType="hashMap" resultType="hashMap">
+        SELECT EVTM.EV_TPL_TYPE_CD AS EV_TPL_TYPE_CD_NM
+    		 , EVTM.EV_TPL_TYPE_CD AS EV_TPL_TYPE_CD
+    		 , EVTM.EV_TPL_SUBJECT
+			 , (SELECT COUNT(*)
+		        FROM STOCEVTD EVTD JOIN STOCEVIM EVIM
+		        ON  EVTD.GATE_CD = EVIM.GATE_CD
+		        AND EVTD.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+		        AND EVIM.DEL_FLAG = '0'
+		        WHERE EVTD.GATE_CD = EVTM.GATE_CD
+		          AND EVTD.EV_TPL_NUM = EVTM.EV_TPL_NUM
+		          AND EVTD.DEL_FLAG = '0') AS ITEM_CNT
+    		 , <include refid="com.sql.dbo"/>getGmtDate(EVTM.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS MOD_DATE
+    	     , <include refid="com.sql.dbo"/>GETUSERNAME(EVTM.GATE_CD, EVTM.MOD_USER_ID, #{ses.langCd}) AS MOD_USER_ID
+    		 , EVTM.GATE_CD
+    		 , EVTM.EV_TPL_NUM
+    	FROM STOCEVTM EVTM
+		WHERE EVTM.GATE_CD = #{ses.gateCd}
+		  AND EVTM.DEL_FLAG = '0'
+		  AND EVTM.CREATE_TYPE_CD = 'S'
+		  --AND EVTM.EV_TPL_TYPE_CD IN ('SITE', 'EXEC')
+		<if test="EVAL_KIND01 != '' and EVAL_KIND01 != null">
+		  AND EVTM.EV_TPL_TYPE_CD = #{EVAL_KIND01}
+		</if>
+		<if test="TEMPLATE_NM1 != '' and TEMPLATE_NM1 != null">
+		  AND ${TEMPLATE_NM1_L} EVTM.EV_TPL_SUBJECT ${TEMPLATE_NM1_R}
+		</if>
+		ORDER BY EVTM.EV_TPL_TYPE_CD, EVTM.EV_TPL_SUBJECT
+    </select>
+
+    <select id="doSearchRightGrid" parameterType="hashMap" resultType="hashMap">
+    	SELECT EVTD.GATE_CD
+    	 	 , EVTD.EV_ITEM_NUM
+    		 , EVTD.EV_TPL_NUM
+    		 , EVIM.EV_ITEM_KIND_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M115',EVIM.EV_ITEM_KIND_CD,0,#{ses.langCd}) AS EV_ITEM_KIND_CD_NM
+    		 , CASE WHEN EVIM.EV_ITEM_KIND_CD = 'E' THEN <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M114',EVIM.EV_ITEM_TYPE_CD,0,#{ses.langCd})
+    				ELSE <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M113',EVIM.EV_ITEM_TYPE_CD,0,#{ses.langCd})
+    				END AS EV_ITEM_TYPE_CD
+    		 , EVIM.EV_ITEM_METHOD_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M116',EVIM.EV_ITEM_METHOD_CD,0,#{ses.langCd}) AS EV_ITEM_METHOD_CD_NM
+    		 , EVIM.SCALE_TYPE_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M117',EVIM.SCALE_TYPE_CD,0,#{ses.langCd}) AS SCALE_TYPE_CD_NM
+    		 , EVIM.EV_ITEM_SUBJECT
+    		 , EVTD.WEIGHT
+    		 , EVTD.WEIGHT AS WEIGHT2
+    		 , ' ' AS STATUS
+    		 , <include refid="com.sql.nvl"/>(EVTD.SORT_SQ, 0) AS SORT_SQ
+    	FROM STOCEVTD EVTD JOIN STOCEVIM EVIM ON EVTD.GATE_CD = EVIM.GATE_CD AND EVTD.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+    	WHERE EVTD.GATE_CD = #{ses.gateCd}
+    	  AND EVTD.DEL_FLAG = '0'
+    	  AND EVIM.DEL_FLAG = '0'
+    	<if test="EV_TPL_NUM != '' and EV_TPL_NUM != null">
+    	  AND EVTD.EV_TPL_NUM = #{EV_TPL_NUM}
+    	</if>
+    	ORDER BY <include refid="com.sql.nvl"/>(EVTD.SORT_SQ, 0), EVIM.EV_ITEM_KIND_CD, EVIM.EV_ITEM_TYPE_CD, EVIM.EV_ITEM_METHOD_CD, EVIM.SCALE_TYPE_CD, EVIM.EV_ITEM_SUBJECT
+    </select>
+
+    <update id="doDeleteSTOCEVTM" parameterType="hashMap" >
+    	UPDATE STOCEVTM
+    	SET DEL_FLAG = '1'
+		  , MOD_USER_ID = #{ses.userId}
+		  , MOD_DATE = <include refid="com.sql.sysdate"/>
+		WHERE EV_TPL_NUM = #{EV_TPL_NUM}
+		  AND GATE_CD = #{ses.gateCd}
+    </update>
+
+    <update id="doDeleteSTOCEVTD" parameterType="hashMap" >
+    	UPDATE STOCEVTD
+    	SET DEL_FLAG = '1'
+		  , MOD_USER_ID = #{ses.userId}
+		  , MOD_DATE = <include refid="com.sql.sysdate"/>
+		WHERE EV_TPL_NUM = #{EV_TPL_NUM}
+		  AND GATE_CD = #{ses.gateCd}
+		  AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+    </update>
+
+    <update id="doDeleteAllSTOCEVTD" parameterType="hashMap" >
+    	UPDATE STOCEVTD
+    	SET DEL_FLAG = '1'
+		  , MOD_USER_ID = #{ses.userId}
+		  , MOD_DATE = <include refid="com.sql.sysdate"/>
+		WHERE EV_TPL_NUM = #{EV_TPL_NUM}
+		  AND GATE_CD = #{ses.gateCd}
+    </update>
+
+    <update id="doUpdateSTOCEVTM" parameterType="hashMap" >
+    	UPDATE STOCEVTM
+    	SET DEL_FLAG = '0'
+		  , MOD_USER_ID = #{ses.userId}
+		  , MOD_DATE = <include refid="com.sql.sysdate"/>
+		  , EV_TPL_SUBJECT = #{TEMPLATE_NM2}
+		  , EV_TPL_TYPE_CD = #{EVAL_KIND02}
+		WHERE EV_TPL_NUM = #{EV_TPL_NUM}
+		  AND GATE_CD = #{ses.gateCd}
+    </update>
+
+    <update id="doUpdateSTOCEVTD" parameterType="hashMap" >
+    	UPDATE STOCEVTD
+    	SET DEL_FLAG = '0'
+		  , MOD_USER_ID = #{ses.userId}
+		  , MOD_DATE = <include refid="com.sql.sysdate"/>
+		  , WEIGHT = #{WEIGHT}
+		  , SORT_SQ = #{SORT_SQ}
+		WHERE EV_TPL_NUM = #{EV_TPL_NUM}
+		  AND GATE_CD = #{ses.gateCd}
+		  AND EV_ITEM_NUM = #{EV_ITEM_NUM}
+    </update>
+
+    <insert id="doInsertSTOCEVTM" parameterType="hashMap" >
+        INSERT INTO STOCEVTM(
+            GATE_CD
+    	  , REG_DATE
+    	  , REG_USER_ID
+    	  , MOD_DATE
+    	  , MOD_USER_ID
+    	  , DEL_FLAG
+    	  , EV_TPL_NUM
+    	  , EV_TPL_SUBJECT
+    	  , EV_TPL_TYPE_CD
+    	  , CREATE_TYPE_CD
+    	) VALUES(
+    	    #{ses.gateCd}
+    	  , <include refid="com.sql.sysdate"/>
+    	  , #{ses.userId}
+		  , <include refid="com.sql.sysdate"/>
+		  , #{ses.userId}
+		  , '0'
+		  , #{EV_TPL_NUM}
+		  , #{TEMPLATE_NM2}
+    	  , #{EVAL_KIND02}
+    	  , 'S'
+    	)
+    </insert>
+
+    <insert id="doInsertSTOCEVTD" parameterType="hashMap" >
+    	INSERT INTO STOCEVTD(
+    		GATE_CD
+    	  , REG_DATE
+    	  , REG_USER_ID
+          , MOD_DATE
+    	  , MOD_USER_ID
+    	  , DEL_FLAG
+    	  , EV_ITEM_NUM
+    	  , EV_TPL_NUM
+    	  , WEIGHT
+    	  , SORT_SQ
+    	) VALUES(
+    		#{ses.gateCd}
+    	  , <include refid="com.sql.sysdate"/>
+    	  , #{ses.userId}
+		  , <include refid="com.sql.sysdate"/>
+		  , #{ses.userId}
+		  , '0'
+		  , #{EV_ITEM_NUM}
+		  , #{EV_TPL_NUM}
+    	  , #{WEIGHT}
+    	  , #{SORT_SQ}
+    	)
+    </insert>
+
+    <select id="checkExistEVTM" parameterType="hashMap" resultType="int">
+    	SELECT COUNT(*)
+    	FROM STOCEVTM EVTM
+    	WHERE EVTM.GATE_CD = #{ses.gateCd}
+    	  AND EVTM.EV_TPL_NUM = #{EV_TPL_NUM}
+    </select>
+
+    <select id="checkExistEVTD" parameterType="hashMap" resultType="int">
+    	SELECT COUNT(*)
+    	FROM STOCEVTD EVTD
+    	WHERE EVTD.GATE_CD = #{ses.gateCd}
+    	  AND EVTD.EV_TPL_NUM = #{EV_TPL_NUM}
+    	  AND EVTD.EV_ITEM_NUM = #{EV_ITEM_NUM}
+    </select>
+<!-- END SRM_100     -->
+
+<!--     SRM_101 -->
+    <select id="doSearchAppendItem" parameterType="hashMap" resultType="hashMap">
+    	SELECT CASE WHEN #{EVAL_KIND_CB} = 'S' THEN <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M113',EVIM.EV_ITEM_TYPE_CD,0,#{ses.langCd})
+    				ELSE <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M114',EVIM.EV_ITEM_TYPE_CD,0,#{ses.langCd})
+    		   END AS EV_ITEM_TYPE_CD
+    		 , EVIM.EV_ITEM_METHOD_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M116',EVIM.EV_ITEM_METHOD_CD,0,#{ses.langCd}) AS EV_ITEM_METHOD_CD_NM
+    		 , EVIM.SCALE_TYPE_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M117',EVIM.SCALE_TYPE_CD,0,#{ses.langCd}) AS SCALE_TYPE_CD_NM
+    		 , EVIM.EV_ITEM_SUBJECT
+    		 , EVIM.GATE_CD
+    		 , EVIM.EV_ITEM_NUM
+    		 , EVIM.EV_ITEM_KIND_CD
+    		 , <include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M115',EVIM.EV_ITEM_KIND_CD,0,#{ses.langCd}) AS EV_ITEM_KIND_CD_NM
+    	FROM STOCEVIM EVIM
+    	WHERE EVIM.GATE_CD = #{ses.gateCd}
+    	  AND EVIM.DEL_FLAG = '0'
+    	  AND EVIM.CREATE_TYPE_CD = 'S'
+    	  --AND EVIM.EV_ITEM_DIV_CD IN ('SITE', 'EXEC')
+    	<if test="EVAL_KIND_CB != '' and EVAL_KIND_CB != null">
+		  AND EVIM.EV_ITEM_KIND_CD = #{EVAL_KIND_CB}
+		</if>
+		<if test="EVAL_TYPE_CB != '' and EVAL_TYPE_CB != null">
+		  AND EVIM.EV_ITEM_TYPE_CD = #{EVAL_TYPE_CB}
+		</if>
+		<if test="EVAL_METHOD_CB != '' and EVAL_METHOD_CB != null">
+		  AND EVIM.EV_ITEM_METHOD_CD = #{EVAL_METHOD_CB}
+		</if>
+	    <if test="EVAL_ITEM_TXT != '' and EVAL_ITEM_TXT != null">
+		  AND EVIM.EV_ITEM_SUBJECT <include refid="com.sql.likeL"/> #{EV_ITEM_SUBJECT} <include refid="com.sql.likeR"/>
+		</if>
+    </select>
+<!-- END SRM_101 -->
+</mapper>

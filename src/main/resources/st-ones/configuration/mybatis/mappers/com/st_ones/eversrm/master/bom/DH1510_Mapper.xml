@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.bom.DH1510_Mapper">
+
+
+	<select id="checkBoma" parameterType="hashmap" resultType="java.util.Map">
+		SELECT * FROM STOCBOMA
+		WHERE GATE_CD = #{ses.gateCd}
+		AND BOM_ID    = #{BOM_ID}
+		AND BOM_REV   = #{BOM_REV}
+	</select>
+
+	<select id="DH1510_doSearch" parameterType="hashmap" resultType="java.util.Map">
+		WITH BOMTREE AS (
+			SELECT A.BOM_ID
+				 , A.ITEM_CD
+				 , A.ITEM_DESC
+				 , A.EO_NO
+				 , A.EO_DATE
+				 , A.BOM_ID
+				 , A.PARENT_BOM_ID
+				 , A.TOP_ITEM_CD
+				 , 1 LEVEL
+				 , A.BOM_SQ
+				 , A.ITEM_QT
+				 , A.BOM_REV
+				 , CONVERT(VARCHAR(2000), A.BOM_ID) AS SORT
+				 , A.GATE_CD
+				 , A.SURFACE_TR_SPEC
+			  FROM <include refid="com.sql.dbo"/>STOCBOMM A
+			 WHERE A.BOM_ID IN (SELECT BOM_ID
+								FROM STOCBOMM
+							   WHERE ITEM_CD = #{ITEM_CD}
+							     AND DEL_FLAG = '0'
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								 AND BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+							<if test="MAT_CD != '' and MAT_CD != null">
+							     AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+							</if>
+							 )
+			   AND A.BOM_REV = (SELECT max(BOM_REV)
+								FROM STOCBOMM
+							   WHERE BOM_ID = A.BOM_ID
+							     AND DEL_FLAG = '0'
+							<if test="BOM_REV != '' and BOM_REV != null">
+							<![CDATA[
+								 AND BOM_REV <= #{BOM_REV}
+							]]>
+							</if>
+							<if test="MAT_CD != '' and MAT_CD != null">
+							     AND MAT_CD <include refid="com.sql.likeL"/> #{MAT_CD} <include refid="com.sql.likeR"/>
+							</if>
+							 )
+			   AND A.DEL_FLAG = '0'
+
+			 UNION ALL
+
+			SELECT B.BOM_ID
+				 , B.ITEM_CD
+				 , B.ITEM_DESC
+				 , B.EO_NO
+				 , B.EO_DATE
+				 , B.BOM_ID
+				 , B.PARENT_BOM_ID
+				 , B.TOP_ITEM_CD
+				 , LEVEL + 1
+				 , B.BOM_SQ
+				 , B.ITEM_QT
+				 , B.BOM_REV
+				 , CONVERT(VARCHAR(2000), CONVERT(NVARCHAR(2000), C.SORT) + ':' + <include refid="com.sql.dbo"/>fn_lpad(B.BOM_SQ, 4,'0') + ' > ' + CONVERT(VARCHAR(2000), B.BOM_ID)) AS SORT
+				 , B.GATE_CD
+				 , B.SURFACE_TR_SPEC
+			  FROM STOCBOMM B
+			  JOIN BOMTREE C
+			    ON (
+			<if test="radio eq 'F'.toString()">
+				   B.PARENT_BOM_ID = C.BOM_ID
+			</if>
+			<if test="radio eq 'B'.toString()">
+				   B.BOM_ID = C.PARENT_BOM_ID
+			</if>
+			<if test="BOM_REV != '' and BOM_REV != null">
+			<![CDATA[
+			   AND B.BOM_REV <= #{BOM_REV}
+			]]>
+			</if>
+			   AND B.DEL_FLAG = '0')
+		)
+		SELECT
+			  BOMTREE.BOM_ID
+			, BOMTREE.ITEM_CD
+			, BOMTREE.ITEM_DESC
+			, BOMTREE.EO_NO
+			, <include refid="com.sql.dbo"/> getGmtDate(EO_DATE, #{ses.userGmt}, #{ses.userGmt}, <include refid="com.sql.dateFormat"/>) EO_DATE
+			, BOMTREE.ITEM_QT
+			, CASE WHEN BOMTREE.LEVEL = 1 THEN '●' ELSE '' END  A
+			, CASE WHEN BOMTREE.LEVEL = 2 THEN '●' ELSE '' END  B
+			, CASE WHEN BOMTREE.LEVEL = 3 THEN '●' ELSE '' END  C
+			, CASE WHEN BOMTREE.LEVEL = 4 THEN '●' ELSE '' END  D
+			, CASE WHEN BOMTREE.LEVEL = 5 THEN '●' ELSE '' END  E
+			, CASE WHEN BOMTREE.LEVEL = 6 THEN '●' ELSE '' END  F
+			, CASE WHEN BOMTREE.LEVEL = 7 THEN '●' ELSE '' END  G
+			, CASE WHEN BOMTREE.LEVEL = 8 THEN '●' ELSE '' END  H
+			, CASE WHEN BOMTREE.LEVEL = 9 THEN '●' ELSE '' END  I
+			, CASE WHEN BOMTREE.LEVEL = 10 THEN '●' ELSE '' END  K
+			, BOMTREE.BOM_REV
+
+
+			, BOMTREE.TOP_ITEM_CD
+			, MTGL.ITEM_DESC TOP_ITEM_NM
+			, MAT_GROUP MAT_GRP
+
+			,F.PROC01_NM
+			,F.PROC01_AMT
+			,F.PROC02_NM
+			,F.PROC02_AMT
+			,F.PROC03_NM
+			,F.PROC03_AMT
+			,F.PROC04_NM
+			,F.PROC04_AMT
+			,F.PROC05_NM
+			,F.PROC05_AMT
+			,F.PROC06_NM
+			,F.PROC06_AMT
+			,F.PROC07_NM
+			,F.PROC07_AMT
+			,F.PROC08_NM
+			,F.PROC08_AMT
+			,F.PROC09_NM
+			,F.PROC09_AMT
+			,F.PROC10_NM
+			,F.PROC10_AMT
+			,F.PROC11_NM
+			,F.PROC11_AMT
+			,F.PROC12_NM
+			,F.PROC12_AMT
+			,F.PROC13_NM
+			,F.PROC13_AMT
+			,F.PROC14_NM
+			,F.PROC14_AMT
+			,F.PROC15_NM
+			,F.PROC15_AMT
+
+
+			,BOMTREE.ITEM_QT
+			,BOMTREE.SURFACE_TR_SPEC AAAA
+			,F.CO_FLAG
+			,F.SPEC
+			,F.PRODUCTION_VENDOR
+
+
+			,<include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},<include refid="com.sql.nvl"/>(F.VENDOR_CD,E.VENDOR_CD),#{ses.langCd}) VENDOR34
+			,<include refid="com.sql.nvl"/>(F.VENDOR_CD,E.VENDOR_CD) VENDOR_CD
+
+             ,<include refid="com.sql.dbo"/>GETGMTDATE(( SELECT SIGN_DATE FROM STOCCNVD WHERE GATE_CD = E.GATE_CD AND EXEC_NUM = E.EXEC_NUM AND VENDOR_CD = E.VENDOR_CD AND SIGN_STATUS = 'E' AND DEL_FLAG = '0'), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS DEV_DATE
+
+			,F.WIDTH
+			,F.PITCH
+			,F.THICK
+			,F.QT
+			,F.MAT_CD
+			,F.WIDTH * F.PITCH DESIGN_WEIGHT
+			,F.WGT
+			,F.MOLD
+			,F.JIG
+			,F.INSP_CHAMBER
+			,F.MOLD_NEGO_AMT
+			,F.MOLD_PRE_AMT
+			,F.MOLD_MID01_AMT
+			,F.MOLD_MID01_DOC_NUM
+			,F.MOLD_MID01_DOC_CNT
+			,F.MOLD_MID01_SIGN_STATUS
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.MOLD_MID01_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) MOLD_MID01_SIGN_DATE
+
+			,F.MOLD_MID02_AMT
+			,F.MOLD_MID02_DOC_NUM
+			,F.MOLD_MID02_DOC_CNT
+			,F.MOLD_MID02_SIGN_STATUS
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.MOLD_MID02_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) MOLD_MID02_SIGN_DATE
+
+			,F.MOLD_BAL_AMT
+			,F.MOLD_BAL_DOC_NUM
+			,F.MOLD_BAL_DOC_CNT
+			,F.MOLD_BAL_SIGN_STATUS
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.MOLD_BAL_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) MOLD_BAL_SIGN_DATE
+
+			,F.JIG_NEGO_AMT
+			,F.JIG_PRE_AMT
+			,F.JIG_MID_AMT
+			,F.JIG_MID_DOC_NUM
+			,F.JIG_MID_DOC_CNT
+			,F.JIG_MID_SIGN_STATUS
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.JIG_MID_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) JIG_MID_SIGN_DATE
+
+			,F.JIG_BAL_AMT
+			,F.JIG_BAL_DOC_NUM
+			,F.JIG_BAL_DOC_CNT
+			,F.JIG_BAL_SIGN_STATUS
+
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.JIG_BAL_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) JIG_BAL_SIGN_DATE
+
+
+			,F.INSP_NEGO_AMT
+			,F.INSP_PRE_AMT
+			,F.INSP_MID_AMT
+			,F.INSP_MID_DOC_NUM
+			,F.INSP_MID_DOC_CNT
+			,F.INSP_MID_SIGN_STATUS
+
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.INSP_MID_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) INSP_MID_SIGN_DATE
+
+
+			,F.INSP_BAL_AMT
+			,F.INSP_BAL_DOC_NUM
+			,F.INSP_BAL_DOC_CNT
+			,F.INSP_BAL_SIGN_STATUS
+
+
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.INSP_BAL_SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) INSP_BAL_SIGN_DATE
+
+			,<include refid="com.sql.dbo"/>GETGMTDATE(F.ISIR_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) ISIR_DATE
+			,(
+				SELECT T.SQ_GRADE_CD FROM STOCEVSQ T
+				WHERE T.VENDOR_CD = E.VENDOR_CD
+				AND T.GATE_CD = E.GATE_CD
+				AND EV_DATE = (
+					SELECT MAX(EV_DATE) FROM STOCEVSQ
+					WHERE GATE_CD = F.GATE_CD
+					AND VENDOR_CD = T.VENDOR_CD
+					AND DEL_FLAG = '0'
+				)
+				AND T.DEL_FLAG = '0'
+			) IDENT_SQ
+			,G.CEO_USER_NM CEO_NM
+			,G.ADDR+G.ADDR_ETC ADDR
+			,G.REP_TEL_NUM TEL_NUM
+			,F.VENDOR_SIGN_STATUS
+			,F.USER_NM
+			,F.RMK
+
+
+
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.MOLD_MID01_SIGN_STATUS, #{ses.langCd} )  MOLD_MID01_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.MOLD_MID02_SIGN_STATUS, #{ses.langCd} )  MOLD_MID02_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.MOLD_BAL_SIGN_STATUS, #{ses.langCd} )  MOLD_BAL_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.JIG_MID_SIGN_STATUS, #{ses.langCd} )  JIG_MID_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.JIG_BAL_SIGN_STATUS, #{ses.langCd} )  JIG_BAL_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.INSP_MID_SIGN_STATUS, #{ses.langCd} )  INSP_MID_IMG
+			,<include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', F.INSP_BAL_SIGN_STATUS, #{ses.langCd} )  INSP_BAL_IMG
+
+		  FROM BOMTREE
+		  LEFT OUTER JOIN STOCMTGL MTGL
+			ON(BOMTREE.TOP_ITEM_CD = MTGL.ITEM_CD
+		    AND BOMTREE.GATE_CD = MTGL.GATE_CD)
+		  LEFT OUTER JOIN STOCINFO E ON BOMTREE.GATE_CD = E.GATE_CD
+					  AND BOMTREE.ITEM_CD = E.ITEM_CD
+					  AND E.DEL_FLAG = '0'
+					  AND <include refid="com.sql.sysdate"/> BETWEEN E.VALID_FROM_DATE AND E.VALID_TO_DATE
+					 <if test="VENDOR_CD != '' and VENDOR_CD != null">
+					   AND E.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					 </if>
+		  LEFT OUTER JOIN STOCVNGL G ON G.GATE_CD = E.GATE_CD
+		  				AND G.VENDOR_CD = E.VENDOR_CD
+		  				AND G.DEL_FLAG ='0'
+
+		  LEFT OUTER JOIN STOCBOMA F ON BOMTREE.GATE_CD = F.GATE_CD
+						  				AND BOMTREE.BOM_ID = F.BOM_ID
+						  				AND BOMTREE.BOM_REV = F.BOM_REV
+						  				AND F.DEL_FLAG = '0'
+					 <if test="VENDOR_CD != '' and VENDOR_CD != null">
+					   AND F.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/>
+					 </if>
+
+		 ORDER BY SORT ASC
+	</select>
+
+
+    <insert id="doMergeBoma" parameterType="hashMap">
+
+    MERGE INTO STOCBOMA A
+        USING (
+	        SELECT
+	         #{ses.gateCd} GATE_CD
+	        ,#{BOM_ID} BOM_ID
+	        ,#{BOM_REV} BOM_REV
+
+	        <include refid="com.sql.dual"/>
+        ) B
+	    ON (A.GATE_CD = B.GATE_CD
+        	  AND A.BOM_ID = B.BOM_ID
+        	  AND A.BOM_REV = B.BOM_REV
+        )
+        WHEN MATCHED THEN
+        UPDATE SET
+			 MOD_DATE= <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID= #{ses.userId}
+			,PROC01_NM= #{PROC01_NM}
+			,PROC02_NM= #{PROC02_NM}
+			,PROC03_NM= #{PROC03_NM}
+			,PROC04_NM= #{PROC04_NM}
+			,PROC05_NM= #{PROC05_NM}
+			,PROC06_NM= #{PROC06_NM}
+			,PROC07_NM= #{PROC07_NM}
+			,PROC08_NM= #{PROC08_NM}
+			,PROC09_NM= #{PROC09_NM}
+			,PROC10_NM= #{PROC10_NM}
+			,PROC11_NM= #{PROC11_NM}
+			,PROC12_NM= #{PROC12_NM}
+			,PROC13_NM= #{PROC13_NM}
+			,PROC14_NM= #{PROC14_NM}
+			,PROC15_NM= #{PROC15_NM}
+			,PROC01_AMT= #{PROC01_AMT}
+			,PROC02_AMT= #{PROC02_AMT}
+			,PROC03_AMT= #{PROC03_AMT}
+			,PROC04_AMT= #{PROC04_AMT}
+			,PROC05_AMT= #{PROC05_AMT}
+			,PROC06_AMT= #{PROC06_AMT}
+			,PROC07_AMT= #{PROC07_AMT}
+			,PROC08_AMT= #{PROC08_AMT}
+			,PROC09_AMT= #{PROC09_AMT}
+			,PROC10_AMT= #{PROC10_AMT}
+			,PROC11_AMT= #{PROC11_AMT}
+			,PROC12_AMT= #{PROC12_AMT}
+			,PROC13_AMT= #{PROC13_AMT}
+			,PROC14_AMT= #{PROC14_AMT}
+			,PROC15_AMT= #{PROC15_AMT}
+			,CO_FLAG= #{CO_FLAG}
+			,SPEC= #{SPEC}
+			,PRODUCTION_VENDOR= #{PRODUCTION_VENDOR}
+			,DEV_REQ_DATE= #{DEV_REQ_DATE}
+			,WIDTH= #{WIDTH}
+			,PITCH= #{PITCH}
+			,THICK= #{THICK}
+			,QT= #{QT}
+			,MAT_CD= #{MAT_CD}
+			,WGT= #{WGT}
+			,MOLD= #{MOLD}
+			,JIG= #{JIG}
+			,INSP_CHAMBER= #{INSP_CHAMBER}
+			,MOLD_NEGO_AMT= #{MOLD_NEGO_AMT}
+			,MOLD_PRE_AMT= #{MOLD_PRE_AMT}
+			,MOLD_MID01_AMT= #{MOLD_MID01_AMT}
+			,MOLD_MID02_AMT= #{MOLD_MID02_AMT}
+			,MOLD_BAL_AMT= #{MOLD_BAL_AMT}
+			,JIG_NEGO_AMT= #{JIG_NEGO_AMT}
+			,JIG_PRE_AMT= #{JIG_PRE_AMT}
+			,JIG_MID_AMT= #{JIG_MID_AMT}
+			,JIG_BAL_AMT= #{JIG_BAL_AMT}
+			,INSP_NEGO_AMT= #{INSP_NEGO_AMT}
+			,INSP_PRE_AMT= #{INSP_PRE_AMT}
+			,INSP_MID_AMT= #{INSP_MID_AMT}
+			,INSP_BAL_AMT= #{INSP_BAL_AMT}
+
+			,ISIR_DATE= #{ISIR_DATE}
+			,USER_NM= #{USER_NM}
+
+			,VENDOR_DOC_NUM= #{VENDOR_DOC_NUM}
+			,VENDOR_DOC_CNT= #{VENDOR_DOC_CNT}
+			,VENDOR_SIGN_STATUS= #{VENDOR_SIGN_STATUS}
+
+			,MOLD_MID01_DOC_NUM= #{MOLD_MID01_DOC_NUM}
+			,MOLD_MID01_DOC_CNT= #{MOLD_MID01_DOC_CNT}
+			,MOLD_MID01_SIGN_STATUS= #{MOLD_MID01_SIGN_STATUS}
+
+			,MOLD_MID02_DOC_NUM= #{MOLD_MID02_DOC_NUM}
+			,MOLD_MID02_DOC_CNT= #{MOLD_MID02_DOC_CNT}
+			,MOLD_MID02_SIGN_STATUS= #{MOLD_MID02_SIGN_STATUS}
+
+			,MOLD_BAL_DOC_NUM= #{MOLD_BAL_DOC_NUM}
+			,MOLD_BAL_DOC_CNT= #{MOLD_BAL_DOC_CNT}
+			,MOLD_BAL_SIGN_STATUS= #{MOLD_BAL_SIGN_STATUS}
+
+			,JIG_MID_DOC_NUM= #{JIG_MID_DOC_NUM}
+			,JIG_MID_DOC_CNT= #{JIG_MID_DOC_CNT}
+			,JIG_MID_SIGN_STATUS= #{JIG_MID_SIGN_STATUS}
+
+			,JIG_BAL_DOC_NUM= #{JIG_BAL_DOC_NUM}
+			,JIG_BAL_DOC_CNT= #{JIG_BAL_DOC_CNT}
+			,JIG_BAL_SIGN_STATUS= #{JIG_BAL_SIGN_STATUS}
+
+			,INSP_MID_DOC_NUM= #{INSP_MID_DOC_NUM}
+			,INSP_MID_DOC_CNT= #{INSP_MID_DOC_CNT}
+			,INSP_MID_SIGN_STATUS= #{INSP_MID_SIGN_STATUS}
+
+			,INSP_BAL_DOC_NUM= #{INSP_BAL_DOC_NUM}
+			,INSP_BAL_DOC_CNT= #{INSP_BAL_DOC_CNT}
+			,INSP_BAL_SIGN_STATUS= #{INSP_BAL_SIGN_STATUS}
+
+			,VENDOR_CD= #{VENDOR_CD}
+			,RMK= #{RMK}
+
+
+        WHEN NOT MATCHED THEN
+		INSERT (
+			 GATE_CD
+			,BOM_ID
+			,BOM_REV
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,PROC01_NM
+			,PROC02_NM
+			,PROC03_NM
+			,PROC04_NM
+			,PROC05_NM
+			,PROC06_NM
+			,PROC07_NM
+			,PROC08_NM
+			,PROC09_NM
+			,PROC10_NM
+			,PROC11_NM
+			,PROC12_NM
+			,PROC13_NM
+			,PROC14_NM
+			,PROC15_NM
+			,PROC01_AMT
+			,PROC02_AMT
+			,PROC03_AMT
+			,PROC04_AMT
+			,PROC05_AMT
+			,PROC06_AMT
+			,PROC07_AMT
+			,PROC08_AMT
+			,PROC09_AMT
+			,PROC10_AMT
+			,PROC11_AMT
+			,PROC12_AMT
+			,PROC13_AMT
+			,PROC14_AMT
+			,PROC15_AMT
+			,CO_FLAG
+			,SPEC
+			,PRODUCTION_VENDOR
+			,DEV_REQ_DATE
+			,WIDTH
+			,PITCH
+			,THICK
+			,QT
+			,MAT_CD
+			,WGT
+			,MOLD
+			,JIG
+			,INSP_CHAMBER
+			,MOLD_NEGO_AMT
+			,MOLD_PRE_AMT
+			,MOLD_MID01_AMT
+			,MOLD_MID01_DOC_NUM
+			,MOLD_MID01_DOC_CNT
+			,MOLD_MID01_SIGN_STATUS
+			,MOLD_MID01_SIGN_DATE
+			,MOLD_MID02_AMT
+			,MOLD_MID02_DOC_NUM
+			,MOLD_MID02_DOC_CNT
+			,MOLD_MID02_SIGN_STATUS
+			,MOLD_MID02_SIGN_DATE
+			,MOLD_BAL_AMT
+			,MOLD_BAL_DOC_NUM
+			,MOLD_BAL_DOC_CNT
+			,MOLD_BAL_SIGN_STATUS
+			,MOLD_BAL_SIGN_DATE
+			,JIG_NEGO_AMT
+			,JIG_PRE_AMT
+			,JIG_MID_AMT
+			,JIG_MID_DOC_NUM
+			,JIG_MID_DOC_CNT
+			,JIG_MID_SIGN_STATUS
+			,JIG_MID_SIGN_DATE
+			,JIG_BAL_AMT
+			,JIG_BAL_DOC_NUM
+			,JIG_BAL_DOC_CNT
+			,JIG_BAL_SIGN_STATUS
+			,JIG_BAL_SIGN_DATE
+			,INSP_NEGO_AMT
+			,INSP_PRE_AMT
+			,INSP_MID_AMT
+			,INSP_MID_DOC_NUM
+			,INSP_MID_DOC_CNT
+			,INSP_MID_SIGN_STATUS
+			,INSP_MID_SIGN_DATE
+			,INSP_BAL_AMT
+			,INSP_BAL_DOC_NUM
+			,INSP_BAL_DOC_CNT
+			,INSP_BAL_SIGN_STATUS
+			,INSP_BAL_SIGN_DATE
+			,ISIR_DATE
+			,USER_NM
+			,VENDOR_DOC_NUM
+			,VENDOR_DOC_CNT
+			,VENDOR_SIGN_STATUS
+			,VENDOR_SIGN_DATE
+			,VENDOR_CD
+			,RMK
+    	) VALUES (
+			 #{ses.gateCd}
+			,#{BOM_ID}
+			,#{BOM_REV}
+
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+
+			,#{PROC01_NM}
+			,#{PROC02_NM}
+			,#{PROC03_NM}
+			,#{PROC04_NM}
+			,#{PROC05_NM}
+			,#{PROC06_NM}
+			,#{PROC07_NM}
+			,#{PROC08_NM}
+			,#{PROC09_NM}
+			,#{PROC10_NM}
+			,#{PROC11_NM}
+			,#{PROC12_NM}
+			,#{PROC13_NM}
+			,#{PROC14_NM}
+			,#{PROC15_NM}
+			,#{PROC01_AMT}
+			,#{PROC02_AMT}
+			,#{PROC03_AMT}
+			,#{PROC04_AMT}
+			,#{PROC05_AMT}
+			,#{PROC06_AMT}
+			,#{PROC07_AMT}
+			,#{PROC08_AMT}
+			,#{PROC09_AMT}
+			,#{PROC10_AMT}
+			,#{PROC11_AMT}
+			,#{PROC12_AMT}
+			,#{PROC13_AMT}
+			,#{PROC14_AMT}
+			,#{PROC15_AMT}
+			,#{CO_FLAG}
+			,#{SPEC}
+			,#{PRODUCTION_VENDOR}
+			,#{DEV_REQ_DATE}
+			,#{WIDTH}
+			,#{PITCH}
+			,#{THICK}
+			,#{QT}
+			,#{MAT_CD}
+			,#{WGT}
+			,#{MOLD}
+			,#{JIG}
+			,#{INSP_CHAMBER}
+			,#{MOLD_NEGO_AMT}
+			,#{MOLD_PRE_AMT}
+			,#{MOLD_MID01_AMT}
+			,#{MOLD_MID01_DOC_NUM}
+			,#{MOLD_MID01_DOC_CNT}
+			,#{MOLD_MID01_SIGN_STATUS}
+			,#{MOLD_MID01_SIGN_DATE}
+			,#{MOLD_MID02_AMT}
+			,#{MOLD_MID02_DOC_NUM}
+			,#{MOLD_MID02_DOC_CNT}
+			,#{MOLD_MID02_SIGN_STATUS}
+			,#{MOLD_MID02_SIGN_DATE}
+			,#{MOLD_BAL_AMT}
+			,#{MOLD_BAL_DOC_NUM}
+			,#{MOLD_BAL_DOC_CNT}
+			,#{MOLD_BAL_SIGN_STATUS}
+			,#{MOLD_BAL_SIGN_DATE}
+			,#{JIG_NEGO_AMT}
+			,#{JIG_PRE_AMT}
+			,#{JIG_MID_AMT}
+			,#{JIG_MID_DOC_NUM}
+			,#{JIG_MID_DOC_CNT}
+			,#{JIG_MID_SIGN_STATUS}
+			,#{JIG_MID_SIGN_DATE}
+			,#{JIG_BAL_AMT}
+			,#{JIG_BAL_DOC_NUM}
+			,#{JIG_BAL_DOC_CNT}
+			,#{JIG_BAL_SIGN_STATUS}
+			,#{JIG_BAL_SIGN_DATE}
+			,#{INSP_NEGO_AMT}
+			,#{INSP_PRE_AMT}
+			,#{INSP_MID_AMT}
+			,#{INSP_MID_DOC_NUM}
+			,#{INSP_MID_DOC_CNT}
+			,#{INSP_MID_SIGN_STATUS}
+			,#{INSP_MID_SIGN_DATE}
+			,#{INSP_BAL_AMT}
+			,#{INSP_BAL_DOC_NUM}
+			,#{INSP_BAL_DOC_CNT}
+			,#{INSP_BAL_SIGN_STATUS}
+			,#{INSP_BAL_SIGN_DATE}
+			,#{ISIR_DATE}
+			,#{USER_NM}
+			,#{VENDOR_DOC_NUM}
+			,#{VENDOR_DOC_CNT}
+			,#{VENDOR_SIGN_STATUS}
+			,#{VENDOR_SIGN_DATE}
+			,#{VENDOR_CD}
+			,#{RMK}
+    	<include refid="com.sql.mergeEnd"/>
+
+    </insert>
+
+    <!-- 금형 중간 1차 -->
+    <update id="doExecBama1" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             MOLD_MID01_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,MOLD_MID01_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND MOLD_MID01_DOC_NUM = #{APP_DOC_NUM}
+           AND MOLD_MID01_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 금형 중간 2차 -->
+    <update id="doExecBama2" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             MOLD_MID02_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,MOLD_MID02_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND MOLD_MID02_DOC_NUM = #{APP_DOC_NUM}
+           AND MOLD_MID02_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 금형 완료 -->
+    <update id="doExecBama3" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             MOLD_BAL_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,MOLD_BAL_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND MOLD_BAL_DOC_NUM = #{APP_DOC_NUM}
+           AND MOLD_BAL_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 지그 중간 -->
+    <update id="doExecBama4" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             JIG_MID_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,JIG_MID_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND JIG_MID_DOC_NUM = #{APP_DOC_NUM}
+           AND JIG_MID_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 지그 완료 -->
+    <update id="doExecBama5" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             JIG_BAL_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,JIG_BAL_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND JIG_BAL_DOC_NUM = #{APP_DOC_NUM}
+           AND JIG_BAL_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 검사구 중간 -->
+    <update id="doExecBama6" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             INSP_MID_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,INSP_MID_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND INSP_MID_DOC_NUM = #{APP_DOC_NUM}
+           AND INSP_MID_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 검사구 완료 -->
+    <update id="doExecBama7" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             INSP_BAL_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,INSP_BAL_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND INSP_BAL_DOC_NUM = #{APP_DOC_NUM}
+           AND INSP_BAL_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+    <!-- 2차협력회사 현황보고 -->
+    <update id="doExecBama8" parameterType="hashmap">
+        UPDATE STOCBOMA SET
+             VENDOR_SIGN_STATUS = #{SIGN_STATUS}
+        <if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+            ,VENDOR_SIGN_DATE = <include refid="com.sql.sysdate"/>
+        </if>
+        WHERE GATE_CD = #{ses.gateCd}
+           AND VENDOR_DOC_NUM = #{APP_DOC_NUM}
+           AND VENDOR_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+</mapper>
+

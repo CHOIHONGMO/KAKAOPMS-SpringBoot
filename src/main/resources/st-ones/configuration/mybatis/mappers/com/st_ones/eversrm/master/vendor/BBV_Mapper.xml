@@ -1,0 +1,3113 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:41
+	KST 2012 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.eversrm.master.vendor.BBV_Mapper">
+
+	<select id="getAdditionalColumnInfos" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			EVTM.EV_TPL_NUM
+			,EVTM.EV_TPL_SUBJECT
+			,'EV_NUM_'||EVTM.EV_TPL_NUM AS EV_NUM
+			,'EV_NM_'||EVTM.EV_TPL_NUM AS EV_NM
+			,'P_CD_'||EVTM.EV_TPL_NUM AS P_CD
+			,'SCORE_'||EVTM.EV_TPL_NUM AS SCORE
+
+		FROM STOCEVTM EVTM
+		WHERE EVTM.GATE_CD = #{ses.gateCd}
+		AND EVTM.DEL_FLAG = '0'
+		AND EVTM.CREATE_TYPE_CD = 'S'
+		AND EVTM.EV_TPL_TYPE_CD ='SCRE'
+		ORDER BY EVTM.EV_TPL_TYPE_CD, EVTM.EV_TPL_SUBJECT
+
+	</select>
+
+	<select id="getSupConfirmList" parameterType="hashmap" resultType="hashMap">
+		SELECT GATE_CD
+		       ,PROGRESS_CD
+		       ,VENDOR_CD
+		       ,VENDOR_NM
+			   ,REG_TYPE
+		       ,IRS_NUM
+			   , CEO_USER_NM AS CEO_USER_NM
+		       ,COMPANY_REG_NUM
+			   ,PAY_CD
+			   , REP_TEL_NUM  AS REP_TEL_NUM
+		       ,INDUSTRY_TYPE
+		       ,BUSINESS_TYPE
+			   ,REJECT_RMK
+		       ,<include refid="com.sql.dbo"/>GETGMTDATE(SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SIGN_DATE
+			   ,<include refid="com.sql.dbo"/>GETCOMCODE(GATE_CD, 'M020', SIGN_STATUS, '0', #{ses.langCd}) AS SIGN_STATUS
+               ,APP_DOC_NUM
+               ,APP_DOC_CNT
+			   ,<include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi') AS REG_DATE
+
+				<foreach item="additionalColumnInfo" collection="additionalColumnInfoList">
+					,(SELECT MAX(EV_NUM) FROM STOCEVVM WHERE VENDOR_CD = V.VENDOR_CD AND SCRE_EV_TPL_NUM = #{additionalColumnInfo.EV_TPL_NUM} AND DEL_FLAG='0') AS ${additionalColumnInfo.EV_NUM}
+					,(SELECT MAX(EV_NM) FROM STOCEVVM WHERE VENDOR_CD = V.VENDOR_CD AND SCRE_EV_TPL_NUM = #{additionalColumnInfo.EV_TPL_NUM} AND DEL_FLAG='0') AS ${additionalColumnInfo.EV_NM}
+					,(SELECT MAX(PROGRESS_CD) FROM STOCEVVM WHERE VENDOR_CD = V.VENDOR_CD AND SCRE_EV_TPL_NUM = #{additionalColumnInfo.EV_TPL_NUM} AND DEL_FLAG='0') AS ${additionalColumnInfo.P_CD}
+					,(SELECT MAX(EV_SCORE) FROM STOCEVVM WHERE VENDOR_CD = V.VENDOR_CD AND SCRE_EV_TPL_NUM = #{additionalColumnInfo.EV_TPL_NUM} AND DEL_FLAG='0') AS ${additionalColumnInfo.SCORE}
+
+				</foreach>
+
+		  FROM STOCVNGL V
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND DEL_FLAG = '0'
+		   AND DATA_CREATION_TYPE = 'S'
+		   AND PROGRESS_CD !='E'
+		<if test="S_VENDOR_CD !='' and S_VENDOR_CD !=null">
+			AND UPPER(VENDOR_CD) <include refid="com.sql.likeL"/> #{S_VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="S_VENDOR_NM !='' and S_VENDOR_NM !=null">
+			AND VENDOR_NM <include refid="com.sql.likeL"/> #{S_VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="REG_TYPE != '' and REG_TYPE != null">
+			AND REG_TYPE = #{REG_TYPE}
+		</if>
+		<if test="IRS_NUM != '' and IRS_NUM != null">
+			AND IRS_NUM <include refid="com.sql.likeL"/> #{IRS_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PAY_CD !='' and PAY_CD !=null">
+			AND PAY_CD <include refid="com.sql.likeL"/> #{PAY_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="REG_FROM_DATE != '' and REG_FROM_DATE != null">
+			AND <![CDATA[ REG_DATE >= <include refid="com.sql.toDate"/>#{REG_FROM_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		</if>
+		<if test="REG_TO_DATE != '' and REG_TO_DATE != null">
+			AND <![CDATA[ REG_DATE <= <include refid="com.sql.toDate"/>#{REG_TO_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		</if>
+		ORDER BY REG_DATE DESC
+
+	</select>
+
+	<!-- 일반구매:신규협력회사대기현황에서 "승인"시 -->
+	<update id="doConfirm" parameterType="hashMap">
+		UPDATE STOCVNGL SET
+		       PROGRESS_CD = 'E',
+		       REJECT_RMK = #{REJECT_RMK},
+		       SIGN_STATUS = 'E',
+		       VENDOR_TYPE = 'B',
+		       SIGN_DATE = <include refid="com.sql.sysdate"/>,
+		       MOD_DATE = <include refid="com.sql.sysdate"/>,
+		       MOD_USER_ID = #{ses.userId},
+		       CONFIRM_USER_ID = <include refid="com.sql.sysdate"/>,
+			   CONFIRM_DATE = #{ses.userId}
+		 WHERE GATE_CD = #{GATE_CD}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<update id="doConfirm_USER" parameterType="hashMap">
+		UPDATE STOCCVUR SET
+			PROGRESS_CD = 'E',
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		AND COMPANY_CD = #{VENDOR_CD}
+		AND DEL_FLAG='0'
+	</update>
+
+	<select id="doSelectVendor" parameterType="hashmap" resultType="hashmap">
+
+		SELECT
+			IRS_NUM
+			,VENDOR_NM
+			, CEO_USER_NM AS CEO_USER_NM
+			,COMPANY_REG_NUM
+			, ZIP_CD  AS ZIP_CD
+			, ADDR  AS ADDR
+			, ADDR_ETC  AS ADDR_ETC
+			,BUSINESS_TYPE
+			,INDUSTRY_TYPE
+
+		FROM STOCVNGL
+		WHERE GATE_CD=#{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+
+	</select>
+
+	<update id="doReject" parameterType="hashMap">
+		UPDATE STOCVNGL SET
+		       PROGRESS_CD = 'R',
+		       SIGN_STATUS = 'R',
+		       VENDOR_TYPE = 'X',
+		       SIGN_DATE = <include refid="com.sql.sysdate"/>,
+		       REJECT_RMK = #{REJECT_RMK},
+		       MOD_DATE = <include refid="com.sql.sysdate"/>,
+		       MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{GATE_CD}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<update id="supConfirmListGetApproval" parameterType="hashMap">
+        UPDATE STOCVNGL SET
+               PROGRESS_CD = 'P',
+               SIGN_STATUS = 'P',
+               SIGN_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_DATE = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID = #{ses.userId},
+               APP_DOC_NUM = #{APP_DOC_NUM},
+               APP_DOC_CNT = CASE WHEN #{APP_DOC_CNT} = '' THEN NULL ELSE #{APP_DOC_CNT} END
+         WHERE GATE_CD = #{GATE_CD}
+           AND VENDOR_CD = #{VENDOR_CD}
+    </update>
+
+	<update id="updateSignStatus" parameterType="hashMap">
+        UPDATE STOCVNGL SET
+               MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+        	<if test='PROGRESS_CD == "E" or PROGRESS_CD == "R"'>
+              ,PROGRESS_CD = #{PROGRESS_CD}
+        	</if>
+              ,SIGN_STATUS = #{SIGN_STATUS}
+        	<if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+              ,SIGN_DATE = <include refid="com.sql.sysdate"/>
+        	</if>
+        	<if test='SIGN_STATUS == "E"'>
+			  ,VENDOR_TYPE = #{VENDOR_TYPE}
+			  ,JOB_SQ = '1'
+        	</if>
+         WHERE GATE_CD = #{ses.gateCd}
+           AND APP_DOC_NUM = #{APP_DOC_NUM}
+           AND APP_DOC_CNT = #{APP_DOC_CNT}
+    </update>
+
+
+	<!-- supStatus -->
+	<select id="getVendorStatus" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			 PROGRESS_CD
+			,VENDOR_CD
+			,VENDOR_NM
+			,REG_TYPE
+			, CEO_USER_NM AS CEO_USER_NM
+			,IRS_NUM
+			,COMPANY_REG_NUM AS COMPANY_REG_NUM
+			,PAY_CD
+			, REP_TEL_NUM  AS REP_TEL_NUM
+			, REP_FAX_NUM  AS REP_FAX_NUM
+		    ,<include refid="com.sql.toDateChar"/>(SIGN_DATE, 'YYYY-MM-DD HH24:MI') AS SIGN_DATE
+			,<include refid="com.sql.toDateChar"/>(REG_DATE, 'YYYY-MM-DD HH24:MI') AS REG_DATE
+			,GETUSERNAME(GATE_CD, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			,<include refid="com.sql.toDateChar"/>(MOD_DATE, 'YYYY-MM-DD HH24:MI') AS MOD_DATE
+			,GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+			,(SELECT COUNT(EV_NUM) FROM STOCEVVM WHERE GATE_CD = '100' AND VENDOR_CD = VNGL.VENDOR_CD AND PROGRESS_CD != '300') AS EVVM_PROGRESS
+		  FROM STOCVNGL VNGL
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		    AND VNGL.DEL_FLAG = '0'
+		<if test="PROGRESS_CD !='' and PROGRESS_CD !=null">
+	        AND VNGL.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="S_VENDOR_CD !='' and S_VENDOR_CD !=null">
+			AND UPPER(VNGL.VENDOR_CD) <include refid="com.sql.likeL"/> #{S_VENDOR_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="S_VENDOR_NM !='' and S_VENDOR_NM !=null">
+			AND VNGL.VENDOR_NM <include refid="com.sql.likeL"/> #{S_VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="IRS_NUM !='' and IRS_NUM !=null">
+			AND IRS_NUM <include refid="com.sql.likeL"/> #{IRS_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PAY_CD !='' and PAY_CD !=null">
+	        AND PAY_CD <include refid="com.sql.likeL"/> #{PAY_CD} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="START_DATE != '' and START_DATE != null">
+			AND <![CDATA[ REG_DATE >= <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		</if>
+		<if test="END_DATE != '' and END_DATE != null">
+			AND <![CDATA[ REG_DATE <= <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS') ]]>
+		</if>
+		<!--<if test="CONTRACT_GUBUN !='' and CONTRACT_GUBUN !=null">
+			AND EXISTS (SELECT 'Y'
+			              FROM STOCVNRG RG
+			             WHERE RG.GATE_CD   = GL.GATE_CD
+			               AND RG.VENDOR_CD = GL.VENDOR_CD
+			               AND RG.REGION_CD = #{REGION_CD}
+			               AND RG.DEL_FLAG  = '0')
+
+		</if>-->
+
+		<if test="CONT_TYPE !='' and CONT_TYPE !=null">
+			AND VENDOR_CD IN ( SELECT
+									ECCT.VENDOR_CD
+							   FROM STOCECCT ECCT
+							   LEFT OUTER JOIN STOCECRL ECRL
+							   ON (ECCT.GATE_CD = ECRL.GATE_CD
+								 AND ECCT.CONT_NUM = ECRL.CONT_NUM
+								 AND ECCT.CONT_CNT = ECRL.CONT_CNT
+								 AND ECRL.DEL_FLAG='0')
+							   WHERE ECCT.GATE_CD=#{ses.gateCd}
+								 AND ECCT.DEL_FLAG= '0'
+								 AND ECCT.ECRL.FORM_NUM =#{CONT_TYPE})
+		</if>
+	</select>
+
+	<update id="doTransaction" parameterType="hashMap">
+		UPDATE STOCVNGL SET
+			SIGN_STATUS = 'T1',
+			SIGN_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<update id="doSuspension" parameterType="hashMap">
+		UPDATE STOCVNGL SET
+			SIGN_STATUS = 'S1',
+			SIGN_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<!-- supManagement -->
+
+	<select id="getVenderInfo" parameterType="hashmap" resultType="hashmap">
+
+		SELECT VNGL.GATE_CD
+		      ,VNGL.VENDOR_CD
+		      ,VNGL.VENDOR_CD AS VENDOR_CD_ORI
+		      ,VNGL.VENDOR_NM
+		      ,VNGL.VENDOR_NM_ENG
+		      ,VNGL.VENDOR_TYPE
+			  ,VNGL.REG_TYPE
+			  ,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M014', VNGL.REG_TYPE, 0, #{ses.langCd}) AS REG_TYPE_NM
+		      ,VNGL.SHIPPER_TYPE
+		      ,VNGL.PARTNER_TYPE
+		      ,VNGL.IRS_NUM
+		      ,VNGL.COMPANY_REG_NUM
+		      ,VNGL.BUSINESS_TYPE
+		      ,VNGL.INDUSTRY_TYPE
+		      ,VNGL.CEO_USER_NM
+		      ,VNGL.CEO_USER_NM_ENG
+		      ,VNGL.REP_TEL_NUM
+			  ,VNGL.REP_FAX_NUM
+		      ,VNGL.REP_EMAIL
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(VNGL.FOUNDATION_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS FOUNDATION_DATE
+		      ,VNGL.COUNTRY_CD
+		      ,VNGL.CITY_DESC
+		      ,VNGL.DUNS_NUM
+			  ,VNGL.ZIP_CD
+			  ,VNGL.ADDR
+			  ,VNGL.ADDR_ETC
+		      ,VNGL.ATT_FILE_NUM
+		      ,VNGL.BANK_CD
+		      ,VNGL.DEPOSITOR_NM
+		      ,VNGL.BANK_ACCT_NUM
+		      ,VNGL.PAY_TERMS
+		      ,VNGL.VENDOR_STATUS_CD
+		      ,VNGL.SALES_AMT
+		      ,VNGL.MAJOR_ITEM_TEXT
+		      ,CASE WHEN VNGL.GROUP_COMPANY_DEAL_FLAG = '1' THEN VNGL.GROUP_COMPANY_DEAL_FLAG ELSE '0' END as GROUP_COMPANY_DEAL_FLAG
+			  ,VNGL.NORMAL_PURCHASE_FLAG
+			  ,VNGL.ITEM_PURCHASE_FLAG
+			  ,VNGL.DEAL_SQ_CD
+			  ,VNGL.VAATZ_VENDOR_CD
+			  ,VNGL.PREV_IRS_NO
+			  ,CASE WHEN VNGL.ACCOUNT_GROUP_CD IS NULL OR VNGL.ACCOUNT_GROUP_CD = '' THEN '6000' ELSE VNGL.ACCOUNT_GROUP_CD END AS ACCOUNT_GROUP_CD
+			  ,CASE WHEN VNGL.SORT_COLUMN IS NULL OR VNGL.SORT_COLUMN = '' THEN VNGL.VENDOR_NM ELSE VNGL.SORT_COLUMN END AS SORT_COLUMN
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(VNGL.DEAL_CLOSE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DEAL_CLOSE_DATE
+			  ,VNGL.DEAL_CLOSE_USER_ID
+			  ,VNGL.DEAL_CLOSE_RMK
+			  ,VNGL.CEO_LAST_SCHOOL
+			  ,VNGL.CEO_MAJOR_CAREER
+			  ,VNGL.LAND_SIZE
+			  ,VNGL.BUILDING_SIZE
+			  ,VNGL.BUSINESS_FORM
+			  ,<include refid="com.sql.dbo"/>GETCOMCODE(#{ses.gateCd},'M014', VNGL.BUSINESS_FORM, 0, #{ses.langCd}) AS BUSINESS_FORM_NM
+			  ,VNGL.OTHER_STATUS
+			  ,VNGL.TEST_EQUIPMENT
+			  ,VNGL.CEO_BIRTH_YEAR
+			<if test='_databaseId=="oracle"'>
+			  ,TO_NUMBER(TO_CHAR(<include refid="com.sql.sysdate"/>, 'YYYY')) - TO_NUMBER(VNGL.CEO_BIRTH_YEAR) AS CEO_AGE
+			</if>
+			<if test='_databaseId=="mssql"'>
+			  ,CAST(CONVERT(CHAR(4), <include refid="com.sql.sysdate"/>, 112) AS INT) - CAST(VNGL.CEO_BIRTH_YEAR AS INT) AS CEO_AGE
+			</if>
+			  ,VNGL.CEO_ATT_FILE_NUM
+			  ,CASE WHEN VNGL.EXECUTIVE_EMP_CNT IS NULL THEN 0 ELSE VNGL.EXECUTIVE_EMP_CNT END AS EXECUTIVE_EMP_CNT
+			  ,CASE WHEN VNGL.MANAGEMENT_EMP_CNT IS NULL THEN 0 ELSE VNGL.MANAGEMENT_EMP_CNT END AS MANAGEMENT_EMP_CNT
+			  ,CASE WHEN VNGL.LOCAL_EMP_CNT IS NULL THEN 0 ELSE VNGL.LOCAL_EMP_CNT END AS LOCAL_EMP_CNT
+			  ,CASE WHEN VNGL.FOREIGNER_EMP_CNT IS NULL THEN 0 ELSE VNGL.FOREIGNER_EMP_CNT END AS FOREIGNER_EMP_CNT
+			  ,CASE WHEN VNGL.SUBCONTRACT_EMP_CNT IS NULL THEN 0 ELSE VNGL.SUBCONTRACT_EMP_CNT END AS SUBCONTRACT_EMP_CNT
+			  ,CASE WHEN VNGL.OTHER_EMP_CNT IS NULL THEN 0 ELSE VNGL.OTHER_EMP_CNT END AS OTHER_EMP_CNT
+			  ,CASE WHEN VNGL.LABOR_UNION_CNT IS NULL THEN 0 ELSE VNGL.LABOR_UNION_CNT END AS LABOR_UNION_CNT
+			  ,VNGL.LABOR_UNION_ETC
+			  ,VNGL.LABOR_UNION_NM
+			  ,CPTS.QUALITY
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(CPTS.QUALITY_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS QUALITY_DATE
+			  ,CPTS.ENVIRONMENT
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(CPTS.ENVIRONMENT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS ENVIRONMENT_DATE
+			  ,CPTS.SQ
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(CPTS.SQ_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SQ_DATE
+			  ,CPTS.MAIN_BANK
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(CPTS.MAIN_BANK_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS MAIN_BANK_DATE
+			  ,<include refid="com.sql.dbo"/>GETGMTDATE(VNGL.DEAL_START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS DEAL_START_DATE
+		  FROM STOCVNGL VNGL
+		  LEFT OUTER JOIN STOCCPTS CPTS
+			ON(VNGL.GATE_CD = CPTS.GATE_CD
+		   AND VNGL.VENDOR_CD = CPTS.VENDOR_CD
+		   AND CPTS.DEL_FLAG = '0')
+		 WHERE VNGL.GATE_CD = #{ses.gateCd}
+		   AND VNGL.DEL_FLAG = '0'
+           <if test="VENDOR_CD != '' and VENDOR_CD != null">
+    		   AND VNGL.VENDOR_CD = #{VENDOR_CD}
+           </if>
+           <if test="APP_DOC_NUM != '' and APP_DOC_NUM != null">
+    		   AND VNGL.APP_DOC_NUM = #{APP_DOC_NUM}
+           </if>
+	</select>
+
+	<select id="getVenderRegionInfo" parameterType="hashmap" resultType="hashMap">
+
+		SELECT PL.PLANT_CD AS CODE
+    	  	 , CASE WHEN #{ses.langCd} = 'KO' THEN PLANT_NM ELSE  PLANT_NM_ENG END AS CODE_DESC
+    	  	 , CASE WHEN PL.PLANT_CD = RG.REGION_CD THEN '1' ELSE '0' END AS VALUE
+		  FROM STOCOGPL PL
+		  LEFT OUTER JOIN STOCVNRG RG
+		    ON(RG.GATE_CD   = PL.GATE_CD
+		   AND RG.VENDOR_CD = CASE WHEN #{VENDOR_CD} IS NULL OR #{VENDOR_CD} = '' THEN '' ELSE #{VENDOR_CD} END
+		   AND RG.REGION_CD = PL.PLANT_CD
+		   AND RG.DEL_FLAG  = '0')
+		 WHERE PL.GATE_CD   = #{ses.gateCd}
+		   AND PL.BUYER_CD != 'A000'
+		   AND PL.DEL_FLAG  = '0'
+		 ORDER BY PL.PLANT_CD
+
+	</select>
+
+	<select id="getDataOfVNCS" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+           <include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'YYYY/MM/DD HH24:MI') as REQ_DATE_TEXT
+          ,COUNSEL_REQ_CD
+          ,REQ_USER_NM
+          ,SUBJECT
+          ,<include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD,REPLY_USER_ID,#{ses.langCd}) as REPLY_USER_NM
+          ,<include refid="com.sql.dbo"/>GETGMTDATE(REPLY_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) as REPLY_DATE
+          ,REPLY_TEXT
+          ,COUNSEL_REQ_NUM
+          ,VENDOR_CD
+          ,PROGRESS_CD
+          ,COUNSEL_REQ_TEXT
+          ,REQ_DEPT_NM
+          ,REQ_DUTY_NM
+          ,REQ_EMAIL
+          ,REQ_TEL_NUM
+          ,REQ_CELL_NUM
+		 FROM STOCVNCS
+		WHERE GATE_CD   = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND DEL_FLAG  = '0'
+		ORDER BY REG_DATE desc
+
+	</select>
+
+	<select id="getDataOfVNCP" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			 GATE_CD
+			,COMPANY_CD AS VENDOR_CD
+		  <if test="vendorCdParams != null and vendorCdParams != ''">
+			,<include refid="com.sql.dbo"/>GETVENDORNAME('100', COMPANY_CD, #{ses.langCd}) AS VENDOR_NM
+			,<include refid="com.sql.dbo"/>GETVENDORNAME('100', COMPANY_CD, #{ses.langCd}) AS VENDOR_NMs
+		  </if>
+			,0 AS PERSON_SQ
+			, USER_NM AS USER_NM
+			,DEPT_NM
+			,'' AS DUTY_NM
+			, EMAIL  AS EMAIL
+			, TEL_NUM  AS TEL_NUM
+			, CELL_NUM  AS CELL_NUM
+			, USER_NM AS HIDD_USER_NM
+			, EMAIL  AS HIDD_EMAIL
+			, TEL_NUM  AS HIDD_TEL_NUM
+			, CELL_NUM  AS HIDD_CELL_NUM
+			,USER_ID
+			,'U' AS INSERT_FLAG
+			,'' AS PURCHASE_TYPE
+		  FROM STOCCVUR
+		 WHERE GATE_CD = #{ses.gateCd}
+	   <choose>
+	     <when test="vendorCdParams != null and vendorCdParams != ''">
+	       AND COMPANY_CD IN ${vendorCdParams}
+	     </when>
+	     <otherwise>
+	       AND COMPANY_CD = #{VENDOR_CD}
+	     </otherwise>
+	   </choose>
+		   AND DEL_FLAG = '0'
+		 ORDER BY COMPANY_CD, USER_ID
+
+	</select>
+
+	<select id="getDataOfVNTR" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			GATE_CD,
+			VENDOR_CD,
+			TRUST_SQ,
+			CREDIT_COM_NM,
+            <include refid="com.sql.dbo"/>GETGMTDATE(BASE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS BASE_DATE,
+			CREDIT_MGMT_DEGREE,
+			CREDIT_DEGREE,
+			CASH_FLOW_DEGREE,
+			<include refid="com.sql.dbo"/>GETGMTDATE(VALID_FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_FROM_DATE,
+			<include refid="com.sql.dbo"/>GETGMTDATE(VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE,
+			'U' AS INSERT_FLAG
+		 FROM STOCVNTR
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND DEL_FLAG = '0'
+		ORDER BY TRUST_SQ
+
+	</select>
+
+	<select id="getDataOfVNRS" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			GATE_CD,
+			VENDOR_CD,
+			RESULT_SQ,
+			CUSTOMER_NM,
+			CUR,
+			CONT_AMT,
+			RATIO_SALES_AMOUNT,
+			ITEM_CONTENTS,
+			<include refid="com.sql.dbo"/>getGmtDate(START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS START_DATE,
+			<include refid="com.sql.dbo"/>getGmtDate(END_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS END_DATE,
+			'U' AS INSERT_FLAG,
+			RMK
+		 FROM STOCVNRS
+		WHERE GATE_CD                 = #{ses.gateCd}
+		  AND VENDOR_CD               = #{VENDOR_CD}
+		  AND GROUP_COMPANY_DEAL_FLAG = '0'
+		  AND DEL_FLAG                = '0'
+		ORDER BY RESULT_SQ
+	</select>
+
+	<select id="getDataOfSSRS" parameterType="hashmap" resultType="hashMap">
+
+		SELECT
+			GATE_CD,
+			VENDOR_CD,
+			RESULT_SQ,
+			CUSTOMER_NM,
+			CUR,
+			CONT_AMT,
+			ITEM_CONTENTS,
+			<include refid="com.sql.dbo"/>getGmtDate(START_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS START_DATE,
+			<include refid="com.sql.dbo"/>getGmtDate(END_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS END_DATE,
+			'U' AS INSERT_FLAG,
+			RATIO_SALES_AMOUNT,
+			ATT_FILE_NUM
+		 FROM STOCVNRS
+		WHERE GATE_CD                 = #{ses.gateCd}
+		  AND VENDOR_CD               = #{VENDOR_CD}
+		  AND GROUP_COMPANY_DEAL_FLAG = '1'
+		  AND DEL_FLAG                = '0'
+		ORDER BY RESULT_SQ
+	</select>
+
+	<select id="getDataOfVNPI" parameterType="hashmap" resultType="hashMap">
+		SELECT VENDOR_CD
+			 , PRODUCTION_SQ
+			 , PRODUCTION_ITEM_NM
+			 , RMK
+			 , ATT_FILE_NUM
+			 ,(SELECT COUNT(*)
+				 FROM STOCATCH
+				WHERE GATE_CD = #{ses.gateCd}
+				  AND UUID = ATT_FILE_NUM
+				  AND DEL_FLAG = '0') AS ATT_FILE_CNT
+		  FROM STOCVNPI
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<update id="deleteRowsVNCP" parameterType="hashmap">
+		UPDATE STOCVNCP SET
+			DEL_FLAG = '1',
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND PERSON_SQ = #{PERSON_SQ}
+	</update>
+
+	<update id="deleteRowsVNTR" parameterType="hashmap">
+		UPDATE STOCVNTR SET
+			DEL_FLAG = '1',
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND TRUST_SQ = #{TRUST_SQ}
+	</update>
+
+	<update id="deleteRowsVNRS" parameterType="hashmap">
+		UPDATE STOCVNRS SET
+			DEL_FLAG = '1',
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND RESULT_SQ = #{RESULT_SQ}
+	</update>
+
+	<insert id="insertVNGL" parameterType="hashmap">
+		INSERT INTO STOCVNGL (
+		      GATE_CD
+		   	, VENDOR_CD
+		   	, REG_DATE
+		   	, REG_USER_ID
+		   	, VENDOR_TYPE
+		   	, VENDOR_NM
+		   	, VENDOR_NM_ENG
+		   	, REG_TYPE
+		   	, SHIPPER_TYPE
+		   	, IRS_NUM
+		   	, COMPANY_REG_NUM
+		   	, BUSINESS_TYPE
+		   	, INDUSTRY_TYPE
+		   	, CEO_USER_NM
+		   	, CEO_USER_NM_ENG
+		   	, REP_TEL_NUM
+		   	, REP_FAX_NUM
+		   	, REP_EMAIL
+		   	, FOUNDATION_DATE
+		   	, COUNTRY_CD
+		   	, CITY_DESC
+		   	, DUNS_NUM
+		   	, ZIP_CD
+		   	, ADDR
+		   	, ADDR_ETC
+		   	, ATT_FILE_NUM
+		   	, BANK_CD
+		   	, DEPOSITOR_NM
+		   	, BANK_ACCT_NUM
+		   	, PAY_TERMS
+		   	, SIGN_STATUS
+		   	, PROGRESS_CD
+		   	, DEL_FLAG
+		   	, PARTNER_TYPE
+		   	, VENDOR_STATUS_CD
+		   	, SALES_AMT
+		   	, MAJOR_ITEM_TEXT
+		   	, GROUP_COMPANY_DEAL_FLAG
+		   	, ZIP_CD_5
+		   	, DATA_CREATION_TYPE
+			-- 신규추가
+		   	, NORMAL_PURCHASE_FLAG
+			, ITEM_PURCHASE_FLAG
+			, DEAL_SQ_CD
+			, VAATZ_VENDOR_CD
+			, PREV_IRS_NO
+			, ACCOUNT_GROUP_CD
+			, SORT_COLUMN
+			, DEAL_CLOSE_DATE
+			, DEAL_CLOSE_USER_ID
+			, DEAL_CLOSE_RMK
+			, CEO_LAST_SCHOOL
+			, CEO_MAJOR_CAREER
+			, LAND_SIZE
+			, BUILDING_SIZE
+			, BUSINESS_FORM
+			, OTHER_STATUS
+			, TEST_EQUIPMENT
+			, CEO_BIRTH_YEAR
+			, CEO_ATT_FILE_NUM
+			, EXECUTIVE_EMP_CNT
+			, MANAGEMENT_EMP_CNT
+			, LOCAL_EMP_CNT
+			, FOREIGNER_EMP_CNT
+			, SUBCONTRACT_EMP_CNT
+			, OTHER_EMP_CNT
+			, LABOR_UNION_CNT
+			, LABOR_UNION_ETC
+			, LABOR_UNION_NM
+			, DEAL_START_DATE
+		) VALUES (
+        	  #{ses.gateCd}
+			, #{VENDOR_CD}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, #{VENDOR_TYPE}
+			, #{VENDOR_NM}
+			, #{VENDOR_NM_ENG}
+			, #{REG_TYPE}
+			, #{SHIPPER_TYPE}
+			, #{IRS_NUM}
+			, #{COMPANY_REG_NUM}
+			, #{BUSINESS_TYPE}
+			, #{INDUSTRY_TYPE}
+			, #{CEO_USER_NM}
+			, #{CEO_USER_NM_ENG}
+			, #{REP_TEL_NUM}
+			, #{REP_FAX_NUM}
+			, #{REP_EMAIL}
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{FOUNDATION_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			, #{COUNTRY_CD}
+			, #{CITY_DESC}
+			, #{DUNS_NUM}
+			, #{ZIP_CD}
+			, #{ADDR}
+			, #{ADDR_ETC}
+			, #{ATT_FILE_NUM,jdbcType=VARCHAR}
+			, #{BANK_CD}
+			, #{DEPOSITOR_NM}
+			, #{BANK_ACCT_NUM}
+			, #{PAY_TERMS}
+			, ''
+			, 'P'
+			, '0'
+			, #{PARTNER_TYPE}
+			, #{VENDOR_STATUS_CD}
+		    , #{SALES_AMT}
+		    , #{MAJOR_ITEM_TEXT}
+		    , #{GROUP_COMPANY_DEAL_FLAG}
+		    , #{ZIP_CD_5}
+		    , 'S'
+		    -- 신규추가
+		    , #{NORMAL_PURCHASE_FLAG}
+			, #{ITEM_PURCHASE_FLAG}
+			, #{DEAL_SQ_CD}
+			, #{VAATZ_VENDOR_CD}
+			, #{PREV_IRS_NO}
+			, CASE WHEN #{ACCOUNT_GROUP_CD} IS NULL OR #{ACCOUNT_GROUP_CD} = '' THEN '6000' ELSE #{ACCOUNT_GROUP_CD} END --NULL 이면 국내미지급처 default
+			, CASE WHEN #{SORT_COLUMN} IS NULL OR #{SORT_COLUMN} = '' THEN #{VENDOR_NM} ELSE #{SORT_COLUMN} END
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{DEAL_CLOSE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			, #{DEAL_CLOSE_USER_ID}
+			, #{DEAL_CLOSE_RMK}
+			, #{CEO_LAST_SCHOOL}
+			, #{CEO_MAJOR_CAREER}
+			, #{LAND_SIZE}
+			, #{BUILDING_SIZE}
+			, #{BUSINESS_FORM}
+			, #{OTHER_STATUS}
+			, #{TEST_EQUIPMENT}
+			, #{CEO_BIRTH_YEAR}
+			, #{CEO_ATT_FILE_NUM}
+			, #{EXECUTIVE_EMP_CNT}
+			, #{MANAGEMENT_EMP_CNT}
+			, #{LOCAL_EMP_CNT}
+			, #{FOREIGNER_EMP_CNT}
+			, #{SUBCONTRACT_EMP_CNT}
+			, #{OTHER_EMP_CNT}
+			, #{LABOR_UNION_CNT}
+			, #{LABOR_UNION_ETC}
+			, #{LABOR_UNION_NM}
+			, <include refid="com.sql.dbo"/>SETGMTDATE(#{DEAL_START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+		)
+	</insert>
+
+	<select id="getCtrlUserId" parameterType="hashMap" resultType="hashMap">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			 BACP.CTRL_USER_ID
+			,USR1.USER_NM
+			,<include refid="com.sql.dbo"/>GETDECEMAIL(USR1.EMAIL) as EMAIL
+		FROM STOCBAMT BAMT
+		JOIN STOCBACP BACP
+		  ON (BACP.GATE_CD  = BAMT.GATE_CD
+		  AND BACP.BUYER_CD = BAMT.BUYER_CD
+		  AND BACP.CTRL_CD  = BAMT.CTRL_CD
+		  AND BACP.DEL_FLAG = '0')
+		JOIN STOCUSER USR1
+		  ON (USR1.GATE_CD  = BACP.GATE_CD
+		  AND USR1.USER_ID  = BACP.CTRL_USER_ID
+		  AND USR1.DEL_FLAG = '0')
+		WHERE BAMT.GATE_CD   = #{ses.gateCd}
+		  AND BAMT.BUYER_CD  = #{COMPANY_CD}
+			<if test='_databaseId == "oracle"'>
+			AND ROWNUM = 1
+			</if>
+	</select>
+
+
+	<insert id="insertVNCS" parameterType="hashmap">
+
+		INSERT INTO STOCVNCS (
+			  GATE_CD
+		 	, COUNSEL_REQ_NUM
+		  	, REG_DATE
+		 	, REG_USER_ID
+		 	, DEL_FLAG
+		 	, VENDOR_CD
+		 	, PROGRESS_CD
+		 	, SUBJECT
+		 	, COUNSEL_REQ_CD
+		 	, COUNSEL_REQ_TEXT
+		 	, REQ_USER_NM
+		 	, REQ_DEPT_NM
+		 	, REQ_DUTY_NM
+		 	, REQ_EMAIL
+		 	, REQ_TEL_NUM
+		 	, REQ_CELL_NUM
+		 	, CTRL_USER_ID
+		) VALUES (
+        	  #{ses.gateCd}
+			, #{COUNSEL_REQ_NUM}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{VENDOR_CD}
+			, #{SC_PROGRESS_CD}
+			, #{SUBJECT}
+			, #{COUNSEL_REQ_CD}
+			, #{COUNSEL_REQ_TEXT}
+			, #{REQ_USER_NM}
+			, #{REQ_DEPT_NM}
+			, #{REQ_DUTY_NM}
+			, #{REQ_EMAIL}
+			, #{REQ_TEL_NUM}
+			, #{REQ_CELL_NUM}
+			, #{CTRL_USER_ID}
+		)
+
+	</insert>
+
+	<insert id="insertVNCP" parameterType="hashMap">
+		<selectKey keyProperty="PERSON_SQ_MAX" resultType="string" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(PERSON_SQ)+1, 1) AS PERSON_SQ_MAX
+			FROM STOCVNCP
+			WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		INSERT INTO STOCVNCP (
+			GATE_CD,
+			VENDOR_CD,
+			PERSON_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			USER_NM,
+			DEPT_NM,
+			DUTY_NM,
+			EMAIL,
+			TEL_NUM,
+			CELL_NUM,
+			SMS_FLAG,
+			MAIL_FLAG,
+			PURCHASE_TYPE
+		) VALUES (
+			#{ses.gateCd},
+			#{VENDOR_CD},
+			#{PERSON_SQ_MAX},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{USER_NM},
+			#{DEPT_NM},
+			#{DUTY_NM},
+			<!--
+			<include refid="com.sql.dbo"/>setEncEmail(#{EMAIL}),
+			<include refid="com.sql.dbo"/>setEncTel(#{TEL_NUM}),
+			<include refid="com.sql.dbo"/>setEncTel(#{CELL_NUM}),
+			 -->
+            #{EMAIL} ,
+            #{TEL_NUM} ,
+            #{CELL_NUM} ,
+			#{SMS_FLAG},
+			#{MAIL_FLAG},
+			<include refid="com.sql.nvl"/>(#{PURCHASE_TYPE}, 'NPUR')
+		)
+	</insert>
+
+	<insert id="insertVNTR" parameterType="hashMap">
+		<selectKey keyProperty="TRUST_SQ_MAX" resultType="string"
+			order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(TRUST_SQ)+1, 1) AS TRUST_SQ_MAX
+			FROM STOCVNTR
+			WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+		INSERT INTO STOCVNTR(
+			GATE_CD,
+			VENDOR_CD,
+			TRUST_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			CREDIT_COM_NM,
+			BASE_DATE,
+			CREDIT_MGMT_DEGREE,
+			CREDIT_DEGREE,
+			CASH_FLOW_DEGREE,
+			VALID_FROM_DATE,
+			VALID_TO_DATE
+		) VALUES (
+			#{ses.gateCd},
+			#{VENDOR_CD},
+			#{TRUST_SQ_MAX},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{CREDIT_COM_NM},
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{BASE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>),
+			#{CREDIT_MGMT_DEGREE},
+			#{CREDIT_DEGREE},
+			#{CASH_FLOW_DEGREE},
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>),
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+		)
+	</insert>
+
+	<insert id="insertVNRS" parameterType="hashMap">
+		<selectKey keyProperty="RESULT_SQ_MAX" resultType="string" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(RESULT_SQ)+1, 1) AS RESULT_SQ_MAX
+			FROM STOCVNRS
+			WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		INSERT INTO STOCVNRS(
+			GATE_CD,
+			VENDOR_CD,
+			RESULT_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			CUSTOMER_NM,
+			CUR,
+			CONT_AMT,
+			ITEM_CONTENTS,
+			START_DATE,
+			END_DATE,
+		    GROUP_COMPANY_DEAL_FLAG,
+		    RATIO_SALES_AMOUNT,
+			RMK
+		) VALUES (
+			#{ses.gateCd},
+			#{VENDOR_CD},
+			#{RESULT_SQ_MAX},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{CUSTOMER_NM},
+			#{CUR},
+			CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END,
+			#{ITEM_CONTENTS},
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+		    '0',
+		    #{RATIO_SALES_AMOUNT},
+			#{RMK}
+		)
+	</insert>
+
+	<insert id="insertSSRS" parameterType="hashMap">
+		<selectKey keyProperty="RESULT_SQ_MAX" resultType="string" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(RESULT_SQ)+1, 1) AS RESULT_SQ_MAX
+			FROM STOCVNRS
+			WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		INSERT INTO STOCVNRS(
+			GATE_CD,
+			VENDOR_CD,
+			RESULT_SQ,
+			REG_DATE,
+			REG_USER_ID,
+			DEL_FLAG,
+			CUSTOMER_NM,
+			CUR,
+			CONT_AMT,
+			ITEM_CONTENTS,
+			START_DATE,
+			END_DATE,
+		    GROUP_COMPANY_DEAL_FLAG,
+			RATIO_SALES_AMOUNT,
+			ATT_FILE_NUM
+		) VALUES (
+			#{ses.gateCd},
+			#{VENDOR_CD},
+			#{RESULT_SQ_MAX},
+			<include refid="com.sql.sysdate"/>,
+			#{ses.userId},
+			'0',
+			#{CUSTOMER_NM},
+			#{CUR},
+			CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END,
+			#{ITEM_CONTENTS},
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			<include refid="com.sql.dbo"/>SETGMTDATE(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+		    '1',
+			#{RATIO_SALES_AMOUNT},
+			#{ATT_FILE_NUM}
+		)
+	</insert>
+
+	<insert id="insertVNRG" parameterType="hashMap">
+
+		INSERT INTO STOCVNRG(
+			 GATE_CD
+			,VENDOR_CD
+			,REGION_CD
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+		) VALUES (
+			 #{ses.gateCd}
+			,#{VENDOR_CD}
+			,#{REGION_CD}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+		)
+	</insert>
+
+	<update id="updateVNGL" parameterType="hashmap">
+
+		UPDATE STOCVNGL SET
+			  DEL_FLAG = '0'
+			<!-- , PROGRESS_CD = 'P' -->
+			, VENDOR_NM = #{VENDOR_NM}
+			, VENDOR_NM_ENG = #{VENDOR_NM_ENG}
+			<!--, VENDOR_TYPE = #{VENDOR_TYPE}-->
+			, PARTNER_TYPE = #{PARTNER_TYPE}
+			, REG_TYPE = #{REG_TYPE}
+			, SHIPPER_TYPE = #{SHIPPER_TYPE}
+			, IRS_NUM = #{IRS_NUM}
+			, COMPANY_REG_NUM = #{COMPANY_REG_NUM}
+			, BUSINESS_TYPE = #{BUSINESS_TYPE}
+			, INDUSTRY_TYPE = #{INDUSTRY_TYPE}
+			, CEO_USER_NM = #{CEO_USER_NM}
+			, CEO_USER_NM_ENG = #{CEO_USER_NM_ENG}
+			, REP_TEL_NUM = #{REP_TEL_NUM}
+			, REP_FAX_NUM = #{REP_FAX_NUM}
+			, REP_EMAIL = #{REP_EMAIL}
+			, FOUNDATION_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{FOUNDATION_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			, COUNTRY_CD = #{COUNTRY_CD}
+			, CITY_DESC = #{CITY_DESC}
+			, DUNS_NUM = #{DUNS_NUM}
+			, ZIP_CD = #{ZIP_CD}
+			, ADDR = #{ADDR}
+			, ADDR_ETC = #{ADDR_ETC}
+			, ATT_FILE_NUM = #{ATT_FILE_NUM,jdbcType=VARCHAR}
+			, BANK_CD = #{BANK_CD}
+			, DEPOSITOR_NM = #{DEPOSITOR_NM}
+			, BANK_ACCT_NUM = #{BANK_ACCT_NUM}
+			, PAY_TERMS = #{PAY_TERMS}
+			, MOD_DATE = <include refid="com.sql.sysdate"/>
+			, MOD_USER_ID = #{ses.userId}
+			, VENDOR_STATUS_CD = #{VENDOR_STATUS_CD}
+		   	, SALES_AMT               = #{SALES_AMT}
+		   	, MAJOR_ITEM_TEXT         = #{MAJOR_ITEM_TEXT}
+		   	, GROUP_COMPANY_DEAL_FLAG = #{GROUP_COMPANY_DEAL_FLAG}
+			, ZIP_CD_5 = #{ZIP_CD_5}
+			-- 신규추가
+			, NORMAL_PURCHASE_FLAG = #{NORMAL_PURCHASE_FLAG}
+			, ITEM_PURCHASE_FLAG = #{ITEM_PURCHASE_FLAG}
+			, DEAL_SQ_CD = #{DEAL_SQ_CD}
+			, VAATZ_VENDOR_CD = #{VAATZ_VENDOR_CD}
+			, PREV_IRS_NO = #{PREV_IRS_NO}
+
+
+			, ACCOUNT_GROUP_CD =
+			CASE WHEN #{ACCOUNT_GROUP_CD} is null or #{ACCOUNT_GROUP_CD} = '' THEN '6000' else #{ACCOUNT_GROUP_CD} END
+			, SORT_COLUMN =
+			CASE WHEN #{SORT_COLUMN} is null or #{SORT_COLUMN} = '' THEN #{VENDOR_NM} else #{SORT_COLUMN} END
+
+
+			, DEAL_CLOSE_DATE = #{DEAL_CLOSE_DATE}
+			, DEAL_CLOSE_USER_ID = #{DEAL_CLOSE_USER_ID}
+			, DEAL_CLOSE_RMK = #{DEAL_CLOSE_RMK}
+			, CEO_LAST_SCHOOL = #{CEO_LAST_SCHOOL}
+			, CEO_MAJOR_CAREER = #{CEO_MAJOR_CAREER}
+			, LAND_SIZE = #{LAND_SIZE}
+			, BUILDING_SIZE = #{BUILDING_SIZE}
+			, BUSINESS_FORM = #{BUSINESS_FORM}
+			, OTHER_STATUS = #{OTHER_STATUS}
+			, TEST_EQUIPMENT = #{TEST_EQUIPMENT}
+			, CEO_BIRTH_YEAR = #{CEO_BIRTH_YEAR}
+			, CEO_ATT_FILE_NUM = #{CEO_ATT_FILE_NUM}
+			, EXECUTIVE_EMP_CNT = #{EXECUTIVE_EMP_CNT}
+			, MANAGEMENT_EMP_CNT = #{MANAGEMENT_EMP_CNT}
+			, LOCAL_EMP_CNT = #{LOCAL_EMP_CNT}
+			, FOREIGNER_EMP_CNT = #{FOREIGNER_EMP_CNT}
+			, SUBCONTRACT_EMP_CNT = #{SUBCONTRACT_EMP_CNT}
+			, OTHER_EMP_CNT = #{OTHER_EMP_CNT}
+			, LABOR_UNION_CNT = #{LABOR_UNION_CNT}
+			, LABOR_UNION_ETC = #{LABOR_UNION_ETC}
+			, LABOR_UNION_NM = #{LABOR_UNION_NM}
+			, DEAL_START_DATE = #{DEAL_START_DATE}
+		WHERE GATE_CD = #{GATE_CD}
+	  	  AND VENDOR_CD = #{VENDOR_CD}
+
+	</update>
+
+	<update id="updateVNCS" parameterType="hashmap">
+
+		UPDATE STOCVNCS
+		   SET MOD_DATE         = <include refid="com.sql.sysdate"/>
+		      ,MOD_USER_ID      = #{ses.userId}
+		      ,DEL_FLAG         = '0'
+		      <!-- ,VENDOR_CD        = #{VENDOR_CD} -->
+		      <!-- ,PROGRESS_CD      = #{PROGRESS_CD} -->
+		      ,SUBJECT          = #{SUBJECT}
+		      ,COUNSEL_REQ_CD   = #{COUNSEL_REQ_CD}
+		      ,COUNSEL_REQ_TEXT = #{COUNSEL_REQ_TEXT}
+		      ,REQ_USER_NM      = #{REQ_USER_NM}
+		      ,REQ_DEPT_NM      = #{REQ_DEPT_NM}
+		      ,REQ_DUTY_NM      = #{REQ_DUTY_NM}
+		      ,REQ_EMAIL        = #{REQ_EMAIL}
+		      ,REQ_TEL_NUM      = #{REQ_TEL_NUM}
+		      ,REQ_CELL_NUM     = #{REQ_CELL_NUM}
+		      <!-- ,CTRL_USER_ID     = #{CTRL_USER_ID} -->
+		 WHERE GATE_CD         = #{ses.gateCd}
+	  	 AND COUNSEL_REQ_NUM = #{COUNSEL_REQ_NUM}
+	  	 AND VENDOR_CD       = #{VENDOR_CD}
+	  	 AND PROGRESS_CD     = #{SC_PROGRESS_CD}
+
+	</update>
+
+	<update id="updateVNCP" parameterType="hashmap">
+
+		UPDATE STOCVNCP SET
+			USER_NM = #{USER_NM},
+			DEPT_NM = #{DEPT_NM},
+			DUTY_NM = #{DUTY_NM},
+			EMAIL = #{EMAIL} ,
+			TEL_NUM = #{TEL_NUM} ,
+			CELL_NUM = #{CELL_NUM} ,
+			SMS_FLAG = #{SMS_FLAG},
+			MAIL_FLAG = #{MAIL_FLAG},
+			PURCHASE_TYPE = #{PURCHASE_TYPE},
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND PERSON_SQ = #{PERSON_SQ}
+
+	</update>
+
+	<update id="updateVNTR" parameterType="hashmap">
+
+		UPDATE STOCVNTR SET
+			CREDIT_COM_NM = #{CREDIT_COM_NM},
+			BASE_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{BASE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			CREDIT_MGMT_DEGREE = #{CREDIT_MGMT_DEGREE},
+			CREDIT_DEGREE = #{CREDIT_DEGREE},
+			VALID_FROM_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_FROM_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			VALID_TO_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{VALID_TO_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND TRUST_SQ = #{TRUST_SQ}
+	</update>
+
+	<update id="updateVNRS" parameterType="hashmap">
+
+		UPDATE STOCVNRS SET
+			CUSTOMER_NM = #{CUSTOMER_NM},
+			CUR = #{CUR},
+			CONT_AMT = CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END,
+			ITEM_CONTENTS = #{ITEM_CONTENTS},
+			START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			END_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId},
+			RMK = #{RMK}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND RESULT_SQ = #{RESULT_SQ}
+			AND GROUP_COMPANY_DEAL_FLAG = '0'
+
+	</update>
+
+	<update id="updateSSRS" parameterType="hashmap">
+
+		UPDATE STOCVNRS SET
+			CUSTOMER_NM = #{CUSTOMER_NM},
+			CUR = #{CUR},
+			CONT_AMT = CASE WHEN #{CONT_AMT} = '' THEN NULL ELSE #{CONT_AMT} END,
+			ITEM_CONTENTS = #{ITEM_CONTENTS},
+			START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			END_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{END_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND RESULT_SQ = #{RESULT_SQ}
+			AND GROUP_COMPANY_DEAL_FLAG = '1'
+
+	</update>
+
+	<update id="deleteVNGL" parameterType="hashmap">
+		UPDATE STOCVNGL SET
+			DEL_FLAG = '1',
+			MOD_DATE = <include refid="com.sql.sysdate"/>,
+			MOD_USER_ID = #{ses.userId}
+		WHERE GATE_CD = #{GATE_CD}
+		  AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<update id="deleteCPTS" parameterType="hashmap">
+		UPDATE STOCCPTS SET
+			   DEL_FLAG = '1'
+			 , MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<delete id="deleteVNCP" parameterType="hashmap">
+
+		DELETE FROM STOCVNCP
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		<if test="PERSON_SQ != '' and PERSON_SQ != null">
+		  AND PERSON_SQ = #{PERSON_SQ}
+		</if>
+
+
+	</delete>
+
+	<delete id="deleteVNTR" parameterType="hashmap">
+		DELETE FROM STOCVNTR
+		WHERE GATE_CD = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+
+	</delete>
+
+	<delete id="deleteVNRS" parameterType="hashmap">
+		DELETE FROM STOCVNRS
+		WHERE GATE_CD   = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND GROUP_COMPANY_DEAL_FLAG = '0'
+	</delete>
+
+	<delete id="deleteSSRS" parameterType="hashmap">
+		DELETE FROM STOCVNRS
+		WHERE GATE_CD   = #{ses.gateCd}
+		  AND VENDOR_CD = #{VENDOR_CD}
+		  AND GROUP_COMPANY_DEAL_FLAG = '1'
+	</delete>
+
+	<delete id="deleteVNRG" parameterType="hashmap">
+		DELETE FROM STOCVNRG
+		WHERE GATE_CD   = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<select id="checkExistsVNGL" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(VENDOR_CD) AS CNT
+		FROM STOCVNGL
+		WHERE GATE_CD = UPPER(#{ses.gateCd})
+			AND VENDOR_CD = #{VENDOR_CD}
+			<if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			</if>
+	</select>
+
+	<select id="checkExistsIrsNum" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(VENDOR_CD) AS CNT
+		FROM STOCVNGL
+		WHERE GATE_CD = UPPER(#{ses.gateCd})
+		  AND IRS_NUM = #{IRS_NUM}
+
+		  <if test="VENDOR_CD != '' and VENDOR_CD != null">
+		  <![CDATA[
+		  AND VENDOR_CD != #{VENDOR_CD}
+		  ]]>
+		  </if>
+
+		  <if test='_databaseId == "oracle"'>
+		  AND ROWNUM = 1
+		  </if>
+	</select>
+
+	<select id="checkExistsVNCP" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(PERSON_SQ) AS CNT
+		FROM STOCVNCP
+		WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND PERSON_SQ = CASE WHEN #{PERSON_SQ} IS NULL OR #{PERSON_SQ} = '' THEN '0' ELSE #{PERSON_SQ} END
+			<if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			</if>
+	</select>
+
+	<select id="checkExistsVNTR" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(TRUST_SQ) AS CNT
+		FROM STOCVNTR
+		WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND TRUST_SQ = CASE WHEN #{TRUST_SQ} IS NULL OR #{TRUST_SQ} = '' THEN '0' ELSE #{TRUST_SQ} END
+			<if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			</if>
+	</select>
+
+	<select id="checkExistsVNRS" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(RESULT_SQ) AS CNT
+		FROM STOCVNRS
+		WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND RESULT_SQ = CASE WHEN #{RESULT_SQ} IS NULL OR #{RESULT_SQ} = '' THEN '0' ELSE #{RESULT_SQ} END
+			AND GROUP_COMPANY_DEAL_FLAG = '0'
+			<if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			</if>
+	</select>
+
+	<select id="checkExistsSSRS" parameterType="hashMap" resultType="java.lang.Integer">
+		SELECT <if test='_databaseId=="mssql"'>TOP 1</if>
+			COUNT(RESULT_SQ) AS CNT
+		FROM STOCVNRS
+		WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+			AND RESULT_SQ = CASE WHEN #{RESULT_SQ} IS NULL OR #{RESULT_SQ} = '' THEN '0' ELSE #{RESULT_SQ} END
+			AND GROUP_COMPANY_DEAL_FLAG = '1'
+			<if test='_databaseId == "oracle"'>
+				AND ROWNUM = 1
+			</if>
+	</select>
+
+<!--  -->
+    <select id="existsUser" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT COUNT(USER_ID) FROM STOCUSER
+         WHERE GATE_CD = #{ses.gateCd}
+           AND USER_ID = UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+    </select>
+
+	<insert id="insertUSER" parameterType="hashMap">
+        INSERT INTO STOCUSER (
+            GATE_CD
+            , USER_ID
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+            , USE_FLAG
+            , COMPANY_CD
+            , USER_TYPE
+            , WORK_TYPE
+            , USER_NM
+            , USER_NM_ENG
+            , PASSWORD
+            , POSITION_NM
+            , DUTY_NM
+            , EMPLOYEE_NUM
+            , EMAIL
+            , TEL_NUM
+            , CELL_NUM
+            , FAX_NUM
+            , LANG_CD
+            , COUNTRY_CD
+            , SUPER_USER_FLAG
+            , PROGRESS_CD
+            , PW_WRONG_CNT
+            , GMT_CD
+            , USER_DATE_FORMAT_CD
+            , USER_NUMBER_FORMAT_CD
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{USE_FLAG}
+            , #{COMPANY_CD}
+            , #{USER_TYPE}
+            , #{WORK_TYPE}
+            , #{USER_NM}
+            , #{USER_NM_ENG}
+            , <include refid="com.sql.dbo"/>setEncPassword(UPPER(#{PASSWORD}))
+            , #{POSITION_NM}
+            , #{DUTY_NM}
+            , #{EMPLOYEE_NUM}
+            , <include refid="com.sql.dbo"/>SETENCEMAIL(#{EMAIL})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{TEL_NUM})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{CELL_NUM})
+            , <include refid="com.sql.dbo"/>SETENCTEL(#{FAX_NUM})
+            , #{LANG_CD}
+            , #{COUNTRY_CD}
+            , #{SUPER_USER_FLAG}
+            , #{PROGRESS_CD}
+            , CASE WHEN #{PW_WRONG_CNT} = '' THEN NULL ELSE #{PW_WRONG_CNT} END
+            , #{GMT_CD}
+            , #{USER_DATE_FORMAT_CD}
+            , #{USER_NUMBER_FORMAT_CD}
+        )
+    </insert>
+    <insert id="insertUSAP" parameterType="hashMap">
+        INSERT INTO STOCUSAP (
+            GATE_CD
+            , USER_ID
+            , AUTH_CD
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            , #{AUTH_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+        )
+    </insert>
+    <insert id="insertUSAC" parameterType="hashMap">
+        INSERT INTO STOCUSAC (
+            GATE_CD
+            , USER_ID
+            , ACTION_PROFILE_CD
+            , REG_DATE
+            , REG_USER_ID
+            , DEL_FLAG
+        ) VALUES (
+            #{ses.gateCd}
+            , UPPER(<include refid="com.sql.trim"/>(#{USER_ID}))
+            , #{ACTION_PROFILE_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+        )
+    </insert>
+
+    <update id="updateUSER" parameterType="hashmap">
+        UPDATE STOCUSER SET
+	          PROGRESS_CD = #{PROGRESS_CD}
+	        , MOD_DATE = <include refid="com.sql.sysdate"/>
+	        , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+	      AND COMPANY_CD = (
+	            SELECT VENDOR_CD FROM STOCVNGL
+                 WHERE GATE_CD = #{ses.gateCd}
+                   AND APP_DOC_NUM = #{APP_DOC_NUM}
+                   AND APP_DOC_CNT = #{APP_DOC_CNT}
+              )
+    </update>
+
+	<select id="getDataOfSGVN" parameterType="hashmap" resultType="java.util.Map">
+		SELECT SG_NUM
+			 , VENDOR_CD
+			 , EXEC_EV_NUM
+			 , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'1',SG_NUM) AS SG_NM1
+			 , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'2',SG_NUM) AS SG_NM2
+			 , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'3',SG_NUM) AS SG_NM3
+			 , <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd},#{ses.langCd},'4',SG_NUM) AS SG_NM4
+		  FROM STOCSGVN
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="getDataOfVNSK" parameterType="hashmap" resultType="java.util.Map">
+		SELECT VENDOR_CD
+			 , STOCK_SQ
+			 , STOCKHOLDER_NM
+			 , STOCK_RATIO
+			 , RMK
+		  FROM STOCVNSK
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="getDataOfVNPL" parameterType="hashmap" resultType="java.util.Map">
+		SELECT VENDOR_CD
+			 , PLANT_SQ
+			 , PLANT_NM
+			 , ZIP_CD
+			 , ZIP_CD_5
+			 , ADDRESS
+			 , LAND_SIZE
+			 , BUILDING_SIZE
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(FOUNDATION_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS FOUNDATION_DATE
+			 , REG_TYPE
+			 , MANAGEMENT_EMP_CNT
+			 , PRODUCTION_EMP_CNT
+			 , FOREIGNER_EMP_CNT
+			 , PLANT_TYPE
+		  FROM STOCVNPL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="getDataOfVNPS" parameterType="hashmap" resultType="java.util.Map">
+		SELECT VENDOR_CD
+			 , PERSON_SQ
+			 , USER_NM
+			 , DUTY_NM
+			 , CAREER
+		  FROM STOCVNPS
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="getDataOfVNFI" parameterType="hashmap" resultType="java.util.Map">
+		SELECT VENDOR_CD
+			 , FI_YEAR
+			 , SALES_AMOUNT
+			 , OPERATION_PROFIT_AMOUNT
+			 , NET_PROFIT_AMOUNT
+			 , OWNER_CAPITAL_AMOUNT
+			 , TOTAL_LIABILITY_AMOUNT
+			 , TOTAL_LIABILITY_RATE
+			 , RMK
+			 , RECURRING_PROFIT_AMOUNT
+			 , CURRENT_ASSET_AMOUNT
+			 , INVENTORY_ASSET_AMOUNT
+			 , CURRENT_ASSET_LIABILITY_AMOUNT
+			 , FIX_LIABILITY_AMOUNT
+			 , CAR_DEPOSIT_AMOUNT
+			 , SHOT_CAR_DEPOSIT_AMOUNT
+			 , ACCOUNT_RECEIVABLE_AMOUNT
+			 , TANGIBLE_ASSET_AMOUNT
+			 , RECURRING_PROFIT_RATE
+			 , OPERATION_PROFIT_RATE
+			 , CAPITAL_ROTATE_RATE
+			 , OWNER__CAPITAL_RATE
+			 , CAR_DEPOSIT_DEP_RATE
+			 , SALES_COST_AMOUT
+			 , ITEM_LABOR_COST_AMOUNT
+			 , OTHER_COST_AMOUNT
+		  FROM STOCVNFI
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="getDataOfVNEQ" parameterType="hashmap" resultType="java.util.Map">
+		SELECT VENDOR_CD
+			 , EQ_SQ
+			 , EQ_NM
+			 , SPEC
+			 , QT
+			 , GR_AMT
+			 , MAKER_NM
+			 , MAKE_YEAR
+			 , GR_YEAR
+			 , RMK
+			 , ATT_FILE_NUM
+			 ,(SELECT COUNT(*)
+			 	 FROM STOCATCH
+			 	WHERE GATE_CD = #{ses.gateCd}
+			 	  AND UUID = ATT_FILE_NUM
+			 	  AND DEL_FLAG = '0') AS ATT_FILE_CNT
+			 , PRODUCTION_ITEM
+			 , CAPA
+			 , OPERATION_RATE
+		  FROM STOCVNEQ
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<insert id="saveSGVN" parameterType="hashmap">
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCSGVN A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{SG_NUM} AS SG_NUM, #{VENDOR_CD} AS VENDOR_CD <include refid="com.sql.dual"/>) B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.SG_NUM = B.SG_NUM
+			   AND A.VENDOR_CD = B.VENDOR_CD)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   DEL_FLAG = '0'
+				 , MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , SG_NUM
+				 , VENDOR_CD
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{SG_NUM}
+				 , #{VENDOR_CD}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCSGVN AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{SG_NUM} AS SG_NUM, #{VENDOR_CD} AS VENDOR_CD) AS B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.SG_NUM = B.SG_NUM
+			   AND A.VENDOR_CD = B.VENDOR_CD)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   DEL_FLAG = '0'
+				 , MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , SG_NUM
+				 , VENDOR_CD
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{SG_NUM}
+				 , #{VENDOR_CD}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNSK" parameterType="hashmap">
+
+		<selectKey keyProperty="STOCK_SQ_MAX" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(STOCK_SQ)+1, 1) AS STOCK_SQ_MAX
+			  FROM STOCVNSK
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNSK A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{STOCK_SQ} AS STOCK_SQ <include refid="com.sql.dual"/>) B
+			    ON (A.GATE_CD = B.GATE_CD
+			   AND A.VENDOR_CD = B.VENDOR_CD
+			   AND A.STOCK_SQ = B.STOCK_SQ)
+			WHEN MATCHED THEN
+		    UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , STOCKHOLDER_NM = #{STOCKHOLDER_NM}
+				 , STOCK_RATIO = #{STOCK_RATIO}
+				 , RMK = #{RMK}
+			WHEN NOT MATCHED THEN
+		    INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , STOCK_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , STOCKHOLDER_NM
+				 , STOCK_RATIO
+				 , RMK
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{STOCK_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{STOCKHOLDER_NM}
+				 , CASE WHEN #{STOCK_RATIO} = '' THEN 0 ELSE CAST(#{STOCK_RATIO} AS NUMERIC(22,2)) END
+				 , #{RMK}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNSK AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{STOCK_SQ} AS STOCK_SQ) AS B
+			    ON (A.GATE_CD = B.GATE_CD
+			   AND A.VENDOR_CD = B.VENDOR_CD
+			   AND A.STOCK_SQ = B.STOCK_SQ)
+			WHEN MATCHED THEN
+		    UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , STOCKHOLDER_NM = #{STOCKHOLDER_NM}
+				 , STOCK_RATIO = #{STOCK_RATIO}
+				 , RMK = #{RMK}
+			WHEN NOT MATCHED THEN
+		    INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , STOCK_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , STOCKHOLDER_NM
+				 , STOCK_RATIO
+				 , RMK
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{STOCK_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{STOCKHOLDER_NM}
+				 , CASE WHEN #{STOCK_RATIO} = '' THEN 0 ELSE CAST(#{STOCK_RATIO} AS NUMERIC(22,2)) END
+				 , #{RMK}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNPL" parameterType="hashmap">
+
+		<selectKey keyProperty="PLANT_SQ_MAX" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(PLANT_SQ)+1, 1) AS PLANT_SQ_MAX
+			  FROM STOCVNPL
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNPL A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PLANT_SQ} AS PLANT_SQ <include refid="com.sql.dual"/>) B
+			    ON (A.GATE_CD = B.GATE_CD
+			   AND A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PLANT_SQ = B.PLANT_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , PLANT_NM = #{PLANT_NM}
+				 , ZIP_CD = #{ZIP_CD}
+				 , ZIP_CD_5 = #{ZIP_CD_5}
+				 , ADDRESS = #{ADDRESS}
+				 , LAND_SIZE = #{LAND_SIZE}
+				 , BUILDING_SIZE = #{BUILDING_SIZE}
+				 , FOUNDATION_DATE = #{FOUNDATION_DATE}
+				 , REG_TYPE = #{REG_TYPE}
+				 , MANAGEMENT_EMP_CNT = #{MANAGEMENT_EMP_CNT}
+				 , PRODUCTION_EMP_CNT = #{PRODUCTION_EMP_CNT}
+				 , FOREIGNER_EMP_CNT = #{FOREIGNER_EMP_CNT}
+				 , PLANT_TYPE = #{PLANT_TYPE}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PLANT_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , PLANT_NM
+				 , ZIP_CD
+				 , ZIP_CD_5
+				 , ADDRESS
+				 , LAND_SIZE
+				 , BUILDING_SIZE
+				 , FOUNDATION_DATE
+				 , REG_TYPE
+				 , MANAGEMENT_EMP_CNT
+				 , PRODUCTION_EMP_CNT
+				 , FOREIGNER_EMP_CNT
+				 , PLANT_TYPE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PLANT_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{PLANT_NM}
+				 , #{ZIP_CD}
+				 , #{ZIP_CD_5}
+				 , #{ADDRESS}
+				 , #{LAND_SIZE}
+				 , #{BUILDING_SIZE}
+				 , #{FOUNDATION_DATE}
+				 , #{REG_TYPE}
+				 , #{MANAGEMENT_EMP_CNT}
+				 , #{PRODUCTION_EMP_CNT}
+				 , #{FOREIGNER_EMP_CNT}
+				 , #{PLANT_TYPE}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNPL AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PLANT_SQ} AS PLANT_SQ) AS B
+			    ON (A.GATE_CD = B.GATE_CD
+			   AND A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PLANT_SQ = B.PLANT_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , PLANT_NM = #{PLANT_NM}
+				 , ZIP_CD = #{ZIP_CD}
+				 , ZIP_CD_5 = #{ZIP_CD_5}
+				 , ADDRESS = #{ADDRESS}
+				 , LAND_SIZE = #{LAND_SIZE}
+				 , BUILDING_SIZE = #{BUILDING_SIZE}
+				 , FOUNDATION_DATE = #{FOUNDATION_DATE}
+				 , REG_TYPE = #{REG_TYPE}
+				 , MANAGEMENT_EMP_CNT = #{MANAGEMENT_EMP_CNT}
+				 , PRODUCTION_EMP_CNT = #{PRODUCTION_EMP_CNT}
+				 , FOREIGNER_EMP_CNT = #{FOREIGNER_EMP_CNT}
+				 , PLANT_TYPE = #{PLANT_TYPE}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PLANT_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , PLANT_NM
+				 , ZIP_CD
+				 , ZIP_CD_5
+				 , ADDRESS
+				 , LAND_SIZE
+				 , BUILDING_SIZE
+				 , FOUNDATION_DATE
+				 , REG_TYPE
+				 , MANAGEMENT_EMP_CNT
+				 , PRODUCTION_EMP_CNT
+				 , FOREIGNER_EMP_CNT
+				 , PLANT_TYPE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PLANT_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{PLANT_NM}
+				 , #{ZIP_CD}
+				 , #{ZIP_CD_5}
+				 , #{ADDRESS}
+				 , #{LAND_SIZE}
+				 , #{BUILDING_SIZE}
+				 , #{FOUNDATION_DATE}
+				 , #{REG_TYPE}
+				 , #{MANAGEMENT_EMP_CNT}
+				 , #{PRODUCTION_EMP_CNT}
+				 , #{FOREIGNER_EMP_CNT}
+				 , #{PLANT_TYPE}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNPS" parameterType="hashmap">
+
+		<selectKey keyProperty="PERSON_SQ_MAX" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(PERSON_SQ)+1, 1) AS PLANT_SQ_MAX
+			FROM STOCVNPS
+			WHERE GATE_CD = #{ses.gateCd}
+			AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNPS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PERSON_SQ} AS PERSON_SQ <include refid="com.sql.dual"/>) B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PERSON_SQ = B.PERSON_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , USER_NM = #{USER_NM}
+				 , DUTY_NM = #{DUTY_NM}
+				 , CAREER = #{CAREER}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PERSON_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , USER_NM
+				 , DUTY_NM
+				 , CAREER
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PERSON_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{USER_NM}
+				 , #{DUTY_NM}
+				 , #{CAREER}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNPS AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PERSON_SQ} AS PERSON_SQ) AS B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PERSON_SQ = B.PERSON_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , USER_NM = #{USER_NM}
+				 , DUTY_NM = #{DUTY_NM}
+				 , CAREER = #{CAREER}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PERSON_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , USER_NM
+				 , DUTY_NM
+				 , CAREER
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PERSON_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{USER_NM}
+				 , #{DUTY_NM}
+				 , #{CAREER}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNFI" parameterType="hashmap">
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNFI A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{FI_YEAR} AS FI_YEAR <include refid="com.sql.dual"/>) B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.FI_YEAR = B.FI_YEAR)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , SALES_AMOUNT = #{SALES_AMOUNT}
+				 , OPERATION_PROFIT_AMOUNT = #{OPERATION_PROFIT_AMOUNT}
+				 , NET_PROFIT_AMOUNT = #{NET_PROFIT_AMOUNT}
+				 , OWNER_CAPITAL_AMOUNT = #{OWNER_CAPITAL_AMOUNT}
+				 , TOTAL_LIABILITY_AMOUNT = #{TOTAL_LIABILITY_AMOUNT}
+				 , TOTAL_LIABILITY_RATE = #{TOTAL_LIABILITY_RATE}
+				 , RMK = #{RMK}
+				 , RECURRING_PROFIT_AMOUNT = #{RECURRING_PROFIT_AMOUNT}
+				 , CURRENT_ASSET_AMOUNT = #{CURRENT_ASSET_AMOUNT}
+				 , INVENTORY_ASSET_AMOUNT = #{INVENTORY_ASSET_AMOUNT}
+				 , CURRENT_ASSET_LIABILITY_AMOUNT = #{CURRENT_ASSET_LIABILITY_AMOUNT}
+				 , FIX_LIABILITY_AMOUNT = #{FIX_LIABILITY_AMOUNT}
+				 , CAR_DEPOSIT_AMOUNT = #{CAR_DEPOSIT_AMOUNT}
+				 , SHOT_CAR_DEPOSIT_AMOUNT = #{SHOT_CAR_DEPOSIT_AMOUNT}
+				 , ACCOUNT_RECEIVABLE_AMOUNT = #{ACCOUNT_RECEIVABLE_AMOUNT}
+				 , TANGIBLE_ASSET_AMOUNT = #{TANGIBLE_ASSET_AMOUNT}
+				 , RECURRING_PROFIT_RATE = #{RECURRING_PROFIT_RATE}
+				 , OPERATION_PROFIT_RATE = #{OPERATION_PROFIT_RATE}
+				 , CAPITAL_ROTATE_RATE = #{CAPITAL_ROTATE_RATE}
+				 , OWNER__CAPITAL_RATE = #{OWNER__CAPITAL_RATE}
+				 , CAR_DEPOSIT_DEP_RATE = #{CAR_DEPOSIT_DEP_RATE}
+				 , SALES_COST_AMOUT = #{SALES_COST_AMOUT}
+				 , ITEM_LABOR_COST_AMOUNT = #{ITEM_LABOR_COST_AMOUNT}
+				 , OTHER_COST_AMOUNT = #{OTHER_COST_AMOUNT}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , FI_YEAR
+				 , REG_DATE
+				 , REG_USER_ID
+				 , SALES_AMOUNT
+				 , OPERATION_PROFIT_AMOUNT
+				 , NET_PROFIT_AMOUNT
+				 , OWNER_CAPITAL_AMOUNT
+				 , TOTAL_LIABILITY_AMOUNT
+				 , TOTAL_LIABILITY_RATE
+				 , RMK
+				 , RECURRING_PROFIT_AMOUNT
+				 , CURRENT_ASSET_AMOUNT
+				 , INVENTORY_ASSET_AMOUNT
+				 , CURRENT_ASSET_LIABILITY_AMOUNT
+				 , FIX_LIABILITY_AMOUNT
+				 , CAR_DEPOSIT_AMOUNT
+				 , SHOT_CAR_DEPOSIT_AMOUNT
+				 , ACCOUNT_RECEIVABLE_AMOUNT
+				 , TANGIBLE_ASSET_AMOUNT
+				 , RECURRING_PROFIT_RATE
+				 , OPERATION_PROFIT_RATE
+				 , CAPITAL_ROTATE_RATE
+				 , OWNER__CAPITAL_RATE
+				 , CAR_DEPOSIT_DEP_RATE
+				 , SALES_COST_AMOUT
+				 , ITEM_LABOR_COST_AMOUNT
+				 , OTHER_COST_AMOUNT
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{FI_YEAR}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{SALES_AMOUNT}
+				 , #{OPERATION_PROFIT_AMOUNT}
+				 , #{NET_PROFIT_AMOUNT}
+				 , #{OWNER_CAPITAL_AMOUNT}
+				 , #{TOTAL_LIABILITY_AMOUNT}
+				 , #{TOTAL_LIABILITY_RATE}
+				 , #{RMK}
+				 , #{RECURRING_PROFIT_AMOUNT}
+				 , #{CURRENT_ASSET_AMOUNT}
+				 , #{INVENTORY_ASSET_AMOUNT}
+				 , #{CURRENT_ASSET_LIABILITY_AMOUNT}
+				 , #{FIX_LIABILITY_AMOUNT}
+				 , #{CAR_DEPOSIT_AMOUNT}
+				 , #{SHOT_CAR_DEPOSIT_AMOUNT}
+				 , #{ACCOUNT_RECEIVABLE_AMOUNT}
+				 , #{TANGIBLE_ASSET_AMOUNT}
+				 , #{RECURRING_PROFIT_RATE}
+				 , #{OPERATION_PROFIT_RATE}
+				 , #{CAPITAL_ROTATE_RATE}
+				 , #{OWNER__CAPITAL_RATE}
+				 , #{CAR_DEPOSIT_DEP_RATE}
+				 , #{SALES_COST_AMOUT}
+				 , #{ITEM_LABOR_COST_AMOUNT}
+				 , #{OTHER_COST_AMOUNT}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNFI AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{FI_YEAR} AS FI_YEAR) AS B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.FI_YEAR = B.FI_YEAR)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , SALES_AMOUNT = #{SALES_AMOUNT}
+				 , OPERATION_PROFIT_AMOUNT = #{OPERATION_PROFIT_AMOUNT}
+				 , NET_PROFIT_AMOUNT = #{NET_PROFIT_AMOUNT}
+				 , OWNER_CAPITAL_AMOUNT = #{OWNER_CAPITAL_AMOUNT}
+				 , TOTAL_LIABILITY_AMOUNT = #{TOTAL_LIABILITY_AMOUNT}
+				 , TOTAL_LIABILITY_RATE = #{TOTAL_LIABILITY_RATE}
+				 , RMK = #{RMK}
+				 , RECURRING_PROFIT_AMOUNT = #{RECURRING_PROFIT_AMOUNT}
+				 , CURRENT_ASSET_AMOUNT = #{CURRENT_ASSET_AMOUNT}
+				 , INVENTORY_ASSET_AMOUNT = #{INVENTORY_ASSET_AMOUNT}
+				 , CURRENT_ASSET_LIABILITY_AMOUNT = #{CURRENT_ASSET_LIABILITY_AMOUNT}
+				 , FIX_LIABILITY_AMOUNT = #{FIX_LIABILITY_AMOUNT}
+				 , CAR_DEPOSIT_AMOUNT = #{CAR_DEPOSIT_AMOUNT}
+				 , SHOT_CAR_DEPOSIT_AMOUNT = #{SHOT_CAR_DEPOSIT_AMOUNT}
+				 , ACCOUNT_RECEIVABLE_AMOUNT = #{ACCOUNT_RECEIVABLE_AMOUNT}
+				 , TANGIBLE_ASSET_AMOUNT = #{TANGIBLE_ASSET_AMOUNT}
+				 , RECURRING_PROFIT_RATE = #{RECURRING_PROFIT_RATE}
+				 , OPERATION_PROFIT_RATE = #{OPERATION_PROFIT_RATE}
+				 , CAPITAL_ROTATE_RATE = #{CAPITAL_ROTATE_RATE}
+				 , OWNER__CAPITAL_RATE = #{OWNER__CAPITAL_RATE}
+				 , CAR_DEPOSIT_DEP_RATE = #{CAR_DEPOSIT_DEP_RATE}
+				 , SALES_COST_AMOUT = #{SALES_COST_AMOUT}
+				 , ITEM_LABOR_COST_AMOUNT = #{ITEM_LABOR_COST_AMOUNT}
+				 , OTHER_COST_AMOUNT = #{OTHER_COST_AMOUNT}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , FI_YEAR
+				 , REG_DATE
+				 , REG_USER_ID
+				 , SALES_AMOUNT
+				 , OPERATION_PROFIT_AMOUNT
+				 , NET_PROFIT_AMOUNT
+				 , OWNER_CAPITAL_AMOUNT
+				 , TOTAL_LIABILITY_AMOUNT
+				 , TOTAL_LIABILITY_RATE
+				 , RMK
+				 , RECURRING_PROFIT_AMOUNT
+				 , CURRENT_ASSET_AMOUNT
+				 , INVENTORY_ASSET_AMOUNT
+				 , CURRENT_ASSET_LIABILITY_AMOUNT
+				 , FIX_LIABILITY_AMOUNT
+				 , CAR_DEPOSIT_AMOUNT
+				 , SHOT_CAR_DEPOSIT_AMOUNT
+				 , ACCOUNT_RECEIVABLE_AMOUNT
+				 , TANGIBLE_ASSET_AMOUNT
+				 , RECURRING_PROFIT_RATE
+				 , OPERATION_PROFIT_RATE
+				 , CAPITAL_ROTATE_RATE
+				 , OWNER__CAPITAL_RATE
+				 , CAR_DEPOSIT_DEP_RATE
+				 , SALES_COST_AMOUT
+				 , ITEM_LABOR_COST_AMOUNT
+				 , OTHER_COST_AMOUNT
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{FI_YEAR}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{SALES_AMOUNT}
+				 , #{OPERATION_PROFIT_AMOUNT}
+				 , #{NET_PROFIT_AMOUNT}
+				 , #{OWNER_CAPITAL_AMOUNT}
+				 , #{TOTAL_LIABILITY_AMOUNT}
+				 , #{TOTAL_LIABILITY_RATE}
+				 , #{RMK}
+				 , #{RECURRING_PROFIT_AMOUNT}
+				 , #{CURRENT_ASSET_AMOUNT}
+				 , #{INVENTORY_ASSET_AMOUNT}
+				 , #{CURRENT_ASSET_LIABILITY_AMOUNT}
+				 , #{FIX_LIABILITY_AMOUNT}
+				 , #{CAR_DEPOSIT_AMOUNT}
+				 , #{SHOT_CAR_DEPOSIT_AMOUNT}
+				 , #{ACCOUNT_RECEIVABLE_AMOUNT}
+				 , #{TANGIBLE_ASSET_AMOUNT}
+				 , #{RECURRING_PROFIT_RATE}
+				 , #{OPERATION_PROFIT_RATE}
+				 , #{CAPITAL_ROTATE_RATE}
+				 , #{OWNER__CAPITAL_RATE}
+				 , #{CAR_DEPOSIT_DEP_RATE}
+				 , #{SALES_COST_AMOUT}
+				 , #{ITEM_LABOR_COST_AMOUNT}
+				 , #{OTHER_COST_AMOUNT}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNEQ" parameterType="hashmap">
+
+		<selectKey keyProperty="EQ_SQ_MAX" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(EQ_SQ)+1, 1) AS EQ_SQ_MAX
+			  FROM STOCVNEQ
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNEQ A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{EQ_SQ} AS EQ_SQ <include refid="com.sql.dual"/>) B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.EQ_SQ = B.EQ_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , EQ_NM = #{EQ_NM}
+				 , SPEC = #{SPEC}
+				 , QT = #{QT}
+				 , GR_AMT = #{GR_AMT}
+				 , MAKER_NM = #{MAKER_NM}
+				 , MAKE_YEAR = #{MAKE_YEAR}
+				 , GR_YEAR = #{GR_YEAR}
+				 , RMK = #{RMK}
+				 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+				 , PRODUCTION_ITEM =  #{PRODUCTION_ITEM}
+				 , CAPA = #{CAPA}
+				 , OPERATION_RATE = #{OPERATION_RATE}
+			WHEN NOT MATCHED THEN
+			INSERT (
+			 	   GATE_CD
+				 , VENDOR_CD
+				 , EQ_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , EQ_NM
+				 , SPEC
+				 , QT
+				 , GR_AMT
+				 , MAKER_NM
+				 , MAKE_YEAR
+				 , GR_YEAR
+				 , RMK
+				 , ATT_FILE_NUM
+				 , PRODUCTION_ITEM
+				 , CAPA
+				 , OPERATION_RATE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{EQ_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{EQ_NM}
+				 , #{SPEC}
+				 , #{QT}
+				 , #{GR_AMT}
+				 , #{MAKER_NM}
+				 , #{MAKE_YEAR}
+				 , #{GR_YEAR}
+				 , #{RMK}
+				 , #{ATT_FILE_NUM}
+				 , #{PRODUCTION_ITEM}
+				 , #{CAPA}
+				 , #{OPERATION_RATE}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNEQ AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{EQ_SQ} AS EQ_SQ) AS B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.EQ_SQ = B.EQ_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , EQ_NM = #{EQ_NM}
+				 , SPEC = #{SPEC}
+				 , QT = #{QT}
+				 , GR_AMT = #{GR_AMT}
+				 , MAKER_NM = #{MAKER_NM}
+				 , MAKE_YEAR = #{MAKE_YEAR}
+				 , GR_YEAR = #{GR_YEAR}
+				 , RMK = #{RMK}
+				 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+				 , PRODUCTION_ITEM =  #{PRODUCTION_ITEM}
+				 , CAPA = #{CAPA}
+				 , OPERATION_RATE = #{OPERATION_RATE}
+			WHEN NOT MATCHED THEN
+			INSERT (
+			 	   GATE_CD
+				 , VENDOR_CD
+				 , EQ_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , EQ_NM
+				 , SPEC
+				 , QT
+				 , GR_AMT
+				 , MAKER_NM
+				 , MAKE_YEAR
+				 , GR_YEAR
+				 , RMK
+				 , ATT_FILE_NUM
+				 , PRODUCTION_ITEM
+				 , CAPA
+				 , OPERATION_RATE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{EQ_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , #{EQ_NM}
+				 , #{SPEC}
+				 , #{QT}
+				 , #{GR_AMT}
+				 , #{MAKER_NM}
+				 , #{MAKE_YEAR}
+				 , #{GR_YEAR}
+				 , #{RMK}
+				 , #{ATT_FILE_NUM}
+				 , #{PRODUCTION_ITEM}
+				 , #{CAPA}
+				 , #{OPERATION_RATE}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveVNPI" parameterType="hashmap">
+
+		<selectKey keyProperty="PRODUCTION_SQ_MAX" resultType="int" order="BEFORE">
+			SELECT <include refid="com.sql.nvl"/>(MAX(PRODUCTION_SQ)+1, 1) AS PRODUCTION_SQ_MAX
+			  FROM STOCVNPI
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</selectKey>
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCVNPI A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PRODUCTION_SQ} AS PRODUCTION_SQ <include refid="com.sql.dual"/>) B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PRODUCTION_SQ = B.PRODUCTION_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , PRODUCTION_ITEM_NM = #{PRODUCTION_ITEM_NM}
+				 , RMK = #{RMK}
+				 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PRODUCTION_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+				 , PRODUCTION_ITEM_NM
+				 , RMK
+				 , ATT_FILE_NUM
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PRODUCTION_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+				 , #{PRODUCTION_ITEM_NM}
+				 , #{RMK}
+				 , #{ATT_FILE_NUM}
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCVNPI AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{PRODUCTION_SQ} AS PRODUCTION_SQ) AS B
+				ON (A.GATE_CD = B.GATE_CD
+			   AND 	A.VENDOR_CD = B.VENDOR_CD
+			   AND A.PRODUCTION_SQ = B.PRODUCTION_SQ)
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , PRODUCTION_ITEM_NM = #{PRODUCTION_ITEM_NM}
+				 , RMK = #{RMK}
+				 , ATT_FILE_NUM = #{ATT_FILE_NUM}
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , PRODUCTION_SQ
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+				 , PRODUCTION_ITEM_NM
+				 , RMK
+				 , ATT_FILE_NUM
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , #{PRODUCTION_SQ_MAX}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+				 , #{PRODUCTION_ITEM_NM}
+				 , #{RMK}
+				 , #{ATT_FILE_NUM}
+			)
+		</if>
+
+	</insert>
+
+	<insert id="saveCPTS" parameterType="hashmap">
+
+		<if test='_databaseId=="oracle"'>
+			MERGE INTO STOCCPTS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD <include refid="com.sql.dual"/>) B
+			  ON (A.GATE_CD = B.GATE_CD
+			  AND A.VENDOR_CD = B.VENDOR_CD)
+
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , QUALITY = #{QUALITY}
+				 , QUALITY_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{QUALITY_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , ENVIRONMENT = #{ENVIRONMENT}
+				 , ENVIRONMENT_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{ENVIRONMENT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , SQ = #{SQ}
+				 , SQ_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{SQ_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , MAIN_BANK = #{MAIN_BANK}
+				 , MAIN_BANK_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{MAIN_BANK_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+				 , QUALITY
+				 , QUALITY_DATE
+				 , ENVIRONMENT
+				 , ENVIRONMENT_DATE
+				 , SQ
+				 , SQ_DATE
+				 , MAIN_BANK
+				 , MAIN_BANK_DATE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+				 , #{QUALITY}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{QUALITY_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{ENVIRONMENT}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{ENVIRONMENT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{SQ}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{SQ_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{MAIN_BANK}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{MAIN_BANK_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			)
+		</if>
+		<if test='_databaseId=="mssql"'>
+			MERGE STOCCPTS AS A
+			USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD) AS B
+			  ON (A.GATE_CD = B.GATE_CD
+			  AND A.VENDOR_CD = B.VENDOR_CD)
+
+			WHEN MATCHED THEN
+			UPDATE SET
+				   MOD_DATE = <include refid="com.sql.sysdate"/>
+				 , MOD_USER_ID = #{ses.userId}
+				 , QUALITY = #{QUALITY}
+				 , QUALITY_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{QUALITY_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , ENVIRONMENT = #{ENVIRONMENT}
+				 , ENVIRONMENT_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{ENVIRONMENT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , SQ = #{SQ}
+				 , SQ_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{SQ_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , MAIN_BANK = #{MAIN_BANK}
+				 , MAIN_BANK_DATE = <include refid="com.sql.dbo"/>SETGMTDATE(#{MAIN_BANK_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+
+			WHEN NOT MATCHED THEN
+			INSERT (
+				   GATE_CD
+				 , VENDOR_CD
+				 , REG_DATE
+				 , REG_USER_ID
+				 , DEL_FLAG
+				 , QUALITY
+				 , QUALITY_DATE
+				 , ENVIRONMENT
+				 , ENVIRONMENT_DATE
+				 , SQ
+				 , SQ_DATE
+				 , MAIN_BANK
+				 , MAIN_BANK_DATE
+			) VALUES (
+				   #{ses.gateCd}
+				 , #{VENDOR_CD}
+				 , <include refid="com.sql.sysdate"/>
+				 , #{ses.userId}
+				 , '0'
+				 , #{QUALITY}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{QUALITY_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{ENVIRONMENT}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{ENVIRONMENT_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{SQ}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{SQ_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+				 , #{MAIN_BANK}
+				 , <include refid="com.sql.dbo"/>SETGMTDATE(#{MAIN_BANK_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			)
+		</if>
+
+	</insert>
+
+	<delete id="deleteSGVN" parameterType="hashmap">
+		DELETE FROM STOCSGVN
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNSK" parameterType="hashmap">
+		DELETE FROM STOCVNSK
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNPL" parameterType="hashmap">
+		DELETE FROM STOCVNPL
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNPS" parameterType="hashmap">
+		DELETE FROM STOCVNPS
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNFI" parameterType="hashmap">
+		DELETE FROM STOCVNFI
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNEQ" parameterType="hashmap">
+		DELETE FROM STOCVNEQ
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNPI" parameterType="hashmap">
+		DELETE FROM STOCVNPI
+		WHERE GATE_CD = #{ses.gateCd}
+		AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<update id="doDealClose" parameterType="hashmap">
+		UPDATE STOCVNGL SET
+		       MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , VENDOR_TYPE = 'Z'
+			 , DEAL_CLOSE_DATE = <include refid="com.sql.sysdate"/>
+			 , DEAL_CLOSE_USER_ID = #{ses.userId}
+			 , DEAL_CLOSE_RMK = #{DEAL_CLOSE_RMK}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<update id="doConfirmReq" parameterType="hashmap">
+		UPDATE STOCVNGL SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , PROGRESS_CD = #{PROGRESS_CD}
+			 , SIGN_STATUS = #{SIGN_STATUS}
+			<if test='SIGN_STATUS == "E" or SIGN_STATUS == "R"'>
+			 , SIGN_DATE = <include refid="com.sql.sysdate"/>
+			</if>
+			 , APP_DOC_NUM = #{APP_DOC_NUM}
+			 , APP_DOC_CNT = #{APP_DOC_CNT}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<select id="doChangeCheck" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(1)
+		  FROM STOCVNGL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND VENDOR_NM = #{VENDOR_NM}
+		   AND CEO_USER_NM = #{CEO_USER_NM}
+		   AND IRS_NUM = #{IRS_NUM}
+		   AND VAATZ_VENDOR_CD = #{VAATZ_VENDOR_CD}
+		   AND DEAL_CLOSE_DATE = #{DEAL_CLOSE_DATE}
+		   AND DEAL_CLOSE_USER_ID = #{DEAL_CLOSE_USER_ID}
+		   AND DEAL_CLOSE_RMK = #{DEAL_CLOSE_RMK}
+		   AND ADDR = #{ADDR}
+		   AND ADDR_ETC = #{ATTR_ETC}
+	</select>
+
+	<select id="doChangeCheckRegion" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(1)
+		  FROM STOCVNRG
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND REGION_CD IN ${REGION_IN}
+	</select>
+
+	<insert id="insertVNOH" parameterType="hashmap">
+		INSERT INTO STOCVNOH (
+			  GATE_CD
+			, DRAFT_NUM
+			, VENDOR_CD
+			, REG_DATE
+			, REG_USER_ID
+			, DEL_FLAG
+			, CHANGE_RMK
+			, ATT_FILE_NUM
+			, SIGN_STATUS
+		) VALUES (
+			  #{ses.gateCd}
+			, #{DRAFT_NUM}
+			, #{VENDOR_CD}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{CHANGE_RMK}
+			, #{ATT_FILE_NUM}
+			, #{SIGN_STATUS}
+		)
+	</insert>
+
+	<insert id="insertVNOD" parameterType="hashmap">
+		INSERT INTO STOCVNOD (
+			  GATE_CD
+			, DRAFT_NUM
+			, COLUMN_ID
+			, REG_DATE
+			, REG_USER_ID
+			, DEL_FLAG
+			, BEFORE_VALUE
+			, AFTER_VALUE
+		) VALUES (
+			  #{ses.gateCd}
+			, #{DRAFT_NUM}
+			, #{COLUMN_ID}
+			, <include refid="com.sql.sysdate"/>
+			, #{ses.userId}
+			, '0'
+			, #{BEFORE_VALUE}
+			, #{AFTER_VALUE}
+		)
+	</insert>
+
+	<select id="getRegionInfo" parameterType="hashmap" resultType="hashMap">
+
+		<if test='_databaseId=="oracle"'>
+			SELECT <include refid="com.sql.nvl"/>((SELECT <include refid="com.sql.subStr"/>(XMLAGG(XMLELEMENT(A, ',' || DD.CODE) ORDER BY DD.SORT_SQ).EXTRACT('//text()'), 2)
+								FROM STOCVNRG RG
+								JOIN STOCCODD DD
+								  ON (DD.GATE_CD = RG.GATE_CD
+								 AND DD.CODE_TYPE = 'M132'
+								 AND DD.LANG_CD = #{ses.langCd}
+								 AND DD.CODE = RG.REGION_CD
+								 AND DD.DEL_FLAG = '0')
+							   WHERE RG.GATE_CD = #{ses.gateCd}
+								 AND RG.VENDOR_CD = #{VENDOR_CD}
+								 AND RG.DEL_FLAG = '0'), '-') AS REGION_CD
+			  FROM STOCVNGL
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</if>
+
+		<if test='_databaseId=="mssql"'>
+			SELECT <include refid="com.sql.nvl"/>(STUFF((SELECT ', ' + CAST(DD.CODE AS NVARCHAR(500))
+								FROM STOCVNRG RG
+								JOIN STOCCODD DD
+								  ON (DD.GATE_CD = RG.GATE_CD
+								 AND DD.CODE_TYPE = 'M132'
+								 AND DD.LANG_CD = #{ses.langCd}
+								 AND DD.CODE = RG.REGION_CD
+								 AND DD.DEL_FLAG = '0')
+							   WHERE RG.GATE_CD = #{ses.gateCd}
+								 AND RG.VENDOR_CD = #{VENDOR_CD}
+								 AND RG.DEL_FLAG = '0'
+								 FOR XML PATH('')
+							  ),1,1,''), '') AS REGION_CD
+			  FROM STOCVNGL
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+		</if>
+
+	</select>
+
+	<!--  ====================================================================   -->
+	<!--   @ 신규협력회사대기현황(부품구매)  추가                                                                 -->
+	<!--   @  2015.10.28                                                                                                     -->
+	<!--   @ Cho Gyusang                                                                                                -->
+	<!--  ====================================================================   -->
+	<select id="getSupConfirmListPart" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			  VNGL.GATE_CD,
+		      VNGL.PROGRESS_CD,
+		      <include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M019', VNGL.PROGRESS_CD, #{ses.langCd} )  AS PROGRESS_NM,
+		      VNGL.SIGN_STATUS,
+		      <include refid="com.sql.dbo"/> GETCODENAME(#{ses.gateCd}, 'M020', VNGL.SIGN_STATUS, #{ses.langCd} )  AS SIGN_STATUS_NM,
+		      VNGL.VENDOR_CD,
+		      VNGL.VENDOR_NM,
+		      VNGL.IRS_NUM,
+		      VNGL.CEO_USER_NM,
+		      VNGL.INDUSTRY_TYPE,
+		      VNGL.BUSINESS_TYPE,
+		      VNGL.REP_TEL_NUM,
+		      <include refid="com.sql.dbo"/>GETGMTDATE(VNGL.SIGN_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS SIGN_DATE,
+		      VNGL.REJECT_RMK,
+              VNGL.APP_DOC_NUM,
+              VNGL.APP_DOC_CNT,
+			  VNGL.NORMAL_PURCHASE_FLAG,
+			  VNGL.ITEM_PURCHASE_FLAG,
+			  <include refid="com.sql.dbo"/>GETGMTDATE(VNGL.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy/MM/dd hh24:mi') AS REG_DATE,
+			  (SELECT <if test='_databaseId == "mssql"'>TOP 1</if>
+			    	EVVM.EV_NUM
+			    FROM STOCEVVM EVVM
+			   WHERE EVVM.GATE_CD = VNGL.GATE_CD
+			     AND EVVM.VENDOR_CD = VNGL.VENDOR_CD
+			     AND EVVM.DEL_FLAG = '0'
+			   <if test='_databaseId == "oracle"'>
+			     AND ROWNUM = 1
+			   </if>
+			   ) AS EV_NUM,
+			   APP_DOC_NUM
+		  FROM STOCVNGL VNGL
+		 WHERE VNGL.GATE_CD 	= #{ses.gateCd}
+		   AND VNGL.DEL_FLAG 	= '0'
+		   AND VNGL.DATA_CREATION_TYPE = 'S'
+		   AND <include refid="com.sql.nvl"/>(VNGL.VENDOR_TYPE, ' ') != 'X' --부적합
+
+		<if test="VENDOR_NM !=null and VENDOR_NM !='' ">
+		  	  AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},VNGL.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="REG_TYPE != '' and REG_TYPE != null">
+			AND VNGL.REG_TYPE = #{REG_TYPE}
+		</if>
+		<if test="CEO_USER_NM != '' and CEO_USER_NM != null">
+		  	  AND VNGL.CEO_USER_NM <include refid="com.sql.likeL"/> #{CEO_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="IRS_NUM != '' and IRS_NUM != null">
+			AND VNGL.IRS_NUM <include refid="com.sql.likeL"/> #{IRS_NUM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="PROGRESS_CD != '' and PROGRESS_CD != null">
+			AND VNGL.PROGRESS_CD = #{PROGRESS_CD}
+		</if>
+		<if test="SIGN_STATUS != '' and SIGN_STATUS != null">
+			AND VNGL.SIGN_STATUS = #{SIGN_STATUS}
+		</if>
+		<if test="NORMAL_PURCHASE_FLAG == 'NPUR'">
+			AND VNGL.NORMAL_PURCHASE_FLAG = '1'
+		</if>
+		<if test="NORMAL_PURCHASE_FLAG == 'PPUR'">
+			AND VNGL.ITEM_PURCHASE_FLAG = '1'
+		</if>
+		<if test="ITEM_PURCHASE_FLAG == 'NPUR'">
+			AND VNGL.NORMAL_PURCHASE_FLAG = '1'
+		</if>
+		<if test="ITEM_PURCHASE_FLAG == 'PPUR'">
+			AND VNGL.ITEM_PURCHASE_FLAG = '1'
+		</if>
+		<if test="REG_FROM_DATE != '' and REG_FROM_DATE != null and REG_TO_DATE != '' and REG_TO_DATE != null">
+			AND VNGL.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REG_FROM_DATE}<include refid="com.sql.dateTo"/> AND <include refid="com.sql.toDate"/>#{REG_TO_DATE}<include refid="com.sql.dateTo"/>
+		</if>
+
+		ORDER BY VNGL.REG_DATE DESC
+
+	</select>
+
+	<!-- STOCVNCB(헙력업체) -->
+	<select id="getDataOfVNCB" parameterType="hashmap" resultType="hashmap">
+		SELECT VENDOR_CD
+			 , VENDOR_NM
+			 , CEO_USER_NM
+			 , PUR_AMT
+			 , BUY_RATE
+			 , MAIN_COMPONENT
+			 , RMK
+		  FROM STOCVNCB
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<delete id="deleteVNCB" parameterType="hashmap">
+		DELETE FROM STOCVNCB
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<insert id="saveVNCB" parameterType="hashmap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCVNCB<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{VENDOR_NM} AS VENDOR_NM <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.VENDOR_CD = B.VENDOR_CD
+		   AND 	A.VENDOR_NM = B.VENDOR_NM)
+		WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , CEO_USER_NM = #{CEO_USER_NM}
+			 , PUR_AMT = #{PUR_AMT}
+			 , BUY_RATE = #{BUY_RATE}
+			 , MAIN_COMPONENT = #{MAIN_COMPONENT}
+			 , RMK = #{RMK}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , VENDOR_CD
+			 , VENDOR_NM
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , CEO_USER_NM
+			 , PUR_AMT
+			 , BUY_RATE
+			 , MAIN_COMPONENT
+			 , RMK
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{VENDOR_NM}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{CEO_USER_NM}
+			 , #{PUR_AMT}
+			 , #{BUY_RATE}
+			 , #{MAIN_COMPONENT}
+			 , #{RMK}
+		)
+
+	</insert>
+
+	<!-- STOCVNRE(관계사) -->
+	<select id="getDataOfVNRE" parameterType="hashmap" resultType="hashmap">
+		SELECT VENDOR_CD
+			 , VENDOR_NM
+			 , CEO_USER_NM
+			 , RMK
+			 , IRS_NUM
+			 , ZIP_CD
+			 , ZIP_CD_5
+			 , ADDRESS
+		  FROM STOCVNRE
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<delete id="deleteVNRE" parameterType="hashmap">
+		DELETE FROM STOCVNRE
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<insert id="saveVNRE" parameterType="hashmap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCVNRE<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{VENDOR_NM} AS VENDOR_NM <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.VENDOR_CD = B.VENDOR_CD
+		   AND A.VENDOR_NM = B.VENDOR_NM)
+		WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , RMK = #{RMK}
+			 , IRS_NUM = #{IRS_NUM}
+			 , ZIP_CD = #{ZIP_CD}
+			 , ZIP_CD_5 = #{ZIP_CD_5}
+			 , ADDRESS = #{ADDRESS}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , VENDOR_CD
+			 , VENDOR_NM
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , CEO_USER_NM
+			 , RMK
+			 , IRS_NUM
+			 , ZIP_CD
+			 , ZIP_CD_5
+			 , ADDRESS
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{VENDOR_NM}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{CEO_USER_NM}
+			 , #{RMK}
+			 , #{IRS_NUM}
+			 , #{ZIP_CD}
+			 , #{ZIP_CD_5}
+			 , #{ADDRESS}
+		)
+
+	</insert>
+
+	<!-- STOCVNCA(완성 차 의존도) -->
+	<select id="getDataOfVNCA" parameterType="hashmap" resultType="hashmap">
+		SELECT VENDOR_CD
+			 , YEAR
+			 , HMC
+			 , KMC
+			 , GM
+			 , OTHER
+			 , RMK
+		  FROM STOCVNCA
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<delete id="deleteVNCA" parameterType="hashmap">
+		DELETE FROM STOCVNCA
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<delete id="deleteVNDC">
+		DELETE FROM STOCVNDC
+		 WHERE GATE_CD   = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</delete>
+
+	<insert id="saveVNCA" parameterType="hashmap">
+
+		MERGE<include refid="com.sql.mergeInto"/>STOCVNCA<include refid="com.sql.mergeAs"/>A
+		USING (SELECT #{ses.gateCd} AS GATE_CD, #{VENDOR_CD} AS VENDOR_CD, #{YEAR} AS YEAR <include refid="com.sql.dual"/>)<include refid="com.sql.mergeAs"/>B
+			ON (A.GATE_CD = B.GATE_CD
+		   AND A.VENDOR_CD = B.VENDOR_CD
+		   AND 	A.YEAR = B.YEAR)
+		WHEN MATCHED THEN
+		UPDATE SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+			 , MOD_USER_ID = #{ses.userId}
+			 , HMC = #{HMC}
+			 , KMC = #{KMC}
+			 , GM = #{GM}
+			 , OTHER = #{OTHER}
+			 , RMK = #{RMK}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			   GATE_CD
+			 , VENDOR_CD
+			 , YEAR
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+			 , HMC
+			 , KMC
+			 , GM
+			 , OTHER
+			 , RMK
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{YEAR}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+			 , #{HMC}
+			 , #{KMC}
+			 , #{GM}
+			 , #{OTHER}
+			 , #{RMK}
+		)
+
+	</insert>
+
+	<select id="getDataOfCPTS" parameterType="hashmap" resultType="hashmap">
+		SELECT CPTS.QUALITY
+			 , CPTS.QUALITY_DATE
+			 , CPTS.ENVIRONMENT
+			 , CPTS.ENVIRONMENT_DATE
+			 , CPTS.SQ
+			 , CPTS.SQ_DATE
+			 , CPTS.MAIN_BANK
+			 , CPTS.MAIN_BANK_DATE
+		  FROM STOCCPTS CPTS
+		 WHERE CPTS.GATE_CD = #{ses.gateCd}
+		   AND CPTS.VENDOR_CD = #{VENDOR_CD}
+		   AND CPTS.DEL_FLAG = '0'
+	</select>
+
+	<select id="getLatelyVNTR" parameterType="hashmap" resultType="hashmap">
+		SELECT <if test="_databaseId == 'mssql'">TOP 1</if>
+			   VNTR.CREDIT_DEGREE
+			 , <include refid="com.sql.dbo"/>GETGMTDATE(VNTR.BASE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS BASE_DATE
+		  FROM STOCVNTR VNTR
+		 WHERE VNTR.GATE_CD = #{ses.gateCd}
+		   AND VNTR.VENDOR_CD = #{VENDOR_CD}
+           AND BASE_DATE = (SELECT MAX(BASE_DATE)
+           					  FROM STOCVNTR
+           					 WHERE GATE_CD = #{ses.gateCd}
+           					   AND VENDOR_CD = #{VENDOR_CD}
+           					   AND DEL_FLAG = '0')
+		   AND VNTR.DEL_FLAG = '0'
+		<if test="_databaseId == 'oracle'">
+		   AND ROWNUM = 1
+		</if>
+	</select>
+
+	<select id="getFinanceData" parameterType="hashmap" resultType="hashmap">
+		SELECT *
+		  FROM (
+			SELECT <if test="_databaseId == 'mssql'">TOP 3</if>
+				   FI_YEAR
+				 , OWNER_CAPITAL_AMOUNT
+				 , TOTAL_LIABILITY_AMOUNT
+				 , CURRENT_ASSET_AMOUNT
+				 , INVENTORY_ASSET_AMOUNT
+				 , CURRENT_ASSET_LIABILITY_AMOUNT
+				 , FIX_LIABILITY_AMOUNT
+				 , CAR_DEPOSIT_AMOUNT
+				 , SHOT_CAR_DEPOSIT_AMOUNT
+				 , ACCOUNT_RECEIVABLE_AMOUNT
+				 , TANGIBLE_ASSET_AMOUNT
+				 , TOTAL_LIABILITY_RATE
+				 , RECURRING_PROFIT_RATE
+				 , OPERATION_PROFIT_RATE
+				 , CAPITAL_ROTATE_RATE
+				 , OWNER__CAPITAL_RATE
+				 , CAR_DEPOSIT_DEP_RATE
+				 , SALES_COST_AMOUT
+				 , ITEM_LABOR_COST_AMOUNT
+				 , OTHER_COST_AMOUNT
+			  FROM STOCVNFI
+			 WHERE GATE_CD = #{ses.gateCd}
+			   AND VENDOR_CD = #{VENDOR_CD}
+			 ORDER BY FI_YEAR DESC
+		  )
+		 WHERE 1 = 1
+		<if test="_databaseId == 'oracle'">
+		   AND ROWNUM <![CDATA[<=]]> 3
+		</if>
+	</select>
+
+	<select id="getSalesData" parameterType="hashmap" resultType="hashmap">
+		SELECT FI_YEAR
+			 , SALES_AMOUNT
+			 , RECURRING_PROFIT_AMOUNT
+			 , OPERATION_PROFIT_AMOUNT
+			 , NET_PROFIT_AMOUNT
+			 , RMK
+		  FROM STOCVNFI
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</select>
+
+	<select id="getSignStatus" parameterType="hashmap" resultType="string">
+		SELECT SIGN_STATUS
+		  FROM STOCVNGL
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="getColumnNm" parameterType="hashmap" resultType="hashmap">
+		SELECT MULTI_CD
+			 , MULTI_CONTENTS
+ 		  FROM STOCLANG
+ 		 WHERE GATE_CD = #{ses.gateCd}
+ 		   AND SCREEN_ID = 'BBV_010'
+ 		   AND FORM_GRID_ID = 'form'
+ 		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="getVenderDealTypeInfo" parameterType="hashmap" resultType="java.util.Map">
+		 SELECT CODD.CODE
+    	  	  , CODD.CODE_DESC
+    	  	  , CASE WHEN CODD.CODE = VNDC.DEAL_TYPE_CD THEN '1' ELSE '0' END AS VALUE
+		   FROM STOCCODD CODD
+		   LEFT OUTER JOIN STOCVNDC VNDC
+		    			ON(CODD.GATE_CD = VNDC.GATE_CD
+		    		   AND VNDC.VENDOR_CD = CASE WHEN #{VENDOR_CD} IS NULL OR #{VENDOR_CD} = '' THEN '' ELSE #{VENDOR_CD} END
+		   			   AND CODD.CODE = VNDC.DEAL_TYPE_CD
+           			   AND VNDC.DEL_FLAG = '0')
+		  WHERE CODD.GATE_CD = #{ses.gateCd}
+            AND CODD.CODE_TYPE = 'M230'
+            AND CODD.LANG_CD = #{ses.langCd}
+		    AND CODD.DEL_FLAG  = '0'
+		  ORDER BY CODD.CODE
+	</select>
+
+	<update id="BBV_050_doSave" parameterType="hashmap">
+		UPDATE STOCVNGL SET
+			   MOD_DATE = <include refid="com.sql.sysdate"/>
+		     , MOD_USER_ID = #{ses.userId}
+		     , DEAL_START_DATE = #{DEAL_START_DATE}
+		     , PAY_TERMS = #{PAY_TERMS}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<insert id="insertVNDC" parameterType="hashMap">
+		INSERT INTO STOCVNDC(
+			   GATE_CD
+			 , VENDOR_CD
+			 , DEAL_TYPE_CD
+			 , REG_DATE
+			 , REG_USER_ID
+			 , DEL_FLAG
+		) VALUES (
+			   #{ses.gateCd}
+			 , #{VENDOR_CD}
+			 , #{DEAL_TYPE_CD}
+			 , <include refid="com.sql.sysdate"/>
+			 , #{ses.userId}
+			 , '0'
+		)
+	</insert>
+
+	<!-- SAP 전송완료 후 SAP 맵핑여부 변경 -->
+	<update id="updateSapFlag" parameterType="hashMap">
+		UPDATE STOCVNGL SET
+		       JOB_SQ = '1',
+		       MOD_DATE = <include refid="com.sql.sysdate"/>,
+		       MOD_USER_ID = #{ses.userId}
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND VENDOR_CD = #{VENDOR_CD}
+	</update>
+
+	<select id="doSearchCandidate" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		OGCM.BUYER_CD
+		,OGCM.BUYER_NM
+		,OGCM.IRS_NUM
+		FROM STOCOGCM OGCM
+		WHERE OGCM.GATE_CD = #{ses.gateCd}
+		AND OGCM.DEL_FLAG = '0'
+		<if test="selectedBuyers != null and !selectedBuyers.isEmpty">
+			AND OGCM.BUYER_CD IN
+			<foreach open="(" collection="selectedBuyers" item="buyer" separator="union" close=")">
+				SELECT #{buyer}
+			</foreach>
+		</if>
+	</select>
+
+	<select id="IM03009_doSearchCandidate" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		     A.BUYER_CD
+			,A.BUYER_NM
+			,A.IRS_NUM
+		  FROM (
+		    SELECT
+		         OGCM.BUYER_CD
+		        ,OGCM.BUYER_NM
+		        ,OGCM.IRS_NUM
+		        ,2 AS SORT_SQ
+		      FROM STOCOGCM OGCM
+		     WHERE OGCM.GATE_CD = #{ses.gateCd}
+		       AND OGCM.DEL_FLAG = '0'
+		    UNION ALL
+		    SELECT
+		         CUST.CUST_CD AS BUYER_CD
+		        ,CUST.CUST_NM AS BUYER_NM
+		        ,CUST.IRS_NUM
+		        ,3 AS SORT_SQ
+		      FROM STOCCUST CUST
+		     WHERE CUST.GATE_CD = #{ses.gateCd}
+		       AND CUST.DEL_FLAG = '0'
+          ) A
+         WHERE 1 = 1
+       <choose>
+         <when test="selectedBuyers != null and !selectedBuyers.isEmpty">
+           AND A.BUYER_CD IN
+           <foreach open="(" collection="selectedBuyers" item="buyer" separator="union" close=")">
+             SELECT #{buyer} from dual
+           </foreach>
+         </when>
+         <otherwise>
+           <if test="BUYER_CD != null and BUYER_CD != ''">
+             AND A.BUYER_CD <include refid="com.sql.likeL"/>#{BUYER_CD}<include refid="com.sql.likeR"/>
+           </if>
+           <if test="BUYER_NM != null and BUYER_NM != ''">
+             AND A.BUYER_NM <include refid="com.sql.likeL"/>#{BUYER_NM}<include refid="com.sql.likeR"/>
+           </if>
+         </otherwise>
+       </choose>
+         ORDER BY A.SORT_SQ, A.BUYER_CD
+
+	</select>
+
+	<select id="IM03009_doSetGridR" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+		     A.BUYER_CD
+			,A.BUYER_NM
+			,A.IRS_NUM
+		  FROM (
+		    SELECT
+				 MNGH.MG_CD AS BUYER_CD
+		        ,MNGH.MG_NM AS BUYER_NM
+		        ,'' AS IRS_NUM
+		        ,1 AS SORT_SQ
+		      FROM STOCMNGH MNGH
+		     WHERE MNGH.GATE_CD = #{ses.gateCd}
+		       AND MNGH.DEL_FLAG = '0'
+		       AND MNGH.USE_FLAG = '1'
+
+		    UNION ALL
+
+		    SELECT
+		         OGCM.BUYER_CD
+		        ,OGCM.BUYER_NM
+		        ,OGCM.IRS_NUM
+		        ,2 AS SORT_SQ
+		      FROM STOCOGCM OGCM
+		     WHERE OGCM.GATE_CD = #{ses.gateCd}
+		       AND OGCM.DEL_FLAG = '0'
+
+		    UNION ALL
+
+		    SELECT
+		         CUST.CUST_CD AS BUYER_CD
+		        ,CUST.CUST_NM AS BUYER_NM
+		        ,CUST.IRS_NUM
+		        ,3 AS SORT_SQ
+		      FROM STOCCUST CUST
+		     WHERE CUST.GATE_CD = #{ses.gateCd}
+		       AND CUST.DEL_FLAG = '0'
+          ) A
+         WHERE 1 = 1
+         <if test="CUST_CD_LIST != '' and CUST_CD_LIST != null">
+            AND A.BUYER_CD IN ${CUST_CD_LIST}
+         </if>
+         ORDER BY A.SORT_SQ, A.BUYER_CD
+
+	</select>
+
+</mapper>

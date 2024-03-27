@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.srm.execEval.eval.SRM_430_Mapper">
+	<select id="SRM_430_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT	 SHORTAGE_NUM
+				,SUBJECT
+				,<include refid="com.sql.dbo"/>GETGMTDATE(FROM_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS FROM_DATE
+				,<include refid="com.sql.dbo"/>GETGMTDATE(TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS TO_DATE
+				,REMARK
+				,<include refid="com.sql.dbo"/>GETGMTDATE(REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS REG_DATE
+				,REG_USER_ID
+				,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+				,ATT_FILE_NUM
+		  FROM	 STOCEVSH
+		 WHERE	 GATE_CD		= #{ses.gateCd}
+		   AND	 DEL_FLAG 		= '0'
+		   AND	 SHORTAGE_NUM	= #{SHORTAGE_NUM}
+	   
+	</select>
+	
+	<select id="SRM_430_doSearchGrid" parameterType="hashmap" resultType="hashmap">
+		SELECT	 VENDOR_CD
+				,<include refid="com.sql.dbo"/>getVendorName(#{ses.gateCd}, VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+				,GR_AMT
+				,SHORTAGE_AMT
+				,SHORTAGE_SCORE
+				,SHORTAGE_NUM
+		  FROM	 STOCEVSD
+		 WHERE	 GATE_CD		= #{ses.gateCd}
+		   AND	 DEL_FLAG		= '0'
+		   AND	 SHORTAGE_NUM 	= #{SHORTAGE_NUM}
+	</select>
+	
+	<update id="SRM_430_doDelete" parameterType="hashmap">
+		UPDATE	STOCEVSH
+		   SET	DEL_FLAG 	= '1'
+		       ,MOD_DATE	= <include refid="com.sql.sysdate"/>
+		       ,MOD_USER_ID	= #{ses.userId}
+		 WHERE	GATE_CD		= #{ses.gateCd}
+		   AND	SHORTAGE_NUM =#{SHORTAGE_NUM}
+	</update>
+	
+	<select id="SRM_430_getNum" parameterType="hashmap" resultType="int">
+		SELECT 	<include refid="com.sql.nvl"/>(MAX(SHORTAGE_NUM)+1, 1) SHORTAGE_NUM 
+		  FROM 	STOCEVSH
+		 WHERE	GATE_CD = #{ses.gateCd}
+	</select>
+	
+	<insert id="SRM_430_doSaveInsert" parameterType="hashmap">
+		INSERT INTO STOCEVSH (GATE_CD	   , SHORTAGE_NUM	, SUBJECT   , FROM_DATE	  , TO_DATE	  , REMARK	 , ATT_FILE_NUM    , DEL_FLAG , REG_DATE	     , REG_USER_ID   )
+					VALUES   (#{ses.gateCd}, #{SHORTAGE_NUM}, #{SUBJECT}, #{FROM_DATE}, #{TO_DATE}, #{REMARK}, #{ATT_FILE_NUM} , '0', <include refid="com.sql.sysdate"/>, #{ses.userId} )
+	</insert>
+	
+	
+	<update id="SRM_430_doSave" parameterType="hashmap">
+		UPDATE	 STOCEVSH
+		   SET	 SUBJECT		= #{SUBJECT}
+				,FROM_DATE		= #{FROM_DATE}
+				,TO_DATE		= #{TO_DATE}
+				,REMARK			= #{REMARK}
+				,ATT_FILE_NUM	= #{ATT_FILE_NUM}
+				,DEL_FLAG		= '0'
+				,MOD_DATE		= <include refid="com.sql.sysdate"/>
+				,MOD_USER_ID	= #{ses.userId}
+		 WHERE	 GATE_CD		= #{ses.gateCd}
+		   AND	 SHORTAGE_NUM	= #{SHORTAGE_NUM}
+	</update>
+	
+	<update id="SRM_430_doDeleteGridAll" parameterType="hashmap">
+		UPDATE	STOCEVSD
+		   SET	DEL_FLAG 		= '1'
+		       ,MOD_DATE		= <include refid="com.sql.sysdate"/>
+		       ,MOD_USER_ID		= #{ses.userId}
+		 WHERE	GATE_CD			= #{ses.gateCd}
+		   AND	SHORTAGE_NUM 	= #{SHORTAGE_NUM}
+	</update>
+	
+	
+	<insert id="SRM_430_doSaveGrid" parameterType="hashmap">
+		MERGE STOCEVSD AS A
+		 USING (SELECT  #{ses.gateCd} 		AS GATE_CD
+		        	   ,#{VENDOR_CD} 		AS VENDOR_CD
+		        	   ,#{VENDOR_NM} 		AS VENDOR_NM
+		        	   ,#{GR_AMT}			AS GR_AMT
+		        	   ,#{SHORTAGE_AMT} 	AS SHORTAGE_AMT
+		        	   ,#{SHORTAGE_SCORE} 	AS SHORTAGE_SCORE
+		        	   ,#{SHORTAGE_NUM} 	AS SHORTAGE_NUM
+		        	   ,<include refid="com.sql.sysdate"/>	AS REG_DATE			
+		        	   ,#{ses.userId} AS REG_USER_ID			
+		        	   ,<include refid="com.sql.sysdate"/>	AS MOD_DATE			
+		        	   ,#{ses.userId} AS MOD_USER_ID			
+		        	   ,'0'					AS DEL_FLAG			
+		        ) AS B
+            ON (	A.GATE_CD 		= B.GATE_CD 
+            	AND A.SHORTAGE_NUM 	= B.SHORTAGE_NUM
+            	AND	A.VENDOR_CD		= B.VENDOR_CD)
+		  WHEN MATCHED THEN
+		UPDATE SET	 VENDOR_CD		= B.VENDOR_CD
+					,GR_AMT			= B.GR_AMT
+					,SHORTAGE_AMT	= B.SHORTAGE_AMT
+					,SHORTAGE_SCORE	= B.SHORTAGE_SCORE
+					,MOD_DATE		= B.MOD_DATE
+					,MOD_USER_ID	= B.MOD_USER_ID
+					,DEL_FLAG 		= '0'	
+		  WHEN NOT MATCHED THEN
+		INSERT (GATE_CD		,SHORTAGE_NUM	,VENDOR_CD		,REG_DATE	,REG_USER_ID	,DEL_FLAG	,GR_AMT		,SHORTAGE_AMT	,SHORTAGE_SCORE	) 
+		VALUES (B.GATE_CD	,B.SHORTAGE_NUM	,B.VENDOR_CD	,B.REG_DATE	,B.REG_USER_ID	,B.DEL_FLAG	,B.GR_AMT	,B.SHORTAGE_AMT	,B.SHORTAGE_SCORE<include refid="com.sql.mergeEnd"/>
+	</insert>
+	
+</mapper>

@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.common.menu.MenuMapper">
+
+    <select id="getScreenInfo" parameterType="hashMap" resultType="hashMap">
+        SELECT
+             SCRN.GATE_CD
+            ,SCRN.SCREEN_ID
+            ,<include refid="com.sql.dbo"/>GETMULTINAME(SCRN.GATE_CD, 'SC', #{ses.langCd}, '', SCRN.SCREEN_ID) AS SCREEN_NM
+            ,SCRN.REG_DATE
+            ,SCRN.REG_USER_ID
+            ,SCRN.MOD_DATE
+            ,SCRN.MOD_USER_ID
+            ,SCRN.DEL_FLAG
+            ,SCRN.USE_FLAG
+            ,SCRN.MODULE_TYPE
+            ,SCRN.SCREEN_URL
+            ,SCRN.DATA_AUTH_FLAG
+            ,SCRN.SCREEN_TYPE
+            ,SCRN.DEVELOPER_CD
+            ,SCRN.GRID_TYPE
+            ,SCRN.SSL_FLAG
+            ,SCRN.EXCEL_OPTION
+            ,MUTM.TMPL_MENU_CD
+          FROM STOCSCRN SCRN
+          LEFT OUTER JOIN STOCMUTM MUTM
+	           ON (SCRN.GATE_CD   = MUTM.GATE_CD
+	           AND SCRN.SCREEN_ID = MUTM.SCREEN_ID
+	           AND MUTM.DEL_FLAG  = '0')
+         WHERE SCRN.GATE_CD   = #{ses.gateCd}
+           AND SCRN.SCREEN_ID = #{SCREEN_ID}
+    </select>
+
+    <select id="getScreenInfo2" parameterType="hashMap" resultType="hashMap">
+        SELECT
+              <include refid="com.sql.nvl"/>(NOTICE_NUM,'XXX') NOTICE_NUM
+          FROM (SELECT
+                      SCRN.GATE_CD
+                     ,SCRN.SCREEN_ID
+                     ,SCRN.REG_DATE
+                     ,SCRN.REG_USER_ID
+                     ,SCRN.MOD_DATE
+                     ,SCRN.MOD_USER_ID
+                     ,SCRN.DEL_FLAG
+                     ,SCRN.USE_FLAG
+                     ,SCRN.MODULE_TYPE
+                     ,SCRN.SCREEN_URL
+                     ,SCRN.DATA_AUTH_FLAG
+                     ,SCRN.SCREEN_TYPE
+                     ,SCRN.DEVELOPER_CD
+                     ,SCRN.GRID_TYPE
+                     ,SCRN.SSL_FLAG
+                     ,SCRN.EXCEL_OPTION
+                     ,(SELECT MAX (NOTC.NOTICE_NUM)
+			             FROM STOCNOTC NOTC
+			            WHERE NOTC.GATE_CD  = #{ses.gateCd}
+			              AND <include refid="com.sql.sysdate"/> BETWEEN <include refid="com.sql.nvl"/>(NOTC.START_DATE, <include refid="com.sql.sysdate"/>) AND <include refid="com.sql.nvl"/>(NOTC.END_DATE, <include refid="com.sql.sysdate"/>)
+			              AND NOTC.SCREEN_ID = SCRN.SCREEN_ID
+		                  AND NOTC.DEL_FLAG = '0') NOTICE_NUM
+                  FROM STOCSCRN SCRN
+                 WHERE GATE_CD = #{ses.gateCd}
+                   AND SCREEN_ID  = (SELECT <include refid="com.sql.mtop1"/>
+        	                         		SCREEN_ID
+                                	   FROM STOCMUTM
+                                	  WHERE gate_cd      = #{ses.gateCd}
+        	                            AND tmpl_menu_cd = #{tmpl_menu_cd}
+        	                            <include refid="com.sql.otop1"/>
+        	                        )
+               ) A
+    </select>
+	
+	<!-- 메뉴 대분류 클릭시 하위 분류 가져오기 -->
+    <select id="getLeftMenu" parameterType="hashMap" resultType="hashMap">
+        
+    	WITH MENU AS
+		(
+			SELECT
+				   MUTM.SCREEN_ID AS screenId
+			     , MUMS.MENU_GROUP_CD
+			     , MUTM.SORT_SQ
+			     ,<include refid="com.sql.trim"/> (MUTM.TMPL_MENU_CD) AS id
+			     , MUTM.HIGH_TMPL_MENU_CD AS parentId
+			     ,<include refid="com.sql.dbo"/>GETMULTINAME(#{ses.gateCd}, 'MT', #{ses.langCd}, MUTM.TMPL_MENU_CD, (CASE WHEN MUTM.SCREEN_ID IS NULL OR MUTM.SCREEN_ID = '' THEN '-'
+			                                                                                          					  ELSE MUTM.SCREEN_ID
+			                                                                                     					 END)) AS text
+			     ,(CASE WHEN #{SSL_FLAG} = 'false' THEN SCRN.SCREEN_URL
+			          	WHEN #{SSL_FLAG} = 'true'  THEN (CASE WHEN SCRN.SSL_FLAG = '1' THEN '/eversrm/system/screen/ssl/iframe/view.so'
+			                                               	  ELSE SCRN.SCREEN_URL
+			                                             END)
+			       END) AS value
+			     , ''   AS icon
+			     ,(CASE WHEN (SELECT <include refid="com.sql.mtop1"/> COUNT(*)
+			                  FROM STOCACPF ACPF LEFT JOIN STOCUSAC USAC
+			                    ON (ACPF.GATE_CD = USAC.GATE_CD
+			                    AND ACPF.ACTION_PROFILE_CD = USAC.ACTION_PROFILE_CD)
+			                 WHERE ACPF.GATE_CD   = MUTM.GATE_CD
+			                   AND ACPF.SCREEN_ID = MUTM.SCREEN_ID
+			                   AND ACPF.DEL_FLAG  = '0'
+			                   AND USAC.DEL_FLAG  = '0'
+			                   AND USAC.USER_ID   = #{ses.userId}
+			                   <include refid="com.sql.otop1"/>) = '0' THEN 'noAction'
+			          	ELSE 'hasAction'
+			       END) AS actionStatus
+			     , MAX(MUTM.MODULE_TYPE) AS moduleType
+			     ,(SELECT COUNT(*)
+			         FROM STOCMUTM M JOIN STOCSCBM B
+			              ON (M.GATE_CD = B.GATE_CD
+			              AND M.TMPL_MENU_CD = B.TMPL_MENU_CD
+			              AND B.USER_ID = #{ses.userId})
+			        WHERE M.GATE_CD  = MUTM.GATE_CD
+			          AND (M.TMPL_MENU_CD = MUTM.TMPL_MENU_CD OR M.HIGH_TMPL_MENU_CD = MUTM.TMPL_MENU_CD)
+			          AND M.DEL_FLAG = '0') AS BOOKMARK_CNT
+			     ,(CASE WHEN #{menuAuth} = 'true' THEN CASE WHEN ( SELECT COUNT(*) FROM STOCMJUA
+																	WHERE GATE_CD   = MUTM.GATE_CD
+													                  AND SCREEN_ID = MUTM.SCREEN_ID
+													                  AND ((DATA_TYPE = 'U' AND DATA_CD = #{ses.userId})
+													                   OR  (DATA_TYPE = 'J' AND DATA_CD IN (SELECT CTRL_CD FROM STOCBACP
+													                                                         WHERE GATE_CD  = #{ses.gateCd}
+													                                                           AND BUYER_CD = #{ses.companyCd}
+													                                                           AND CTRL_USER_ID = #{ses.userId}
+													                                                           AND USE_FLAG = '1'
+													                                                           AND DEL_FLAG = '0')
+													                       )
+													                      )
+													                  AND DEL_FLAG = '0') > 0 OR #{ses.superUserFlag} = '1' THEN 'Y'
+													        ELSE 'N'
+													   END
+			     		ELSE 'Y'
+			       END) AS screenAccessAuth
+			  FROM STOCMUTM MUTM
+			  JOIN STOCMUMS MUMS
+				   ON (MUTM.GATE_CD  = MUMS.GATE_CD
+				   AND MUTM.TMPL_MENU_CD = MUMS.TMPL_MENU_CD
+				   AND MUMS.USE_FLAG = '1'
+				   AND MUMS.DEL_FLAG = '0')
+			  JOIN STOCAUMP AUMP
+				   ON (MUMS.GATE_CD  = AUMP.GATE_CD
+				   AND MUMS.MENU_GROUP_CD = AUMP.MENU_GROUP_CD
+				   AND AUMP.DEL_FLAG = '0')
+			  JOIN STOCMUGR MUGR
+				   ON (MUMS.GATE_CD  = MUGR.GATE_CD
+				   AND MUMS.MENU_GROUP_CD = MUGR.MENU_GROUP_CD
+				   AND MUGR.DEL_FLAG = '0')
+			  LEFT OUTER JOIN STOCSCRN SCRN
+				   ON (MUTM.GATE_CD  = SCRN.GATE_CD
+				   AND MUTM.SCREEN_ID = SCRN.SCREEN_ID
+				   AND SCRN.DEL_FLAG = '0')
+			  LEFT OUTER JOIN STOCSCBM SCBM
+				   ON (MUTM.GATE_CD = SCBM.GATE_CD
+				   AND MUTM.TMPL_MENU_CD = SCBM.TMPL_MENU_CD)
+			 WHERE MUTM.GATE_CD = #{ses.gateCd}
+			   AND AUMP.AUTH_CD = #{ses.grantedAuthCd}
+			 <if test='menuType != "B"'>
+			   AND MUTM.MODULE_TYPE = #{moduleType}
+			 </if>
+			   AND MUTM.USE_FLAG = '1'
+			   AND AUMP.DEL_FLAG = '0'
+			   AND MUTM.DEL_FLAG = '0'
+			 GROUP BY MUTM.TMPL_MENU_CD,
+			          MUTM.HIGH_TMPL_MENU_CD,
+			          MUTM.TOP_TMPL_MENU_CD,
+			          MUTM.SCREEN_ID,
+			          SCRN.SCREEN_URL,
+			          MUTM.LEAF_FLAG,
+			          MUTM.DEPTH,
+			          MUMS.MENU_GROUP_CD,
+			          MUTM.SORT_SQ,
+			          MUTM.SCREEN_ID,
+			          MUTM.GATE_CD,
+			          SCRN.SSL_FLAG
+			 ORDER BY MUTM.SORT_SQ
+		)
+		SELECT Z.*
+		  FROM (
+			SELECT 
+				  (SELECT COUNT(*) FROM MENU A
+				    WHERE A.parentId = MM.id
+				      AND A.screenAccessAuth = 'Y') AS SUB_CNT
+				 , MM.*
+			  FROM MENU MM
+			 WHERE 1 = 1
+		  ) Z
+		 WHERE 1 = 1
+		 <choose>
+			<when test='menuType == "B"'>
+		   AND ( Z.screenId IS NOT NULL AND Z.screenId != ''  AND Z.screenAccessAuth = 'Y' AND Z.BOOKMARK_CNT > 0)
+		    OR ((Z.screenId IS NULL     OR  Z.screenId  = '') AND Z.SUB_CNT > 0 AND Z.BOOKMARK_CNT > 0)
+			</when>
+			<otherwise>
+		   AND ( Z.screenId IS NOT NULL AND Z.screenId != ''  AND Z.screenAccessAuth = 'Y')
+		    OR ((Z.screenId IS NULL     OR  Z.screenId  = '') AND Z.SUB_CNT > 0)
+			</otherwise>
+		</choose>
+	     ORDER BY Z.MENU_GROUP_CD, Z.SORT_SQ
+	     
+    </select>
+	
+	<!-- 사용자 로그인 후 메뉴 대분류 가져오기 -->
+    <select id="getTopMenu" resultType="hashMap" parameterType="hashMap">
+
+        SELECT CODD.CODE
+              ,CODD.CODE_DESC
+              ,CODD.TEXT1 AS IMAGE_URL
+              ,AUTH.MAIN_MODULE_TYPE
+              ,AUTH.SORT_SQ
+          FROM STOCCODD CODD
+          JOIN (SELECT MUGR.GATE_CD
+                     , AUMP.SORT_SQ
+                     , MUGR.MODULE_TYPE
+                     , AUPF.MAIN_MODULE_TYPE
+                     ,(CASE WHEN #{menuAuth} = 'true' THEN CASE WHEN ( SELECT COUNT(*)
+				     													 FROM STOCMUMS MUMS
+									                     				 JOIN STOCMUTM MUTM
+																			  ON (MUMS.GATE_CD  = MUTM.GATE_CD
+																			  AND MUMS.TMPL_MENU_CD = MUTM.TMPL_MENU_CD
+																			  AND MUTM.DEL_FLAG = '0')
+																		 JOIN STOCMJUA MJUA
+																			  ON (MUTM.GATE_CD   = MJUA.GATE_CD
+																			  AND MUTM.SCREEN_ID = MJUA.SCREEN_ID
+																			  AND ((MJUA.DATA_TYPE = 'U' AND MJUA.DATA_CD = #{ses.userId})
+																		   	   OR  (MJUA.DATA_TYPE = 'J' AND MJUA.DATA_CD IN (SELECT CTRL_CD FROM STOCBACP
+																															   WHERE GATE_CD  = #{ses.gateCd}
+																																 AND BUYER_CD = #{ses.companyCd}
+																																 AND CTRL_USER_ID = #{ses.userId}
+																																 AND USE_FLAG = '1'
+																																 AND DEL_FLAG = '0')
+																				   )
+																				  )
+																			  AND MJUA.DEL_FLAG = '0')
+																	    WHERE MUMS.GATE_CD  = AUMP.GATE_CD
+																	      AND MUMS.MENU_GROUP_CD = AUMP.MENU_GROUP_CD
+																	      AND MUMS.USE_FLAG = '1'
+																	      AND MUMS.DEL_FLAG = '0') > 0 OR #{ses.superUserFlag} = '1' THEN 'Y'
+														        ELSE 'N'
+														   END
+				     		ELSE 'Y'
+				       END) AS SCREEN_AUTH
+   			      FROM STOCMUGR MUGR
+   			      JOIN STOCAUMP AUMP
+	                   ON (MUGR.GATE_CD  = AUMP.GATE_CD
+	                   AND MUGR.MENU_GROUP_CD = AUMP.MENU_GROUP_CD
+	                   AND AUMP.DEL_FLAG = '0')
+                  JOIN STOCAUPF AUPF
+	                   ON (AUMP.GATE_CD  = AUPF.GATE_CD
+	                   AND AUMP.AUTH_CD  = AUPF.AUTH_CD
+	                   AND AUPF.AUTH_CD  = #{AUTH_CD}
+	                   AND AUPF.DEL_FLAG = '0')
+   			     WHERE MUGR.GATE_CD  = #{ses.gateCd}
+                   AND MUGR.DEL_FLAG = '0') AUTH
+	           ON (CODD.GATE_CD = AUTH.GATE_CD
+	           AND CODD.CODE    = AUTH.MODULE_TYPE
+	           AND AUTH.SCREEN_AUTH = 'Y')	/*사용자의 메뉴권한이 존재하는 경우에만 메뉴 대분류 조회(2022.08.30 HMCHOI 추가)*/
+         WHERE CODD.GATE_CD   = #{ses.gateCd}
+           AND CODD.LANG_CD   = #{ses.langCd}
+           AND CODD.CODE_TYPE = 'M009'
+           AND CODD.DEL_FLAG  = '0'
+           AND CODD.USE_FLAG  = '1'
+         ORDER BY AUTH.SORT_SQ
+    </select>
+	
+	<!-- 즐겨찾기 추가 -->
+    <insert id="insertBookmark">
+        INSERT INTO STOCSCBM (
+            GATE_CD,
+            TMPL_MENU_CD,
+            USER_ID,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID
+        ) VALUES (
+            #{ses.gateCd},
+            #{templateMenuCd},
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId}
+        )
+    </insert>
+	
+	<!-- 즐겨찾기 삭제 -->
+    <delete id="deleteBookmark">
+        DELETE FROM STOCSCBM
+         WHERE GATE_CD = #{ses.gateCd}
+           AND TMPL_MENU_CD = #{templateMenuCd}
+           AND USER_ID = #{ses.userId}
+    </delete>
+
+</mapper>

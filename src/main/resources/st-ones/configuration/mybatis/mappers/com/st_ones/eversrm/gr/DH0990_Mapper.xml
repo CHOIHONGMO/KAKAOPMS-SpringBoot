@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.gr.DH0990_Mapper">
+
+    <select id="doSearch" parameterType="hashmap" resultType="hashmap">
+        SELECT IVGH.GATE_CD
+              ,IVGH.INV_NUM
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVGH.INSPECT_DATE_2, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS INSPECT_DATE_2
+              ,IVGH.PO_NUM
+              ,IVGH.PURCHASE_TYPE
+              ,POPY.PAY_CNT_TYPE
+              ,POPY.PAY_METHOD_TYPE
+              ,POPY.PAY_SQ
+              ,IVHD.CUR
+              ,IVHD.INV_AMT
+              ,IVHD.VENDOR_CD
+              ,<include refid="com.sql.dbo"/>getVendorName(IVHD.GATE_CD, IVHD.VENDOR_CD, #{ses.langCd})  AS VENDOR_NM
+              ,POHD.INSPECT_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.INSPECT_USER_ID, #{ses.langCd}) AS INSPECT_USER_NM
+              ,POHD.CTRL_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+              ,(SELECT MAX(DLDT.DEAL_NUM)
+	            FROM STOCDLDT DLDT JOIN STOCGRDT GRDT
+		            ON  DLDT.GATE_CD = GRDT.GATE_CD
+		            AND DLDT.GR_NUM = GRDT.GR_NUM
+		            AND DLDT.GR_SQ = GRDT.GR_SQ
+		            AND DLDT.GR_YEAR = GRDT.GR_YEAR
+		            AND DLDT.DEL_FLAG = '0'
+		            AND GRDT.DEL_FLAG = '0'
+	            JOIN STOCIVDT IVDT
+		            ON  IVDT.GATE_CD = GRDT.GATE_CD
+		            AND IVDT.INV_NUM = GRDT.INV_NUM
+		            AND IVDT.INV_SQ = GRDT.INV_SQ
+		            AND IVDT.DEL_FLAG = '0'
+	            WHERE IVDT.GATE_CD = IVGH.GATE_CD
+	              AND IVDT.INV_NUM = IVGH.INV_NUM) AS DEAL_NUM
+              ,IVGH.GW_PR_NUM
+              ,IVGH.GW_URL_LINK
+          FROM STOCPOPY POPY JOIN STOCIVGH IVGH
+	          ON (POPY.GATE_CD = IVGH.GATE_CD
+	          AND POPY.PO_NUM = IVGH.PO_NUM
+	          AND POPY.PAY_SQ = IVGH.PAY_SQ
+	          AND IVGH.DEL_FLAG = '0')
+          JOIN STOCIVHD IVHD
+	          ON (IVGH.GATE_CD = IVHD.GATE_CD
+	          AND IVGH.INV_NUM = IVHD.INV_NUM
+	          AND IVHD.DEL_FLAG = '0')
+          JOIN STOCPOHD POHD
+	          ON (IVGH.GATE_CD = POHD.GATE_CD
+	          AND IVGH.PO_NUM = POHD.PO_NUM
+	          AND POHD.DEL_FLAG = '0')
+         WHERE POPY.GATE_CD = #{ses.gateCd}
+           AND POHD.DELIVERY_TYPE = 'PI'
+           AND IVGH.PROGRESS_CD IN ('500', '700')
+           AND POPY.DEL_FLAG = '0'
+           AND EXISTS (SELECT 'X' FROM STOCPODT PODT
+           		 		WHERE POPY.GATE_CD = PODT.GATE_CD
+           		   		  AND POPY.PO_NUM = PODT.PO_NUM
+           		   		  AND PODT.DEL_FLAG = '0'
+           		   		  AND EXISTS (SELECT PLANT_CD FROM STOCUSPL
+           		   		  			   WHERE GATE_CD = PODT.GATE_CD
+           		   		  			     AND USER_ID = #{ses.userId}
+           		   		  			     AND DEL_FLAG = '0')
+           		) 
+           
+        <if test="FROM_DATE != '' and FROM_DATE != null and TO_DATE != '' and TO_DATE != null ">
+            AND IVGH.INSPECT_DATE_2 BETWEEN <include refid="com.sql.toDate"/>#{FROM_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{TO_DATE}, 'YYYYMMDD HH24:MI:SS')
+        </if>
+        <if test="PURCHASE_TYPE != null and PURCHASE_TYPE != ''">
+            AND IVGH.PURCHASE_TYPE = #{PURCHASE_TYPE}
+        </if>
+        <if test="INV_NUM != null and INV_NUM != ''">
+            AND IVGH.INV_NUM = #{INV_NUM}
+        </if>
+        <if test="VENDOR_NM != null and VENDOR_NM != ''">
+            AND <include refid="com.sql.dbo"/>getVendorName(IVHD.GATE_CD, IVHD.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="SUBJECT != null and SUBJECT != ''">
+            AND IVGH.SUBJECT <include refid="com.sql.likeL"/> #{SUBJECT} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="PO_NUM != null and PO_NUM != ''">
+            AND IVGH.PO_NUM <include refid="com.sql.likeL"/> #{PO_NUM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="INSPECT_USER_NM != null and INSPECT_USER_NM != ''">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.INSPECT_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{INSPECT_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="CTRL_USER_NM != null and CTRL_USER_NM != ''">
+            AND <include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{CTRL_USER_NM} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="DL_FLAG != null and DL_FLAG != ''">
+            <if test="DL_FLAG == 'Y'">AND EXISTS </if>
+            <if test="DL_FLAG == 'N'">AND NOT EXISTS </if>
+--             (SELECT 1
+--                FROM STOCGRDT GRDT
+--                JOIN STOCDLDT DLDT
+--                 ON (GRDT.GATE_CD = DLDT.GATE_CD
+--                 AND GRDT.GR_NUM = DLDT.GR_NUM
+--                 AND GRDT.GR_YEAR = DLDT.GR_YEAR
+--                 AND GRDT.GR_SQ = DLDT.GR_SQ
+--                 AND DLDT.DEL_FLAG = '0')
+--               WHERE GRDT.GATE_CD = #{ses.gateCd}
+--                 AND GRDT.INV_NUM = IVGH.INV_NUM
+--                 AND GRDT.DEL_FLAG = '0')
+        </if>
+        
+        ORDER BY IVGH.INSPECT_DATE_2 DESC, IVGH.INV_NUM DESC
+    </select>
+
+    <update id="updateInspectRequestStatus" parameterType="hashmap">
+        UPDATE STOCIVGH
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,PROGRESS_CD = '100'
+              ,INSPECT_DATE_2 = NULL
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND PROGRESS_CD = '700'
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="doSave" parameterType="hashmap">
+        UPDATE STOCIVGH
+           SET MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+              ,GW_PR_NUM = #{GW_PR_NUM}
+              ,GW_URL_LINK = #{GW_URL_LINK}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+
+    </update>
+
+    <delete id="deleteGoodsReceipt" parameterType="hashmap">
+        DELETE FROM STOCGRDT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </delete>
+
+</mapper>

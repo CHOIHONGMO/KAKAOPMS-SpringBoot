@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.master.srm.evalUser.SRM_450_Mapper">
+	<select id="SRM_450_doSearch" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			  A.*
+			, <include refid="com.sql.dbo"/>GETDEPTNAME(#{ses.gateCd}, US.COMPANY_CD, US.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		FROM (
+			SELECT	 CERT_NUM
+					,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, EV_USER_ID, #{ses.langCd}) AS EV_USER_NM
+					,EV_USER_ID
+					,<include refid="com.sql.dbo"/>GETGMTDATE(ELIGIBLE_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS ELIGIBLE_DATE
+					,SCORE
+					,<include refid="com.sql.dbo"/>GETGMTDATE(CERT_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS CERT_DATE
+					,<include refid="com.sql.dbo"/>GETGMTDATE(VALID_TO_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS VALID_TO_DATE
+					,<include refid="com.sql.dbo"/>GETGMTDATE(RE_EV_DATE, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) AS RE_EV_DATE
+					,REMARK
+					,EU_SQ
+			  FROM	 STOCEUUM
+			 WHERE	 GATE_CD	= #{ses.gateCd}
+			   AND	 DEL_FLAG	= '0'
+		<if test="EV_USER_NM != '' and EV_USER_NM != null">
+			   AND <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, EV_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CERT_DATE_FROM != '' and CERT_DATE_FROM != null and CERT_DATE_TO != '' and CERT_DATE_TO != null" >
+			   AND CERT_DATE BETWEEN <include refid="com.sql.toDate"/>#{CERT_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{CERT_DATE_TO}<include refid="com.sql.dateFrom"/>
+		</if>
+		<if test="VALID_TO_DATE_FROM != '' and VALID_TO_DATE_FROM != null and VALID_TO_DATE_TO != '' and VALID_TO_DATE_TO != null" >
+			   AND VALID_TO_DATE BETWEEN <include refid="com.sql.toDate"/>#{VALID_TO_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{VALID_TO_DATE_TO}<include refid="com.sql.dateFrom"/>
+		</if>
+		<if test="ELIGIBLE_DATE_FROM != '' and ELIGIBLE_DATE_FROM != null and ELIGIBLE_DATE_TO != '' and ELIGIBLE_DATE_TO != null" >
+			   AND ELIGIBLE_DATE BETWEEN <include refid="com.sql.toDate"/>#{ELIGIBLE_DATE_FROM}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{ELIGIBLE_DATE_TO}<include refid="com.sql.dateFrom"/>
+		</if>
+		) A LEFT OUTER JOIN STOCUSER US
+		ON  A.EV_USER_ID = US.USER_ID
+		AND US.DEL_FLAG = '0'
+		AND US.GATE_CD = #{ses.gateCd}
+	
+	</select>
+	
+	<update id="SRM_450_doDelete" parameterType="hashmap">
+		UPDATE   STOCEUUM
+		   SET	 MOD_DATE	 = <include refid="com.sql.sysdate"/>
+				,MOD_USER_ID = #{ses.userId}
+				,DEL_FLAG 	 = '1'
+		 WHERE	 GATE_CD	 = #{ses.gateCd}
+		   AND	 EU_SQ		 = #{EU_SQ}
+	</update>
+	
+	<insert id="SRM_450_doSave" parameterType="hashmap">
+		 MERGE STOCEUUM AS A
+		 USING (SELECT 	 #{ses.gateCd} 		AS GATE_CD
+		 				,#{EU_SQ} 			AS EU_SQ
+						,<include refid="com.sql.sysdate"/> 	AS REG_DATE
+						,#{ses.userId} AS REG_USER_ID
+						,<include refid="com.sql.sysdate"/> 	AS MOD_DATE
+						,#{ses.userId} AS MOD_USER_ID
+						,'0' 				AS DEL_FLAG
+						,#{EV_USER_ID} 		AS EV_USER_ID
+						,#{CERT_NUM} 		AS CERT_NUM
+						,#{ELIGIBLE_DATE} 	AS ELIGIBLE_DATE
+						,#{SCORE} 			AS SCORE
+						,#{CERT_DATE} 		AS CERT_DATE
+						,#{VALID_TO_DATE} 	AS VALID_TO_DATE
+						,#{RE_EV_DATE} 		AS RE_EV_DATE
+						,#{REMARK} 			AS REMARK
+		 		) AS B
+            ON (    A.GATE_CD = B.GATE_CD
+            	AND A.EU_SQ	  = B.EU_SQ)
+		  WHEN MATCHED THEN
+		UPDATE SET	 MOD_DATE		= B.MOD_DATE
+					,MOD_USER_ID	= B.MOD_USER_ID
+					,DEL_FLAG		= B.DEL_FLAG
+					,EV_USER_ID		= B.EV_USER_ID
+					,CERT_NUM		= B.CERT_NUM
+					,ELIGIBLE_DATE	= B.ELIGIBLE_DATE
+					,SCORE			= B.SCORE
+					,CERT_DATE		= B.CERT_DATE
+					,VALID_TO_DATE	= B.VALID_TO_DATE
+					,RE_EV_DATE		= B.RE_EV_DATE
+					,REMARK			= B.REMARK
+		  WHEN NOT MATCHED THEN
+		INSERT (  GATE_CD, 	  REG_DATE,   REG_USER_ID,   DEL_FLAG,   EV_USER_ID,   CERT_NUM,   ELIGIBLE_DATE,   SCORE,   CERT_DATE,   VALID_TO_DATE,   RE_EV_DATE,   REMARK) 
+		VALUES (B.GATE_CD, 	B.REG_DATE, B.REG_USER_ID, B.DEL_FLAG, B.EV_USER_ID, B.CERT_NUM, B.ELIGIBLE_DATE, B.SCORE, B.CERT_DATE, B.VALID_TO_DATE, B.RE_EV_DATE, B.REMARK<include refid="com.sql.mergeEnd"/>
+	</insert>
+	
+</mapper>

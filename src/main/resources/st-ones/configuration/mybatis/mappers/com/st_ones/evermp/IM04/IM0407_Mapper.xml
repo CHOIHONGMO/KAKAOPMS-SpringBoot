@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:38 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.IM04.IM0407_Mapper">
+
+    <select id="doSearchCAAT" parameterType="hashmap" resultType="hashmap">
+
+        SELECT CAAT.GATE_CD
+             , CAAT.BUYER_CD
+       		 , CAAT.ITEM_CLS1
+       		 ,(SELECT ITEM_CLS_NM FROM STOCMTCA
+       		    WHERE GATE_CD   = CAAT.GATE_CD
+       		      AND BUYER_CD  = CAAT.BUYER_CD
+       		      AND ITEM_CLS_TYPE = 'C1'
+       		      AND ITEM_CLS1 = #{ITEM_CLS1}
+       		      AND DEL_FLAG  = '0') AS ITEM_CLS1_NM
+       		 , CAAT.ITEM_CLS2
+       		 ,(SELECT ITEM_CLS_NM FROM STOCMTCA
+       		    WHERE GATE_CD   = CAAT.GATE_CD
+       		      AND BUYER_CD  = CAAT.BUYER_CD
+       		      AND ITEM_CLS_TYPE = 'C2'
+       		      AND ITEM_CLS1 = #{ITEM_CLS1}
+       		      AND ITEM_CLS2 = #{ITEM_CLS2}
+       		      AND DEL_FLAG  = '0') AS ITEM_CLS2_NM
+       		 , CAAT.ITEM_CLS3
+       		 ,(SELECT ITEM_CLS_NM FROM STOCMTCA
+       		    WHERE GATE_CD   = CAAT.GATE_CD
+       		      AND BUYER_CD  = CAAT.BUYER_CD
+       		      AND ITEM_CLS_TYPE = 'C3'
+       		      AND ITEM_CLS1 = #{ITEM_CLS1}
+       		      AND ITEM_CLS2 = #{ITEM_CLS2}
+       		      AND ITEM_CLS3 = #{ITEM_CLS3}
+       		      AND DEL_FLAG  = '0') AS ITEM_CLS3_NM
+       		 , CAAT.ITEM_CLS4
+       		 ,(SELECT ITEM_CLS_NM FROM STOCMTCA
+       		    WHERE GATE_CD   = CAAT.GATE_CD
+       		      AND BUYER_CD  = CAAT.BUYER_CD
+       		      AND ITEM_CLS_TYPE = 'C4'
+       		      AND ITEM_CLS1 = #{ITEM_CLS1}
+       		      AND ITEM_CLS2 = #{ITEM_CLS2}
+       		      AND ITEM_CLS3 = #{ITEM_CLS3}
+       		      AND ITEM_CLS4 = #{ITEM_CLS4}
+       		      AND DEL_FLAG  = '0') AS ITEM_CLS4_NM
+       		 , CAAT.ATTR_CD AS CODE
+			 , CAAT.ATTR_CD
+       		 , CAAT.ATTR_NM AS CODE_NM
+       		 , CAAT.REQUIRED_FLAG
+       		 , <include refid="com.sql.nvl"/> (CAAT.SORT_SQ, 1) AS SORT_SQ
+       		 , CAAT.ATTR_RMK
+       		 , CAAT.ATTR_TYPE
+       		 , 'U' AS INSERT_FLAG
+       	  FROM STOCCAAT CAAT
+         WHERE CAAT.GATE_CD   = #{ses.gateCd}
+           AND CAAT.BUYER_CD  = #{ses.manageCd}
+    	   AND CAAT.ITEM_CLS1 = #{ITEM_CLS1}
+    	   AND CAAT.ITEM_CLS2 = #{ITEM_CLS2}
+    	   AND CAAT.ITEM_CLS3 = #{ITEM_CLS3}
+    	   AND CAAT.ITEM_CLS4 = #{ITEM_CLS4}
+       	   AND CAAT.DEL_FLAG  = '0'
+    	 ORDER BY CAAT.SORT_SQ
+
+    </select>
+
+	<!-- 분류별 속성 등록 -->
+	<insert id="doInsertCAAT" parameterType="hashMap">
+
+        INSERT INTO STOCCAAT (
+            GATE_CD
+            , BUYER_CD
+            , ITEM_CLS1
+            , ITEM_CLS2
+            , ITEM_CLS3
+            , ITEM_CLS4
+            , ATTR_CD
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , ATTR_NM
+            , REQUIRED_FLAG
+            , SORT_SQ
+            , ATTR_TYPE
+            , ATTR_RMK
+        )
+        VALUES (
+            #{ses.gateCd}
+            , #{ses.manageCd}
+            , #{ITEM_CLS1}
+			, #{ITEM_CLS2}
+			, #{ITEM_CLS3}
+			, #{ITEM_CLS4}
+		    , #{CODE}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{CODE_NM}
+            , #{REQUIRED_FLAG}
+            , #{SORT_SQ}
+            , #{ATTR_TYPE}
+            , #{ATTR_RMK}
+        )
+
+    </insert>
+
+    <!-- 분류별 속성 삭제 -->
+    <delete id="doDeleteCAAT" parameterType="hashmap">
+
+        DELETE FROM STOCCAAT
+         WHERE GATE_CD   = #{ses.gateCd}
+           AND BUYER_CD  = #{ses.manageCd}
+		   AND ITEM_CLS1 = #{ITEM_CLS1}
+		   AND ITEM_CLS2 = #{ITEM_CLS2}
+		   AND ITEM_CLS3 = #{ITEM_CLS3}
+		   AND ITEM_CLS4 = #{ITEM_CLS4}
+		   AND ATTR_CD   = #{CODE}
+
+    </delete>
+
+	<!-- 속성코드 조회하기 -->
+	<select id="doSearchCommonCode" parameterType="hashmap" resultType="hashmap">
+
+        SELECT CODE AS CODE
+             , CODE_DESC AS CODE_NM
+       	  FROM STOCCODD
+         WHERE GATE_CD   = #{ses.gateCd}
+           AND CODE_TYPE = #{CODE_TYPE}
+    	   AND LANG_CD   = #{ses.langCd}
+		<if test="CODE != null and CODE != ''">
+		   AND CODE <include refid="com.sql.likeL"/> #{CODE} <include refid="com.sql.likeR"/>
+		</if>
+		<if test="CODE_NM != null and CODE_NM != ''">
+		   AND CODE_DESC <include refid="com.sql.likeL"/> #{CODE_NM} <include refid="com.sql.likeR"/>
+		</if>
+       	   AND DEL_FLAG  = '0'
+       	   AND USE_FLAG  = '1'
+    	 ORDER BY SORT_SQ
+
+    </select>
+
+</mapper>

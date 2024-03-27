@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.batch.grRequestDelaySms.GrRequestDelaySmsMapper">
+	
+	<!-- 납품완료 이후 3일이 지난후에도 미입고건에 대해 입고등록 요청 Mail -->
+	<select id="doGrRequestDelaySmsSELECT" resultType="hashMap">
+
+		SELECT POHD.CPO_USER_ID AS REG_USER_ID
+			 , MAX(CVUR.USER_NM) AS USER_NM
+			 , (CASE WHEN <include refid="com.sql.nvl"/>(MAX(CVUR.MAIL_FLAG), '0') = '1' THEN MAX(CVUR.CELL_NUM) ELSE '' END) AS CELL_NUM
+			 , MIN(PODT.CPO_NO) AS CPO_NO
+			 , COUNT(PODT.CPO_NO) AS CPO_NO_CNT
+		  FROM STOUIVDT IVDT
+		  JOIN STOUPODT PODT
+			   ON (IVDT.GATE_CD  = PODT.GATE_CD
+			   AND IVDT.CPO_NO   = PODT.CPO_NO
+			   AND IVDT.CPO_SEQ  = PODT.CPO_SEQ
+			   AND PODT.DEL_FLAG = '0')
+		  JOIN STOUPOHD POHD
+		  	   ON (PODT.GATE_CD  = POHD.GATE_CD
+		  	   AND PODT.CPO_NO   = POHD.CPO_NO
+		  	   AND POHD.DEL_FLAG = '0')
+		  LEFT OUTER JOIN STOCCVUR CVUR
+			   ON (POHD.GATE_CD  = CVUR.GATE_CD
+			   AND POHD.CUST_CD  = CVUR.COMPANY_CD
+			   AND POHD.CPO_USER_ID = CVUR.USER_ID
+			   AND CVUR.DEL_FLAG = '0')
+		 WHERE IVDT.GATE_CD  = #{ses.gateCd}
+		   AND IVDT.DEL_FLAG = '0'
+		   AND IVDT.DELY_COMPLETE_FLAG = '1'	-- 납품완료여부
+		   AND <include refid="com.sql.toDateChar"/>(<include refid="com.sql.sysdate"/>, 'yyyyMMdd') - <include refid="com.sql.toDateChar"/>(IVDT.DELY_COMPLETE_DATE, 'yyyyMMdd') >= 3
+		   AND <include refid="com.sql.nvl"/>(PODT.GR_COMPLETE_FLAG,'0') = '0'	-- 입고완료여부
+		 GROUP BY POHD.CPO_USER_ID
+	</select>
+
+</mapper>

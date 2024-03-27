@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!--Converted at: Fri Mar 02 08:25:43 KST 2012-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.common.mail.EverMailMapper">
+
+	<select id="getReceiverMailAddress" parameterType="hashMap" resultType="hashMap">
+
+		SELECT
+			  MAX(A.USER_NM)  AS RECV_USER_NM
+			, MAX(A.EMAIL)    AS RECV_EMAIL
+			, MAX(A.CELL_NUM) AS RECV_TEL_NUM
+		FROM (
+	<choose>
+		<!-- 직접 MAIL 을 보낸다 -->
+	    <when test='DIRECT_FLAG != "" and DIRECT_FLAG != null and DIRECT_FLAG == "1"'>
+			SELECT #{DIRECT_TARGET}   AS EMAIL
+				 , #{DIRECT_USER_NM}  AS USER_NM
+				 , #{DIRECT_CELL_NUM} AS CELL_NUM
+			<include refid="com.sql.dual"/>
+		</when>
+		<otherwise>
+			<!-- 운영사 사용자ID -->
+			SELECT A.EMAIL
+				 , A.USER_NM
+				 , A.CELL_NUM
+			  FROM STOCUSER A
+			 WHERE A.GATE_CD  = #{ses.gateCd}
+			   AND A.USER_ID  = UPPER(#{RECV_USER_ID})
+			   AND A.DEL_FLAG = '0'
+
+			UNION ALL
+
+			<!-- 고객사, 협력사 사용자 ID -->
+			SELECT A.EMAIL
+				 , A.USER_NM
+				 , A.CELL_NUM
+			  FROM STOCCVUR A
+			 WHERE A.GATE_CD  = #{ses.gateCd}
+			   AND A.USER_ID  = UPPER(#{RECV_USER_ID})
+			   AND A.MAIL_FLAG= '1'
+			   AND A.DEL_FLAG = '0'
+
+			UNION ALL
+
+			<!-- 고객사, 협력사 CODE로 사용자 1명만 검색하기 -->
+			SELECT EMAIL
+				 , USER_NM
+				 , CELL_NUM
+			  FROM (
+				SELECT <include refid="com.sql.mtop1"/> A.EMAIL
+					 , A.USER_NM
+					 , A.CELL_NUM
+				  FROM STOCCVUR A   <!-- 고객사,협력사-->
+			 	 WHERE A.GATE_CD   = #{ses.gateCd}
+				   AND A.COMPANY_CD= #{RECV_USER_ID}
+				   AND A.MAIL_FLAG = '1'
+				   AND A.DEL_FLAG  = '0'
+				 ORDER BY <include refid="com.sql.nvl"/>(A.MOD_DATE, REG_DATE) DESC
+			  ) X
+			 WHERE ROWNUM = 1
+		</otherwise>
+	</choose>
+		) A
+
+    </select>
+
+    <insert id="doSendMail" parameterType="hashMap">
+
+        INSERT INTO STOCMAIL <include refid="com.sql.rowLock"/> (
+            GATE_CD
+		<if test="_databaseId == 'oracle'">
+          , MAIL_SQ
+		</if>
+          , SEND_EMAIL
+          , RECV_EMAIL
+          , SEND_DATE
+          , REF_NUM
+          , REF_MODULE_CD
+          , SEND_USER_ID
+          , SEND_USER_NM
+          , RECV_USER_ID
+          , RECV_USER_NM
+          , SUBJECT
+          , MAIL_TEXT_NUM
+          , ATT_FILE_NUM
+          , BUYER_CD
+          , VENDOR_CD
+          , SEND_FLAG
+          , DEL_FLAG
+        )
+        VALUES (
+		<choose>
+			<when test="ses.gateCd == null or ses.gateCd == ''"><include refid="com.sql.gateCd"/></when>
+			<otherwise>#{ses.gateCd},</otherwise>
+		</choose>
+		<if test="_databaseId == 'oracle'">
+          , SEQ_STOCMAIL.NEXTVAL
+		</if>
+		  , #{SEND_EMAIL}		--전송자 이메일
+		  , <include refid="com.sql.dbo"/>fn_trim(#{RECV_EMAIL}) --수신자 이메일
+          , <include refid="com.sql.sysdate"/>	--전송일자
+          , #{REF_NUM}			--참조번호
+          , #{REF_MODULE_CD}	--참조모듈
+		  , #{SEND_USER_ID}		--보내는 사용자ID
+		  , #{SEND_USER_NM}		--보내는 사람 이름
+		  , #{RECV_USER_ID}		--받는 사용자ID
+		  , #{RECV_USER_NM}		--받는 사람 이름
+          , #{SUBJECT}			--메일 제목
+          , #{MAILTEXTNUM}		--전송내용 Text 고유번호
+          , #{ATT_FILE_NUM}		--첨부파일번호
+          , #{BUYER_CD}			--구매회사코드
+          , #{VENDOR_CD}		--업체코드
+          , #{SEND_FLAG}		--발송여부
+          , '0'					--삭제여부
+        )
+
+    </insert>
+	
+	<!-- 메일 전송 상세보기 -->
+  	<select id="doSelectMailHistory" parameterType="hashMap" resultType="hashMap">
+		SELECT
+	            SEND_EMAIL
+	          , RECV_EMAIL
+	          , SEND_DATE
+	          , SEND_USER_ID
+	          , SEND_USER_NM
+	          , RECV_USER_ID
+	          , RECV_USER_NM
+	          , SUBJECT
+	          , CONTENTS
+	          , ATT_FILE_NUM
+	          , REF_MODULE_CD
+	          , REF_NUM
+	          , SEND_PROGRAM_NM
+	          , CONTENT_TYPE
+	          , BUYER_CD
+	          , VENDOR_CD
+	          , SEND_FLAG
+	          , DEL_FLAG
+		 FROM STOCMAIL
+		WHERE GATE_CD  = #{ses.gateCd}
+		  AND DEL_FLAG = '0'
+	<if test="MAIL_SQ != null and MAIL_SQ != ''">
+		  AND MAIL_SQ  = #{MAIL_SQ}
+	</if>
+	<if test="SEND_DATE != null and SEND_DATE != ''">
+		  AND SEND_DATE = #{SEND_DATE}
+	</if>
+  	</select>
+  	
+</mapper>

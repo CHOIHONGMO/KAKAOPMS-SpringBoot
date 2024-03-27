@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.eval.EV0195Mapper">
+
+<!--    SRM_195 -->
+    <select id="doSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT MASTER.PROGRESS_CD
+		     ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M122',MASTER.PROGRESS_CD,#{ses.langCd}) AS PROGRESS_NM
+		     ,MASTER.EV_CTRL_USER_ID
+		     ,<include refid="com.sql.dbo"/>GETUSERINFO( #{ses.gateCd},MASTER.EV_CTRL_USER_ID,'USER_NM') AS EV_CTRL_USER_NM
+		     ,MASTER.EV_NUM
+		     ,MASTER.EV_NUM AS HID_EV_NUM
+		     ,MASTER.VENDOR_CD
+		     ,<include refid="com.sql.dbo"/>GETVENDORNAME( #{ses.gateCd},MASTER.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+		     ,EVVU.PROGRESS_CD AS EV_PROGRESS_CD
+		     ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M124',EVVU.PROGRESS_CD,#{ses.langCd}) AS EV_PROGRESS_NM
+		     ,EVVU.EV_USER_ID
+		     ,<include refid="com.sql.dbo"/>GETUSERINFO( #{ses.gateCd},EVVU.EV_USER_ID,'USER_NM') AS EV_USER_NM
+		     ,EVVU.EVAL_SCORE AS EVAL_SCORE
+		     ,MASTER.SCRE_EV_TPL_NUM AS EV_TPL_NUM
+		     ,EVTM.EV_TPL_SUBJECT
+		     , MASTER.REQUEST_DATE  AS REQUEST_DATE
+		     , MASTER.REG_DATE  AS REG_DATE
+		     ,MASTER.PURCHASE_TYPE
+		     ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M197',MASTER.PURCHASE_TYPE,#{ses.langCd}) AS PURCHASE_TYPE_NM
+		     ,MASTER.EV_TYPE
+		     ,<include refid="com.sql.dbo"/>GETCODENAME( #{ses.gateCd},'M186',MASTER.EV_TYPE,#{ses.langCd}) AS EV_TYPE_NM
+		     ,MASTER.EV_NM
+		     ,MASTER.RESULT_ENTER_CD
+		     ,MASTER.COMPLETE_DATE
+             ,<include refid="com.sql.nvl"/>( (SELECT EV_USER_ID FROM STOCEVVU WHERE GATE_CD = MASTER.GATE_CD AND EV_NUM=MASTER.EV_NUM AND DEL_FLAG='0' AND REP_FLAG='1'  AND EV_USER_ID=#{ses.userId} ),'-') AS REP_EV_USER_ID
+		FROM STOCEVVM MASTER
+		INNER JOIN STOCEVVU EVVU
+			ON (MASTER.EV_NUM = EVVU.EV_NUM
+		  	AND EVVU.DEL_FLAG = '0'
+		  	AND MASTER.GATE_CD = EVVU.GATE_CD)
+		INNER JOIN STOCEVTM EVTM
+			ON (MASTER.SITE_EV_TPL_NUM = EVTM.EV_TPL_NUM
+			AND MASTER.GATE_CD = EVTM.GATE_CD
+			AND EVTM.EV_TPL_TYPE_CD = 'S'
+			AND EVTM.DEL_FLAG = '0')
+		WHERE MASTER.GATE_CD = #{ses.gateCd}
+		AND MASTER.DEL_FLAG = '0'
+		AND MASTER.REG_DATE BETWEEN <include refid="com.sql.toDate"/>#{REQ_START_DATE}<include refid="com.sql.dateFrom"/> AND <include refid="com.sql.toDate"/>#{REQ_END_DATE}<include refid="com.sql.dateTo"/>
+		AND MASTER.PROGRESS_CD != ''
+		  <if test="PROGRESS_CD !=null and PROGRESS_CD !='' ">
+		  	  AND EVVU.PROGRESS_CD = #{PROGRESS_CD}
+		  </if>
+		  <if test="EV_CTRL_USER_NM !=null and EV_CTRL_USER_NM !='' ">
+			  AND <include refid="com.sql.dbo"/>GETUSERNAME(MASTER.GATE_CD, MASTER.EV_CTRL_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_CTRL_USER_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_USER_NM !=null and EV_USER_NM !='' ">
+			  AND <include refid="com.sql.dbo"/>GETUSERNAME(EVVU.GATE_CD, EVVU.EV_USER_ID, #{ses.langCd}) <include refid="com.sql.likeL"/> #{EV_USER_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="VENDOR_NM !=null and VENDOR_NM !='' ">
+			  AND <include refid="com.sql.dbo"/>GETVENDORNAME(#{ses.gateCd},MASTER.VENDOR_CD,#{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/>
+		  </if>
+		  <if test="EV_TYPE !=null and EV_TYPE !='' ">
+		  	  AND MASTER.EV_TYPE = #{EV_TYPE}
+		  </if>
+
+		  ORDER BY MASTER.EV_NUM DESC
+
+     </select>
+
+     <select id="doCheck" parameterType="hashmap" resultType="hashmap">
+		SELECT MASTER.COMPLETE_DATE
+		      ,MASTER.EV_CTRL_USER_ID
+		      ,MASTER.RESULT_ENTER_CD
+		      ,<include refid="com.sql.nvl"/>(EVVU.EVAL_SCORE,'0') AS EVAL_SCORE
+		      ,EVVU.PROGRESS_CD
+		      ,EVVU.REP_FLAG
+		      ,EVVU.EV_USER_ID
+		  FROM STOCEVVM MASTER
+		INNER JOIN STOCEVVU EVVU
+		ON MASTER.GATE_CD 		= EVVU.GATE_CD
+		AND MASTER.EV_NUM 		= EVVU.EV_NUM
+		AND MASTER.DEL_FLAG   = '0'
+		AND MASTER.EV_NUM 		= #{HID_EV_NUM}
+		AND EVVU.EV_USER_ID 	= #{EV_USER_ID}
+		AND EVVU.GATE_CD 		= #{ses.gateCd}
+  		AND EVVU.DEL_FLAG     	= '0'
+     </select>
+
+     <select id="doRepUserCheck"  parameterType="hashmap" resultType="java.lang.Integer">
+     SELECT COUNT(*) AS CNT
+		FROM STOCEVVU
+	  WHERE EV_NUM     	=  #{HID_EV_NUM}
+		   AND REP_FLAG   	= '1'
+		   AND DEL_FLAG   	= '0'
+		   AND GATE_CD    	=  #{ses.gateCd}
+		   AND EV_USER_ID 	=  #{CHK_USER}
+     </select>
+
+     <update id="doCompleteEvvu" parameterType="hashmap">
+        UPDATE  STOCEVVU
+              SET  PROGRESS_CD = '200'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{HID_EV_NUM}
+             AND EV_USER_ID 		= #{EV_USER_ID}
+    </update>
+
+     <update id="doCancelEvvu" parameterType="hashmap">
+        UPDATE  STOCEVVU
+              SET  PROGRESS_CD = '100'
+                    , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}
+        WHERE  GATE_CD 			= #{ses.gateCd}
+             AND EV_NUM 				= #{HID_EV_NUM}
+             AND EV_USER_ID 		= #{EV_USER_ID}
+    </update>
+
+     <update id="doUpdateEvScore" parameterType="hashmap">
+		 UPDATE STOCEVVM
+		       SET EV_SCORE = (
+		                            SELECT ROUND(AVG(EVVU.EVAL_SCORE), 1)
+		                              FROM STOCEVVU EVVU
+		                              WHERE EVVU.GATE_CD 	= STOCEVVM.GATE_CD
+		                                AND EVVU.EV_NUM  		= STOCEVVM.EV_NUM
+		                                AND PROGRESS_CD 	= '200'
+		                                AND DEL_FLAG     		= '0'
+		                           )
+		             , MOD_DATE 		= <include refid="com.sql.sysdate"/>
+                    , MOD_USER_ID 	= #{ses.userId}
+		 WHERE GATE_CD 	= 	#{ses.gateCd}
+		     AND EV_NUM   	= 	#{HID_EV_NUM}
+		     AND DEL_FLAG 	=	'0'
+    </update>
+
+</mapper>

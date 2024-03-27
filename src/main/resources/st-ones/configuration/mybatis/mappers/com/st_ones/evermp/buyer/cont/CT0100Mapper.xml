@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.cont.CT0100Mapper">
+
+    <select id="formManagementDoSearch" resultType="hashMap">
+
+        SELECT A.*
+          FROM (
+            SELECT CF.FORM_NUM,
+                   CF.FORM_TYPE,
+                   CF.FORM_ROLE_TYPE,
+                   CF.CONTRACT_FORM_TYPE,
+                   CF.EXAM_FLAG,
+                   CF.APPROVAL_FLAG,
+                   CF.BUNDLE_FLAG,
+                   CF.DEPT_FLAG,
+                   CF.ECONT_FLAG,
+                   CF.FORM_NM,
+                   CF.DEPT_CD,
+                   CF.USE_FLAG,
+                   CF.BUYER_CD,
+                   <include refid="com.sql.dbo"/>GETDEPTNAME(CF.GATE_CD, CF.BUYER_CD, CF.DEPT_CD, #{ses.langCd}) AS DEPT_NM,
+                   <include refid="com.sql.dbo"/>GETCOMCODE(CF.GATE_CD, 'M130', CF.CONTRACT_FORM_TYPE, '0', #{ses.langCd}) AS CONTRACT_FORM_TYPE_NM,
+                   <include refid="com.sql.dbo"/>GETCOMCODE(CF.GATE_CD, 'M130', CF.FORM_ROLE_TYPE, '0', #{ses.langCd}) AS FORM_ROLE_TYPE_NM,
+                   <include refid="com.sql.dbo"/>getGmtDate(CF.REG_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd HH24:MI') AS REG_DATE,
+                   <include refid="com.sql.dbo"/>getGmtDate(CF.MOD_DATE, #{ses.userGmt}, #{ses.systemGmt}, 'yyyy-MM-dd HH24:MI') AS MOD_DATE,
+                   <include refid="com.sql.dbo"/>GETUSERNAME(GATE_CD, MOD_USER_ID, #{ses.langCd}) AS MOD_USER_NM
+              FROM STOCECCF CF
+             WHERE CF.GATE_CD  = #{ses.gateCd}
+               AND CF.DEL_FLAG = '0'
+
+            <if test='BUYER_CD != null and BUYER_CD != ""'>
+               AND CHARINDEX(#{BUYER_CD} ,BUYER_CD)  > -1
+			</if>
+            <if test='FORM_TYPE != null and FORM_TYPE != ""'>
+               AND CF.FORM_TYPE = #{FORM_TYPE}
+            </if>
+            <if test='CONTRACT_FORM_TYPE != null and CONTRACT_FORM_TYPE != ""'>
+                AND CF.CONTRACT_FORM_TYPE = #{CONTRACT_FORM_TYPE}
+            </if>
+            <if test="FORM_NM != '' and FORM_NM != null">
+               AND CF.FORM_NM <include refid="com.sql.likeL"/> #{FORM_NM} <include refid="com.sql.likeR"/>
+            </if>
+            <if test='FORM_ROLE_TYPE != null and FORM_ROLE_TYPE != ""'>
+               AND CF.FORM_ROLE_TYPE = #{FORM_ROLE_TYPE}
+            </if>
+            <if test='APPROVAL_FLAG != null and APPROVAL_FLAG != ""'>
+               AND CF.APPROVAL_FLAG = #{APPROVAL_FLAG}
+            </if>
+            <if test='BUNDLE_FLAG != null and BUNDLE_FLAG != ""'>
+               AND CF.BUNDLE_FLAG = #{BUNDLE_FLAG}
+            </if>
+            <if test='DEPT_FLAG != null and DEPT_FLAG != ""'>
+               AND CF.DEPT_FLAG = #{DEPT_FLAG}
+            </if>
+            <if test='ECONT_FLAG != null and ECONT_FLAG != ""'>
+               AND CF.ECONT_FLAG = #{ECONT_FLAG}
+            </if>
+            <if test='USE_FLAG != null and USE_FLAG != ""'>
+               AND CF.USE_FLAG = #{USE_FLAG}
+            </if>
+          ) A
+         ORDER BY A.FORM_TYPE, A.CONTRACT_FORM_TYPE, A.FORM_NM
+
+    </select>
+
+    <insert id="formManagementDoCopyCF" parameterType="hashmap">
+
+		INSERT INTO STOCECCF (
+			 GATE_CD
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,FORM_TYPE
+			,FORM_ROLE_TYPE
+			,FORM_NM
+			,DEPT_CD
+			,BUYER_CD
+			,FORM_TEXT_NUM
+            ,EXAM_FLAG
+            ,APPROVAL_FLAG
+            ,BUNDLE_FLAG
+            ,DEPT_FLAG
+            ,ECONT_FLAG
+            ,FORM_TEXT
+            ,CONTRACT_FORM_TYPE
+            ,USE_FLAG
+		) (SELECT
+                 GATE_CD
+                ,#{NEW_FORM_NUM}
+                ,<include refid="com.sql.sysdate"/>
+                ,#{ses.userId}
+                ,'0'
+                ,FORM_TYPE
+                ,FORM_ROLE_TYPE
+                ,FORM_NM <include refid="com.sql.stringMerge"/> '_복사본'
+                ,DEPT_CD
+                ,BUYER_CD
+                ,FORM_TEXT_NUM
+                ,EXAM_FLAG
+                ,APPROVAL_FLAG
+                ,BUNDLE_FLAG
+                ,DEPT_FLAG
+                ,ECONT_FLAG
+                ,FORM_TEXT
+                ,CONTRACT_FORM_TYPE
+                ,'1'
+            FROM STOCECCF
+           WHERE GATE_CD = #{ses.gateCd}
+             AND FORM_NUM = #{FORM_NUM}
+		)
+
+	</insert>
+
+    <insert id="formManagementDoCopyCR" parameterType="hashmap">
+
+		INSERT INTO STOCECCR (
+			 GATE_CD
+            ,FORM_NUM
+            ,REL_FORM_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,REL_FORM_SQ
+            ,REQUIRE_FLAG
+		) (SELECT
+                 ECCR.GATE_CD
+                ,#{NEW_FORM_NUM}
+                ,ECCR.REL_FORM_NUM
+                ,<include refid="com.sql.sysdate"/>
+                ,#{ses.userId}
+                ,<include refid="com.sql.sysdate"/>
+                ,#{ses.userId}
+                ,'0'
+                ,ECCR.REL_FORM_SQ
+                ,ECCR.REQUIRE_FLAG
+            FROM STOCECCF ECCF
+            LEFT JOIN STOCECCR ECCR
+             ON (ECCF.GATE_CD = ECCR.GATE_CD
+             AND ECCF.FORM_NUM = ECCR.FORM_NUM)
+           WHERE ECCF.GATE_CD = #{ses.gateCd}
+             AND ECCF.FORM_NUM = #{FORM_NUM}
+             AND ECCF.DEL_FLAG = '0'
+             AND ECCR.DEL_FLAG = '0'
+		)
+
+	</insert>
+
+    <select id="getCheckCnt" parameterType="hashMap" resultType="java.lang.Integer">
+
+        SELECT
+            COUNT(CT.CONT_NUM)
+          FROM STOCECCT CT LEFT JOIN STOCECRL RL
+           ON (CT.GATE_CD = RL.GATE_CD
+           AND CT.CONT_NUM = RL.CONT_NUM
+           AND CT.CONT_CNT = RL.CONT_CNT)
+         WHERE CT.GATE_CD = #{ses.gateCd}
+           AND (RL.FORM_NUM = #{FORM_NUM}
+             OR RL.FORM_NUM IN (SELECT CR.FORM_NUM FROM STOCECCR CR WHERE CR.GATE_CD = #{ses.gateCd} AND CR.REL_FORM_NUM = #{FORM_NUM} AND CR.DEL_FLAG = '0'))
+           AND CT.DEL_FLAG = '0'
+           AND RL.DEL_FLAG = '0'
+
+    </select>
+
+    <update id="formManagementDoDeleteEccf">
+
+        UPDATE STOCECCF SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+
+    </update>
+
+    <update id="formManagementDoDeleteEccr">
+
+        UPDATE STOCECCR SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '1'
+         WHERE GATE_CD = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+
+    </update>
+
+    <select id="doSearchAllForms" parameterType="hashmap" resultType="hashmap">
+
+        SELECT *
+          FROM STOCECCF
+         WHERE GATE_CD = #{ses.gateCd}
+
+    </select>
+
+    <update id="doUpdateForm" parameterType="hashmap">
+        UPDATE STOCECCF
+           SET FORM_TEXT = #{FORM_TEXT}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <select id="doSearchMainForm" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             CF.GATE_CD
+            ,CF.FORM_NUM
+            ,CF.FORM_NM
+            ,<include refid="com.sql.dbo"/>GETDEPTNAME(CF.GATE_CD, CF.BUYER_CD, CF.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+            ,CF.BUYER_CD
+            ,CF.FORM_TEXT_NUM
+            ,CF.FORM_TYPE
+            ,CF.FORM_ROLE_TYPE
+            ,CF.CONTRACT_FORM_TYPE
+            ,CF.EXAM_FLAG
+            ,'1' APPROVAL_FLAG
+            ,CF.BUNDLE_FLAG
+            ,CF.DEPT_FLAG
+            ,CF.ECONT_FLAG
+            ,(CASE WHEN CF.FORM_NUM = (SELECT MAX(RL.FORM_NUM) FROM STOCECRL RL
+                        		       WHERE RL.GATE_CD  = CF.GATE_CD
+		                                 AND RL.CONT_NUM = #{CONT_NUM}
+	        	                        <if test="CONT_CNT != '' and CONT_CNT != null">
+    	        	                     AND RL.CONT_CNT = #{CONT_CNT}
+        	        	                </if>
+        		                         AND RL.FORM_SQ  = 0
+                		                 AND RL.DEL_FLAG = '0') THEN '1'
+               	  ELSE '0'
+               END) AS FORM_CHECKED
+          FROM STOCECCF CF
+         WHERE CF.GATE_CD = #{ses.gateCd}
+        <if test="bundleFlag != null and bundleFlag == 'true'">
+            --AND CF.BUNDLE_FLAG = '1'     -- 일괄계약 여부
+        </if>
+
+		<if test="_databaseId == 'mssql'">
+            AND CHARINDEX(#{ses.companyCd},CF.BUYER_CD) > 0
+		</if>
+		<if test="_databaseId == 'oracle'">
+            AND INSTR(#{ses.companyCd},CF.BUYER_CD) > 0
+		</if>
+
+
+
+            AND CF.FORM_TYPE = '100'       -- 주서식(100), 부서식(200)
+        <if test="(CONT_NUM == null or CONT_NUM == '') or (resumeFlag != null and resumeFlag == 'true')">
+--            AND (EXISTS (SELECT 1 FROM STOCECCD CD
+--                          WHERE CD.GATE_CD = CF.GATE_CD
+--                            AND CD.BUYER_CD = CF.BUYER_CD
+--                            AND CD.FORM_ROLE_TYPE = CF.FORM_ROLE_TYPE
+--                            AND CD.DEPT_CD = {ses.deptCd}
+--                            AND CD.DEL_FLAG = '0')
+--             OR CF.FORM_ROLE_TYPE IN ('09', '10'))  -- 일반, 기타양식
+            AND CF.USE_FLAG = '1'
+        </if>
+        <if test="(CONT_NUM != null and CONT_NUM != '') and (resumeFlag != null and resumeFlag == 'false')">
+            AND CF.FORM_NUM = (SELECT MAX(RL.FORM_NUM) FROM STOCECRL RL
+                                WHERE RL.GATE_CD = CF.GATE_CD
+                                  AND RL.CONT_NUM = #{CONT_NUM}
+                                <if test="CONT_CNT != '' and CONT_CNT != null">
+                                  AND RL.CONT_CNT = #{CONT_CNT}
+                                </if>
+                                  AND RL.FORM_SQ = 0
+                                  AND RL.DEL_FLAG = '0')
+        </if>
+        <if test="openFormType == 'A'.toString()">
+			AND CF.CONTRACT_FORM_TYPE IN ('TBA' , 'ISU') -- 단가계약
+        </if>
+        <if test="openFormType == 'B'.toString()">
+			AND CF.CONTRACT_FORM_TYPE IN ('TBA', 'ISU') -- 기본계약
+        </if>
+        <if test="openFormType == 'C'.toString()">
+			AND CF.CONTRACT_FORM_TYPE IN ('TBA', 'ISU') -- 일반계약
+        </if>
+        <if test="openFormType == 'D'.toString()">
+			AND CF.CONTRACT_FORM_TYPE IN ('TBA', 'ISU') -- 기타계약
+        </if>
+
+
+
+         AND CF.DEL_FLAG  = '0'
+         ORDER BY CF.FORM_TYPE, CF.CONTRACT_FORM_TYPE ASC, CF.FORM_NM
+
+    </select>
+
+    <select id="doSearchAdditionalForm" parameterType="hashMap" resultType="hashMap">
+
+        SELECT ECCR.GATE_CD
+              ,ECCR.FORM_NUM
+              ,ECCF2.FORM_NUM AS REL_FORM_NUM
+              ,(CASE WHEN ECRL.FORM_SQ IS NULL THEN ECCR.REL_FORM_SQ ELSE ECRL.FORM_SQ END) AS REL_FORM_SQ
+              ,ECCF2.FORM_NM AS REL_FORM_NM
+              ,ECCR.REQUIRE_FLAG
+              ,ECCF2.FORM_TEXT_NUM
+              ,ECCF2.FORM_TEXT
+              ,ECCF2.FORM_TEXT AS FORM_CONTENTS
+              ,ECRL.FORM_SQ
+              ,ECRL.ORI_CONTRACT_TEXT
+          FROM STOCECCF ECCF
+          JOIN STOCECCR ECCR
+            ON (ECCF.GATE_CD  = ECCR.GATE_CD
+           AND ECCF.FORM_NUM = ECCR.FORM_NUM)
+          JOIN STOCECCF ECCF2
+            ON (ECCR.GATE_CD  = ECCF2.GATE_CD
+           AND ECCR.REL_FORM_NUM = ECCF2.FORM_NUM)
+          LEFT OUTER JOIN STOCECRL ECRL
+           ON (ECCR.GATE_CD = ECRL.GATE_CD
+           AND ECCR.REL_FORM_NUM = ECRL.FORM_NUM
+           AND ECRL.CONT_NUM = #{CONT_NUM}
+           AND ECRL.CONT_CNT = (CASE WHEN (#{CONT_CNT} = '' OR #{CONT_CNT} IS NULL) THEN NULL ELSE #{CONT_CNT} END)
+           AND ECRL.DEL_FLAG = '0')
+         WHERE ECCF.GATE_CD  = #{ses.gateCd}
+        <if test="FORM_NUM != null and FORM_NUM != ''">
+           AND ECCF.FORM_NUM = #{FORM_NUM}
+        </if>
+           AND ECCF.DEL_FLAG = '0'
+           AND ECCR.DEL_FLAG = '0'
+           AND ECCF2.USE_FLAG = '1'
+
+        <if test="(CONT_NUM != null and CONT_NUM != '') and (resumeFlag != null and resumeFlag == 'false')">
+            AND ECCF.FORM_NUM = (SELECT MAX(RL.FORM_NUM)
+                                   FROM STOCECRL RL
+                                  WHERE RL.GATE_CD = ECCF.GATE_CD
+                                    AND RL.CONT_NUM = #{CONT_NUM}
+                                    AND RL.CONT_CNT = #{CONT_CNT}
+                                    AND RL.FORM_SQ = 0
+                                    AND RL.DEL_FLAG = '0')
+        </if>
+         ORDER BY (CASE WHEN ECRL.FORM_SQ IS NULL THEN ECCR.REL_FORM_SQ ELSE ECRL.FORM_SQ END) ASC, ECCF.FORM_TYPE, ECCF.CONTRACT_FORM_TYPE ASC
+
+    </select>
+
+    <select id="doSearchSupAttachFileInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             (CASE WHEN AT.ATT_FILE_CD IS NOT NULL THEN '1' ELSE '0' END) AS SELECTED
+            ,CD.CODE_DESC AS ATT_FILE_NM
+            ,AT.CONT_NUM
+            ,AT.CONT_CNT
+            ,AT.ATT_SQ
+            ,CD.CODE AS ATT_FILE_CD
+            ,AT.ATT_FILE_NUM
+            ,(SELECT COUNT(ATCH.UUID_SQ) FROM STOCATCH ATCH
+               WHERE ATCH.GATE_CD = AT.GATE_CD
+                 AND ATCH.UUID = AT.ATT_FILE_NUM
+                 AND ATCH.DEL_FLAG = '0') AS ATT_FILE_CNT
+          FROM STOCCODD CD
+          LEFT OUTER JOIN STOCECAT AT
+           ON (CD.GATE_CD = AT.GATE_CD
+           AND CD.CODE = AT.ATT_FILE_CD
+           AND AT.CONT_NUM = #{CONT_NUM}
+           AND AT.CONT_CNT = (CASE WHEN (#{CONT_CNT} = '' OR #{CONT_CNT} IS NULL) THEN NULL ELSE #{CONT_CNT} END)
+           AND AT.DEL_FLAG = '0')
+         WHERE CD.GATE_CD = #{ses.gateCd}
+           AND CD.CODE_TYPE = 'M221'
+           AND CD.USE_FLAG = '1'
+           AND CD.DEL_FLAG = '0'
+           AND CD.TEXT1 = #{CONTRACT_FORM_TYPE}
+         ORDER BY (CASE WHEN AT.ATT_FILE_CD IS NOT NULL THEN '1' ELSE '0' END) desc, CD.SORT_SQ
+
+    </select>
+
+    <select id="doSearchPayInfo" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             PY.PAY_CNT
+            ,PY.PAY_CNT_TYPE
+            ,PY.PAY_CNT_NM
+            ,PY.PAY_PERCENT
+            ,PY.PAY_AMT
+            ,PY.VAT_TYPE
+            ,PY.PAY_METHOD_NM
+            ,PY.CONT_CNT
+            ,PY.CONT_NUM
+            ,PY.VENDOR_CD
+          FROM STOCECPY PY
+         WHERE PY.GATE_CD = #{ses.gateCd}
+           AND PY.CONT_NUM = #{CONT_NUM}
+           AND PY.CONT_CNT = #{CONT_CNT}
+           AND PY.VENDOR_CD = #{VENDOR_CD}
+           AND PY.DEL_FLAG = '0'
+         ORDER BY PY.PAY_CNT
+
+    </select>
+
+    <select id="doSearchPayInfoForERP" parameterType="hashMap" resultType="hashMap">
+
+        SELECT
+             ROW_NUMBER() OVER (ORDER BY GI.BUSINESS_CD, GI.PAY_CNT) AS PAY_CNT
+            ,'' AS PAY_CNT_TYPE
+            ,DD.CODE_DESC AS PAY_CNT_NM
+            ,round((<include refid="com.sql.nvl"/>(GI.PAY_AMT, 0)) / (SELECT SUM(<include refid="com.sql.nvl"/>(A.PAY_AMT, 0)) FROM TGYSMIGI A WHERE A.PURC_CONT_NUM = GI.PURC_CONT_NUM) * 100, 2, 1) AS PAY_PERCENT
+            ,GI.PAY_AMT AS PAY_AMT
+            ,(CASE WHEN <include refid="com.sql.nvl"/>(GI.VAT_AMT, 0)  >  0 THEN '2' ELSE '0' END) AS VAT_TYPE
+            ,GI.PAY_METHOD_NM
+            ,'' AS CONT_CNT
+            ,NULL AS CONT_NUM
+            ,(SELECT GY.VENDOR_CD FROM TGYSMIGY GY WHERE GY.PURC_CONT_NUM = GI.PURC_CONT_NUM) AS VENDOR_CD
+          FROM TGYSMIGI GI
+          LEFT OUTER JOIN STOCCODD DD
+            ON (DD.GATE_CD   = #{ses.gateCd}
+           AND DD.CODE_TYPE = 'M230'
+           AND DD.LANG_CD   = #{ses.langCd}
+           AND DD.CODE      = GI.BUSINESS_CD
+           AND DD.USE_FLAG  = '1'
+           AND DD.DEL_FLAG  = '0')
+         WHERE GI.PURC_CONT_NUM = #{PURC_CONT_NUM}
+         ORDER BY GI.BUSINESS_CD, GI.PAY_CNT
+
+    </select>
+
+
+	<select id="becf040_doSearch" parameterType="hashmap" resultType="java.util.Map">
+
+		SELECT FORM_NUM
+		      ,FORM_TYPE
+		      ,FORM_ROLE_TYPE
+		      ,FORM_NM
+              ,FORM_TEXT
+              ,EXAM_FLAG
+              ,APPROVAL_FLAG
+              ,BUNDLE_FLAG
+              ,DEPT_FLAG
+              ,ECONT_FLAG
+              ,CONTRACT_FORM_TYPE
+              ,USE_FLAG
+              ,BUYER_CD
+		  FROM STOCECCF
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND FORM_NUM = #{formNum}
+		   AND DEL_FLAG = '0'
+
+	</select>
+
+	<select id="becf040_doSearchECCR" resultType="hashMap">
+
+        SELECT
+        	(CASE WHEN ECCR.FORM_NUM IS NULL THEN 0 ELSE 1 END ) SELECTED,
+		    ECCF.FORM_NUM AS REL_FORM_NUM,
+		    ECCF.FORM_TYPE,
+		    ECCF.CONTRACT_FORM_TYPE,
+		    ECCF.FORM_NM,
+		    ECCR.FORM_NUM,
+		    row_number() over( order by ECCF.FORM_NM DESC) AS NUM,
+		    ECCR.REQUIRE_FLAG,
+		    ECCR.REL_FORM_SQ,
+		    <include refid="com.sql.nvl"/>(ECCF.USE_FLAG, '0') AS USE_FLAG,
+		    ECCF.FORM_ROLE_TYPE
+		  FROM STOCECCF ECCF
+		  LEFT OUTER JOIN STOCECCR ECCR
+		   ON (ECCF.GATE_CD = ECCR.GATE_CD
+		   AND ECCF.FORM_NUM = ECCR.REL_FORM_NUM
+		   AND ECCR.FORM_NUM = #{FORM_NUM}
+		   AND ECCR.DEL_FLAG = '0')
+		 WHERE ECCF.GATE_CD  = #{ses.gateCd}
+             --AND ECCF.BUYER_CD = {ses.companyCd}
+        <if test="FORM_NUM == null or FORM_NUM == ''">
+        	 AND ECCF.USE_FLAG = '1'
+        </if>
+		<if test="FORM_NUM != '' and FORM_NUM != null">
+		   AND ECCF.FORM_NUM != #{FORM_NUM}
+		</if>
+        <if test='SEL_FLAG == "1"'>
+           AND (CASE WHEN ECCR.FORM_NUM IS NULL THEN 0 ELSE 1 END ) = '1'
+        </if>
+
+           AND ECCF.DEL_FLAG = '0'
+		   AND ECCF.FORM_TYPE = '200' --부서식만
+		 ORDER BY (CASE WHEN ECCR.FORM_NUM IS NULL THEN 0 ELSE 1 END ) DESC, ECCR.REL_FORM_SQ, ECCR.REQUIRE_FLAG DESC
+
+    </select>
+
+	<insert id="becf040_doInsertForm" parameterType="hashmap">
+
+		INSERT INTO STOCECCF (
+			 GATE_CD
+			,FORM_NUM
+			,REG_DATE
+			,REG_USER_ID
+			,DEL_FLAG
+			,FORM_TYPE
+			,FORM_ROLE_TYPE
+			,FORM_NM
+			,DEPT_CD
+			,BUYER_CD
+			,FORM_TEXT_NUM
+            ,EXAM_FLAG
+            ,APPROVAL_FLAG
+            ,BUNDLE_FLAG
+            ,DEPT_FLAG
+            ,ECONT_FLAG
+            ,FORM_TEXT
+            ,CONTRACT_FORM_TYPE
+            ,USE_FLAG
+		) VALUES (
+			 #{ses.gateCd}
+			,#{FORM_NUM}
+			,<include refid="com.sql.sysdate"/>
+			,#{ses.userId}
+			,'0'
+			,#{FORM_TYPE}
+			,#{FORM_ROLE_TYPE}
+			,#{FORM_NM}
+			,#{DEPT_CD}
+			,#{BUYER_CD}
+			,#{FORM_TEXT_NUM}
+            ,#{EXAM_FLAG}
+            ,#{APPROVAL_FLAG}
+            ,#{BUNDLE_FLAG}
+            ,#{DEPT_FLAG}
+            ,#{ECONT_FLAG}
+            ,#{FORM_CONTENTS}
+            ,#{CONTRACT_FORM_TYPE}
+            ,#{USE_FLAG}
+		)
+
+	</insert>
+
+	<update id="becf040_doUpdateForm" parameterType="hashmap">
+
+		UPDATE STOCECCF SET
+			 MOD_DATE = <include refid="com.sql.sysdate"/>
+			,MOD_USER_ID = #{ses.userId}
+			,FORM_TYPE = #{FORM_TYPE}
+			,FORM_ROLE_TYPE = #{FORM_ROLE_TYPE}
+			,FORM_NM = #{FORM_NM}
+			,DEPT_CD = #{DEPT_CD}
+            ,EXAM_FLAG = #{EXAM_FLAG}
+            ,APPROVAL_FLAG = #{APPROVAL_FLAG}
+            ,BUNDLE_FLAG = #{BUNDLE_FLAG}
+            ,DEPT_FLAG = #{DEPT_FLAG}
+            ,ECONT_FLAG = #{ECONT_FLAG}
+            ,FORM_TEXT = #{FORM_CONTENTS}
+            ,CONTRACT_FORM_TYPE = #{CONTRACT_FORM_TYPE}
+            ,USE_FLAG = #{USE_FLAG}
+
+			,BUYER_CD = #{BUYER_CD}
+
+		 WHERE GATE_CD = #{ses.gateCd}
+		   AND FORM_NUM = #{FORM_NUM}
+		   AND DEL_FLAG = '0'
+
+	</update>
+
+
+
+
+
+
+
+
+
+
+
+    <insert id="newFormRegistrationDoInsertFormData">
+        INSERT INTO STOCECCF (
+                GATE_CD,
+                FORM_NUM,
+                REG_DATE,
+                REG_USER_ID,
+                MOD_DATE,
+                MOD_USER_ID,
+                DEL_FLAG,
+                FORM_TYPE,
+                FORM_NM,
+                DEPT_CD,
+                BUYER_CD,
+                FORM_TEXT_NUM,
+                CONTRACT_FORM_TYPE
+        )
+		VALUES (#{ses.gateCd},
+		        #{FORM_NUM},
+		        <include refid="com.sql.sysdate"/>,
+		        #{ses.userId},
+		        <include refid="com.sql.sysdate"/>,
+		        #{ses.userId},
+		        '0',
+		        #{FORM_TYPE},
+		        #{FORM_NM},
+		        #{DEPT_CD},
+		        #{ses.companyCd},
+		        #{FORM_TEXT_NUM},
+                #{CONTRACT_FORM_TYPE}
+        )
+    </insert>
+
+    <update id="newFormRegistrationDoUpdateFormData">
+        UPDATE STOCECCF
+           SET MOD_DATE           = <include refid="com.sql.sysdate"/>,
+               MOD_USER_ID        = #{ses.userId},
+               FORM_TYPE          = #{FORM_TYPE},
+               FORM_NM            = #{FORM_NM},
+               DEPT_CD            = #{DEPT_CD},
+               FORM_TEXT_NUM      = #{FORM_TEXT_NUM},
+               CONTRACT_FORM_TYPE = #{CONTRACT_FORM_TYPE}
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+    <update id="newFormRegistrationDoUpdateGridData" parameterType="hashMap">
+
+        UPDATE STOCECCR SET
+             MOD_DATE = <include refid="com.sql.sysdate"/>
+            ,MOD_USER_ID = #{ses.userId}
+            ,DEL_FLAG = '0'
+            ,REQUIRE_FLAG = #{REQUIRE_FLAG}
+            ,REL_FORM_SQ = (CASE WHEN #{REL_FORM_SQ} IS NULL THEN <include refid="nextFormSq"/> ELSE #{REL_FORM_SQ} END)
+         WHERE GATE_CD = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM}
+           AND REL_FORM_NUM = #{REL_FORM_NUM}
+
+    </update>
+
+    <update id="newFormRegistrationDoDeleteGridData">
+        UPDATE STOCECCR
+           SET MOD_DATE    = <include refid="com.sql.sysdate"/>   ,
+               MOD_USER_ID = #{ses.userId}       ,
+               DEL_FLAG       = '1'
+         WHERE GATE_CD      = #{ses.gateCd}
+           AND FORM_NUM     = #{FORM_NUM}
+           AND REL_FORM_NUM = #{REL_FORM_NUM}
+    </update>
+    <select id="newFormRegistrationGetExistCount" resultType="int">
+        SELECT COUNT(GATE_CD)
+          FROM STOCECCR
+         WHERE GATE_CD      = #{ses.gateCd}
+           AND FORM_NUM     = #{FORM_NUM}
+           AND REL_FORM_NUM = #{REL_FORM_NUM}
+    </select>
+
+
+    <insert id="newFormRegistrationDoInsertGridData" parameterType="hashMap">
+
+        INSERT INTO STOCECCR (
+            GATE_CD,
+            FORM_NUM,
+            REL_FORM_NUM,
+            REG_DATE,
+            REG_USER_ID,
+            MOD_DATE,
+            MOD_USER_ID,
+            DEL_FLAG,
+            REL_FORM_SQ,
+            REQUIRE_FLAG
+        ) VALUES (
+            #{ses.gateCd},
+            #{FORM_NUM},
+            #{REL_FORM_NUM},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            <include refid="com.sql.sysdate"/>,
+            #{ses.userId},
+            '0',
+            TO_NUMBER(CASE WHEN #{REL_FORM_SQ} IS NULL THEN <include refid="nextFormSq"/> ELSE #{REL_FORM_SQ} END),
+            #{REQUIRE_FLAG}
+        )
+
+    </insert>
+
+    <sql id="nextFormSq">
+        (SELECT <include refid="com.sql.nvl"/>(MAX(REL_FORM_SQ), 0) + 1
+          FROM STOCECCR
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND FORM_NUM = #{FORM_NUM})
+    </sql>
+
+    <select id="newFormRegistrationGetFormData" resultType="hashMap">
+		SELECT FORM_NUM,
+               FORM_TYPE,
+               FORM_NM,
+               DEPT_CD,
+               FORM_TEXT_NUM,
+               <include refid="com.sql.dbo"/>GETDEPTNAME(GATE_CD, BUYER_CD, DEPT_CD, #{ses.langCd}) AS DEPT_NM
+          FROM STOCECCF
+         WHERE GATE_CD  = #{ses.gateCd}
+           AND BUYER_CD = #{ses.companyCd}
+           AND FORM_NUM = #{FORM_NUM}
+           AND DEL_FLAG = '0'
+    </select>
+
+
+    <select id="newFormRegistrationGetGridData" resultType="hashMap">
+		SELECT
+			   (CASE WHEN ECCR.FORM_NUM = NULL THEN 0 ELSE 1 END ) SELECTED,
+		       ECCF.FORM_NUM AS REL_FORM_NUM,
+		       ECCF.FORM_TYPE,
+		       ECCF.FORM_NM,
+		       ECCR.FORM_NUM,
+		       ECCR.REQUIRE_FLAG
+		  FROM STOCECCF ECCF
+		  LEFT OUTER JOIN STOCECCR ECCR
+		    ON ECCF.GATE_CD = ECCR.GATE_CD
+		   AND ECCF.FORM_NUM = ECCR.REL_FORM_NUM
+		   AND ECCR.FORM_NUM = #{FORM_NUM}
+		   AND ECCR.DEL_FLAG = '0'
+		 WHERE ECCF.GATE_CD = #{ses.gateCd}
+		 <if test="FORM_NUM != '' and FORM_NUM != null">  AND ECCF.FORM_NUM != #{FORM_NUM} </if>
+	       AND ECCF.DEL_FLAG = '0'
+	 ORDER BY ECCF.FORM_NUM
+    </select>
+
+
+
+
+
+</mapper>

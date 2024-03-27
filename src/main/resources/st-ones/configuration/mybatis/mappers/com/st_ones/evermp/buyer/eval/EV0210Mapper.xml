@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.evermp.buyer.eval.EV0210Mapper">
+
+	<insert id="doInsertEVEM" parameterType="hashMap">
+        INSERT INTO STOCEVEM (
+	            GATE_CD,
+				EV_NUM,
+				REG_DATE,
+				REG_USER_ID,
+				MOD_DATE,
+				MOD_USER_ID,
+				DEL_FLAG,
+				PROGRESS_CD,
+				EV_NM,
+				EV_CTRL_USER_ID,
+				EXEC_EV_TPL_NUM,
+				START_DATE,
+				CLOSE_DATE,
+				EG_NUM,
+				RESULT_ENTER_CD,
+				ATT_FILE_NUM,
+				PURCHASE_TYPE,
+				EV_TYPE,
+				OVER_100_FLAG,
+				RMK
+				,BUYER_CD
+        ) VALUES (
+            	#{ses.gateCd},
+            	#{EV_NUM},
+            	<include refid="com.sql.sysdate"/>,
+            	#{ses.userId},
+            	<include refid="com.sql.sysdate"/>,
+            	#{ses.userId},
+            	'0',
+            	#{PROGRESS_CD},
+				#{EV_NM},
+				#{EV_CTRL_USER_ID},
+				#{EXEC_EV_TPL_NUM},
+            	<include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            	<include refid="com.sql.dbo"/>setGmtDate(#{CLOSE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}),
+            	#{EG_NUM},
+				#{RESULT_ENTER_CD},
+				#{ATT_FILE_NUM},
+				#{PURCHASE_TYPE},
+				#{EV_TYPE},
+				CASE WHEN #{PURCHASE_TYPE} = 'NPUR' THEN '1' ELSE '0' END
+				,#{RMK}
+				,#{BUYER_CD}
+        )
+    </insert>
+
+    <select id="doCheckEVEM" parameterType="hashmap" resultType="hashMap">
+            SELECT GATE_CD
+						,EV_NUM
+						,PROGRESS_CD
+						,EV_CTRL_USER_ID
+						,REQUEST_DATE
+              FROM STOCEVEM
+            WHERE GATE_CD = #{ses.gateCd}
+                 AND EV_NUM = #{EV_NUM}
+    </select>
+
+    <update id="doUpdateEVEM" parameterType="hashmap">
+        UPDATE STOCEVEM
+        SET    DEL_FLAG = '0'
+        	  <!-- ,PROGRESS_CD = #{PROGRESS_CD} -->
+			  ,EV_NM = #{EV_NM}
+			  ,EV_CTRL_USER_ID = #{EV_CTRL_USER_ID}
+			  ,EXEC_EV_TPL_NUM = #{EXEC_EV_TPL_NUM}
+			  ,START_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{START_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,CLOSE_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{CLOSE_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat})
+			  ,EG_NUM = #{EG_NUM}
+			  ,RESULT_ENTER_CD = #{RESULT_ENTER_CD}
+			  <!-- ,REQUEST_DATE = <include refid="com.sql.dbo"/>setGmtDate(#{REQUEST_DATE}, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateFormat}) -->
+			  ,ATT_FILE_NUM = #{ATT_FILE_NUM}
+			  ,PURCHASE_TYPE = #{PURCHASE_TYPE}
+			  ,EV_TYPE = #{EV_TYPE}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , OVER_100_FLAG = CASE WHEN #{PURCHASE_TYPE} = 'NPUR' THEN '1' ELSE '0' END
+             , RMK = #{RMK}
+             , BUYER_CD = #{BUYER_CD}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+    </update>
+
+    <select id="existsEVEU" parameterType="hashmap" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM STOCEVEU
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+        AND EV_USER_ID = #{EV_USER_ID}
+        AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = #{VENDOR_SQ}
+    </select>
+
+    <insert id="doInsertEVEU" parameterType="hashMap">
+        INSERT INTO STOCEVEU (
+            GATE_CD
+        	, EV_NUM
+            , VENDOR_CD
+            , VENDOR_SQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , REP_FLAG
+            , EV_USER_ID
+        ) VALUES (
+            #{ses.gateCd}
+            , #{EV_NUM}
+            , #{VENDOR_CD}
+            , #{VENDOR_SQ}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{REP_FLAG}
+            , #{EV_USER_ID}
+        )
+    </insert>
+
+     <update id="doDeleteEVEU" parameterType="hashmap">
+        UPDATE STOCEVEU
+        SET    DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          <if test="EV_USER_ID != '' and EV_USER_ID != null ">
+               AND EV_USER_ID = #{EV_USER_ID}
+          </if>
+           AND   VENDOR_CD = #{VENDOR_CD}
+           AND   VENDOR_SQ = #{VENDOR_SQ}
+    </update>
+
+     <update id="doDeleteEVEUAll" parameterType="hashmap">
+        UPDATE STOCEVEU SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+
+    </update>
+
+    <update id="doUpdateEVEU" parameterType="hashmap">
+        UPDATE STOCEVEU SET
+            DEL_FLAG = '0'
+            , REP_FLAG = #{REP_FLAG}
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+        AND EV_USER_ID = #{EV_USER_ID}
+        AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = #{VENDOR_SQ}
+    </update>
+
+    <select id="existsEVES" parameterType="hashmap" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM STOCEVES
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND   EV_NUM = #{EV_NUM}
+        AND   VENDOR_CD = #{VENDOR_CD}
+        AND   VENDOR_SQ = #{VENDOR_SQ}
+    </select>
+
+    <insert id="doInsertEVES" parameterType="hashMap">
+        INSERT INTO STOCEVES (
+          	GATE_CD
+			, EV_NUM
+			, VENDOR_CD
+			, VENDOR_SQ
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, USER_ID
+			, USER_NM
+			, EMAIL
+			, INPUT_MM
+			, CONT_NUM
+			, CONT_DESC
+        ) VALUES (
+            #{ses.gateCd}
+            , #{EV_NUM}
+            , #{VENDOR_CD}
+        	, #{VENDOR_SQ}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{USER_ID}
+            , #{USER_NM}
+            , #{EMAIL}
+            , #{INPUT_MM}
+            , #{CONT_NUM}
+            , #{CONT_DESC}
+        )
+    </insert>
+
+
+
+
+
+
+
+    <update id="deleteEVES" parameterType="hashmap">
+        DELETE STOCEVES
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+    </update>
+
+
+
+
+    <update id="doDeleteEVESAll" parameterType="hashmap">
+        UPDATE STOCEVES SET
+            DEL_FLAG = '1'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+    </update>
+
+    <update id="doUpdateEVES" parameterType="hashmap">
+        UPDATE STOCEVES SET
+            DEL_FLAG = '0'
+            , MOD_DATE = <include refid="com.sql.sysdate"/>
+            , MOD_USER_ID = #{ses.userId}
+    		, CONT_NUM = #{CONT_NUM}
+        	, CONT_DESC = #{CONT_DESC}
+        WHERE GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+        AND VENDOR_CD = #{VENDOR_CD}
+		AND VENDOR_SQ = #{VENDOR_SQ}
+    </update>
+
+    <select id="doSearchEVEM" parameterType="hashmap" resultType="hashMap">
+            SELECT EVEM.GATE_CD
+						,EVEM.EV_NUM
+
+						,<include refid="com.sql.toDateChar"/>(EVEM.REG_DATE,'YYYYMMDD')  AS REG_DATE
+
+
+
+						,EVEM.REG_USER_ID
+						,<include refid="com.sql.dbo"/>GETUSERNAME(EVEM.GATE_CD, EVEM.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+
+						,<include refid="com.sql.toDateChar"/>(EVEM.MOD_DATE,'YYYYMMDD')  AS MOD_DATE
+
+
+						,EVEM.MOD_USER_ID
+						,EVEM.DEL_FLAG
+						,<include refid="com.sql.dbo"/>GETCOMCODE(EVEM.GATE_CD, 'M122', EVEM.PROGRESS_CD, '0', #{ses.langCd}) AS PROGRESS_NM
+						,EVEM.PROGRESS_CD
+						,EVEM.EV_NM
+						,EVEM.EV_CTRL_USER_ID
+						,<include refid="com.sql.dbo"/>GETUSERNAME(EVEM.GATE_CD, EVEM.EV_CTRL_USER_ID, #{ses.langCd}) AS EV_CTRL_USER_NM
+						,EVEM.EXEC_EV_TPL_NUM
+						,EVTM.EV_TPL_SUBJECT AS EV_TPL_SUBJECT
+
+						,<include refid="com.sql.toDateChar"/>(EVEM.START_DATE,'YYYYMMDD')  AS START_DATE
+						,<include refid="com.sql.toDateChar"/>(EVEM.CLOSE_DATE,'YYYYMMDD')  AS CLOSE_DATE
+
+						,EVEM.EG_NUM
+						,EVEM.RESULT_ENTER_CD
+
+						,<include refid="com.sql.toDateChar"/>(EVEM.REQUEST_DATE,'YYYYMMDD')  AS REQUEST_DATE
+
+						,<include refid="com.sql.toDateChar"/>(EVEM.COMPLETE_DATE,'YYYYMMDD')  AS COMPLETE_DATE
+						,EVEM.ATT_FILE_NUM
+						,EVEM.PURCHASE_TYPE
+						,EVEM.EV_TYPE
+						,EVEM.RMK
+          FROM STOCEVEM EVEM
+          LEFT JOIN STOCEVTM EVTM ON (    EVTM.GATE_CD = EVEM.GATE_CD
+                                      AND EVTM.DEL_FLAG = '0'
+                                      AND EVTM.EV_TPL_NUM = EVEM.EXEC_EV_TPL_NUM)
+          WHERE  EVEM.GATE_CD = #{ses.gateCd}
+            AND EVEM.DEL_FLAG = '0'
+            AND EVEM.EV_NUM = #{EV_NUM}
+    </select>
+
+    <select id="doSearchEVSG" parameterType="hashmap" resultType="hashMap">
+    			  SELECT (SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},1,SG_NUM)) AS CLS1
+				    	      ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},2,SG_NUM)) AS CLS2
+					          ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},3,SG_NUM)) AS CLS3
+					          ,(SELECT  <include refid="com.sql.dbo"/>GETSGCLASS(#{ses.gateCd} ,#{ses.langCd},4,SG_NUM)) AS CLS4
+					          ,EV_NUM
+					          ,SG_NUM
+					  FROM STOCEVSG
+					WHERE GATE_CD 	= #{ses.gateCd}
+					    AND DEL_FLAG 	= '0'
+					    AND EV_NUM 		= #{EV_NUM}
+ 		     GROUP BY GATE_CD, EV_NUM, SG_NUM
+ 		     ORDER BY GATE_CD, EV_NUM, SG_NUM
+    </select>
+
+    <select id="doSearchEVES" parameterType="hashmap" resultType="hashMap">
+    	SELECT
+    		  EVES.VENDOR_CD
+    	    , EVES.VENDOR_SQ
+			, <include refid="com.sql.dbo"/>GETVENDORNAME( #{ses.gateCd}, EVES.VENDOR_CD,#{ses.langCd}) AS VENDOR_NM
+			, VNGL.CEO_USER_NM AS CEO_USER_NM
+			, EVES.USER_ID
+			, EVES.USER_NM     AS USER_NM
+			, EVES.EMAIL       AS EMAIL
+    		, EVES.CONT_NUM
+    		, EVES.CONT_DESC
+    		, 'U' INSERT_FLAG
+		FROM STOCEVES EVES
+		JOIN STOCVNGL VNGL
+			ON (EVES.GATE_CD = VNGL.GATE_CD
+		 	AND EVES.VENDOR_CD = VNGL.VENDOR_CD
+		 	AND VNGL.DEL_FLAG = '0')
+		WHERE EVES.DEL_FLAG = '0'
+		AND EVES.GATE_CD = #{ses.gateCd}
+		AND EVES.EV_NUM = #{EV_NUM}
+    </select>
+
+    <select id="doSearchEVEU" parameterType="hashmap" resultType="hashMap">
+    	SELECT DISTINCT
+    		  EVEU.EV_USER_ID
+        	, EVEU.REP_FLAG
+            , <include refid="com.sql.dbo"/>GETUSERNAME(EVEU.GATE_CD,EVEU.EV_USER_ID,#{ses.langCd}) AS USER_NM
+            , <include refid="com.sql.dbo"/>getUserDeptName(EVEU.GATE_CD,EVEU.EV_USER_ID,#{ses.langCd}) AS DEPT_NM
+		FROM STOCEVEU EVEU
+		JOIN STOCEVES EVES
+		    ON (EVEU.GATE_CD   = EVES.GATE_CD
+			AND EVEU.VENDOR_CD = EVES.VENDOR_CD
+		    AND EVEU.VENDOR_SQ = EVES.VENDOR_SQ
+			AND EVES.DEL_FLAG  = '0')
+		WHERE EVEU.DEL_FLAG  = '0'
+		  AND EVEU.GATE_CD   = #{ses.gateCd}
+		  AND EVEU.EV_NUM    = #{EV_NUM}
+		  AND EVEU.VENDOR_CD = #{VENDOR_CD}
+		  AND EVEU.VENDOR_SQ = #{VENDOR_SQ}
+    </select>
+
+    <select id="doSearchEVEUXXXXXXXXX" parameterType="hashmap" resultType="hashMap">
+    	SELECT DISTINCT EVEU.EV_USER_ID
+        	, EVEU.REP_FLAG
+            , <include refid="com.sql.dbo"/>GETUSERNAME(EVEU.GATE_CD,EVEU.EV_USER_ID,#{ses.langCd}) AS USER_NM
+            , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		FROM STOCEVEU EVEU
+		INNER JOIN STOCEVES EVES
+		    ON (EVEU.GATE_CD = EVES.GATE_CD
+			AND EVEU.VENDOR_CD = EVES.VENDOR_CD
+		    AND EVEU.VENDOR_SQ = EVES.VENDOR_SQ
+			AND EVES.DEL_FLAG = '0')
+		INNER JOIN STOCUSER USERS
+		    ON (EVEU.GATE_CD = USERS.GATE_CD
+        	AND EVEU.EV_USER_ID = USERS.USER_ID
+            AND USERS.DEL_FLAG = '0')
+		WHERE EVEU.DEL_FLAG = '0'
+		AND EVEU.GATE_CD = #{ses.gateCd}
+		AND EVEU.EV_NUM = #{EV_NUM}
+		AND EVEU.VENDOR_CD = #{VENDOR_CD}
+		AND EVEU.VENDOR_SQ = #{VENDOR_SQ}
+		UNION ALL
+    	SELECT DISTINCT EVEU.EV_USER_ID
+        	, EVEU.REP_FLAG
+            , <include refid="com.sql.dbo"/>GETUSERNAME(EVEU.GATE_CD,EVEU.EV_USER_ID,#{ses.langCd}) AS USER_NM
+            , <include refid="com.sql.dbo"/>GETDEPTNAME(USERS.GATE_CD, USERS.COMPANY_CD, USERS.DEPT_CD, #{ses.langCd}) AS DEPT_NM
+		FROM STOCEVEU EVEU
+		INNER JOIN STOCEVES EVES
+		    ON (EVEU.GATE_CD = EVES.GATE_CD
+			AND EVEU.VENDOR_CD = EVES.VENDOR_CD
+		    AND EVEU.VENDOR_SQ = EVES.VENDOR_SQ
+			AND EVES.DEL_FLAG = '0')
+		INNER JOIN STOCCVUR USERS
+		    ON (EVEU.GATE_CD = USERS.GATE_CD
+        	AND EVEU.EV_USER_ID = USERS.USER_ID
+            AND USERS.DEL_FLAG = '0')
+		WHERE EVEU.DEL_FLAG = '0'
+		AND EVEU.GATE_CD = #{ses.gateCd}
+		AND EVEU.EV_NUM = #{EV_NUM}
+		AND EVEU.VENDOR_CD = #{VENDOR_CD}
+		AND EVEU.VENDOR_SQ = #{VENDOR_SQ}
+    </select>
+
+
+
+
+
+
+
+
+
+	<update id="doDeleteEVEM" parameterType="hashmap">
+        UPDATE STOCEVEM
+        SET
+               DEL_FLAG = '1'
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+    </update>
+
+    <update id="doUpdateProgressEVEM" parameterType="hashmap">
+        UPDATE STOCEVEM
+        SET
+        	   PROGRESS_CD = #{PROGRESS_CD}
+			<if test="REQUEST_DATE == 'YES'">
+               ,REQUEST_DATE = <include refid="com.sql.sysdate"/>
+          	</if>
+          	<if test="REQUEST_DATE == 'NO'">
+               ,REQUEST_DATE = NULL
+          	</if>
+
+          	<if test="COMPLETE_DATE == 'YES'">
+               ,COMPLETE_DATE = <include refid="com.sql.sysdate"/>
+          	</if>
+          	<if test="COMPLETE_DATE == 'NO'">
+               ,COMPLETE_DATE = NULL
+          	</if>
+
+        WHERE  GATE_CD = #{ses.gateCd}
+        AND EV_NUM = #{EV_NUM}
+
+    </update>
+
+    <update id="doUpdateProgressEVEU" parameterType="hashmap">
+        UPDATE STOCEVEU
+        SET    PROGRESS_CD = #{PROGRESS_CD}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <update id="doUpdateProgressEVES" parameterType="hashmap">
+        UPDATE STOCEVES
+        SET    PROGRESS_CD = #{PROGRESS_CD}
+             , MOD_DATE = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+        WHERE  GATE_CD = #{ses.gateCd}
+          AND EV_NUM = #{EV_NUM}
+          AND DEL_FLAG = '0'
+    </update>
+
+    <!-- 입찰평가인 경우 전년도 최종 등급평가 결과를 가져와서 등록함 -->
+    <select id="doSearchDataForEVET" parameterType="hashmap" resultType="hashMap">
+
+		WITH EV_TEMP AS (
+		  SELECT EVTD.GATE_CD
+		       , EVTD.EV_TPL_NUM
+		       , EVTD.EV_ITEM_NUM
+		       , EVIM.QTY_ITEM_CD
+		       , EVIM.EV_ITEM_METHOD_CD
+		    FROM STOCEVTD EVTD
+		    JOIN STOCEVIM EVIM
+		     ON (EVTD.GATE_CD = EVIM.GATE_CD
+		     AND EVTD.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+		     AND EVIM.DEL_FLAG = '0')
+		   WHERE EVTD.GATE_CD = #{ses.gateCd}
+		     AND EVTD.EV_TPL_NUM = #{EV_TPL_NUM}
+		     AND EVTD.DEL_FLAG = '0'
+		)
+		SELECT EVTP.EV_TPL_NUM
+		     , EVTP.EV_ITEM_NUM
+		     , EVTP.EV_ITEM_METHOD_CD
+		     , <include refid="com.sql.nvl"/>(EVAL.EV_SCORE, 0) AS EV_SCORE
+		     , '200' AS PROGRESS_CD
+		     , <include refid="com.sql.nvl"/>(EVAL.RESULT_VALUE, 0) AS RESULT_VALUE
+		     , EVAL.GROUP_CD
+		     , <include refid="com.sql.nvl"/>(EVAL.ADDITION_SCORE, 0) AS ADDITION_SCORE
+		     , <include refid="com.sql.nvl"/>(EVAL.FINAL_SCORE, 0) AS FINAL_SCORE
+		     , EVAL.RESULT_VALUE_EXIST
+		     , EVAL.REMARK
+		     , EVAL.QTY_ITEM_CD
+		FROM EV_TEMP EVTP LEFT JOIN (
+		  SELECT EVET.GATE_CD
+		       , EVET.EV_ITEM_METHOD_CD
+		       , EVET.EV_SCORE
+		       , EVET.RESULT_VALUE
+		       , EVET.GROUP_CD
+		       , EVET.ADDITION_SCORE
+		       , EVET.FINAL_SCORE
+		       , EVET.RESULT_VALUE_EXIST
+		       , EVET.REMARK
+		       , EVIM.QTY_ITEM_CD
+		    FROM STOCEVEM EVEM
+		    	JOIN STOCEVES EVES
+		     		 ON (EVEM.GATE_CD = EVES.GATE_CD
+		     	 	 AND EVEM.EV_NUM = EVES.EV_NUM
+		     	 	 AND EVES.DEL_FLAG = '0')
+		    	JOIN STOCEVET EVET
+		     		 ON (EVEM.GATE_CD = EVET.GATE_CD
+		     		 AND EVEM.EV_NUM = EVET.EV_NUM
+		     		 AND EVES.VENDOR_CD = EVET.VENDOR_CD
+		     		 AND EVET.DEL_FLAG = '0')
+		        JOIN STOCEVIM EVIM
+		     		 ON (EVET.GATE_CD = EVIM.GATE_CD
+		     		 AND EVET.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+		     		 AND EVIM.DEL_FLAG = '0')
+		  WHERE EVEM.GATE_CD = #{ses.gateCd}
+		    AND EVEM.EV_TYPE = 'CLASS'
+		    AND EVEM.PROGRESS_CD = '300'
+
+		  <if test='_databaseId=="oracle"'>
+		  	<![CDATA[
+			AND TO_CHAR(EVEM.START_DATE, 'yymmdd') >= TO_CHAR(#{START_DATE} , 'yymmdd')
+			AND TO_CHAR(EVEM.CLOSE_DATE, 'yymmdd') <= TO_CHAR(#{CLOSE_DATE} , 'yymmdd')
+			]]>
+		  </if>
+		  <if test='_databaseId=="mssql"'>
+		  	<![CDATA[
+			AND CONVERT(VARCHAR(8), EVEM.START_DATE, 112) >= CONVERT(VARCHAR(8), #{START_DATE} , 112)
+			AND CONVERT(VARCHAR(8), EVEM.CLOSE_DATE, 112) <= CONVERT(VARCHAR(8), #{CLOSE_DATE} , 112)
+			]]>
+		  </if>
+
+		    AND EVEM.DEL_FLAG = '0'
+		    AND EVES.VENDOR_CD = #{VENDOR_CD}
+		    AND EVEM.EV_NUM = (
+		        SELECT MAX (EVEM.EV_NUM)
+		        		FROM STOCEVEM EVEM
+		    			JOIN STOCEVES EVES
+		    		 		 ON (EVEM.GATE_CD = EVES.GATE_CD
+		    		 	 	 AND EVEM.EV_NUM = EVES.EV_NUM
+		    		 	 	 AND EVES.DEL_FLAG = '0')
+		    			JOIN STOCEVET EVET
+		    		 		 ON (EVEM.GATE_CD = EVET.GATE_CD
+		    		 		 AND EVEM.EV_NUM = EVET.EV_NUM
+		    		 		 AND EVES.VENDOR_CD = EVET.VENDOR_CD
+		    		 		 AND EVET.DEL_FLAG = '0')
+		    		JOIN STOCEVIM EVIM
+		    		 		 ON (EVET.GATE_CD = EVIM.GATE_CD
+		    		 		 AND EVET.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+		    		 		 AND EVIM.DEL_FLAG = '0')
+		    	  WHERE EVEM.GATE_CD = #{ses.gateCd}
+		    		AND EVEM.EV_TYPE = 'CLASS'
+		    		AND EVEM.PROGRESS_CD = '300'
+				  <if test='_databaseId=="oracle"'>
+				  	<![CDATA[
+					AND TO_CHAR(EVEM.START_DATE, 'yymmdd') >= TO_CHAR(#{START_DATE} , 'yymmdd')
+					AND TO_CHAR(EVEM.CLOSE_DATE, 'yymmdd') <= TO_CHAR(#{CLOSE_DATE} , 'yymmdd')
+					]]>
+				  </if>
+				  <if test='_databaseId=="mssql"'>
+				  	<![CDATA[
+					AND CONVERT(VARCHAR(8), EVEM.START_DATE, 112) >= CONVERT(VARCHAR(8), #{START_DATE} , 112)
+					AND CONVERT(VARCHAR(8), EVEM.CLOSE_DATE, 112) <= CONVERT(VARCHAR(8), #{CLOSE_DATE} , 112)
+					]]>
+				  </if>
+		    		AND EVEM.DEL_FLAG = '0'
+				    AND EVES.VENDOR_CD = #{VENDOR_CD}
+		    )
+		) EVAL
+		ON (EVTP.GATE_CD = EVAL.GATE_CD
+		AND EVTP.QTY_ITEM_CD = EVAL.QTY_ITEM_CD)
+    </select>
+
+    <!-- 입찰평가인 경우 전년도 최종 등급평가 결과를 가져와서 등록함 -->
+    <insert id="doInsertEVET" parameterType="hashMap">
+    	INSERT INTO STOCEVET(
+    		  GATE_CD
+			, EV_NUM
+			, VENDOR_CD
+			, EV_TPL_NUM
+			, EV_ITEM_NUM
+			, REG_DATE
+			, REG_USER_ID
+			, MOD_DATE
+			, MOD_USER_ID
+			, DEL_FLAG
+			, EV_ITEM_METHOD_CD
+			, EV_SCORE
+			, PROGRESS_CD
+			, RESULT_VALUE
+			, GROUP_CD
+			, ADDITION_SCORE
+			, FINAL_SCORE
+			, RESULT_VALUE_EXIST
+			, REMARK
+    	) VALUES (
+    		  #{ses.gateCd}
+			, #{EV_NUM}
+			, #{VENDOR_CD}
+			, #{EV_TPL_NUM}
+			, #{EV_ITEM_NUM}
+			, <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+			, '0'
+			, #{EV_ITEM_METHOD_CD}
+			, #{EV_SCORE}
+			, #{PROGRESS_CD}
+			, #{RESULT_VALUE}
+			, #{GROUP_CD}
+			, #{ADDITION_SCORE}
+			, #{FINAL_SCORE}
+			, #{RESULT_VALUE_EXIST}
+			, #{REMARK}
+    	)
+    </insert>
+
+    <delete id="doDeleteEVET" parameterType="hashMap">
+    	DELETE FROM STOCEVET
+    	 WHERE GATE_CD = #{ses.gateCd}
+    	 AND  EV_NUM = #{EV_NUM}
+    </delete>
+
+    <!--
+    <select id="doSearchDataForEVET_old" parameterType="hashMap" resultType="hashMap">
+    	SELECT EVTD.EV_TPL_NUM
+             , EVIM.EV_ITEM_NUM
+             , EVEM.EV_NUM
+             , EVES.SG_NUM
+             , EVES.VENDOR_CD
+             , EVIM.EV_ITEM_METHOD_CD
+      FROM STOCEVEM EVEM JOIN STOCEVES EVES
+       	ON (EVEM.GATE_CD = EVES.GATE_CD
+       	AND EVEM.EV_NUM = EVES.EV_NUM
+       	AND EVES.DEL_FLAG = '0')
+       JOIN STOCEVTM EVTM
+       	ON (EVTM.GATE_CD = EVEM.GATE_CD
+	   	AND EVTM.DEL_FLAG = '0'
+		AND EVTM.EV_TPL_NUM = EVEM.EXEC_EV_TPL_NUM)
+       JOIN STOCEVTD EVTD
+       	ON (EVTM.GATE_CD = EVTD.GATE_CD
+		AND EVTM.EV_TPL_NUM = EVTD.EV_TPL_NUM
+		AND EVTD.DEL_FLAG = '0')
+       JOIN STOCEVIM EVIM
+		ON (EVTD.GATE_CD = EVIM.GATE_CD
+		AND EVTD.EV_ITEM_NUM = EVIM.EV_ITEM_NUM
+		AND EVIM.DEL_FLAG = '0')
+      WHERE EVEM.GATE_CD = #{ses.gateCd}
+        AND EVEM.DEL_FLAG = '0'
+        AND EVEM.EV_NUM = #{EV_NUM}
+        AND EVES.VENDOR_CD = #{VENDOR_CD}
+    </select>
+	-->
+
+    <select id="getOfVendorInfo" parameterType="hashmap" resultType="hashmap">
+       SELECT EVES.VENDOR_CD
+			      ,<include refid="com.sql.dbo"/>GETVENDORNAME(EVES.GATE_CD, EVES.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+					 , EVEM.PURCHASE_TYPE
+					 , USR.TEL_NUM AS TEL_NUM
+					 , <include refid="com.sql.dbo"/>GETUSERNAME(EVEM.GATE_CD, EVEM.EV_CTRL_USER_ID, #{ses.langCd}) AS USER_NM
+		 FROM STOCEVEM EVEM
+	     INNER JOIN STOCEVES EVES
+		 ON ( EVES.DEL_FLAG = '0'
+			       AND EVEM.GATE_CD = EVES.GATE_CD
+			       AND EVEM.EV_NUM = EVES.EV_NUM
+			    )
+		LEFT OUTER JOIN STOCUSER USR
+		ON ( EVEM.GATE_CD = USR.GATE_CD
+				 AND EVEM.EV_CTRL_USER_ID = USR.USER_ID
+				 AND USR.DEL_FLAG = '0')
+	   WHERE EVEM.GATE_CD = #{ses.gateCd}
+		    AND EVEM.EV_NUM = #{EV_NUM}
+		   AND EVEM.DEL_FLAG = '0'
+    </select>
+
+    <select id="getReceiverMailAddress" parameterType="hashmap" resultType="hashmap">
+       SELECT EVEU.EV_USER_ID AS RECV_USER_ID
+			      ,<include refid="com.sql.dbo"/>GETUSERNAME(EVEU.GATE_CD, EVEU.EV_USER_ID,#{ses.langCd}) AS RECV_NM
+			      ,USR.EMAIL   AS RECV_EMAIL
+			      ,USR.TEL_NUM AS TEL_NUM
+			      ,<include refid="com.sql.dbo"/>GETUSERNAME(#{ses.gateCd}, #{ses.userId}, #{ses.langCd}) AS REQ_NM
+		 FROM STOCEVEU EVEU
+		INNER JOIN STOCUSER USR
+		ON EVEU.GATE_CD 				= USR.GATE_CD
+		AND EVEU.EV_USER_ID 		= USR.USER_ID
+		AND USR.DEL_FLAG 			= '0'
+		WHERE EVEU.GATE_CD 		= #{ses.gateCd}
+		     AND EVEU.EV_NUM 		= #{EV_NUM}
+			 AND EVEU.VENDOR_CD 	= #{VENDOR_CD}
+			 AND EVEU.VENDOR_SQ 	= #{VENDOR_SQ}
+			 AND EVEU.DEL_FLAG 		= '0'
+    </select>
+
+	<select id="getVendorReceiverMailAddress" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			  A.RECV_USER_ID 	AS RECV_USER_ID
+			, A.MAIL_FLAG 		AS MAIL_FLAG
+			, A.VENDOR_CD 		AS VENDOR_CD
+			, A.RECV_NM    AS RECV_NM
+			, A.RECV_EMAIL AS RECV_EMAIL
+		  FROM (
+			SELECT  VNCP.EMAIL AS RECV_EMAIL ,
+					VNCP.USER_NM AS RECV_NM ,
+					VNCP.MAIL_FLAG ,
+					VNCP.VENDOR_CD AS VENDOR_CD ,
+					'' AS RECV_USER_ID
+				 FROM STOCVNCP VNCP
+				WHERE VNCP.GATE_CD   = #{ses.gateCd}
+				  AND VNCP.VENDOR_CD = #{VENDOR_CD}
+				  AND VNCP.DEL_FLAG  = '0'
+				  AND VNCP.EMAIL IS NOT NULL
+				  AND VNCP.TYPE = 'C'		-- 계약담당
+			) A
+		GROUP BY A.RECV_USER_ID, A.RECV_EMAIL, A.RECV_NM, A.MAIL_FLAG, A.VENDOR_CD
+	</select>
+
+	<!-- 평가등록시 협력사 조회(엑셀 업로드용) -->
+	<select id="doSearchExcelEVES" parameterType="hashMap" resultType="hashMap">
+
+			SELECT
+			     GL.VENDOR_CD
+		       ,<include refid="com.sql.dbo"/>GETVENDORNAME(GL.GATE_CD, GL.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+		       , GL.IRS_NO AS IRS_NUM
+		       , GL.CEO_USER_NM AS CEO_USER_NM
+		       , CP.USER_ID
+		       , CP.USER_NM AS USER_NM
+		       , CP.EMAIL AS EMAIL
+	    	   , 'Y' AS INSERT_FLAG
+		  FROM STOCVNGL GL
+		  JOIN (SELECT GATE_CD, COMPANY_CD, USER_ID, USER_NM, EMAIL
+		  			 , ROW_NUMBER() OVER (PARTITION BY COMPANY_CD ORDER BY MOD_DATE DESC, REG_DATE DESC) AS RNUM
+		  		  FROM STOCCVUR
+		  		 WHERE GATE_CD  = #{ses.gateCd}
+		  		   AND PROGRESS_CD = 'E'
+		  		   AND <include refid="com.sql.nvl"/>(BLOCK_FLAG, '0') = '0'
+		  		   AND DEL_FLAG = '0') CP
+		  		ON (GL.GATE_CD  = CP.GATE_CD
+		  		AND GL.VENDOR_CD= CP.COMPANY_CD
+		  		AND CP.RNUM = 1)
+		  JOIN (
+			<foreach item="item" index="index" collection="VENDOR_CD_LIST" open="" separator=" UNION " close="">
+				SELECT #{item.VENDOR_CD} AS VENDOR_CD <include refid="com.sql.dual"/>
+			</foreach>
+		   		) PARMV
+		   		ON GL.VENDOR_CD = PARMV.VENDOR_CD
+		 WHERE GL.GATE_CD  = #{ses.gateCd}
+		   AND GL.PROGRESS_CD = 'E'
+		   AND GL.SIGN_STATUS = 'E'
+		   AND GL.DEL_FLAG = '0'
+	</select>
+
+	<!-- 평가등록시 평가자 조회(엑셀 업로드용) -->
+	<select id="doSearchExcelEVEU" parameterType="hashMap" resultType="hashMap">
+
+		SELECT A.USER_ID AS EV_USER_ID
+		     ,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, A.USER_ID, #{ses.langCd}) AS USER_NM
+		     ,<include refid="com.sql.dbo"/>getUserDeptInfo(#{ses.gateCd}, A.USER_ID, #{ses.langCd}) AS DEPT_NM
+		  FROM (
+			<foreach item="item" index="index" collection="USER_INFO_LIST" open="" separator=" UNION " close="">
+				SELECT #{item.EV_USER_ID} AS USER_ID <include refid="com.sql.dual"/>
+			</foreach>
+		   	   ) A
+		 WHERE 1 = 1
+	</select>
+
+	<select id="doSearchExcelEVES_User" parameterType="hashMap" resultType="hashMap">
+
+		SELECT USER_ID
+		     , USER_NM
+		     , EMAIL
+		  FROM STOCCVUR
+		 WHERE GATE_CD  = #{ses.gateCd}
+		   AND USER_ID  = #{USER_ID}
+		   AND DEL_FLAG = '0'
+	</select>
+
+	<select id="doSearchExcelEVEU_back" parameterType="hashMap" resultType="hashMap">
+
+		SELECT USER_ID AS EV_USER_ID
+		     , USER_NM
+		  FROM STOCCVUR A
+		 WHERE USER_ID  = (SELECT MAX(USER_ID) FROM STOCCVUR WHERE GATE_CD = #{ses.gateCd} AND COMPANY_CD = #{VENDOR_CD})
+		   AND COMPANY_CD = #{VENDOR_CD}
+		   AND DEL_FLAG = '0'
+	</select>
+
+
+
+</mapper>

@@ -1,0 +1,1039 @@
+<?xml  version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.st_ones.evermp.STO.STO0401_Mapper">
+
+   <select id="sto0405_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT
+           MMRS.GATE_CD
+         , MMRS.AGENT_CODE
+         , MMRS.DOC_NO
+         , MMRS.DOC_SEQ
+         , MMRS.REG_DATE
+         , MMRS.REG_USER_ID
+         , <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, MMRS.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+         , MMRS.MOD_DATE
+         , MMRS.MOD_USER_ID
+         , MMRS.DEAL_CD
+         , MMRS.MOVEMENT_TYPE
+         , MMRS.RD_DATE
+         , MMRS.STR_CTRL_CODE
+         , MMRS.WAREHOUSE_CODE
+         , MMRS.ITEM_CD
+         , MTGL.CUST_ITEM_CD
+         , <include refid="com.sql.nvl"/>(MMRS.ITEM_DESC,MMRS.ITEM_DESC) AS ITEM_DESC
+         , <include refid="com.sql.nvl"/>(MMRS.ITEM_SPEC,MMRS.ITEM_SPEC) AS ITEM_SPEC
+         , MMRS.UNIT_CD
+         , MMRS.ITEM_QTY
+         , MMRS.CUR
+         , MMRS.UNIT_PRICE
+         , MMRS.ITEM_AMT
+         , OGWH.WH_NM
+      FROM STOIMMRS MMRS
+	  LEFT OUTER JOIN STOCMTGL MTGL
+		 ON  MMRS.GATE_CD= MTGL.GATE_CD
+		 AND MMRS.ITEM_CD = MTGL.ITEM_CD
+      JOIN STOCOGWH OGWH
+         ON MMRS.GATE_CD = OGWH.GATE_CD
+         AND MMRS.STR_CTRL_CODE = OGWH.STR_CTRL_CODE
+         AND MMRS.WAREHOUSE_CODE = OGWH.WAREHOUSE_CODE
+         AND OGWH.DEL_FLAG = '0'
+      WHERE  MMRS.DEL_FLAG = '0'
+      <if test="REG_DATE_FROM != '' and REG_DATE_FROM != null">
+        AND MMRS.RD_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{REG_DATE_FROM}<include refid="com.sql.dateFrom"/> -- 00 00 00
+      </if>
+      <if test="REG_DATE_TO != '' and REG_DATE_TO != null">
+        AND MMRS.RD_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{REG_DATE_TO}<include refid="com.sql.dateTo"/> -- 23:23:59
+      </if>
+      <if test="ITEM_DESC != '' and ITEM_DESC != null">
+		   AND (${ITEM_DESC} OR  ${ITEM_SPEC})
+		</if>
+      <if test="STR_CTRL_CODE != '' and STR_CTRL_CODE != null">
+        AND MMRS.STR_CTRL_CODE = #{STR_CTRL_CODE}
+      </if>
+      <if test="ITEM_CD != '' and ITEM_CD != null">
+        AND (UPPER(MMRS.ITEM_CD) <include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>
+        OR UPPER(MTGL.CUST_ITEM_CD)<include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>)
+      </if>
+      <if test="MOVEMENT_TYPE != '' and MOVEMENT_TYPE != null">
+        AND MMRS.MOVEMENT_TYPE = #{MOVEMENT_TYPE}
+      </if>
+      <if test="DEAL_CD != '' and DEAL_CD != null">
+        AND MMRS.DEAL_CD = #{DEAL_CD}
+      </if>
+      ORDER BY MMRS.REG_DATE DESC
+   </select>
+
+    <select id="APARdataCheck" parameterType="hashmap" resultType="int">
+	    SELECT COUNT(*)
+		  FROM STOCTTIH TTIH
+		  JOIN STOCTTID TTID
+			 ON  TTIH.GATE_CD    = TTID.GATE_CD
+			 AND TTIH.CLOSING_NO = TTID.CLOSING_NO
+			 AND TTIH.TAX_NUM    = TTID.TAX_NUM
+		     AND TTID.DEL_FLAG   = '0'
+		  JOIN STOCAPAR APAR
+			 ON  APAR.GATE_CD     = TTID.GATE_CD
+			 AND APAR.CLOSING_NO  = TTID.CLOSING_NO
+			 AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+			 AND APAR.DEL_FLAG    = '0'
+		 WHERE TTIH.GATE_CD  = #{ses.gateCd}
+		   AND TTIH.TAX_NUM IS NOT NULL
+		   AND SUBSTR(TTIH.ISSUE_DATE,0,6) <![CDATA[<]]> #{YEAR_MONTH}
+    </select>
+
+     <select id="IGIMSdataCheck" parameterType="hashmap" resultType="int">
+			  SELECT COUNT(*)
+		  		FROM STOIGIMS
+		  	   WHERE GATE_CD = #{ses.gateCd}
+		  	  	 AND YEAR_MONTH <![CDATA[<]]> #{YEAR_MONTH}
+     </select>
+     <select id="IGIMSdataCheck2" parameterType="hashmap" resultType="int">
+			  SELECT COUNT(REG_USER_ID)
+		  		FROM STOIGIMS
+		  	   WHERE GATE_CD = #{ses.gateCd}
+		  	  	 AND YEAR_MONTH <![CDATA[=]]> #{YEAR_MONTH}
+     </select>
+
+   <select id="getAPARdata" parameterType="hashmap" resultType="hashMap">
+    	SELECT
+	    	  C.*
+	    	 , C.GI_QTY  * C.CUR_PRICE AS GI_AMT      --출고금액
+	         , C.CUR_QTY * C.CUR_PRICE AS CUR_AMT --기말금액
+        FROM (
+		         SELECT
+			 	 	  A.AGENT_CODE
+			 	 	, A.GATE_CD				AS GATE_CD
+			 	 	, MAX(A.VENDOR_CD)		AS VENDOR_CD
+			 		, A.YEAR_MONTH
+			 		, A.ITEM_CD
+			 		, MAX(A.ITEM_DESC) 		 AS ITEM_DESC
+			 		, MAX(A.ITEM_SPEC) 		 AS ITEM_SPEC
+			 		, MAX(A.UNIT_CD)   		 AS UNIT_CD
+					, MAX(A.GI_QTY) 		 AS GI_QTY   --출고수량
+					, MAX(A.GR_AMT) 		 AS GR_AMT   --입고금액
+			  		, MAX(A.GR_QTY) 		 AS GR_QTY	 --입고수량
+					, <include refid="com.sql.nvl"/>(MAX(B.TRAN_QTY),0) AS TRAN_QTY --기초수량
+					, <include refid="com.sql.nvl"/>(MAX(B.TRAN_AMT),0) AS TRAN_AMT --기초금액
+		            , (MAX(<include refid="com.sql.nvl"/>(B.TRAN_QTY,0)) + MAX(A.GR_QTY) - MAX(A.GI_QTY)) AS CUR_QTY --기말수량
+		            , <include refid="com.sql.nvl"/>((MAX(A.GR_AMT)+<include refid="com.sql.nvl"/>(MAX(B.TRAN_AMT),0))/DECODE(MAX(A.GR_QTY)+<include refid="com.sql.nvl"/>(MAX(B.TRAN_QTY),0),0,NULL,MAX(A.GR_QTY)+<include refid="com.sql.nvl"/>(MAX(B.TRAN_QTY),0)),0) AS CUR_PRICE --재고단가
+		             FROM(
+					         SELECT
+					            '2518'          			 AS AGENT_CODE
+					           , TTIH.GATE_CD				 AS GATE_CD
+					           , SUBSTR(TTIH.ISSUE_DATE,0,6) AS YEAR_MONTH
+					           , CASE WHEN TTID.ITEM_CD IS NULL THEN CONCAT(MAX(APAR.CPO_NO),MAX(APAR.CPO_SEQ))
+					           		  ELSE TTID.ITEM_CD END  AS ITEM_CD
+					           , MAX(APAR.VENDOR_CD)		     AS VENDOR_CD
+					           , TTID.ITEM_DESC         	 AS ITEM_DESC
+					           , MAX(APAR.ITEM_SPEC)         AS ITEM_SPEC
+					           , MAX(UNIT_CD)                AS UNIT_CD
+					           , SUM(CASE WHEN SALES_TYPE = 'P' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) * <include refid="com.sql.nvl"/>(TTID.UNIT_AMT,0) ELSE 0 END)  AS GR_AMT  --입고 금액
+					           , SUM(CASE WHEN SALES_TYPE = 'P' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) ELSE 0 END)     					 AS GR_QTY  --입고 수량
+					           , SUM(CASE WHEN SALES_TYPE = 'S' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) ELSE 0 END)     					 AS GI_QTY  --출고 수량
+					         FROM STOCTTIH TTIH
+					         JOIN STOCTTID TTID
+					            ON  TTIH.GATE_CD    = TTID.GATE_CD
+					            AND TTIH.CLOSING_NO = TTID.CLOSING_NO
+					            AND TTIH.TAX_NUM    = TTID.TAX_NUM
+					            AND TTID.DEL_FLAG   = '0'
+					         JOIN STOCAPAR APAR
+					            ON  APAR.GATE_CD     = TTID.GATE_CD
+					            AND APAR.CLOSING_NO  = TTID.CLOSING_NO
+					            AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+					            AND APAR.DEL_FLAG    = '0'
+					         WHERE TTIH.GATE_CD  	= #{ses.gateCd}
+					           AND TTIH.DEL_FLAG 	= '0'
+					           AND SUBSTR(TTIH.ISSUE_DATE,0,6)  =  #{YEAR_MONTH}
+					           AND TTIH.TAX_NUM IS NOT NULL
+					           AND (APAR.AR_TAX_NUM IS NOT NULL OR APAR.AP_TAX_NUM IS NOT NULL)
+					        GROUP BY TTIH.GATE_CD,SUBSTR(TTIH.ISSUE_DATE,0,6),TTID.ITEM_CD ,TTID.ITEM_DESC
+		         			)A
+	    LEFT JOIN STOIGIMS B
+	           ON  A.ITEM_CD   = B.ITEM_CD
+	           AND A.YEAR_MONTH = #{YEAR_MONTH}
+	    GROUP BY   A.AGENT_CODE
+	    		  ,A.GATE_CD
+				  ,A.YEAR_MONTH
+				  ,A.ITEM_CD
+            )C
+		UNION ALL
+		SELECT
+			    AGENT_CODE
+			  , A.GATE_CD
+			  , A.VENDOR_CD		AS VENDOR_CD
+		 	  , YEAR_MONTH
+		 	  , ITEM_CD
+		 	  , ITEM_DESC
+		 	  , ITEM_SPEC
+		 	  , <include refid="com.sql.nvl"/>(UNIT_CD ,0) AS UNIT_CD
+		 	  , <include refid="com.sql.nvl"/>(GI_QTY  ,0) AS GI_QTY
+		   	  , <include refid="com.sql.nvl"/>(GR_QTY  ,0) AS GR_QTY
+		 	  , <include refid="com.sql.nvl"/>(GR_AMT  ,0) AS GR_AMT
+			  , <include refid="com.sql.nvl"/>(TRAN_QTY,0) AS TRAN_QTY
+			  , <include refid="com.sql.nvl"/>(TRAN_AMT,0) AS TRAN_AMT
+			  , (<include refid="com.sql.nvl"/>(TRAN_QTY,0)+<include refid="com.sql.nvl"/>(GR_QTY,0))-<include refid="com.sql.nvl"/>(GI_QTY,0)AS U_CUR_QTY
+			  , 0		 	    AS CUR_PRICE
+			  , <include refid="com.sql.nvl"/>(GI_AMT,0) AS GI_AMT
+			  , (<include refid="com.sql.nvl"/>(TRAN_AMT,0)+<include refid="com.sql.nvl"/>(GR_AMT,0))-<include refid="com.sql.nvl"/>(GI_AMT,0)	 AS U_CUR_AMT
+		  FROM STOIGIMS A
+	     WHERE YEAR_MONTH=#{YEAR_MONTH}
+		   AND NOT EXISTS (
+						  SELECT *
+						    FROM(
+								SELECT
+					            '2518'          			 AS AGENT_CODE
+					           , TTIH.GATE_CD				 AS GATE_CD
+					           , SUBSTR(TTIH.ISSUE_DATE,0,6) AS YEAR_MONTH
+					           , CASE WHEN TTID.ITEM_CD IS NULL THEN CONCAT(MAX(APAR.CPO_NO),MAX(APAR.CPO_SEQ))
+					           		  ELSE TTID.ITEM_CD END  AS ITEM_CD
+					           , MAX(APAR.VENDOR_CD)		     AS VENDOR_CD
+					           , TTID.ITEM_DESC         	 AS ITEM_DESC
+					           , MAX(APAR.ITEM_SPEC)         AS ITEM_SPEC
+					           , MAX(UNIT_CD)                AS UNIT_CD
+					           , SUM(CASE WHEN SALES_TYPE = 'P' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) * <include refid="com.sql.nvl"/>(TTID.UNIT_AMT,0) ELSE 0 END)  AS GR_AMT  --입고 금액
+					           , SUM(CASE WHEN SALES_TYPE = 'P' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) ELSE 0 END)     					 AS GR_QTY  --입고 수량
+					           , SUM(CASE WHEN SALES_TYPE = 'S' THEN <include refid="com.sql.nvl"/>(TTID.QTY,0) ELSE 0 END)     					 AS GI_QTY  --출고 수량
+					         FROM STOCTTIH TTIH
+					         JOIN STOCTTID TTID
+					            ON  TTIH.GATE_CD    = TTID.GATE_CD
+					            AND TTIH.CLOSING_NO = TTID.CLOSING_NO
+					            AND TTIH.TAX_NUM    = TTID.TAX_NUM
+					            AND TTID.DEL_FLAG   = '0'
+					         JOIN STOCAPAR APAR
+					            ON  APAR.GATE_CD     = TTID.GATE_CD
+					            AND APAR.CLOSING_NO  = TTID.CLOSING_NO
+					            AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+					            AND APAR.DEL_FLAG    = '0'
+					         WHERE TTIH.GATE_CD  	= #{ses.gateCd}
+					           AND TTIH.DEL_FLAG 	= '0'
+					           AND SUBSTR(TTIH.ISSUE_DATE,0,6)  =  #{YEAR_MONTH}
+					           AND TTIH.TAX_NUM IS NOT NULL
+					           AND (APAR.AR_TAX_NUM IS NOT NULL OR APAR.AP_TAX_NUM IS NOT NULL)
+					        GROUP BY TTIH.GATE_CD,SUBSTR(TTIH.ISSUE_DATE,0,6),TTID.ITEM_CD ,TTID.ITEM_DESC
+											 ) B
+						  WHERE A.ITEM_CD =B.ITEM_CD
+							)
+   </select>
+
+    <insert id="sto0402_insertIGIMS" parameterType="hashMap">
+	   MERGE INTO STOIGIMS A
+          USING
+          (SELECT
+             #{ses.gateCd} 	   AS GATE_CD
+            ,#{YEAR_MONTH} 	   AS YEAR_MONTH
+            ,#{ITEM_CD}		   AS ITEM_CD
+             <include refid="com.sql.dual"/>) B
+              ON (A.GATE_CD    = B.GATE_CD
+              AND A.YEAR_MONTH = B.YEAR_MONTH
+              AND A.ITEM_CD    = B.ITEM_CD)
+     WHEN MATCHED THEN
+     UPDATE SET
+              REG_DATE 		= <include refid="com.sql.sysdate"/>
+            , REG_USER_ID	= #{ses.userId}
+            , TRAN_QTY		= #{TRAN_QTY}	                   	--TRAN_QTY
+       		, TRAN_AMT		= #{TRAN_AMT}                  		--TRAN_AMT
+       		, GR_QTY		= #{GR_QTY}                     	--GR_QTY
+       		, GR_AMT		= #{GR_AMT}                     	--GR_AMT
+       		, GI_QTY		= #{GI_QTY}                     	--GI_QTY
+       		, GI_AMT		= #{GI_AMT}                     	--GI_AMT
+       		, CUR_QTY		= #{CUR_QTY}                     	--CUR_QTY
+       		, CUR_AMT		= #{CUR_AMT}                     	--CUR_AMT
+       		, VENDOR_CD 	= #{VENDOR_CD}						--VENDOR_CD
+     WHEN NOT MATCHED THEN
+   INSERT (
+          GATE_CD
+        , AGENT_CODE
+        , YEAR_MONTH
+        , DEAL_CD
+        , STR_CTRL_CODE
+        , WAREHOUSE_CODE
+        , ITEM_CD
+        , REG_DATE
+        , REG_USER_ID
+        , DEL_FLAG
+        , ITEM_DESC
+        , ITEM_SPEC
+        , UNIT_CD
+        , TRAN_QTY
+        , TRAN_AMT
+        , GR_QTY
+        , GR_AMT
+        , GI_QTY
+        , GI_AMT
+        , CUR_QTY
+        , CUR_AMT
+        , VENDOR_CD
+    )VALUES(
+         #{ses.gateCd}                  	--GATE_CD
+       , #{AGENT_CODE}                      --AGENT_CODE
+       , #{YEAR_MONTH}                      --YEAR_MONTH
+       , null                          	 	--DEAL_CD
+       , null                        		--STR_CTRL_CODE
+       , null                        		--WAREHOUSE_CODE
+       , #{ITEM_CD}                     	--ITEM_CD
+       , <include refid="com.sql.sysdate"/> --REG_DATE
+       , #{ses.userId}                  	--REG_USER_ID
+       , '0'                        		--DEL_FLAG
+       , #{ITEM_DESC}                  		--ITEM_DESC
+       , #{ITEM_SPEC}                  		--ITEM_SPEC
+       , #{UNIT_CD}                      	--UNIT_CD
+       , #{TRAN_QTY}                  		--TRAN_QTY
+       , #{TRAN_AMT}                  		--TRAN_AMT
+       , #{GR_QTY}                     		--GR_QTY
+       , #{GR_AMT}                     		--GR_AMT
+       , #{GI_QTY}                     		--GI_QTY
+       , #{GI_AMT}                     		--GI_AMT
+       , #{CUR_QTY}                     	--CUR_QTY
+       , #{CUR_AMT}                     	--CUR_AMT
+       , #{VENDOR_CD}                     	--VENDOR_CD
+      <include refid="com.sql.mergeEnd"/>
+    </insert>
+
+    <insert id="sto0402_insertIGIMS2" parameterType="hashMap">
+	   INSERT INTO STOIGIMS(
+	          GATE_CD
+	        , AGENT_CODE
+	        , YEAR_MONTH
+	        , DEAL_CD
+	        , STR_CTRL_CODE
+	        , WAREHOUSE_CODE
+	        , ITEM_CD
+	        , REG_DATE
+	        , REG_USER_ID
+	        , DEL_FLAG
+	        , ITEM_DESC
+	        , ITEM_SPEC
+	        , UNIT_CD
+	        , TRAN_QTY
+	        , TRAN_AMT
+	        , GR_QTY
+	        , GR_AMT
+	        , GI_QTY
+	        , GI_AMT
+	        , CUR_QTY
+	        , CUR_AMT
+	        , VENDOR_CD
+	    )VALUES(
+	         #{ses.gateCd}  	--GATE_CD
+	       , #{AGENT_CODE}      --AGENT_CODE
+	       , #{NEXT_MONTH}      --YEAR_MONTH
+	       , null               --DEAL_CD
+	       , null               --STR_CTRL_CODE
+	       , null               --WAREHOUSE_CODE
+	       , #{ITEM_CD}         --ITEM_CD
+	       , null				--REG_DATE
+	       , null  	            --REG_USER_ID
+	       , '0'                --DEL_FLAG
+	       , #{ITEM_DESC}       --ITEM_DESC
+	       , #{ITEM_SPEC}       --ITEM_SPEC
+	       , #{UNIT_CD}         --UNIT_CD
+	       , #{CUR_QTY}       --TRAN_QTY
+	       , #{CUR_AMT}       --TRAN_AMT
+	       , '0'                --GR_QTY
+	       , '0'                --GR_AMT
+	       , '0'                --GI_QTY
+	       , '0'                --GI_AMT
+	       , '0'                --CUR_QTY
+	       , '0'                --CUR_AMT
+	   	   , #{VENDOR_CD}     	--VENDOR_CD
+	   )
+    </insert>
+
+ <select id="sto0402_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT  YEAR_MONTH 		AS YEAR_MONTH
+        	, MAX(REG_USER_ID)  AS REG_USER_ID
+        	,<include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, MAX(REG_USER_ID), #{ses.langCd}) AS REG_USER_NM
+        	, MAX(<include refid="com.sql.toDateChar"/>(REG_DATE, 'YYYY-MM-DD')) 					   AS REG_DATE
+        	, '(상세보기)' 			AS DOC_NO
+			, CASE WHEN MAX(REG_USER_ID) IS NULL THEN '마감전'
+	  		       WHEN MAX(REG_USER_ID) IS NOT NULL THEN  '마감완료' END AS C_FLAG
+       FROM STOIGIMS
+      WHERE SUBSTR(YEAR_MONTH,0,4) = #{S_YEAR}
+      GROUP BY YEAR_MONTH
+      ORDER BY YEAR_MONTH ASC
+
+   </select>
+
+   <select id="sto0404_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT DISTINCT
+             A.GATE_CD
+           , A.AGENT_CODE
+           , A.DEAL_CD
+           , A.STR_CTRL_CODE
+           , B.CUST_ITEM_CD
+           , B.ITEM_DESC
+           , B.ITEM_SPEC
+           , A.ITEM_CD
+           , B.UNIT_CD
+           , A.RD_DATE          --수불날짜
+		   ,<include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, A.AGENT_CODE, #{ses.langCd}) AS AGENT_CODE_NM
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0)            AS BASE_QTY  --기초수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0)            AS BASE_AMT  --기초수량
+           , <include refid="com.sql.nvl"/>(A.S_GR_QTY,0)            AS S_GR_QTY  --구매입고
+           , <include refid="com.sql.nvl"/>(A.S_GR_AMT,0)            AS S_GR_AMT  --구매입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_QTY,0)            AS M_GR_QTY  --이동입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_AMT,0)            AS M_GR_AMT  --이동입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_QTY,0)           AS SP_GR_QTY --샘플입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_AMT,0)           AS SP_GR_AMT --샘플입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_QTY,0)            AS J_GR_QTY  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_AMT,0)            AS J_GR_AMT  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_QTY,0)            AS O_GR_QTY  --기타입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_AMT,0)            AS O_GR_AMT  --기타입고
+           , <include refid="com.sql.nvl"/>(A.S_GI_QTY,0)            AS S_GI_QTY  --판매출고
+           , <include refid="com.sql.nvl"/>(A.S_GI_AMT,0)            AS S_GI_AMT  --판매출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_QTY,0)            AS M_GI_QTY  --이동출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_AMT,0)            AS M_GI_AMT  --이동출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_QTY,0)            AS F_GI_QTY  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_AMT,0)            AS F_GI_AMT  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_QTY,0)            AS J_GI_QTY  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_AMT,0)            AS J_GI_AMT  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_QTY,0)            AS O_GI_QTY  --기타출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_AMT,0)            AS O_GI_AMT  --기타출고
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0) + <include refid="com.sql.nvl"/>(A.ESUM,0) - <include refid="com.sql.nvl"/>(A.XSUM,0)         AS CUR_QTY   --재고수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0) + <include refid="com.sql.nvl"/>(A.ESUM_AMT,0) - <include refid="com.sql.nvl"/>(A.XSUM_AMT,0) AS CUR_AMT   --재고수량
+           , YINFO.CONT_UNIT_PRICE
+           ,<include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, YINFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+      FROM (SELECT
+	              GATE_CD
+	            , AGENT_CODE
+	            , DEAL_CD
+	            , STR_CTRL_CODE
+	            , ITEM_CD
+	            , SUM(ITEM_QTY) AS ITEM_QTY
+	         	, SUM(ITEM_AMT) AS ITEM_AMT
+	         	, SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS BASE_QTY --기초수량
+	         	, SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS BASE_AMT --기초수량
+	         	, SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GR_QTY --구매입고
+	         	, SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GR_AMT --구매입고
+	         	, SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GR_QTY --이동입고
+	         	, SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GR_AMT --이동입고
+	         	, SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS SP_GR_QTY --샘플입고
+	         	, SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS SP_GR_AMT --샘플입고
+	         	, SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GR_QTY --재고조정입고
+	         	, SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GR_AMT --재고조정입고
+	         	, SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GR_QTY --기타입고
+	         	, SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GR_AMT --기타입고
+	         	, SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GI_QTY --판매출고
+	         	, SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GI_AMT --판매출고
+	         	, SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GI_QTY --이동출고
+	         	, SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GI_AMT --이동출고
+	         	, SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS F_GI_QTY --불량/폐기출고
+	         	, SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS F_GI_AMT --불량/폐기출고
+	         	, SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GI_QTY --재고조정출고
+	         	, SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GI_AMT --재고조정출고
+	         	, SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GI_QTY --기타출고
+	         	, SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GI_AMT --기타출고
+	         	, SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS ESUM --입고수량
+	         	, SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS XSUM --출고수량
+	         	, SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS ESUM_AMT --입고수량
+	         	, SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS XSUM_AMT --출고수량
+	         	, TO_CHAR(MAX(RD_DATE),'YYYYMM') AS  RD_DATE --수불날짜
+	        FROM STOIMMRS
+         	WHERE DEL_FLAG ='0'
+         	  AND TO_CHAR(RD_DATE,'YYYYMM') = #{YEAR_MONTH}
+         	GROUP BY GATE_CD,AGENT_CODE,STR_CTRL_CODE,ITEM_CD,DEAL_CD
+         	) A
+      JOIN STOCMTGL B
+         ON A.GATE_CD  = B.GATE_CD
+         AND A.ITEM_CD = B.ITEM_CD
+      JOIN STOCOGWH C
+         ON A.GATE_CD 		 = C.GATE_CD
+         AND A.STR_CTRL_CODE = C.STR_CTRL_CODE
+ LEFT JOIN (
+    	 SELECT *
+    	   FROM(
+	          SELECT MAX(VENDOR_CD) 	   AS VENDOR_CD
+	    	       , MAX(CONT_UNIT_PRICE)  AS CONT_UNIT_PRICE
+	    		   , MAX(GATE_CD)		   AS GATE_CD
+			       , ITEM_CD
+			       , RANK() OVER (PARTITION BY ITEM_CD ORDER BY TO_CHAR(VALID_FROM_DATE, 'YYYYMMDD') DESC) AS RNK --계약날자 가장 최신것
+			       , VALID_FROM_DATE
+				FROM STOYINFO
+			   GROUP BY ITEM_CD , VALID_FROM_DATE
+		      		  )AA
+		  WHERE RNK =1
+		   	    )YINFO
+		  ON  YINFO.GATE_CD = B.GATE_CD
+          AND YINFO.ITEM_CD   = B.ITEM_CD
+      WHERE 1=1
+      <if test="DEAL_CD != '' and DEAL_CD != null">
+        AND A.DEAL_CD = #{DEAL_CD}
+      </if>
+      <if test="ITEM_DESC != '' and ITEM_DESC != null">
+        AND (B.ITEM_DESC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.ITEM_SPEC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             A.ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.CUST_ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             )
+       </if>
+   </select>
+
+   <select id="sto0401_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT DISTINCT
+             A.GATE_CD
+           , A.AGENT_CODE
+           , A.DEAL_CD
+           , A.STR_CTRL_CODE
+           , <include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, A.AGENT_CODE, #{ses.langCd}) AS AGENT_NM
+           , B.CUST_ITEM_CD
+           , B.ITEM_DESC
+           , B.ITEM_SPEC
+           , A.ITEM_CD
+           , B.UNIT_CD
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0)                                 		AS BASE_QTY  --기초수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0)                                    	AS BASE_AMT  --기초수량
+           , <include refid="com.sql.nvl"/>(A.S_GR_QTY,0)                                      AS S_GR_QTY  --구매입고
+           , <include refid="com.sql.nvl"/>(A.S_GR_AMT,0)                                  	AS S_GR_AMT  --구매입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_QTY,0)                                   	AS M_GR_QTY  --이동입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_AMT,0)                                  	AS M_GR_AMT  --이동입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_QTY,0)                               		AS SP_GR_QTY --샘플입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_AMT,0)                               		AS SP_GR_AMT --샘플입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_QTY,0)                                  	AS J_GR_QTY  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_AMT,0)                                  	AS J_GR_AMT  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_QTY,0)                                  	AS O_GR_QTY  --기타입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_AMT,0)                                  	AS O_GR_AMT  --기타입고
+           , <include refid="com.sql.nvl"/>(A.S_GI_QTY,0)                                  	AS S_GI_QTY  --판매출고
+           , <include refid="com.sql.nvl"/>(A.S_GI_AMT,0)                                  	AS S_GI_AMT  --판매출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_QTY,0)                                  	AS M_GI_QTY  --이동출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_AMT,0)                                  	AS M_GI_AMT  --이동출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_QTY,0)                                  	AS F_GI_QTY  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_AMT,0)                                  	AS F_GI_AMT  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_QTY,0)                                  	AS J_GI_QTY  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_AMT,0)                                  	AS J_GI_AMT  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_QTY,0)                                  	AS O_GI_QTY  --기타출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_AMT,0)                                  	AS O_GI_AMT  --기타출고
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0) + <include refid="com.sql.nvl"/>(A.ESUM,0) - <include refid="com.sql.nvl"/>(A.XSUM,0)         AS CUR_QTY   --재고수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0) + <include refid="com.sql.nvl"/>(A.ESUM_AMT,0) - <include refid="com.sql.nvl"/>(A.XSUM_AMT,0) AS CUR_AMT   --재고수량
+           , YINFO.CONT_UNIT_PRICE
+           , <include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, YINFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+      FROM (SELECT
+	              GATE_CD
+	            , AGENT_CODE
+	            , DEAL_CD
+	            , STR_CTRL_CODE
+	            , ITEM_CD
+	            , SUM(ITEM_QTY) AS ITEM_QTY
+	            , SUM(ITEM_AMT) AS ITEM_AMT
+	            , SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS BASE_QTY --기초수량
+	            , SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS BASE_AMT --기초수량
+	            , SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GR_QTY --구매입고
+	            , SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GR_AMT --구매입고
+	            , SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GR_QTY --이동입고
+	            , SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GR_AMT --이동입고
+	            , SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS SP_GR_QTY --샘플입고
+	            , SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS SP_GR_AMT --샘플입고
+	            , SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GR_QTY --재고조정입고
+	            , SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GR_AMT --재고조정입고
+	            , SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GR_QTY --기타입고
+	            , SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GR_AMT --기타입고
+	            , SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GI_QTY --판매출고
+	            , SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GI_AMT --판매출고
+	            , SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GI_QTY --이동출고
+	            , SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GI_AMT --이동출고
+	            , SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS F_GI_QTY --불량/폐기출고
+	            , SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS F_GI_AMT --불량/폐기출고
+	            , SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GI_QTY --재고조정출고
+	            , SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GI_AMT --재고조정출고
+	            , SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GI_QTY --기타출고
+	            , SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GI_AMT --기타출고
+	            , SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS ESUM --입고수량
+	            , SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS XSUM --출고수량
+	            , SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS ESUM_AMT --입고수량
+	            , SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS XSUM_AMT --출고수량
+         FROM STOIMMRS
+         WHERE DEL_FLAG ='0'
+           AND RD_DATE  <![CDATA[>=]]>   TO_DATE(  #{TO_RD_DATE}  || ' 00:00:00','YYYYMMDD HH24:MI:SS')
+           AND RD_DATE  <![CDATA[<=]]>   TO_DATE(  #{RD_DATE} 	|| ' 23:59:59','YYYYMMDD HH24:MI:SS')
+         GROUP BY GATE_CD,AGENT_CODE,STR_CTRL_CODE,ITEM_CD,DEAL_CD
+         ) A
+      JOIN STOCMTGL B
+         ON  A.GATE_CD = B.GATE_CD
+         AND A.ITEM_CD = B.ITEM_CD
+      JOIN STOCOGWH C
+         ON A.GATE_CD = C.GATE_CD
+         AND A.STR_CTRL_CODE = C.STR_CTRL_CODE
+ LEFT JOIN (
+   	     SELECT *
+  	  	   FROM(
+	    	 SELECT MAX(VENDOR_CD) 	   AS VENDOR_CD
+	    	      , MAX(CONT_UNIT_PRICE) AS CONT_UNIT_PRICE
+	    		  , MAX(GATE_CD)		   AS GATE_CD
+			      , ITEM_CD
+			      , RANK() OVER (PARTITION BY ITEM_CD ORDER BY TO_CHAR(VALID_FROM_DATE, 'YYYYMMDD') DESC) AS RNK --계약날자 가장 최신것
+			      , VALID_FROM_DATE
+			   FROM STOYINFO
+			  GROUP BY ITEM_CD , VALID_FROM_DATE
+		    	  )AA
+		  WHERE RNK =1
+		     )YINFO
+		 ON  YINFO.GATE_CD = B.GATE_CD
+         AND YINFO.ITEM_CD = B.ITEM_CD
+      WHERE C.DEL_FLAG = '0'
+      <if test="DEAL_CD != '' and DEAL_CD != null">
+        AND A.DEAL_CD = #{DEAL_CD}
+      </if>
+      <if test="ITEM_DESC != '' and ITEM_DESC != null">
+        AND (B.ITEM_DESC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.ITEM_SPEC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             A.ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.CUST_ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             )
+       </if>
+   </select>
+   <select id="sto0403_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT A.YEAR_MONTH
+	       , A.ITEM_CD
+	       , B.CUST_ITEM_CD
+	       , MAX(A.ITEM_DESC) 		       AS ITEM_DESC
+	       , MAX(A.ITEM_SPEC) 		       AS ITEM_SPEC
+	       , MAX(A.UNIT_CD)   		       AS UNIT_CD
+	       , <include refid="com.sql.nvl"/>(SUM(A.TRAN_QTY),0) 	   AS TRAN_QTY	--기초수량
+	       , <include refid="com.sql.nvl"/>(SUM(A.TRAN_AMT),0) 	   AS TRAN_AMT  --기초금액
+	       , <include refid="com.sql.nvl"/>(SUM(A.GR_QTY),0)          AS GR_QTY    --입고수량
+	       , <include refid="com.sql.nvl"/>(SUM(A.GR_AMT),0)   	   AS GR_AMT    --입고금액
+	       , <include refid="com.sql.nvl"/>(SUM(A.GI_QTY),0)   	   AS GI_QTY	--출고수량
+	       , <include refid="com.sql.nvl"/>(SUM(A.GI_AMT),0)   	   AS GI_AMT	--출고금액
+	       , <include refid="com.sql.nvl"/>(SUM(CUR_QTY),0)		   AS CUR_QTY
+	       , <include refid="com.sql.nvl"/>(SUM(CUR_AMT),0) 		   AS CUR_AMT
+	       , MAX(YINFO.CONT_UNIT_PRICE)    AS CONT_UNIT_PRICE
+	       , <include refid="com.sql.nvl"/>(<include refid="com.sql.nvl"/>(SUM(CUR_AMT),0)/ DECODE( <include refid="com.sql.nvl"/>(SUM(CUR_QTY),0), 0 , NULL , <include refid="com.sql.nvl"/>(SUM(CUR_QTY),0)),0) AS AVG_PRICE
+	       ,  CASE WHEN MAX(A.VENDOR_CD) IS NULL THEN GETCOMPANYNAME('100', MAX(YINFO.VENDOR_CD), 'KO')
+	   	  		   ELSE GETCOMPANYNAME('100',MAX( A.VENDOR_CD), 'KO') END AS VENDOR_NM
+       FROM STOIGIMS A
+  LEFT JOIN STOCMTGL B
+		  ON  A.GATE_CD = B.GATE_CD
+		  AND A.ITEM_CD = B.ITEM_CD
+  LEFT JOIN (
+    	     SELECT *
+    	  	   FROM(
+	    	   	   SELECT MAX(VENDOR_CD) 	   AS VENDOR_CD
+	    		    	, MAX(CONT_UNIT_PRICE) AS CONT_UNIT_PRICE
+	    		    	, MAX(GATE_CD)		   AS GATE_CD
+			    		, ITEM_CD
+			    		, RANK() OVER (PARTITION BY ITEM_CD ORDER BY TO_CHAR(VALID_FROM_DATE, 'YYYYMMDD') DESC) AS RNK --계약날자 가장 최신것
+			    		, VALID_FROM_DATE
+					 FROM STOYINFO
+			  	    GROUP BY ITEM_CD , VALID_FROM_DATE
+		      		  )AA
+		  	  WHERE RNK =1
+		   	    )YINFO
+		   ON  YINFO.GATE_CD   = B.GATE_CD
+           AND YINFO.ITEM_CD   = B.ITEM_CD
+      WHERE A.GATE_CD =#{ses.gateCd}
+        AND A.YEAR_MONTH =#{YEAR_MONTH}
+        AND A.DEL_FLAG ='0'
+      <if test="ITEM_DESC != '' and ITEM_DESC != null">
+        AND ( UPPER(A.ITEM_DESC) <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>
+        OR UPPER(A.ITEM_SPEC) <include refid="com.sql.likeL"/> UPPER(#{ITEM_DESC}) <include refid="com.sql.likeR"/>)
+      </if>
+      <if test="ITEM_CD != '' and ITEM_CD != null">
+        AND ( UPPER(A.ITEM_CD) <include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>
+        OR UPPER(B.CUST_ITEM_CD) <include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>)
+      </if>
+      GROUP BY A.YEAR_MONTH,A.ITEM_CD,B.CUST_ITEM_CD
+      ORDER BY A.ITEM_CD ASC
+   </select>
+
+   <update id="sto0402_doDelete" parameterType="hashmap">
+     DELETE
+       FROM STOIGIMS
+      WHERE GATE_CD = #{ses.gateCd}
+        AND YEAR_MONTH <![CDATA[>]]> #{YEAR_MONTH}
+   </update>
+     <update id="sto0402_doDeleteNowData" parameterType="hashmap">
+     UPDATE	STOIGIMS
+        SET REG_DATE 	= null
+           ,REG_USER_ID = null
+           ,GR_QTY		= '0'
+           ,GR_AMT  	= '0'
+           ,GI_AMT	    = '0'
+           ,GI_QTY		= '0'
+           ,CUR_QTY = '0'
+           ,CUR_AMT = '0'
+
+      WHERE GATE_CD = #{ses.gateCd}
+        AND YEAR_MONTH <![CDATA[=]]> #{YEAR_MONTH}
+   </update>
+
+   <select id="sto0404_getRdList" parameterType="hashmap" resultType="hashMap">
+    SELECT
+           GATE_CD
+         , AGENT_CODE
+         , DEAL_CD
+         , STR_CTRL_CODE
+         , WAREHOUSE_CODE
+         , ITEM_CD
+         , UNIT_CD
+         , CUR
+         , '999' AS MOVEMENT_TYPE
+         , ITEM_DESC
+         , ITEM_SPEC
+         , <include refid="com.sql.nvl"/>(A.BASE_QTY,0) + <include refid="com.sql.nvl"/>(A.ESUM,0)     - <include refid="com.sql.nvl"/>(A.XSUM,0)         AS ITEM_QTY    --재고수량
+         , <include refid="com.sql.nvl"/>(A.BASE_PRC,0) + <include refid="com.sql.nvl"/>(A.EPRICE,0)   - <include refid="com.sql.nvl"/>(A.XPRICE,0)     AS UNIT_PRICE  --재고단가
+         , <include refid="com.sql.nvl"/>(A.BASE_AMT,0) + <include refid="com.sql.nvl"/>(A.ESUM_AMT,0) - <include refid="com.sql.nvl"/>(A.XSUM_AMT,0) AS ITEM_AMT    --재고금액
+         , RD_DATE
+      FROM(
+           SELECT
+	                 GATE_CD
+	               , AGENT_CODE
+	               , DEAL_CD
+	               , STR_CTRL_CODE
+	               , WAREHOUSE_CODE
+	               , ITEM_CD
+	               , MAX(UNIT_CD) 	AS UNIT_CD
+	               , MAX(CUR)   	AS CUR
+	               , MAX(ITEM_DESC) AS ITEM_DESC
+	               , MAX(ITEM_SPEC) AS ITEM_SPEC
+	               , SUM(ITEM_QTY)  AS ITEM_QTY
+	               , SUM(ITEM_AMT)  AS ITEM_AMT
+	               , SUM(CASE WHEN 999   <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) 									    AS BASE_QTY --기초수량
+	               , SUM(CASE WHEN 999   <![CDATA[=]]>  MOVEMENT_TYPE THEN UNIT_PRICE END) 									    AS BASE_PRC --기초단가
+	               , SUM(CASE WHEN 999   <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) 									    AS BASE_AMT --기초수량
+	               , SUM(CASE WHEN 100  <![CDATA[<=]]>  MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)  AS ESUM --입고수량
+	               , SUM(CASE WHEN 900  <![CDATA[<=]]>  MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)  AS XSUM --출고수량
+	               , SUM(CASE WHEN 900  <![CDATA[<=]]>  MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN UNIT_PRICE END)AS EPRICE --입고단가
+	               , SUM(CASE WHEN 900  <![CDATA[<=]]>  MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN UNIT_PRICE END)AS XPRICE --출고단가
+	               , SUM(CASE WHEN 100  <![CDATA[<=]]>  MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)  AS ESUM_AMT --입고금액
+	               , SUM(CASE WHEN 900  <![CDATA[<=]]>  MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)  AS XSUM_AMT --출고금액
+	               , TO_CHAR(ADD_MONTHS(MAX(RD_DATE), 1), 'YYYYMM')||'01' AS RD_DATE
+             FROM STOIMMRS
+            WHERE DEL_FLAG ='0'
+           	  AND TO_CHAR(RD_DATE,'YYYYMM') = #{RD_DATE}
+            GROUP BY GATE_CD,AGENT_CODE,STR_CTRL_CODE,WAREHOUSE_CODE,ITEM_CD,DEAL_CD
+      )A
+	</select>
+   
+	<insert id="insertRd">
+    INSERT INTO
+       STOIMMRS
+         (
+              GATE_CD
+            , AGENT_CODE
+            , DOC_NO
+            , DOC_SEQ
+            , REG_DATE
+            , REG_USER_ID
+            , MOD_DATE
+            , MOD_USER_ID
+            , DEL_FLAG
+            , DEAL_CD
+            , MOVEMENT_TYPE
+            , RD_DATE
+            , STR_CTRL_CODE
+            , WAREHOUSE_CODE
+            , ITEM_CD
+            , ITEM_DESC
+            , ITEM_SPEC
+            , UNIT_CD
+            , ITEM_QTY
+            , CUR
+            , UNIT_PRICE
+            , ITEM_AMT
+         )
+      VALUES
+         (
+              #{ses.gateCd    }
+            , #{AGENT_CODE    }
+            , #{RD_DATE       }
+            , (
+               SELECT
+                  <include refid="com.sql.nvl"/>(MAX(DOC_SEQ),0) +1
+               FROM STOIMMRS
+               WHERE GATE_CD    = #{ses.gateCd}
+               AND  AGENT_CODE = #{AGENT_CODE}
+               AND  RD_DATE    = TO_DATE(#{RD_DATE})
+              )
+            , SYSDATE
+            , #{ses.userId    }
+            , SYSDATE
+            , #{ses.userId    }
+            , '0'
+            , #{DEAL_CD       }
+            , #{MOVEMENT_TYPE }
+            , TO_DATE(#{RD_DATE})
+            , #{STR_CTRL_CODE }
+            , #{WAREHOUSE_CODE}
+            , #{ITEM_CD       }
+            , #{ITEM_DESC     }
+            , #{ITEM_SPEC     }
+            , #{UNIT_CD       }
+            , #{ITEM_QTY      }
+            , #{CUR           }
+            , #{UNIT_PRICE    }
+            , #{ITEM_AMT      }
+         )
+
+    </insert>
+    
+    <update id="delRd" parameterType="hashMap">
+	     DELETE STOIMMRS
+	      WHERE GATE_CD       = #{ses.gateCd}
+	        AND RD_DATE       = TO_DATE(#{R_DATE})
+	        AND MOVEMENT_TYPE = '999'
+   </update>
+   
+   <!-- 중복방지익월 체크 쿼리 -->
+   <select id="sto0404_overlapCheck" parameterType="hashmap" resultType="int">
+      SELECT COUNT(*)
+      FROM(
+     	 SELECT
+        	 RD_DATE AS R_DATE
+      	 FROM STOIMMRS
+      	 WHERE DEL_FLAG = '0'
+      	   AND MOVEMENT_TYPE = '999'
+      	  )A
+      WHERE R_DATE <![CDATA[>]]> ADD_MONTHS(TO_DATE(#{RD_DATE}||'01'), 1)
+
+   </select>
+   
+   <!-- 중복방지전달 체크 쿼리 -->
+   <select id="sto0404_overlapBefCheck" parameterType="hashmap" resultType="hashMap">
+      SELECT
+          TO_CHAR(R_DATE,'YYYYMMDD') AS R_DATE
+      FROM(
+         SELECT
+	         	RD_DATE AS R_DATE
+	       FROM STOIMMRS
+	      WHERE DEL_FLAG = '0'
+      )A
+      WHERE R_DATE <![CDATA[<]]> TO_DATE(#{RD_DATE} || '01')
+      GROUP BY TO_CHAR(R_DATE,'YYYYMMDD')
+      ORDER BY R_DATE DESC
+
+   </select>
+   
+   <!-- 삭제리스트 조회 -->
+   <select id="sto0404_deleteList" parameterType="hashmap" resultType="hashmap">
+      SELECT
+          TO_CHAR(R_DATE,'YYYYMMDD') AS R_DATE
+      FROM(
+         SELECT
+                RD_DATE AS R_DATE
+      	   FROM STOIMMRS
+      	  WHERE DEL_FLAG = '0'
+      	    AND MOVEMENT_TYPE = '999'
+      	  )A
+      WHERE R_DATE >= TO_DATE(#{RD_DATE}||'01')
+      GROUP BY TO_CHAR(R_DATE,'YYYYMMDD')
+      ORDER BY R_DATE DESC
+
+   </select>
+
+   <update id="sto0402_deleteIGIMS" parameterType="hashmap">
+     DELETE
+       FROM STOIGIMS
+      WHERE GATE_CD = #{ses.gateCd}
+        AND YEAR_MONTH = #{YEAR_MONTH}
+   </update>
+
+     <select id="sto0401p01_doSearch" parameterType="hashmap" resultType="hashMap">
+      SELECT DISTINCT
+             A.GATE_CD
+           , A.AGENT_CODE
+           , A.DEAL_CD
+           , A.STR_CTRL_CODE
+           , <include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, A.AGENT_CODE, #{ses.langCd}) AS AGENT_NM
+           , B.CUST_ITEM_CD
+           , B.ITEM_DESC
+           , B.ITEM_SPEC
+           , A.ITEM_CD
+           , B.UNIT_CD
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0)                                 		AS BASE_QTY  --기초수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0)                                    	AS BASE_AMT  --기초수량
+           , <include refid="com.sql.nvl"/>(A.S_GR_QTY,0)                                      AS S_GR_QTY  --구매입고
+           , <include refid="com.sql.nvl"/>(A.S_GR_AMT,0)                                  	AS S_GR_AMT  --구매입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_QTY,0)                                   	AS M_GR_QTY  --이동입고
+           , <include refid="com.sql.nvl"/>(A.M_GR_AMT,0)                                  	AS M_GR_AMT  --이동입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_QTY,0)                               		AS SP_GR_QTY --샘플입고
+           , <include refid="com.sql.nvl"/>(A.SP_GR_AMT,0)                               		AS SP_GR_AMT --샘플입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_QTY,0)                                  	AS J_GR_QTY  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.J_GR_AMT,0)                                  	AS J_GR_AMT  --재고조정입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_QTY,0)                                  	AS O_GR_QTY  --기타입고
+           , <include refid="com.sql.nvl"/>(A.O_GR_AMT,0)                                  	AS O_GR_AMT  --기타입고
+           , <include refid="com.sql.nvl"/>(A.S_GI_QTY,0)                                  	AS S_GI_QTY  --판매출고
+           , <include refid="com.sql.nvl"/>(A.S_GI_AMT,0)                                  	AS S_GI_AMT  --판매출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_QTY,0)                                  	AS M_GI_QTY  --이동출고
+           , <include refid="com.sql.nvl"/>(A.M_GI_AMT,0)                                  	AS M_GI_AMT  --이동출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_QTY,0)                                  	AS F_GI_QTY  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.F_GI_AMT,0)                                  	AS F_GI_AMT  --폐기출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_QTY,0)                                  	AS J_GI_QTY  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.J_GI_AMT,0)                                  	AS J_GI_AMT  --재고조정출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_QTY,0)                                  	AS O_GI_QTY  --기타출고
+           , <include refid="com.sql.nvl"/>(A.O_GI_AMT,0)                                  	AS O_GI_AMT  --기타출고
+           , <include refid="com.sql.nvl"/>(A.BASE_QTY,0) + <include refid="com.sql.nvl"/>(A.ESUM,0) - <include refid="com.sql.nvl"/>(A.XSUM,0)         AS CUR_QTY   --재고수량
+           , <include refid="com.sql.nvl"/>(A.BASE_AMT,0) + <include refid="com.sql.nvl"/>(A.ESUM_AMT,0) - <include refid="com.sql.nvl"/>(A.XSUM_AMT,0) AS CUR_AMT   --재고수량
+           , YINFO.CONT_UNIT_PRICE
+           , <include refid="com.sql.dbo"/>GETCOMPANYNAME(#{ses.gateCd}, YINFO.VENDOR_CD, #{ses.langCd}) AS VENDOR_NM
+      FROM (SELECT
+	              GATE_CD
+	            , AGENT_CODE
+	            , DEAL_CD
+	            , STR_CTRL_CODE
+	            , ITEM_CD
+	            , SUM(ITEM_QTY) AS ITEM_QTY
+	            , SUM(ITEM_AMT) AS ITEM_AMT
+	            , SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS BASE_QTY --기초수량
+	            , SUM(CASE WHEN 999  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS BASE_AMT --기초수량
+	            , SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GR_QTY --구매입고
+	            , SUM(CASE WHEN 103  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GR_AMT --구매입고
+	            , SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GR_QTY --이동입고
+	            , SUM(CASE WHEN 105  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GR_AMT --이동입고
+	            , SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS SP_GR_QTY --샘플입고
+	            , SUM(CASE WHEN 107  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS SP_GR_AMT --샘플입고
+	            , SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GR_QTY --재고조정입고
+	            , SUM(CASE WHEN 108  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GR_AMT --재고조정입고
+	            , SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GR_QTY --기타입고
+	            , SUM(CASE WHEN 109  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GR_AMT --기타입고
+	            , SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS S_GI_QTY --판매출고
+	            , SUM(CASE WHEN 903  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS S_GI_AMT --판매출고
+	            , SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS M_GI_QTY --이동출고
+	            , SUM(CASE WHEN 905  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS M_GI_AMT --이동출고
+	            , SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS F_GI_QTY --불량/폐기출고
+	            , SUM(CASE WHEN 907  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS F_GI_AMT --불량/폐기출고
+	            , SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS J_GI_QTY --재고조정출고
+	            , SUM(CASE WHEN 908  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS J_GI_AMT --재고조정출고
+	            , SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_QTY END ) AS O_GI_QTY --기타출고
+	            , SUM(CASE WHEN 909  <![CDATA[=]]>  MOVEMENT_TYPE THEN ITEM_AMT END ) AS O_GI_AMT --기타출고
+	            , SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS ESUM --입고수량
+	            , SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_QTY END)AS XSUM --출고수량
+	            , SUM(CASE WHEN 100  <![CDATA[<=]]> MOVEMENT_TYPE AND 110 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS ESUM_AMT --입고수량
+	            , SUM(CASE WHEN 900  <![CDATA[<=]]> MOVEMENT_TYPE AND 998 <![CDATA[>=]]>  MOVEMENT_TYPE THEN ITEM_AMT END)AS XSUM_AMT --출고수량
+         FROM STOIMMRS
+         WHERE DEL_FLAG ='0'
+           AND RD_DATE  <![CDATA[>=]]>   TO_DATE(  #{TO_RD_DATE}  || ' 00:00:00','YYYYMMDD HH24:MI:SS')
+           AND RD_DATE  <![CDATA[<=]]>   TO_DATE(  #{RD_DATE} 	|| ' 23:59:59','YYYYMMDD HH24:MI:SS')
+         GROUP BY GATE_CD,AGENT_CODE,STR_CTRL_CODE,ITEM_CD,DEAL_CD
+         ) A
+      JOIN STOCMTGL B
+         ON  A.GATE_CD = B.GATE_CD
+         AND A.ITEM_CD = B.ITEM_CD
+      JOIN STOCOGWH C
+         ON A.GATE_CD = C.GATE_CD
+         AND A.STR_CTRL_CODE = C.STR_CTRL_CODE
+ LEFT JOIN (
+   	     SELECT *
+  	  	   FROM(
+	    	 SELECT MAX(VENDOR_CD) 	   AS VENDOR_CD
+	    	      , MAX(CONT_UNIT_PRICE) AS CONT_UNIT_PRICE
+	    		  , MAX(GATE_CD)		   AS GATE_CD
+			      , ITEM_CD
+			      , RANK() OVER (PARTITION BY ITEM_CD ORDER BY TO_CHAR(VALID_FROM_DATE, 'YYYYMMDD') DESC) AS RNK --계약날자 가장 최신것
+			      , VALID_FROM_DATE
+			   FROM STOYINFO
+			  GROUP BY ITEM_CD , VALID_FROM_DATE
+		    	  )AA
+		  WHERE RNK =1
+		     )YINFO
+		 ON  YINFO.GATE_CD = B.GATE_CD
+         AND YINFO.ITEM_CD = B.ITEM_CD
+      WHERE C.DEL_FLAG = '0'
+      <if test="DEAL_CD != '' and DEAL_CD != null">
+        AND A.DEAL_CD = #{DEAL_CD}
+      </if>
+      <if test="ITEM_DESC != '' and ITEM_DESC != null">
+        AND (B.ITEM_DESC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.ITEM_SPEC <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             A.ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             OR
+             B.CUST_ITEM_CD <include refid="com.sql.likeL"/>'${ITEM_DESC}'<include refid="com.sql.likeR"/>
+             )
+       </if>
+         <if test="VENDOR_CD != '' and VENDOR_CD != null">
+        AND A.AGENT_CODE = #{VENDOR_CD}
+      	</if>
+
+
+         <if test="ses.userType == 'S'.toString()">
+        AND A.AGENT_CODE = #{VENDOR_CD}
+		</if>
+
+   </select>
+     <select id="sto0402_doSearchB" parameterType="hashmap" resultType="hashMap">
+	    SELECT COUNT(*) AS COUNT
+		  FROM STOCTTIH TTIH
+		  JOIN STOCTTID TTID
+			 ON  TTIH.GATE_CD    = TTID.GATE_CD
+			 AND TTIH.CLOSING_NO = TTID.CLOSING_NO
+			 AND TTIH.TAX_NUM    = TTID.TAX_NUM
+		     AND TTID.DEL_FLAG   = '0'
+		  JOIN STOCAPAR APAR
+			 ON  APAR.GATE_CD     = TTID.GATE_CD
+			 AND APAR.CLOSING_NO  = TTID.CLOSING_NO
+			 AND APAR.CLOSING_SEQ = TTID.CLOSING_SEQ
+			 AND APAR.DEL_FLAG    = '0'
+		 WHERE TTIH.GATE_CD  = #{ses.gateCd}
+		   AND TTIH.TAX_NUM IS NOT NULL
+		   AND SUBSTR(TTIH.ISSUE_DATE,0,6) <![CDATA[=]]> #{YEAR_MONTH}
+    </select>
+
+	<select id="sto0406_doSearch" parameterType="hashmap" resultType="hashMap">
+		SELECT
+			  MMRS.GATE_CD
+			, MMRS.AGENT_CODE
+			, MMRS.DOC_NO
+			, MMRS.DOC_SEQ
+			, MMRS.REG_DATE
+			, MMRS.REG_USER_ID
+			, <include refid="com.sql.dbo"/>getUserName(#{ses.gateCd}, MMRS.REG_USER_ID, #{ses.langCd}) AS REG_USER_NM
+			, MMRS.MOD_DATE
+			, MMRS.MOD_USER_ID
+			, MMRS.DEAL_CD
+			, MMRS.MOVEMENT_TYPE
+			, MMRS.RD_DATE
+			, MMRS.STR_CTRL_CODE
+			, MMRS.WAREHOUSE_CODE
+			, MMRS.ITEM_CD
+			, MTGL.CUST_ITEM_CD
+			, <include refid="com.sql.nvl"/>(MMRS.ITEM_DESC,MMRS.ITEM_DESC) AS ITEM_DESC
+			, <include refid="com.sql.nvl"/>(MMRS.ITEM_SPEC,MMRS.ITEM_SPEC) AS ITEM_SPEC
+			, MMRS.UNIT_CD
+			, MMRS.ITEM_QTY
+			, MMRS.CUR
+			, MMRS.UNIT_PRICE
+			, MMRS.ITEM_AMT
+			, OGWH.WH_NM
+		FROM STOIMMRS MMRS
+			LEFT OUTER JOIN STOCMTGL MTGL
+				ON  MMRS.GATE_CD= MTGL.GATE_CD
+				AND MMRS.ITEM_CD = MTGL.ITEM_CD
+			JOIN STOCOGWH OGWH
+				ON MMRS.GATE_CD = OGWH.GATE_CD
+				AND MMRS.STR_CTRL_CODE = OGWH.STR_CTRL_CODE
+				AND MMRS.WAREHOUSE_CODE = OGWH.WAREHOUSE_CODE
+				AND OGWH.DEL_FLAG = '0'
+			WHERE  MMRS.DEL_FLAG = '0'
+			AND MMRS.AGENT_CODE = #{ses.companyCd}
+		<if test="REG_DATE_FROM != '' and REG_DATE_FROM != null">
+			AND MMRS.RD_DATE <![CDATA[>=]]> <include refid="com.sql.toDate"/>#{REG_DATE_FROM}<include refid="com.sql.dateFrom"/> -- 00 00 00
+		</if>
+		<if test="REG_DATE_TO != '' and REG_DATE_TO != null">
+			AND MMRS.RD_DATE <![CDATA[<=]]> <include refid="com.sql.toDate"/>#{REG_DATE_TO}<include refid="com.sql.dateTo"/> -- 23:23:59
+		</if>
+		<if test="ITEM_DESC != '' and ITEM_DESC != null">
+			AND (${ITEM_DESC} OR  ${ITEM_SPEC})
+		</if>
+		<if test="STR_CTRL_CODE != '' and STR_CTRL_CODE != null">
+			AND MMRS.STR_CTRL_CODE = #{STR_CTRL_CODE}
+		</if>
+		<if test="ITEM_CD != '' and ITEM_CD != null">
+			AND (UPPER(MMRS.ITEM_CD) <include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>
+			OR UPPER(MTGL.CUST_ITEM_CD)<include refid="com.sql.likeL"/> UPPER(#{ITEM_CD}) <include refid="com.sql.likeR"/>)
+		</if>
+		<if test="MOVEMENT_TYPE != '' and MOVEMENT_TYPE != null">
+			AND MMRS.MOVEMENT_TYPE = #{MOVEMENT_TYPE}
+		</if>
+		<if test="DEAL_CD != '' and DEAL_CD != null">
+			AND MMRS.DEAL_CD = #{DEAL_CD}
+		</if>
+			ORDER BY MMRS.REG_DATE DESC
+	</select>
+
+</mapper>

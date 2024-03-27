@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.po.deliveryMgt.SOI_020_Mapper">
+
+    <select id="selectFormBaseData" parameterType="hashmap" resultType="hashmap">
+        SELECT MAX(POHD.CUR) AS CUR
+              ,MAX(POHD.PO_TYPE) AS PURCHASE_TYPE
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(<include refid="com.sql.sysdate"/>, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS INV_DATE
+          FROM STOCPOHD POHD
+         WHERE GATE_CD = #{ses.gateCd}
+        <if test="poList != null and poList != ''">
+            AND (
+            <foreach collection="poList" open="(" item="po" close=")" separator="OR">
+                POHD.PO_NUM = #{po.PO_NUM}
+            </foreach>
+            )
+        </if>
+    </select>
+
+    <select id="checkGrCompleted" parameterType="hashMap" resultType="java.lang.Double">
+    	SELECT <include refid="com.sql.nvl"/>(SUM(GR_QT), 0) AS GR_QT
+    	FROM STOCGRDT
+    	WHERE 1 = 1
+    	  AND DEL_FLAG = '0'
+    	  AND GATE_CD = #{ses.gateCd}
+    	  AND INV_NUM = #{INV_NUM}
+    	  AND INV_SQ = #{INV_SQ}
+	</select>
+	
+    <select id="selectItemBaseData" parameterType="hashmap" resultType="hashmap">
+        SELECT PODT.PLANT_CD
+              ,POHD.PO_TYPE AS PURCHASE_TYPE
+              ,PODT.PO_NUM
+              ,PODT.PO_SQ
+              ,PODT.ITEM_CD
+              ,MAX(PODT.ITEM_DESC) AS ITEM_DESC
+              ,MAX(PODT.ITEM_SPEC) AS ITEM_SPEC
+              ,MAX(PODT.PO_QT) AS PO_QT
+              ,MAX(PODT.ORDER_UNIT_CD) AS UNIT_CD
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(MAX(PODT.DUE_DATE), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS DUE_DATE
+              ,MAX(PODT.PO_QT) - (<include refid="com.sql.nvl"/>(MAX(PODT.GR_QT), 0) + <include refid="com.sql.nvl"/>(SUM(IVDT.INV_QT), 0)) AS BALANCE_QT   -- 납품잔량
+              
+              
+              ,MAX(PODT.PO_QT) - (<include refid="com.sql.nvl"/>(MAX(PODT.GR_QT), 0) + <include refid="com.sql.nvl"/>(SUM(IVDT.INV_QT), 0)) AS INV_QT
+
+              ,(MAX(PODT.PO_QT) - (<include refid="com.sql.nvl"/>(MAX(PODT.GR_QT), 0) + <include refid="com.sql.nvl"/>(SUM(IVDT.INV_QT), 0))) * MAX(PODT.UNIT_PRC) AS ITEM_AMT
+
+
+
+              
+              ,(<include refid="com.sql.nvl"/>(MAX(PODT.GR_QT), 0) + <include refid="com.sql.nvl"/>(SUM(IVDT.INV_QT), 0)) AS PO_INV_QT                      -- 누적납품수량
+              ,MAX(PODT.UNIT_PRC) AS UNIT_PRC
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(MAX(POHD.PO_CREATE_DATE), #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PO_CREATE_DATE
+              ,MAX(POHD.CTRL_USER_ID) AS CTRL_USER_ID
+              ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, MAX(POHD.CTRL_USER_ID), #{ses.langCd}) AS CTRL_USER_NM
+          FROM STOCPODT PODT
+          JOIN STOCPOHD POHD
+           ON (PODT.GATE_CD = POHD.GATE_CD
+           AND PODT.PO_NUM = POHD.PO_NUM
+           AND POHD.DEL_FLAG = '0')
+          LEFT OUTER JOIN STOCIVDT IVDT
+           ON (PODT.GATE_CD = IVDT.GATE_CD
+           AND PODT.PO_NUM = IVDT.PO_NUM
+           AND PODT.PO_SQ = IVDT.PO_SQ
+           AND IVDT.DEL_FLAG = '0'
+           AND NOT EXISTS (
+              SELECT 1
+                FROM STOCGRDT GRD
+               WHERE GRD.GATE_CD = IVDT.GATE_CD
+                 AND GRD.INV_NUM = IVDT.INV_NUM
+                 AND GRD.INV_SQ = IVDT.INV_SQ
+                 AND GRD.DEL_FLAG = '0')
+          )
+         WHERE PODT.GATE_CD = #{ses.gateCd}
+          <if test="poList != null and poList != ''">
+           AND <foreach collection="poList" open="(" item="po" close=")" separator="OR"> PODT.PO_NUM = #{po.PO_NUM} AND PODT.PO_SQ = #{po.PO_SQ} </foreach>
+          </if>
+         GROUP BY POHD.GATE_CD, PODT.PLANT_CD, POHD.PO_TYPE, PODT.PO_NUM, PODT.PO_SQ, PODT.ITEM_CD
+         ORDER BY PODT.PO_SQ
+    </select>
+
+    <select id="selectFormData" parameterType="hashmap" resultType="hashmap">
+        SELECT IVHD.INV_NUM
+              ,IVHD.PURCHASE_TYPE
+              ,IVHD.VENDOR_CD
+              ,IVHD.PIC_USER_NM
+              ,IVHD.PIC_TEL_NUM
+              ,IVHD.PIC_CELL_NUM
+              ,IVHD.CUR
+              ,IVHD.INV_AMT
+              ,IVHD.RMK_TEXT_NUM
+              ,<include refid="com.sql.dbo"/>GETGMTDATE(IVHD.INV_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS INV_DATE
+          FROM STOCIVHD IVHD
+         WHERE IVHD.GATE_CD = #{ses.gateCd}
+           AND IVHD.INV_NUM = #{INV_NUM}
+           AND IVHD.DEL_FLAG = '0'
+    </select>
+
+    <select id="selectItemData" parameterType="hashmap" resultType="hashmap">
+        SELECT A.*
+              ,(A.PO_QT - A.PO_INV_QT) AS BALANCE_QT -- 납품잔량
+          FROM (
+                SELECT PODT.PLANT_CD
+                      ,IVDT.PURCHASE_TYPE
+                      ,IVDT.PO_NUM
+                      ,IVDT.PO_SQ
+                      ,IVDT.ITEM_CD
+                      ,IVDT.ITEM_DESC
+                      ,IVDT.ITEM_SPEC
+                      ,PODT.PO_QT
+                      ,PODT.GR_QT
+                      ,IVDT.UNIT_CD
+                      ,<include refid="com.sql.dbo"/>GETGMTDATE(PODT.DUE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS DUE_DATE
+                      ,IVDT.INV_QT
+                      ,(<include refid="com.sql.nvl"/>(PODT.GR_QT, 0) + (SELECT <include refid="com.sql.nvl"/>(SUM(IVD.INV_QT), 0)
+                                                   FROM STOCIVDT IVD
+                                                  WHERE IVD.GATE_CD = IVDT.GATE_CD
+                                                    AND IVD.PO_NUM = IVDT.PO_NUM
+                                                    AND IVD.PO_SQ = IVDT.PO_SQ
+                                                    AND IVD.DEL_FLAG = '0'
+                                                    AND NOT EXISTS (
+                                                        SELECT 1
+                                                          FROM STOCGRDT
+                                                         WHERE GATE_CD = IVD.GATE_CD
+                                                           AND INV_NUM = IVD.INV_NUM
+                                                           AND INV_SQ = IVD.INV_SQ
+                                                           AND DEL_FLAG = '0'
+                                                    )
+                                                )
+                      ) AS PO_INV_QT -- 누적납품수량
+                      ,IVDT.UNIT_PRC
+                      ,IVDT.ITEM_AMT
+                      ,<include refid="com.sql.dbo"/>GETGMTDATE(POHD.PO_CREATE_DATE, #{ses.userGmt}, #{ses.systemGmt}, #{ses.dateValueFormat}) AS PO_CREATE_DATE
+                      ,<include refid="com.sql.dbo"/>GETUSERNAME(POHD.GATE_CD, POHD.CTRL_USER_ID, #{ses.langCd}) AS CTRL_USER_NM
+                      ,IVDT.INV_NUM
+                      ,IVDT.INV_SQ
+                  FROM STOCIVDT IVDT
+                  JOIN STOCIVHD IVHD
+                  ON (IVDT.GATE_CD = IVHD.GATE_CD
+                  AND IVDT.INV_NUM = IVHD.INV_NUM
+                  AND IVHD.DEL_FLAG = '0')
+                  JOIN STOCPODT PODT
+                  ON (IVDT.GATE_CD = PODT.GATE_CD
+                  AND IVDT.PO_NUM = PODT.PO_NUM
+                  AND IVDT.PO_SQ = PODT.PO_SQ
+                  AND PODT.DEL_FLAG = '0')
+                  JOIN STOCPOHD POHD
+                  ON (PODT.GATE_CD = POHD.GATE_CD
+                  AND PODT.PO_NUM = POHD.PO_NUM
+                  AND POHD.DEL_FLAG = '0')
+                WHERE IVDT.GATE_CD = #{ses.gateCd}
+                  AND IVDT.INV_NUM = #{INV_NUM}
+                  AND IVDT.DEL_FLAG = '0'
+        ) A
+    </select>
+
+    <insert id="insertDeliveryStatementIVHD" parameterType="hashmap">
+        INSERT INTO STOCIVHD (
+             GATE_CD
+            ,INV_NUM
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,VENDOR_CD
+            ,INV_DATE
+            ,PIC_USER_NM
+            ,PIC_TEL_NUM
+            ,PIC_CELL_NUM
+            ,BUYER_CD
+            ,CUR
+            ,INV_AMT
+            ,RMK_TEXT_NUM
+            ,PURCHASE_TYPE
+            ,PLANT_CD
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{INV_NUM}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{ses.companyCd}
+            ,<include refid="com.sql.dbo"/>setGmtDate(#{INV_DATE}, #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>)
+            ,#{PIC_USER_NM}
+            ,#{PIC_TEL_NUM}
+            ,#{PIC_CELL_NUM}
+            ,(SELECT BUYER_CD
+                FROM STOCOGPL
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND PLANT_CD = #{PLANT_CD}
+                 AND DEL_FLAG = '0')
+            ,#{CUR}
+            ,#{INV_AMT}
+            ,#{RMK_TEXT_NUM}
+            ,#{PURCHASE_TYPE}
+            ,#{PLANT_CD}
+        )
+    </insert>
+
+    <insert id="insertDeliveryStatementIVDT" parameterType="hashmap">
+        INSERT INTO STOCIVDT (
+             GATE_CD
+            ,INV_NUM
+            ,INV_SQ
+            ,REG_DATE
+            ,REG_USER_ID
+            ,MOD_DATE
+            ,MOD_USER_ID
+            ,DEL_FLAG
+            ,PO_NUM
+            ,PO_SQ
+            ,DO_NUM
+            ,DO_SQ
+            ,ITEM_CD
+            ,ITEM_DESC
+            ,ITEM_SPEC
+            ,UNIT_CD
+            ,INV_QT
+            ,UNIT_PRC
+            ,ITEM_AMT
+            ,PAY_SQ
+            ,ITEM_RMK
+            ,PURCHASE_TYPE
+        ) VALUES (
+             #{ses.gateCd}
+            ,#{INV_NUM}
+            ,(SELECT <include refid="com.sql.nvl"/>(MAX(INV_SQ), 0) + 1
+                FROM STOCIVDT
+               WHERE GATE_CD = #{ses.gateCd}
+                 AND INV_NUM = #{INV_NUM})
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,<include refid="com.sql.sysdate"/>
+            ,#{ses.userId}
+            ,'0'
+            ,#{PO_NUM}
+            ,#{PO_SQ}
+            ,#{DO_NUM}
+            ,#{DO_SQ}
+            ,#{ITEM_CD}
+            ,#{ITEM_DESC}
+            ,#{ITEM_SPEC}
+            ,#{UNIT_CD}
+            ,#{INV_QT}
+            ,#{UNIT_PRC}
+            ,#{ITEM_AMT}
+            ,#{PAY_SQ}
+            ,#{ITEM_RMK}
+            ,#{PURCHASE_TYPE}
+        )
+
+    </insert>
+
+    <update id="updateDeliveryStatementIVHD" parameterType="hashmap">
+        UPDATE STOCIVHD SET
+               PIC_USER_NM = #{PIC_USER_NM}
+              ,PIC_TEL_NUM = #{PIC_TEL_NUM}
+              ,PIC_CELL_NUM = #{PIC_CELL_NUM}
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </update>
+
+
+    <delete id="deleteDeliveryStatementIVDT" parameterType="hashmap">
+        DELETE FROM STOCIVDT
+         WHERE GATE_CD = #{ses.gateCd}
+           AND INV_NUM = #{INV_NUM}
+           AND DEL_FLAG = '0'
+    </delete>
+
+    <update id="updateInvQtPODT" parameterType="hashmap">
+        UPDATE STOCPODT SET
+               INV_QT = (SELECT SUM(INV_QT)
+                           FROM STOCIVDT IVDT
+                          WHERE IVDT.GATE_CD = #{ses.gateCd}
+                            AND IVDT.PO_NUM = #{PO_NUM}
+                            AND IVDT.PO_SQ = #{PO_SQ}
+                            AND IVDT.DEL_FLAG = '0'
+                            AND NOT EXISTS (
+                                SELECT 1
+                                  FROM STOCGRDT GRDT
+                                 WHERE GRDT.GATE_CD = IVDT.GATE_CD
+                                   AND GRDT.INV_NUM = IVDT.INV_NUM
+                                   AND GRDT.INV_SQ = IVDT.INV_SQ
+                                   AND IVDT.DEL_FLAG = '0')
+               )
+              ,MOD_DATE = <include refid="com.sql.sysdate"/>
+              ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD = #{ses.gateCd}
+           AND PO_NUM = #{PO_NUM}
+           AND PO_SQ = #{PO_SQ}
+           AND DEL_FLAG = '0'
+    </update>
+
+</mapper>

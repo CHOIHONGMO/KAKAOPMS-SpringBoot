@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1680_Mapper">
+
+	<select id="doSearch" parameterType="hashmap" resultType="hashMap">
+	
+		SELECT 
+			 A.EQUIP_CD
+			<!-- ,A.EQUIP_YEAR -->
+			,A.EQUIP_DESC
+			,A.MAKER
+			,A.EQUIP_QT
+			,A.EQUIP_PRC
+			,A.EQUIP_AMT
+		  FROM STOCIEMT A
+		 WHERE A.GATE_CD = #{ses.gateCd}
+        <if test="EQUIP_YEAR != null and EQUIP_YEAR != ''">
+           <!-- AND A.EQUIP_YEAR = #{EQUIP_YEAR} -->
+        </if>
+        <if test="EQUIP_CD != null and EQUIP_CD != ''">
+           AND A.EQUIP_CD <include refid="com.sql.likeL"/> #{EQUIP_CD} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="EQUIP_DESC != null and EQUIP_DESC != ''">
+           AND A.EQUIP_DESC <include refid="com.sql.likeL"/> #{EQUIP_DESC} <include refid="com.sql.likeR"/>
+        </if>
+        <if test="MAKER != null and MAKER != ''">
+           AND A.MAKER <include refid="com.sql.likeL"/> #{MAKER} <include refid="com.sql.likeR"/>
+        </if>
+		   AND A.DEL_FLAG = '0'
+
+	</select>
+	
+
+    <update id="doSave" parameterType="hashMap">
+    
+         MERGE STOCIEMT AS A
+         USING (
+         	SELECT #{ses.gateCd} GATE_CD, #{EQUIP_CD} EQUIP_CD <!-- #{EQUIP_YEAR} EQUIP_YEAR,  -->
+         ) AS B
+            ON (A.GATE_CD    = B.GATE_CD
+            <!-- AND A.EQUIP_YEAR = B.EQUIP_YEAR -->
+            AND A.EQUIP_CD   = B.EQUIP_CD
+           )
+          WHEN MATCHED THEN
+        UPDATE SET
+               MOD_DATE    = <include refid="com.sql.sysdate"/>
+             , MOD_USER_ID = #{ses.userId}
+             , EQUIP_DESC  = #{EQUIP_DESC}
+             , MAKER       = #{MAKER}
+             , EQUIP_QT    = #{EQUIP_QT}
+             , EQUIP_PRC   = #{EQUIP_PRC}
+             , EQUIP_AMT   = #{EQUIP_AMT}
+             , DEL_FLAG    = '0'
+          WHEN NOT MATCHED THEN
+        INSERT (
+			 GATE_CD
+			<!-- ,EQUIP_YEAR -->
+			,EQUIP_CD
+			,REG_DATE
+			,REG_USER_ID
+			,MOD_DATE
+			,MOD_USER_ID
+			,DEL_FLAG
+			,EQUIP_DESC
+			,MAKER
+			,EQUIP_QT
+			,EQUIP_PRC
+			,EQUIP_AMT
+        ) VALUES (
+              #{ses.gateCd}
+            <!-- , #{EQUIP_YEAR} -->
+            , #{EQUIP_CD}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , <include refid="com.sql.sysdate"/>
+            , #{ses.userId}
+            , '0'
+            , #{EQUIP_DESC}
+            , #{MAKER}
+            , #{EQUIP_QT}
+            , #{EQUIP_PRC}
+            , #{EQUIP_AMT}
+        <include refid="com.sql.mergeEnd"/>
+
+	</update>
+	
+    <update id="doDelete" parameterType="hashMap">
+    
+        UPDATE STOCIEMT
+           SET DEL_FLAG    = '1'
+			  ,MOD_DATE    = <include refid="com.sql.sysdate"/>
+			  ,MOD_USER_ID = #{ses.userId}
+         WHERE GATE_CD    = #{ses.gateCd}
+           <!-- AND EQUIP_YEAR = #{EQUIP_YEAR} -->
+           AND EQUIP_CD   = #{EQUIP_CD}
+    </update>
+	
+</mapper>

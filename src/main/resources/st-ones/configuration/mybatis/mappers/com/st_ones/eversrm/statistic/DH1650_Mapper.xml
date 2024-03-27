@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.st_ones.eversrm.statistic.DH1650_Mapper">
+    <select id="doSearch" resultType="hashmap">
+		SELECT
+		 (SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND PLANT_CD = A.PLANT_CD) PLANT_NM
+		,A.PLANT_CD
+		,A.PR_NUM
+		,CASE WHEN C.SIGN_DATE IS NOT NULL AND C.SIGN_DATE !='' THEN 'Y' ELSE 'N' END EXEC_YN
+		
+		,<include refid="com.sql.dbo"/>GETGMTDATE( A.RECEIPT_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) RECEIPT_DATE	
+		,<include refid="com.sql.dbo"/>GETGMTDATE( C.SIGN_DATE , #{ses.userGmt}, #{ses.systemGmt}, <include refid="com.sql.dateFormat"/>) SIGN_DATE	
+		
+		,<include refid="com.sql.dbo"/>GETUSERNAME(C.GATE_CD, C.REG_USER_ID, #{ses.langCd})  AS REG_USER_ID
+		,<include refid="com.sql.dbo"/>getVendorName(B.GATE_CD, B.VENDOR_CD, #{ses.langCd})  VENDOR_NM
+		,A.ITEM_DESC
+		,B.EXEC_AMT
+		,A.EXCLUSIVE_PRC
+		,A.ROBOT_PRC
+		,A.COMMON_PRC
+		,A.TEST_PRC
+		,A.CONTAINER_PRC
+		,A.PRESS_PRC
+		,A.PAINT_ENV_PRC
+		,A.UTILITY_PRC
+		,A.OTHER_PRC
+		,A.D_REMARK
+		,A.PR_SQ
+		,C.EXEC_TYPE
+		,B.EXEC_NUM
+		FROM STOCPRDT A LEFT OUTER JOIN STOCCNDT B ON A.GATE_CD = B.GATE_CD 
+		                                AND A.PR_NUM = B.PR_NUM 
+		                                AND A.PR_SQ = B.PR_SQ
+		                                AND B.DEL_FLAG = '0'
+		                LEFT OUTER JOIN STOCCNHD C ON B.GATE_CD = C.GATE_CD
+		                                AND B.EXEC_NUM = C.EXEC_NUM
+		                                AND C.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.DEL_FLAG = '0'
+		AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+			        AND A.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/> 
+			    </if>
+			    <if test="PLANT_CD !='' and PLANT_CD !=null">
+			        AND A.PLANT_CD  IN (${PLANT_CD})
+			    </if>
+		
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+				
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+		UNION ALL				
+		-- 여기서부터 합계당
+
+
+		SELECT
+		 '합계' PLANT_NM
+		,A.PLANT_CD+'A' PLANT_CD
+		,'' PR_NUM
+		,''EXEC_YN
+		
+		,'' RECEIPT_DATE	
+		,'' SIGN_DATE	
+		
+		,'' AS REG_USER_ID
+		,'' VENDOR_NM
+		,'' ITEM_DESC
+		,SUM(B.EXEC_AMT) EXEC_AMT
+		,SUM(A.EXCLUSIVE_PRC) EXCLUSIVE_PRC
+		,SUM(A.ROBOT_PRC) ROBOT_PRC
+		,SUM(A.COMMON_PRC) COMMON_PRC
+		,SUM(A.TEST_PRC) TEST_PRC
+		,SUM(A.CONTAINER_PRC) CONTAINER_PRC
+		,SUM(A.PRESS_PRC) PRESS_PRC
+		,SUM(A.PAINT_ENV_PRC) PAINT_ENV_PRC
+		,SUM(A.UTILITY_PRC) UTILITY_PRC
+		,SUM(A.OTHER_PRC) OTHER_PRC
+		,'' D_REMARK
+		,null PR_SQ
+		,'' EXEC_TYPE
+		,'' EXEC_NUM
+		FROM STOCPRDT A LEFT OUTER JOIN STOCCNDT B ON A.GATE_CD = B.GATE_CD 
+		                                AND A.PR_NUM = B.PR_NUM 
+		                                AND A.PR_SQ = B.PR_SQ
+		                                AND B.DEL_FLAG = '0'
+		                LEFT OUTER JOIN STOCCNHD C ON B.GATE_CD = C.GATE_CD
+		                                AND B.EXEC_NUM = C.EXEC_NUM
+		                                AND C.DEL_FLAG = '0'
+		WHERE A.GATE_CD = #{ses.gateCd}
+		AND A.DEL_FLAG = '0'
+		AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE}, 'YYYYMMDD HH24:MI:SS')
+			    <if test="ITEM_DESC !='' and ITEM_DESC !=null">
+			        AND A.ITEM_DESC <include refid="com.sql.likeL"/> #{ITEM_DESC} <include refid="com.sql.likeR"/> 
+			    </if>
+			    <if test="PLANT_CD !='' and PLANT_CD !=null">
+			        AND A.PLANT_CD  IN (${PLANT_CD})
+			    </if>
+		
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+				
+			    <if test="VENDOR_NM !='' and VENDOR_NM !=null">
+				AND <include refid="com.sql.dbo"/>getVendorName(B.GATE_CD, B.VENDOR_CD, #{ses.langCd}) <include refid="com.sql.likeL"/> #{VENDOR_NM} <include refid="com.sql.likeR"/> 
+				</if>				
+
+			    <if test="VENDOR_CD !='' and VENDOR_CD !=null">
+					AND B.VENDOR_CD <include refid="com.sql.likeL"/> #{VENDOR_CD} <include refid="com.sql.likeR"/> 
+				</if>
+			GROUP BY A.PLANT_CD
+				
+				
+		ORDER BY PLANT_CD,PR_NUM				
+				
+	</select>
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <select id="doSearch2" resultType="hashmap">
+    
+    SELECT
+     (SELECT PLANT_NM FROM STOCOGPL WHERE GATE_CD=#{ses.gateCd} AND PLANT_CD = A.PLANT_CD) PLANT_CD
+    ,A.A
+    ,A.B
+    ,A.C
+    <!-- ,A.D -->
+    ,A.A + A.B - A.C AS D
+	,CASE WHEN CAST(A.A AS NUMERIC(22,2)) + CAST(A.B AS NUMERIC(22,2)) = 0 THEN 0 ELSE ROUND(CAST(A.C AS NUMERIC(22,2))/(CAST(A.A AS NUMERIC(22,2)) + CAST( A.B AS NUMERIC(22,2))) * 100 ,2) END E
+    FROM (
+    
+		    SELECT
+			    M.PLANT_CD
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{END_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+			    ) A
+		    
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{START_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND NOT EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ		
+					)
+			    ) B
+		
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ
+							AND CH.SIGN_DATE BETWEEN <include refid="com.sql.toDate"/>#{END_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					)
+			    ) C
+				<!-- 
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_BEFORE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_AFTER}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND NOT EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ
+					)
+			    ) D
+			    -->
+			FROM (
+				SELECT DISTINCT PLANT_CD
+				FROM STOCPRDT K  
+				WHERE K.GATE_CD = #{ses.gateCd}
+				AND K.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+				AND DEL_FLAG = '0'
+				AND K.PLANT_CD IS NOT NULL
+				AND K.PLANT_CD != ''
+			) M
+	
+		) A
+	
+	
+		UNION ALL -- 합계다 여기부터
+		
+		
+    SELECT
+     '합계' PLANT_CD
+    ,SUM(A.A) A
+    ,SUM(A.B) B
+    ,SUM(A.C) C
+    <!-- ,SUM(A.D) D -->
+    ,SUM(A.A) + SUM(A.B) - SUM(A.C) AS D
+	,CASE WHEN CAST(SUM(A.A) AS NUMERIC(22,2)) + CAST( SUM(A.B) AS NUMERIC(22,2)) = 0 THEN 0 ELSE ROUND(CAST(SUM(A.C) AS NUMERIC(22,2))/( CAST(SUM(A.A) AS NUMERIC(22,2)) + CAST( SUM(A.B) AS NUMERIC(22,2))) * 100 ,2) END E
+    FROM (
+    
+		    SELECT
+			    M.PLANT_CD
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{END_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+			    ) A
+		    
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{START_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND NOT EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ		
+					)
+			    ) B
+		
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ
+							AND CH.SIGN_DATE BETWEEN <include refid="com.sql.toDate"/>#{END_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+					)
+			    ) C
+				<!-- 
+			    ,(
+					SELECT
+					COUNT(*)
+					FROM STOCPRDT A   
+					WHERE A.GATE_CD = #{ses.gateCd} 
+					AND A.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_BEFORE}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_AFTER}, 'YYYYMMDD HH24:MI:SS')
+					AND A.PLANT_CD = M.PLANT_CD
+					AND A.DEL_FLAG = '0'
+					AND RECEIPT_DATE IS NOT NULL
+					AND NOT EXISTS (
+							SELECT '1'
+							FROM STOCCNHD CH JOIN STOCCNDT CD ON CH.GATE_CD = CD.GATE_CD
+															AND CH.EXEC_NUM = CD.EXEC_NUM
+															AND CD.DEL_FLAG = '0'
+							WHERE CH.GATE_CD = #{ses.gateCd}
+							AND CH.SIGN_STATUS = 'E'
+							AND CH.DEL_FLAG = '0'
+							AND CD.PR_NUM = A.PR_NUM
+							AND CD.PR_SQ  = A.PR_SQ
+					)
+			    ) D
+			    -->
+			FROM (
+				SELECT DISTINCT PLANT_CD
+				FROM STOCPRDT K  
+				WHERE K.GATE_CD = #{ses.gateCd}
+				AND K.RECEIPT_DATE BETWEEN <include refid="com.sql.toDate"/>#{START_DATE_FIRST}, 'YYYYMMDD HH24:MI:SS') AND <include refid="com.sql.toDate"/>#{END_DATE_LAST}, 'YYYYMMDD HH24:MI:SS')
+				AND DEL_FLAG = '0'
+				AND K.PLANT_CD IS NOT NULL
+				AND K.PLANT_CD != ''
+			) M
+	
+		) A		
+	
+	
+	
+    </select>
+    
+    
+    
+    <update id="updatePR" parameterType="hashmap">
+		UPDATE STOCPRDT SET
+		 EXCLUSIVE_PRC = #{EXCLUSIVE_PRC}
+		,ROBOT_PRC = #{ROBOT_PRC}
+		,COMMON_PRC = #{COMMON_PRC}
+		,TEST_PRC = #{TEST_PRC}
+		,CONTAINER_PRC = #{CONTAINER_PRC}
+		,PRESS_PRC = #{PRESS_PRC}
+		,PAINT_ENV_PRC = #{PAINT_ENV_PRC}
+		,UTILITY_PRC = #{UTILITY_PRC}
+		,OTHER_PRC = #{OTHER_PRC}
+		,D_REMARK = #{D_REMARK}
+		WHERE GATE_CD = #{ses.gateCd}
+		AND PR_NUM = #{PR_NUM}
+		AND PR_SQ = #{PR_SQ}
+    </update>
+    
+    
+</mapper>
